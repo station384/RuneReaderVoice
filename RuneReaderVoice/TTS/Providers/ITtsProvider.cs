@@ -1,0 +1,80 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+//
+// This file is part of RuneReaderVoice.
+// Copyright (C) 2026 Michael Sutton
+//
+// RuneReaderVoice is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// RuneReaderVoice is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with RuneReaderVoice. If not, see <https://www.gnu.org/licenses/>.
+
+// ITtsProvider.cs
+// Abstraction for all TTS synthesis backends.
+//
+// Design: providers write synthesized audio to a file path.
+// The cache layer sits between the provider and the playback layer.
+// Providers never play audio directly.
+//
+// All providers synthesize to WAV internally. The cache layer handles
+// OGG transcoding and silence trimming before writing to the cache.
+
+using System;
+using System.Collections.Generic;
+using System.Threading;
+using System.Threading.Tasks;
+using RuneReaderVoice.Protocol;
+
+namespace RuneReaderVoice.TTS.Providers;
+
+public sealed class VoiceInfo
+{
+    public string VoiceId   { get; init; } = string.Empty;
+    public string Name      { get; init; } = string.Empty;
+    public string Language  { get; init; } = string.Empty;
+    public Gender Gender    { get; init; }
+}
+
+public interface ITtsProvider : IDisposable
+{
+    /// <summary>Stable identifier included in the cache key.</summary>
+    string ProviderId { get; }
+
+    /// <summary>Human-readable name shown in the settings UI.</summary>
+    string DisplayName { get; }
+
+    /// <summary>True if this provider is available on the current platform.</summary>
+    bool IsAvailable { get; }
+
+    /// <summary>
+    /// If true, the playback coordinator waits for all chunks to arrive before
+    /// synthesis regardless of the user's stream/batch setting.
+    /// Set this for providers that produce better prosody with full-sentence input.
+    /// </summary>
+    bool RequiresFullText { get; }
+
+    /// <summary>
+    /// Synthesizes text and writes raw WAV audio to outputPath.
+    /// Returns the path actually written (may differ in extension if the provider
+    /// chooses a different format).
+    /// The caller is responsible for post-processing (silence trim, OGG transcode).
+    /// </summary>
+    Task<string> SynthesizeToFileAsync(
+        string text,
+        VoiceSlot slot,
+        string outputPath,
+        CancellationToken ct);
+
+    /// <summary>
+    /// Returns the voices available for this provider on this platform.
+    /// The UI uses this to populate the accent group voice assignment grid.
+    /// </summary>
+    IReadOnlyList<VoiceInfo> GetAvailableVoices();
+}

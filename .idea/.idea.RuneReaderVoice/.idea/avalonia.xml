@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="AvaloniaProject">
+    <option name="projectPerEditor">
+      <map>
+        <entry key="RuneReaderVoice/UI/App.axaml" value="RuneReaderVoice/RuneReaderVoice.csproj" />
+        <entry key="RuneReaderVoice/UI/Views/MainWindow.axaml" value="RuneReaderVoice/RuneReaderVoice.csproj" />
+      </map>
+    </option>
+  </component>
+</project>
