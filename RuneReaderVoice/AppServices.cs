@@ -61,4 +61,19 @@ public static class AppServices
         Coordinator = coordinator;
         Monitor     = monitor;
     }
+
+    /// <summary>
+    /// Hot-swaps the active TTS provider at runtime (called from the UI when the
+    /// user changes provider). Also rewires the coordinator to use the new provider.
+    /// The caller is responsible for disposing the old provider after this returns.
+    /// </summary>
+    public static void SwapProvider(ITtsProvider newProvider)
+    {
+        Provider = newProvider;
+        // The coordinator holds a reference to the provider but only uses it inside
+        // SynthesizeAndPlayAsync — which always reads through AppServices.Provider —
+        // so we just update the field here. If the coordinator caches the reference
+        // internally, add a SetProvider method to PlaybackCoordinator instead.
+        Coordinator.SetProvider(newProvider);
+    }
 }

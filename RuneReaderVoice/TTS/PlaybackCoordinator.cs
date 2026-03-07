@@ -47,7 +47,7 @@ public enum PlaybackMode { WaitForFullText, StreamOnFirstChunk }
 
 public sealed class PlaybackCoordinator : IDisposable
 {
-    private readonly ITtsProvider  _provider;
+    private ITtsProvider  _provider;
     private readonly TtsAudioCache _cache;
     private readonly IAudioPlayer  _player;
     private PlaybackMode  _mode;
@@ -66,6 +66,9 @@ public sealed class PlaybackCoordinator : IDisposable
     public TimeSpan LastSynthesisLatency { get; private set; }
 
     public bool IsPlaying => _player.IsPlaying;
+
+    /// <summary>Hot-swaps the TTS provider without restarting the playback loop.</summary>
+    public void SetProvider(ITtsProvider provider) => _provider = provider;
 
     public PlaybackCoordinator(
         ITtsProvider provider,

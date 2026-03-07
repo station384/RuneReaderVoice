@@ -42,30 +42,32 @@ var platform = VoicePlatformFactory.Create();
 ITtsProvider provider = settings.ActiveProvider switch
 {
 #if WINDOWS
-    "winrt" => new WinRtTtsProvider(),
+    "winrt"   => new WinRtTtsProvider(),
 #elif LINUX
-    "piper" => new LinuxPiperTtsProvider(
-                   settings.PiperBinaryPath,
-                   settings.PiperModelDirectory),
+    "piper"   => new LinuxPiperTtsProvider(
+                     settings.PiperBinaryPath,
+                     settings.PiperModelDirectory),
 #endif
-    "onnx"  => new NotImplementedTtsProvider("onnx",  "Local AI Voice (ONNX)"),
-    "cloud" => new NotImplementedTtsProvider("cloud", "Cloud TTS"),
-    _       => CreateDefaultProvider(settings),
+    "kokoro"  => new KokoroTtsProvider(),
+    "cloud"   => new NotImplementedTtsProvider("cloud", "Cloud TTS"),
+    _         => CreateDefaultProvider(settings),
 };
 
 // ── Apply saved voice assignments ────────────────────────────────────────────
-// Restore per-slot voice selections from settings into the provider.
-// Without this the provider uses WinRT's default voice for every slot.
 #if WINDOWS
 if (provider is WinRtTtsProvider winRtProvider)
 {
     foreach (var (key, voiceId) in settings.VoiceAssignments)
-    {
         if (VoiceSlot.TryParse(key, out var slot))
             winRtProvider.SetVoice(slot, voiceId);
-    }
 }
 #endif
+if (provider is KokoroTtsProvider kokoroProvider)
+{
+    foreach (var (key, voiceId) in settings.VoiceAssignments)
+        if (VoiceSlot.TryParse(key, out var slot))
+            kokoroProvider.SetVoice(slot, voiceId);
+}
 
 // ── Audio cache ───────────────────────────────────────────────────────────────
 var cacheDir = !string.IsNullOrWhiteSpace(settings.CacheDirectoryOverride)

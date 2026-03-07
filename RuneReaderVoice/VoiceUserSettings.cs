@@ -42,8 +42,31 @@ public sealed class VoiceUserSettings
     public bool TtsEnabled        { get; set; } = true;
     public string ActiveProvider  { get; set; } = "winrt"; // "winrt" | "piper" | "onnx" | "cloud"
 
-    /// <summary>Voice assignments per slot. Key = VoiceSlot.ToString(), Value = voice ID.</summary>
-    public Dictionary<string, string> VoiceAssignments { get; set; } = new();
+    /// <summary>
+    /// Voice assignments keyed first by provider ID then by VoiceSlot string.
+    /// e.g. PerProviderVoiceAssignments["kokoro"]["Scottish/Male"] = "bm_george"
+    /// Keeps WinRT, Kokoro, and Piper assignments fully independent.
+    /// </summary>
+    public Dictionary<string, Dictionary<string, string>> PerProviderVoiceAssignments { get; set; } = new();
+
+    /// <summary>
+    /// Convenience accessor — returns the assignment dict for the active provider,
+    /// creating it on first access. All existing code that reads VoiceAssignments
+    /// automatically scopes to the currently selected provider.
+    /// </summary>
+    [System.Text.Json.Serialization.JsonIgnore]
+    public Dictionary<string, string> VoiceAssignments
+    {
+        get
+        {
+            if (!PerProviderVoiceAssignments.TryGetValue(ActiveProvider, out var d))
+            {
+                d = new Dictionary<string, string>();
+                PerProviderVoiceAssignments[ActiveProvider] = d;
+            }
+            return d;
+        }
+    }
 
     public string PlaybackMode    { get; set; } = "WaitForFullText"; // "WaitForFullText" | "StreamOnFirstChunk"
 

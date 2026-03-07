@@ -60,6 +60,7 @@
     <PackageReference Include="Avalonia.Fonts.Inter" Version="11.3.11" />
 
     <PackageReference Include="System.Configuration.ConfigurationManager" Version="10.0.2" />
+    <PackageReference Include="KokoroSharp.CPU" Version="*" />
 
   </ItemGroup>
 
