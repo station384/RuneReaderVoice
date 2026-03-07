@@ -37,6 +37,7 @@ using System.Threading.Tasks;
 using KokoroSharp;
 using KokoroSharp.Core;
 using KokoroSharp.Processing;
+using Microsoft.ML.OnnxRuntime;
 using RuneReaderVoice.Protocol;
 
 namespace RuneReaderVoice.TTS.Providers;
@@ -231,7 +232,17 @@ public sealed class KokoroTtsProvider : ITtsProvider
 
             try
             {
-                await Task.Run(() => { _tts = KokoroTTS.LoadModel(); }, ct);
+                await Task.Run(() =>
+                {
+                    var x = new SessionOptions();
+                    x.AppendExecutionProvider_CPU();
+                    x.EnableCpuMemArena = true;
+                    x.GraphOptimizationLevel = GraphOptimizationLevel.ORT_ENABLE_ALL;
+                    x.ExecutionMode = ExecutionMode.ORT_PARALLEL;
+                    
+                    
+                    _tts = KokoroTTS.LoadModel(sessionOptions: x);
+                }, ct);
                 lock (_initLock) { _initialized = true; _initializing = false; }
                 OnModelReady?.Invoke();
             }
