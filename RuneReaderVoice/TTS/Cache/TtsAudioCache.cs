@@ -38,6 +38,7 @@ using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using OggVorbisEncoder;
 using RuneReaderVoice.Protocol;
 
 namespace RuneReaderVoice.TTS.Cache;
@@ -240,24 +241,160 @@ public sealed class TtsAudioCache : IDisposable
     }
 
     /// <summary>
-    /// Transcodes a WAV file to OGG/Vorbis using NVorbis-based encoding.
-    /// TODO: NVorbis is a decoder; encoding requires VorbisEncoder or FFmpeg.
-    /// This is a stub that copies the file as a placeholder.
+    /// Transcodes a 16-bit mono WAV file to OGG/Vorbis using OggVorbisEncoder.
+    /// Pure managed, cross-platform, no native dependencies.
+    /// Quality scale: 0.0–1.0 mapped from the 0–10 user setting.
+    /// At quality 0.4 (~64 kbps) speech is indistinguishable from the source WAV.
+    /// WinRT MediaPlayer and GStreamer both play OGG/Vorbis natively.
     /// </summary>
     private async Task TranscodeToOggAsync(string wavPath, string oggPath, CancellationToken ct)
     {
-        // Phase 2 TODO: implement WAV → OGG/Vorbis transcode.
-        // Options:
-        //   - VorbisEncoder NuGet package (pure managed)
-        //   - Invoke ffmpeg as subprocess (more robust, requires ffmpeg on PATH)
-        //
-        // For now: copy WAV with .ogg extension as placeholder.
-        // The playback layer handles WAV fine, so this is a temporary no-op.
-        await using var src  = File.OpenRead(wavPath);
-        await using var dest = File.Create(oggPath);
-        await src.CopyToAsync(dest, ct);
+        // Read WAV on calling thread — file is small and already written
+        float[][] pcmChannels;
+        int sampleRate;
 
-        Debug.WriteLine($"[TtsAudioCache] TODO: transcode {wavPath} → {oggPath} (currently passthrough)");
+        await using (var fs = File.OpenRead(wavPath))
+        using (var r = new BinaryReader(fs))
+        {
+            (pcmChannels, sampleRate) = ReadWavPcmForVorbis(r);
+        }
+
+        ct.ThrowIfCancellationRequested();
+
+        // Encode on thread-pool — CPU-bound
+        await Task.Run(() =>
+        {
+            float quality = Math.Clamp(_oggQuality / 10f, 0f, 1f);
+            int channels  = pcmChannels.Length;
+
+            var info    = VorbisInfo.InitVariableBitRate(channels, sampleRate, quality);
+            var comments = new OggVorbisEncoder.Comments();
+            comments.AddTag("ENCODER", "RuneReaderVoice");
+
+            var serial  = new Random().Next();
+            var oggStream = new OggStream(serial);
+
+            // Write the three Vorbis header packets
+            oggStream.PacketIn(HeaderPacketBuilder.BuildInfoPacket(info));
+            oggStream.PacketIn(HeaderPacketBuilder.BuildCommentsPacket(comments));
+            oggStream.PacketIn(HeaderPacketBuilder.BuildBooksPacket(info));
+
+            using var outFile      = File.Create(oggPath);
+            var processingState    = ProcessingState.Create(info);
+
+            // Flush headers to file
+            while (oggStream.PageOut(out OggPage page, true))
+            {
+                outFile.Write(page.Header, 0, page.Header.Length);
+                outFile.Write(page.Body,   0, page.Body.Length);
+            }
+
+            // Feed PCM in chunks of 1024 samples
+            const int chunkSize  = 1024;
+            int totalSamples     = pcmChannels[0].Length;
+            int offset           = 0;
+
+            while (offset < totalSamples)
+            {
+                int count = Math.Min(chunkSize, totalSamples - offset);
+
+                // Build a float[][] slice for this chunk
+                var chunk = new float[channels][];
+                for (int c = 0; c < channels; c++)
+                {
+                    chunk[c] = new float[count];
+                    Array.Copy(pcmChannels[c], offset, chunk[c], 0, count);
+                }
+
+                processingState.WriteData(chunk, count);
+                offset += count;
+
+                while (processingState.PacketOut(out OggPacket packet))
+                {
+                    oggStream.PacketIn(packet);
+                    while (oggStream.PageOut(out OggPage page, false))
+                    {
+                        outFile.Write(page.Header, 0, page.Header.Length);
+                        outFile.Write(page.Body,   0, page.Body.Length);
+                    }
+                }
+            }
+
+            // Signal end of stream and flush remaining pages
+            processingState.WriteEndOfStream();
+            while (processingState.PacketOut(out OggPacket packet))
+            {
+                oggStream.PacketIn(packet);
+                while (oggStream.PageOut(out OggPage page, true))
+                {
+                    outFile.Write(page.Header, 0, page.Header.Length);
+                    outFile.Write(page.Body,   0, page.Body.Length);
+                }
+            }
+        }, ct);
+    }
+
+    /// <summary>
+    /// Reads a 16-bit mono or stereo WAV and returns float[][] PCM in [-1, 1]
+    /// plus the sample rate. OggVorbisEncoder expects separate channel arrays.
+    /// </summary>
+    private static (float[][] channels, int sampleRate) ReadWavPcmForVorbis(BinaryReader r)
+    {
+        // RIFF header
+        r.ReadBytes(4);  // "RIFF"
+        r.ReadInt32();   // file size
+        r.ReadBytes(4);  // "WAVE"
+
+        int sampleRate = 0, channels = 0, bitsPerSample = 0;
+        byte[]? dataBytes = null;
+
+        while (r.BaseStream.Position < r.BaseStream.Length - 8)
+        {
+            var chunkId   = new string(r.ReadChars(4));
+            var chunkSize = r.ReadInt32();
+
+            if (chunkId == "fmt ")
+            {
+                r.ReadInt16();               // audio format (1 = PCM)
+                channels      = r.ReadInt16();
+                sampleRate    = r.ReadInt32();
+                r.ReadInt32();               // byte rate
+                r.ReadInt16();               // block align
+                bitsPerSample = r.ReadInt16();
+                if (chunkSize > 16) r.ReadBytes(chunkSize - 16);
+            }
+            else if (chunkId == "data")
+            {
+                dataBytes = r.ReadBytes(chunkSize);
+            }
+            else
+            {
+                r.ReadBytes(chunkSize);
+            }
+
+            if (sampleRate > 0 && dataBytes != null) break;
+        }
+
+        if (dataBytes == null || sampleRate == 0)
+            throw new InvalidDataException("WAV file missing fmt or data chunk.");
+
+        int sampleCount    = dataBytes.Length / (bitsPerSample / 8) / channels;
+        var channelArrays  = new float[channels][];
+        for (int c = 0; c < channels; c++)
+            channelArrays[c] = new float[sampleCount];
+
+        // Deinterleave 16-bit samples into per-channel float arrays
+        for (int i = 0; i < sampleCount; i++)
+        {
+            for (int c = 0; c < channels; c++)
+            {
+                int byteIdx = (i * channels + c) * 2;
+                short s = (short)(dataBytes[byteIdx] | (dataBytes[byteIdx + 1] << 8));
+                channelArrays[c][i] = s / 32768f;
+            }
+        }
+
+        return (channelArrays, sampleRate);
     }
 
     // ── Key computation ───────────────────────────────────────────────────────
@@ -265,7 +402,7 @@ public sealed class TtsAudioCache : IDisposable
     public static string ComputeKey(string text, string voiceId, string providerId)
     {
         var input = $"{text}\x00{voiceId}\x00{providerId}";
-        var hash  = SHA256.HashData(Encoding.UTF8.GetBytes(input));
+        var hash  = SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(input));
         return Convert.ToHexString(hash)[..16].ToLowerInvariant();
     }
 
@@ -341,4 +478,3 @@ public sealed class TtsAudioCache : IDisposable
         _manifestLock.Dispose();
     }
 }
-

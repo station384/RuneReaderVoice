@@ -234,14 +234,18 @@ public sealed class KokoroTtsProvider : ITtsProvider
             {
                 await Task.Run(() =>
                 {
-                    var x = new SessionOptions();
-                    x.AppendExecutionProvider_CPU();
-                    x.EnableCpuMemArena = true;
-                    x.GraphOptimizationLevel = GraphOptimizationLevel.ORT_ENABLE_ALL;
-                    x.ExecutionMode = ExecutionMode.ORT_PARALLEL;
+                    var modelDir  = VoiceSettingsManager.GetDefaultModelDirectory();
+                    var modelPath = Path.Combine(modelDir, "kokoro-quant.onnx");
+                    Directory.CreateDirectory(modelDir);
+
+                    var opts = new SessionOptions();
+                    opts.AppendExecutionProvider_CPU();
+                    opts.EnableCpuMemArena        = true;
+                    opts.GraphOptimizationLevel   = GraphOptimizationLevel.ORT_ENABLE_ALL;
+                    opts.ExecutionMode            = ExecutionMode.ORT_SEQUENTIAL;
                     
-                    
-                    _tts = KokoroTTS.LoadModel(sessionOptions: x);
+
+                    _tts = KokoroTTS.LoadModel(modelPath, sessionOptions: opts);
                 }, ct);
                 lock (_initLock) { _initialized = true; _initializing = false; }
                 OnModelReady?.Invoke();

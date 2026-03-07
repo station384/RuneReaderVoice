@@ -135,18 +135,15 @@ public static class VoiceSettingsManager
     }
 
     public static string GetDefaultCacheDirectory()
-    {
-        if (OperatingSystem.IsLinux())
-        {
-            var xdg = Environment.GetEnvironmentVariable("XDG_DATA_HOME");
-            if (!string.IsNullOrWhiteSpace(xdg))
-                return Path.Combine(xdg, AppName, "tts_cache");
-            var home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
-            return Path.Combine(home, ".local", "share", AppName, "tts_cache");
-        }
-        var appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
-        return Path.Combine(appData, AppName, "tts_cache");
-    }
+        => Path.Combine(AppContext.BaseDirectory, "tts_cache");
+
+    /// <summary>
+    /// Directory where large local data lives (TTS model, cache, etc.).
+    /// Stored next to the exe so the user can manage it directly and it
+    /// never roams or bloats the Windows user profile.
+    /// </summary>
+    public static string GetDefaultModelDirectory()
+        => Path.Combine(AppContext.BaseDirectory, "Models");
 
     public static VoiceUserSettings LoadSettings()
     {
