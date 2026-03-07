@@ -22,6 +22,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
 using RuneReaderVoice.Protocol;
@@ -51,6 +52,17 @@ public sealed class NotImplementedTtsProvider : ITtsProvider
     public Task<string> SynthesizeToFileAsync(
         string text, VoiceSlot slot, string outputPath, CancellationToken ct)
         => throw new NotImplementedException($"{_displayName} is not yet implemented.");
+
+#pragma warning disable CS1998
+    public async IAsyncEnumerable<(string wavPath, int phraseIndex, int phraseCount)>
+        SynthesizePhraseStreamAsync(
+            string text, VoiceSlot slot, string tempDirectory,
+            [EnumeratorCancellation] CancellationToken ct)
+    {
+        throw new NotImplementedException($"{_displayName} is not yet implemented.");
+        yield break; // make compiler happy
+    }
+#pragma warning restore CS1998
 
     public void Dispose() { }
 }

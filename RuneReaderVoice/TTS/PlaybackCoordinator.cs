@@ -203,32 +203,58 @@ public sealed class PlaybackCoordinator : IDisposable
 
     private async Task SynthesizeAndPlayAsync(AssembledSegment segment, CancellationToken ct)
     {
-        // Resolve the actual voice ID for this slot — used as the cache key so that
-        // changing a voice assignment produces a natural miss, not a stale hit.
         var voiceId = _provider.ResolveVoiceId(segment.Slot);
 
-        // Check cache first
-        var audioPath = await _cache.TryGetAsync(segment.Text, voiceId, _provider.ProviderId);
-
-        if (audioPath == null)
+        // ── Cache hit: entire segment is already encoded ──────────────────────
+        var cachedPath = await _cache.TryGetAsync(segment.Text, voiceId, _provider.ProviderId);
+        if (cachedPath != null)
         {
-            // Cache miss — synthesize
-            var sw      = System.Diagnostics.Stopwatch.StartNew();
-            var tmpPath = Path.Combine(_tempDirectory,
-                $"synth_{Guid.NewGuid():N}.wav");
-
-            var wavPath = await _provider.SynthesizeToFileAsync(
-                segment.Text, segment.Slot, tmpPath, ct);
-
-            sw.Stop();
-            LastSynthesisLatency = sw.Elapsed;
-
-            audioPath = await _cache.StoreAsync(
-                wavPath, segment.Text, voiceId, _provider.ProviderId, ct);
+            ct.ThrowIfCancellationRequested();
+            await _player.PlayAsync(cachedPath, ct);
+            return;
         }
 
-        ct.ThrowIfCancellationRequested();
-        await _player.PlayAsync(audioPath, ct);
+        // ── Cache miss: stream phrases as they encode ─────────────────────────
+        // The provider enqueues all phrase jobs at once. We iterate the stream,
+        // playing each phrase as soon as it's encoded without waiting for the rest.
+        //
+        // Each phrase WAV is stored in the cache individually so future playback
+        // of any sub-phrase is instant. The cache key for each phrase uses the
+        // phrase text (not the full segment text), so different lines that share
+        // a common opening clause ("Greetings, traveler!") get cache hits too.
+        var sw = System.Diagnostics.Stopwatch.StartNew();
+
+        await foreach (var (wavPath, phraseIndex, phraseCount)
+            in _provider.SynthesizePhraseStreamAsync(
+                segment.Text, segment.Slot, _tempDirectory, ct))
+        {
+            if (phraseIndex == 0)
+            {
+                sw.Stop();
+                LastSynthesisLatency = sw.Elapsed;
+            }
+
+            // Store this phrase in the cache (returns immediately — compression is async)
+            var phraseText = GetPhraseText(segment.Text, phraseIndex, phraseCount);
+            var audioPath  = await _cache.StoreAsync(
+                wavPath, phraseText, voiceId, _provider.ProviderId, ct);
+
+            ct.ThrowIfCancellationRequested();
+            await _player.PlayAsync(audioPath, ct);
+        }
+    }
+
+    /// <summary>
+    /// Returns the text of phrase <paramref name="index"/> within <paramref name="fullText"/>.
+    /// Used as the cache key for individual phrases so they can be reused across segments.
+    /// Falls back to the full text if splitting produces a different count than expected
+    /// (e.g. provider stub returned phraseCount=1).
+    /// </summary>
+    private static string GetPhraseText(string fullText, int index, int phraseCount)
+    {
+        if (phraseCount == 1) return fullText;
+        var phrases = TextSplitter.Split(fullText);
+        return index < phrases.Count ? phrases[index] : fullText;
     }
 
     // ── Dispose ───────────────────────────────────────────────────────────────

@@ -28,6 +28,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
 using RuneReaderVoice.Protocol;
@@ -59,6 +60,27 @@ public interface ITtsProvider : IDisposable
     /// Set this for providers that produce better prosody with full-sentence input.
     /// </summary>
     bool RequiresFullText { get; }
+
+    /// <summary>
+    /// Synthesizes text phrase-by-phrase, yielding a WAV file path as each
+    /// phrase completes encoding. Allows the coordinator to begin playback of
+    /// the first phrase while later phrases are still being synthesized.
+    ///
+    /// Implementations that cannot stream (e.g. WinRT, Piper) should yield a
+    /// single result identical to SynthesizeToFileAsync — the coordinator
+    /// handles both cases identically.
+    ///
+    /// Each yielded path is a temporary WAV. The coordinator owns the file
+    /// after it is yielded and will move/delete it.
+    ///
+    /// phraseIndex is 0-based and monotonically increasing within a call.
+    /// The full original text is passed as fullText for cache-key purposes.
+    /// </summary>
+    IAsyncEnumerable<(string wavPath, int phraseIndex, int phraseCount)> SynthesizePhraseStreamAsync(
+        string text,
+        VoiceSlot slot,
+        string tempDirectory,
+        CancellationToken ct);
 
     /// <summary>
     /// Synthesizes text and writes raw WAV audio to outputPath.

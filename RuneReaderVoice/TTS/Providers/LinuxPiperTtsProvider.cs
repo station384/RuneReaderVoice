@@ -28,6 +28,7 @@
 // https://github.com/rhasspy/piper
 
 using System.Diagnostics;
+using System.Runtime.CompilerServices;
 using RuneReaderVoice.Protocol;
 
 namespace RuneReaderVoice.TTS.Providers;
@@ -132,6 +133,16 @@ public sealed class LinuxPiperTtsProvider : ITtsProvider
         }
 
         return wavPath;
+    }
+
+    public async IAsyncEnumerable<(string wavPath, int phraseIndex, int phraseCount)>
+        SynthesizePhraseStreamAsync(
+            string text, VoiceSlot slot, string tempDirectory,
+            [EnumeratorCancellation] CancellationToken ct)
+    {
+        var tmpPath = Path.Combine(tempDirectory, $"piper_{Guid.NewGuid():N}.wav");
+        var wavPath = await SynthesizeToFileAsync(text, slot, tmpPath, ct);
+        yield return (wavPath, 0, 1);
     }
 
     public void Dispose()

@@ -73,6 +73,10 @@ public sealed class TtsAudioCache : IDisposable
     private readonly Dictionary<string, SemaphoreSlim> _keyLocks = new();
     private readonly object _keyLocksGate = new();
 
+    // Background compression tasks — tracked so Dispose() can await them
+    private readonly List<Task> _compressionTasks = new();
+    private readonly object _compressionTasksGate = new();
+
     private const string ManifestFileName = "cache_manifest.json";
     private static readonly JsonSerializerOptions JsonOptions = new() { WriteIndented = true };
 
@@ -132,16 +136,23 @@ public sealed class TtsAudioCache : IDisposable
     }
 
     /// <summary>
-    /// Stores a synthesized WAV file in the cache after post-processing.
-    /// wavPath is the raw output from the provider — it will be processed and
-    /// the original may be deleted. Returns the final cached file path.
+    /// Stores a synthesized WAV in the cache and returns the WAV path immediately
+    /// so playback can begin without waiting for compression.
+    ///
+    /// Post-processing pipeline (play-first strategy):
+    ///   1. Silence trimming — applied synchronously before returning
+    ///   2. WAV is registered in the manifest and returned to the caller for playback
+    ///   3. OGG transcode runs in the background — when complete, the manifest entry
+    ///      is updated to point at the .ogg and the .wav is deleted
+    ///
+    /// If compression is disabled, the WAV is simply stored and returned.
     /// </summary>
     public async Task<string> StoreAsync(
         string wavPath, string text, string voiceId, string providerId,
         CancellationToken ct)
     {
-        var key      = ComputeKey(text, voiceId, providerId);
-        var keyLock  = GetKeyLock(key);
+        var key     = ComputeKey(text, voiceId, providerId);
+        var keyLock = GetKeyLock(key);
 
         await keyLock.WaitAsync(ct);
         try
@@ -150,44 +161,31 @@ public sealed class TtsAudioCache : IDisposable
             var existing = await TryGetAsync(text, voiceId, providerId);
             if (existing != null) return existing;
 
-            // Post-processing pipeline
-            var processedPath = wavPath;
-
             // 1. Silence trimming
-            if (_silenceTrimEnabled)
-                processedPath = TrimSilence(processedPath);
+            var processedPath = _silenceTrimEnabled ? TrimSilence(wavPath) : wavPath;
 
-            // 2. OGG transcode
-            string finalPath;
-            if (_compressionEnabled)
-            {
-                var oggPath = Path.Combine(_cacheDirectory, key + ".ogg");
-                await TranscodeToOggAsync(processedPath, oggPath, ct);
-                finalPath = oggPath;
-            }
-            else
-            {
-                finalPath = Path.Combine(_cacheDirectory, key + ".wav");
-                File.Copy(processedPath, finalPath, overwrite: true);
-            }
+            // Copy to cache as .wav — returned immediately for playback
+            var cachedWavPath = Path.Combine(_cacheDirectory, key + ".wav");
+            File.Copy(processedPath, cachedWavPath, overwrite: true);
 
-            // Clean up the temp WAV if it's not the final destination
-            if (!string.Equals(processedPath, wavPath, StringComparison.OrdinalIgnoreCase) &&
-                File.Exists(processedPath) && processedPath != finalPath)
+            // Clean up any intermediate trimmed file
+            if (!string.Equals(processedPath, wavPath, StringComparison.OrdinalIgnoreCase)
+                && File.Exists(processedPath))
                 File.Delete(processedPath);
-            if (File.Exists(wavPath) && wavPath != finalPath)
+            if (File.Exists(wavPath) && wavPath != cachedWavPath)
                 File.Delete(wavPath);
 
-            var fi = new FileInfo(finalPath);
+            // 2. Register .wav in manifest so caller can play it right away
+            var wavFi = new FileInfo(cachedWavPath);
             var entry = new CacheEntry
             {
-                Key          = key,
-                FileName     = Path.GetFileName(finalPath),
-                VoiceSlotId  = voiceId,
-                TextPreview  = text.Length > 60 ? text[..60] : text,
-                FileSizeBytes = fi.Length,
-                Created      = DateTime.UtcNow,
-                LastAccessed = DateTime.UtcNow,
+                Key           = key,
+                FileName      = Path.GetFileName(cachedWavPath),
+                VoiceSlotId   = voiceId,
+                TextPreview   = text.Length > 60 ? text[..60] : text,
+                FileSizeBytes = wavFi.Length,
+                Created       = DateTime.UtcNow,
+                LastAccessed  = DateTime.UtcNow,
             };
 
             await _manifestLock.WaitAsync(ct);
@@ -198,10 +196,86 @@ public sealed class TtsAudioCache : IDisposable
             }
             finally { _manifestLock.Release(); }
 
+            // 3. Fire-and-forget background OGG transcode (if enabled)
+            if (_compressionEnabled)
+                TrackCompressionTask(CompressInBackgroundAsync(cachedWavPath, key, voiceId, text));
+
             EvictToSizeLimit();
-            return finalPath;
+            return cachedWavPath;
         }
         finally { keyLock.Release(); }
+    }
+
+    /// <summary>
+    /// Transcodes the cached WAV to OGG on the thread-pool, then atomically
+    /// swaps the manifest entry to point at the .ogg and deletes the .wav.
+    /// Uses CancellationToken.None — session cancellation must not abort
+    /// compression, since we want the compressed file for future plays.
+    /// </summary>
+    private async Task CompressInBackgroundAsync(
+        string cachedWavPath, string key, string voiceId, string text)
+    {
+        try
+        {
+            var oggPath = Path.Combine(_cacheDirectory, key + ".ogg");
+            await TranscodeToOggAsync(cachedWavPath, oggPath, CancellationToken.None);
+
+            var oggFi = new FileInfo(oggPath);
+            var updatedEntry = new CacheEntry
+            {
+                Key           = key,
+                FileName      = Path.GetFileName(oggPath),
+                VoiceSlotId   = voiceId,
+                TextPreview   = text.Length > 60 ? text[..60] : text,
+                FileSizeBytes = oggFi.Length,
+                Created       = DateTime.UtcNow,
+                LastAccessed  = DateTime.UtcNow,
+            };
+
+            await _manifestLock.WaitAsync();
+            try
+            {
+                // Only swap if the manifest still has the .wav for this key
+                // (guards against a ClearAsync that ran during compression)
+                if (_manifest.TryGetValue(key, out var current) &&
+                    current.FileName.EndsWith(".wav", StringComparison.OrdinalIgnoreCase))
+                {
+                    _manifest[key] = updatedEntry;
+                    await SaveManifestAsync(CancellationToken.None);
+                }
+                else
+                {
+                    // Key was cleared or evicted — discard the orphaned OGG
+                    if (File.Exists(oggPath)) File.Delete(oggPath);
+                    return;
+                }
+            }
+            finally { _manifestLock.Release(); }
+
+            // WAV is now superseded — delete it
+            if (File.Exists(cachedWavPath)) File.Delete(cachedWavPath);
+
+            Debug.WriteLine(
+                $"[TtsAudioCache] Background compressed {key} ({oggFi.Length / 1024} KB)");
+        }
+        catch (Exception ex)
+        {
+            // Non-fatal — the .wav remains in the cache and plays fine
+            Debug.WriteLine(
+                $"[TtsAudioCache] Background compression failed for {key}: {ex.Message}");
+        }
+    }
+
+    private void TrackCompressionTask(Task task)
+    {
+        lock (_compressionTasksGate)
+            _compressionTasks.Add(task);
+
+        task.ContinueWith(_ =>
+        {
+            lock (_compressionTasksGate)
+                _compressionTasks.RemoveAll(t => t.IsCompleted);
+        }, TaskScheduler.Default);
     }
 
     /// <summary>Deletes all cache files and resets the manifest.</summary>
@@ -475,6 +549,15 @@ public sealed class TtsAudioCache : IDisposable
 
     public void Dispose()
     {
+        // Wait briefly for any in-flight background compression to finish so we
+        // don't leave orphaned .wav files alongside half-written .ogg files.
+        Task[] pending;
+        lock (_compressionTasksGate)
+            pending = _compressionTasks.Where(t => !t.IsCompleted).ToArray();
+
+        if (pending.Length > 0)
+            Task.WaitAll(pending, TimeSpan.FromSeconds(5));
+
         _manifestLock.Dispose();
     }
 }

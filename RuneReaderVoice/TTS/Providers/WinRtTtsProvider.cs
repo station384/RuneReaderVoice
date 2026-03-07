@@ -30,6 +30,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Runtime.CompilerServices;
 using System.Runtime.Versioning;
 using System.Threading;
 using System.Threading.Tasks;
@@ -107,6 +108,17 @@ public sealed class WinRtTtsProvider : ITtsProvider
         await stream.AsStream().CopyToAsync(fileStream, ct);
 
         return wavPath;
+    }
+
+    public async IAsyncEnumerable<(string wavPath, int phraseIndex, int phraseCount)>
+        SynthesizePhraseStreamAsync(
+            string text, VoiceSlot slot, string tempDirectory,
+            [EnumeratorCancellation] CancellationToken ct)
+    {
+        // WinRT synthesizes the full text at once — yield a single result.
+        var tmpPath = Path.Combine(tempDirectory, $"winrt_{Guid.NewGuid():N}.wav");
+        var wavPath = await SynthesizeToFileAsync(text, slot, tmpPath, ct);
+        yield return (wavPath, 0, 1);
     }
 
     public void Dispose()

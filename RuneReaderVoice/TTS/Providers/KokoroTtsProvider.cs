@@ -32,7 +32,9 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Runtime.CompilerServices;
 using System.Threading;
+using System.Threading.Channels;
 using System.Threading.Tasks;
 using KokoroSharp;
 using KokoroSharp.Core;
@@ -156,59 +158,147 @@ public sealed class KokoroTtsProvider : ITtsProvider
         string text, VoiceSlot slot, string outputPath, CancellationToken ct)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
-
         await EnsureInitializedAsync(ct);
         ct.ThrowIfCancellationRequested();
 
         var voice   = GetVoiceForSlot(slot);
         var wavPath = Path.ChangeExtension(outputPath, ".wav");
-
-        // SpeakFast() is void -- it drives its own internal playback and returns no PCM.
-        // To capture raw samples we use EnqueueJob with an OnComplete callback per segment.
-        var pcm = await Task.Run(() => InferToPcm(text, voice), ct);
+        var pcm     = await Task.Run(() => InferAllPhrases(text, voice), ct);
 
         ct.ThrowIfCancellationRequested();
         await File.WriteAllBytesAsync(wavPath, PcmToWav(pcm, 24000), ct);
         return wavPath;
     }
 
-    // Runs synchronous inference on a thread-pool thread.
-    // Tokenises -> segments -> enqueues all jobs -> blocks until the last OnComplete fires.
-    private float[] InferToPcm(string text, KokoroVoice voice)
+    /// <summary>
+    /// Streams synthesized audio phrase by phrase.
+    /// All phrase jobs are enqueued immediately so the ONNX engine works on them
+    /// concurrently. Each phrase WAV is yielded as soon as its encoding completes,
+    /// allowing the coordinator to start playing phrase 0 while phrase 1 encodes.
+    /// </summary>
+    public async IAsyncEnumerable<(string wavPath, int phraseIndex, int phraseCount)>
+        SynthesizePhraseStreamAsync(
+            string text,
+            VoiceSlot slot,
+            string tempDirectory,
+            [EnumeratorCancellation] CancellationToken ct)
     {
-        // 1. Text -> tokens
-        int[] tokens = Tokenizer.Tokenize(text);
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        await EnsureInitializedAsync(ct);
+        ct.ThrowIfCancellationRequested();
 
-        // 2. Split into <=510-token segments so the model never overruns its context window
-        List<int[]> segments = SegmentationSystem.SplitToSegments(
-            tokens, new DefaultSegmentationConfig());
+        var voice   = GetVoiceForSlot(slot);
+        var phrases = TextSplitter.Split(text);
+        int count   = phrases.Count;
 
-        // 3. Collect PCM chunks via per-segment OnComplete callbacks
-        // Chunks arrive in completion order; for short NPC dialog ordering is fine.
-        // For strict ordering, use a segment index key instead.
-        var chunks    = new List<float[]>(segments.Count);
-        int remaining = segments.Count;
+        // Channel carries (phraseIndex, pcm) in completion order.
+        // Bounded to count so writers never block.
+        var channel = Channel.CreateBounded<(int index, float[] pcm)>(count);
+
+        // Enqueue all phrase jobs immediately — ONNX processes them in parallel
+        // on its internal thread pool.  OnComplete writes into the channel.
+        int remaining = count;
+        for (int i = 0; i < count; i++)
+        {
+            var phraseIndex = i;
+            var tokens  = Tokenizer.Tokenize(phrases[i]);
+            var subSegs = SegmentationSystem.SplitToSegments(
+                tokens, new DefaultSegmentationConfig());
+
+            // For multi-segment phrases (>510 tokens) we collect sub-segments
+            // and write to channel only when all sub-segments for this phrase complete.
+            int subTotal     = subSegs.Count;
+            var subChunks    = new float[subTotal][];
+            int subRemaining = subTotal;
+
+            for (int s = 0; s < subTotal; s++)
+            {
+                var segRef   = subSegs[s];
+                var slotIdx  = s;
+                _tts!.EnqueueJob(KokoroJob.Create(segRef, voice, speed: 1f, OnComplete: chunk =>
+                {
+                    subChunks[slotIdx] = chunk;
+                    if (Interlocked.Decrement(ref subRemaining) == 0)
+                    {
+                        // All sub-segments for this phrase done — concatenate and write
+                        int len = subChunks.Sum(c => c.Length);
+                        var pcm = new float[len];
+                        int off = 0;
+                        foreach (var c in subChunks) { c.CopyTo(pcm, off); off += c.Length; }
+
+                        channel.Writer.TryWrite((phraseIndex, pcm));
+
+                        if (Interlocked.Decrement(ref remaining) == 0)
+                            channel.Writer.Complete();
+                    }
+                }));
+            }
+        }
+
+        // Collect completed phrases and yield them in ORDER.
+        // Results may arrive out of order (phrase 1 finishes before phrase 0),
+        // so we buffer out-of-order arrivals and yield in strict sequence.
+        var pending = new Dictionary<int, float[]>();
+        int nextExpected = 0;
+
+        await foreach (var (index, pcm) in channel.Reader.ReadAllAsync(ct))
+        {
+            pending[index] = pcm;
+
+            // Yield as many sequential phrases as are ready
+            while (pending.TryGetValue(nextExpected, out var readyPcm))
+            {
+                pending.Remove(nextExpected);
+
+                var tmpPath = Path.Combine(tempDirectory, $"phrase_{nextExpected}_{Guid.NewGuid():N}.wav");
+                await File.WriteAllBytesAsync(tmpPath, PcmToWav(readyPcm, 24000), ct);
+
+                yield return (tmpPath, nextExpected, count);
+                nextExpected++;
+            }
+        }
+    }
+
+    // ── PCM inference ─────────────────────────────────────────────────────────
+
+    // Full-text blocking inference used by SynthesizeToFileAsync.
+    private float[] InferAllPhrases(string text, KokoroVoice voice)
+    {
+        var phrases     = TextSplitter.Split(text);
+        var allSegments = new List<int[]>();
+        foreach (var phrase in phrases)
+        {
+            var tokens  = Tokenizer.Tokenize(phrase);
+            var subSegs = SegmentationSystem.SplitToSegments(
+                tokens, new DefaultSegmentationConfig());
+            allSegments.AddRange(subSegs);
+        }
+
+        int total = allSegments.Count;
+        if (total == 0) return Array.Empty<float>();
+
+        var chunks    = new float[total][];
+        int remaining = total;
         using var done = new ManualResetEventSlim(false);
 
-        foreach (var seg in segments)
+        for (int i = 0; i < total; i++)
         {
-            var segRef = seg;
-            _tts!.EnqueueJob(KokoroJob.Create(segRef, voice, speed: 1f,  OnComplete: chunk =>
+            var segRef    = allSegments[i];
+            var slotIndex = i;
+            _tts!.EnqueueJob(KokoroJob.Create(segRef, voice, speed: 1f, OnComplete: chunk =>
             {
-                lock (chunks) chunks.Add(chunk);
+                chunks[slotIndex] = chunk;
                 if (Interlocked.Decrement(ref remaining) == 0)
                     done.Set();
             }));
         }
 
-        // 4. Block until all segments complete
         done.Wait();
 
-        // 5. Concatenate
         int totalLen = chunks.Sum(c => c.Length);
         var result   = new float[totalLen];
         int offset   = 0;
-        foreach (var chunk in chunks) { chunk.CopyTo(result, offset); offset += chunk.Length; }
+        foreach (var c in chunks) { c.CopyTo(result, offset); offset += c.Length; }
         return result;
     }
 
