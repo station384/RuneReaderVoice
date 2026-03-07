@@ -91,13 +91,13 @@ public static class TextSplitter
             char c = text[i];
 
             // ── Ellipsis (…  or  ...) ─────────────────────────────────────
-            // if (c == '…')
-            // {
-            //     current.Append(c);
-            //     FlushIfNonEmpty(current, segments);
-            //     i++;
-            //     continue;
-            // }
+            if (c == '…')
+            {
+                current.Append(c);
+                FlushIfNonEmpty(current, segments);
+                i++;
+                continue;
+            }
             if (c == '.' && i + 2 < text.Length && text[i+1] == '.' && text[i+2] == '.')
             {
                 current.Append("...");
@@ -149,7 +149,7 @@ public static class TextSplitter
                 continue;
             }
 
-            // // ── Clause breaks (, ; :) — punctuation goes to NEXT segment ─
+            // ── Clause breaks (, ; :) — punctuation goes to NEXT segment ─
             // if (c == ',' || c == ';' || c == ':')
             // {
             //     FlushIfNonEmpty(current, segments);

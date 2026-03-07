@@ -20,24 +20,29 @@
 // WinRtAudioPlayer.cs
 // Audio playback via Windows.Media.Playback.MediaPlayer (WinRT).
 // Handles WAV, MP3, OGG, AAC natively — no additional dependencies.
-// Supports volume, playback speed, and audio device selection.
+//
+// Single-file playback: PlayAsync — direct MediaSource, awaits MediaEnded.
+//
+// Multi-phrase gapless playback: PlaylistPlayAsync — uses MediaPlaybackList.
+// Files are enqueued dynamically as encoding completes. WinRT pre-buffers the
+// next item while the current one plays, eliminating the ~250ms gap between
+// phrases that would otherwise occur from reinitializing the MediaPlayer.
 
 using System;
 using System.Collections.Generic;
 using System.Runtime.Versioning;
 using System.Threading;
 using System.Threading.Tasks;
-using Windows.Media.Playback;
 using Windows.Media.Core;
 using Windows.Media.Devices;
-
+using Windows.Media.Playback;
 
 namespace RuneReaderVoice.TTS.Audio;
 
 [SupportedOSPlatform("windows10.0.14393.0")]
 public sealed class WinRtAudioPlayer : IAudioPlayer
 {
-    private readonly  MediaPlayer _player = new();
+    private readonly MediaPlayer _player = new();
     private TaskCompletionSource<bool>? _playbackTcs;
     private bool _disposed;
 
@@ -52,9 +57,18 @@ public sealed class WinRtAudioPlayer : IAudioPlayer
 
     public float Speed
     {
-        get => (float)_player.PlaybackSession.PlaybackRate;
-        set => _player.PlaybackSession.PlaybackRate = Math.Clamp(value, 0.75, 1.5);
+        get => _speed;
+        set
+        {
+            _speed = (float)Math.Clamp(value, 0.75, 1.5);
+            // NOTE: writing PlaybackRate mid-playlist can cause early termination
+            // if the session is actively transitioning between items. Known edge case —
+            // playback resumes correctly on the next dialog at the updated speed.
+            _player.PlaybackSession.PlaybackRate = _speed;
+        }
     }
+
+    private float _speed = 1.0f;
 
     public WinRtAudioPlayer()
     {
@@ -62,16 +76,18 @@ public sealed class WinRtAudioPlayer : IAudioPlayer
         _player.MediaFailed += OnMediaFailed;
     }
 
+    // ── Single-file playback ──────────────────────────────────────────────────
+
     public async Task PlayAsync(string filePath, CancellationToken ct)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
-        Stop(); // ensure previous playback is stopped
+        Stop();
 
-        var uri    = new Uri(filePath);
-        var source = MediaSource.CreateFromUri(uri);
+        var source = MediaSource.CreateFromUri(new Uri(filePath));
         _player.Source = source;
 
-        _playbackTcs = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        _playbackTcs = new TaskCompletionSource<bool>(
+            TaskCreationOptions.RunContinuationsAsynchronously);
 
         using var reg = ct.Register(() =>
         {
@@ -80,8 +96,116 @@ public sealed class WinRtAudioPlayer : IAudioPlayer
         });
 
         _player.Play();
+        _player.PlaybackSession.PlaybackRate = _speed;
         await _playbackTcs.Task;
     }
+
+    // ── Gapless playlist playback ─────────────────────────────────────────────
+
+    /// <summary>
+    /// Plays a sequence of audio files gaplessly using MediaPlaybackList.
+    /// Playback starts as soon as the first file is enqueued. Additional files
+    /// are appended to the list as the async stream yields them — WinRT
+    /// pre-buffers each next item during the current item's playback,
+    /// eliminating the inter-phrase gap.
+    ///
+    /// Completes when the final item finishes playing or ct is cancelled.
+    /// </summary>
+    public async Task PlaylistPlayAsync(IAsyncEnumerable<string> filePaths, CancellationToken ct)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        Stop();
+
+        var list = new MediaPlaybackList
+        {
+            MaxPrefetchTime   = TimeSpan.FromSeconds(5),
+            AutoRepeatEnabled = false,
+        };
+
+        // Re-apply speed on every item transition — WinRT can reset PlaybackRate
+        // to 1.0 when the session changes between playlist items.
+        // Named handler so we can unsubscribe in finally before _player is disposed.
+        void OnItemChanged(MediaPlaybackList sender, CurrentMediaPlaybackItemChangedEventArgs args)
+        {
+            if (_disposed) return;
+            try { _player.PlaybackSession.PlaybackRate = _speed; }
+            catch (Exception) { /* player disposed during shutdown */ }
+        }
+        list.CurrentItemChanged += OnItemChanged;
+
+        var tcs      = new TaskCompletionSource<bool>(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        int totalAdded  = 0;
+        bool streamDone = false;
+        var  listLock   = new object();
+
+        // Fires when the list naturally runs out of items (last item finished).
+        void OnPlayerEnded(MediaPlayer sender, object args)
+        {
+            bool shouldComplete;
+            lock (listLock) shouldComplete = streamDone;
+            if (shouldComplete) tcs.TrySetResult(true);
+        }
+
+        // Fires on cancellation
+        using var reg = ct.Register(() =>
+        {
+            _player.Pause();
+            tcs.TrySetCanceled();
+        });
+
+        _player.MediaEnded += OnPlayerEnded;
+        _player.Source      = list;
+
+        try
+        {
+            await foreach (var path in filePaths.WithCancellation(ct))
+            {
+                var item = new MediaPlaybackItem(
+                    MediaSource.CreateFromUri(new Uri(path)));
+
+                lock (listLock) totalAdded++;
+                list.Items.Add(item);
+
+                if (totalAdded == 1)
+                {
+                    _player.Play();
+                    _player.PlaybackSession.PlaybackRate = _speed;
+                }
+            }
+
+            // Stream exhausted — all phrases have been enqueued
+            lock (listLock)
+            {
+                streamDone = true;
+                // Edge case: player already fired MediaEnded before stream finished
+                if (totalAdded == 0)
+                {
+                    tcs.TrySetResult(false);
+                }
+                else
+                {
+                    try
+                    {
+                        var state = _player.PlaybackSession.PlaybackState;
+                        if (state == MediaPlaybackState.None ||
+                            state == MediaPlaybackState.Paused)
+                            tcs.TrySetResult(true);
+                    }
+                    catch (Exception) { tcs.TrySetResult(true); }
+                }
+            }
+
+            await tcs.Task;
+        }
+        finally
+        {
+            list.CurrentItemChanged -= OnItemChanged;
+            _player.MediaEnded      -= OnPlayerEnded;
+        }
+    }
+
+    // ── Stop ──────────────────────────────────────────────────────────────────
 
     public void Stop()
     {
@@ -89,11 +213,12 @@ public sealed class WinRtAudioPlayer : IAudioPlayer
         _playbackTcs?.TrySetResult(false);
         _playbackTcs = null;
     }
-    
+
+    // ── Device management ─────────────────────────────────────────────────────
 
     public void SetOutputDevice(string? deviceId)
     {
-        if (deviceId == null || deviceId.Length == 0)
+        if (string.IsNullOrEmpty(deviceId))
         {
             _player.AudioDevice = null;
             return;
@@ -106,16 +231,12 @@ public sealed class WinRtAudioPlayer : IAudioPlayer
 
         _player.AudioDevice = device;
     }
-    
+
     public IReadOnlyList<AudioDeviceInfo> GetOutputDevices()
     {
-        var devices = new List<AudioDeviceInfo>();
-
-        // Get the default render device ID for comparison
+        var devices   = new List<AudioDeviceInfo>();
         var defaultId = MediaDevice.GetDefaultAudioRenderId(AudioDeviceRole.Default);
-
-        // Enumerate all active audio render devices
-        var selector = MediaDevice.GetAudioRenderSelector();
+        var selector  = MediaDevice.GetAudioRenderSelector();
         var deviceList = Windows.Devices.Enumeration.DeviceInformation
             .FindAllAsync(selector)
             .GetAwaiter()
@@ -133,16 +254,8 @@ public sealed class WinRtAudioPlayer : IAudioPlayer
 
         return devices;
     }
-    
-    // public IReadOnlyList<AudioDeviceInfo> GetOutputDevices()
-    // {
-    //     // Full implementation: enumerate via Windows.Devices.Enumeration.
-    //     // Stubbed for Phase 2.
-    //     return new[]
-    //     {
-    //         new AudioDeviceInfo { DeviceId = "", DeviceName = "System Default", IsDefault = true }
-    //     };
-    // }
+
+    // ── Player-level events (used by single-file PlayAsync only) ─────────────
 
     private void OnMediaEnded(MediaPlayer sender, object args)
         => _playbackTcs?.TrySetResult(true);
@@ -159,8 +272,5 @@ public sealed class WinRtAudioPlayer : IAudioPlayer
         _player.MediaFailed -= OnMediaFailed;
         _player.Dispose();
     }
-    
-
-    
 }
 #endif

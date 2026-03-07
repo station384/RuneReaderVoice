@@ -70,6 +70,15 @@ public sealed class VoiceUserSettings
 
     public string PlaybackMode    { get; set; } = "WaitForFullText"; // "WaitForFullText" | "StreamOnFirstChunk"
 
+    /// <summary>
+    /// When true, long segments are split into sentences/clauses and synthesized
+    /// phrase-by-phrase — playback starts on the first phrase while the rest encode.
+    /// When false, the full segment text is synthesized as one unit before playback
+    /// begins — better prosody continuity at the cost of higher initial latency.
+    /// Default: true (phrase chunking on).
+    /// </summary>
+    public bool EnablePhraseChunking { get; set; } = true;
+
     public float  Volume          { get; set; } = 0.8f;   // 0.0–1.0
     public float  PlaybackSpeed   { get; set; } = 1.0f;   // 0.75–1.5
     public string? AudioDeviceId  { get; set; } = null;   // null = system default
@@ -143,7 +152,7 @@ public static class VoiceSettingsManager
     /// never roams or bloats the Windows user profile.
     /// </summary>
     public static string GetDefaultModelDirectory()
-        => Path.Combine(AppContext.BaseDirectory, "Models");
+        => Path.Combine(AppContext.BaseDirectory, "models");
 
     public static VoiceUserSettings LoadSettings()
     {

@@ -179,6 +179,20 @@ public sealed class GstAudioPlayer : IAudioPlayer
         _pipeline = nint.Zero;
     }
 
+    /// <summary>
+    /// Fallback sequential implementation — plays each file one after another.
+    /// GStreamer supports gapless concat demuxer but that requires a more complex
+    /// pipeline setup; this is sufficient until Linux gapless is prioritized.
+    /// </summary>
+    public async Task PlaylistPlayAsync(IAsyncEnumerable<string> filePaths, CancellationToken ct)
+    {
+        await foreach (var path in filePaths.WithCancellation(ct))
+        {
+            ct.ThrowIfCancellationRequested();
+            await PlayAsync(path, ct);
+        }
+    }
+
     public void Dispose()
     {
         if (_disposed) return;

@@ -34,6 +34,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
 using RuneReaderVoice.TTS.Providers;
@@ -214,33 +215,38 @@ public sealed class PlaybackCoordinator : IDisposable
             return;
         }
 
-        // ── Cache miss: stream phrases as they encode ─────────────────────────
-        // The provider enqueues all phrase jobs at once. We iterate the stream,
-        // playing each phrase as soon as it's encoded without waiting for the rest.
-        //
-        // Each phrase WAV is stored in the cache individually so future playback
-        // of any sub-phrase is instant. The cache key for each phrase uses the
-        // phrase text (not the full segment text), so different lines that share
-        // a common opening clause ("Greetings, traveler!") get cache hits too.
+        // ── Cache miss: stream phrases into the gapless playlist ─────────────
+        // SynthesizePhraseStreamAsync enqueues all ONNX jobs at once.
+        // We pipe each phrase path into PlaylistPlayAsync as it becomes ready —
+        // the player starts phrase 0 immediately and pre-buffers phrase 1 while
+        // phrase 0 is playing, giving seamless gapless playback.
         var sw = System.Diagnostics.Stopwatch.StartNew();
 
+        await _player.PlaylistPlayAsync(
+            PhrasePathStream(segment, voiceId, sw, ct), ct);
+    }
+
+    /// <summary>
+    /// Adapts the phrase stream into a file-path stream for PlaylistPlayAsync.
+    /// Stores each phrase in the cache as it arrives, records first-phrase latency.
+    /// </summary>
+    private async IAsyncEnumerable<string> PhrasePathStream(
+        AssembledSegment segment,
+        string voiceId,
+        System.Diagnostics.Stopwatch sw,
+        [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken ct)
+    {
         await foreach (var (wavPath, phraseIndex, phraseCount)
             in _provider.SynthesizePhraseStreamAsync(
                 segment.Text, segment.Slot, _tempDirectory, ct))
         {
-            if (phraseIndex == 0)
-            {
-                sw.Stop();
-                LastSynthesisLatency = sw.Elapsed;
-            }
+            if (phraseIndex == 0) { sw.Stop(); LastSynthesisLatency = sw.Elapsed; }
 
-            // Store this phrase in the cache (returns immediately — compression is async)
             var phraseText = GetPhraseText(segment.Text, phraseIndex, phraseCount);
             var audioPath  = await _cache.StoreAsync(
                 wavPath, phraseText, voiceId, _provider.ProviderId, ct);
 
-            ct.ThrowIfCancellationRequested();
-            await _player.PlayAsync(audioPath, ct);
+            yield return audioPath;
         }
     }
 

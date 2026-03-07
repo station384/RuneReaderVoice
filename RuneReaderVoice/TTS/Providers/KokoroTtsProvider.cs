@@ -139,6 +139,18 @@ public sealed class KokoroTtsProvider : ITtsProvider
     private readonly Dictionary<VoiceSlot, string>    _voiceAssignments = new();
     private readonly Dictionary<string, KokoroVoice>  _voiceCache       = new();
 
+    // ── Runtime-configurable options ──────────────────────────────────────────
+
+    /// <summary>
+    /// When true (default), SynthesizePhraseStreamAsync splits text via TextSplitter
+    /// and streams one WAV per phrase — playback starts on the first phrase while
+    /// subsequent phrases encode in parallel.
+    /// When false, the full segment is synthesized as a single phrase — better
+    /// prosody continuity, higher initial latency.
+    /// Can be toggled live without recreating the provider.
+    /// </summary>
+    public bool EnablePhraseChunking { get; set; } = true;
+
     // ── ITtsProvider ──────────────────────────────────────────────────────────
 
     public string ProviderId      => "kokoro";
@@ -188,7 +200,9 @@ public sealed class KokoroTtsProvider : ITtsProvider
         ct.ThrowIfCancellationRequested();
 
         var voice   = GetVoiceForSlot(slot);
-        var phrases = TextSplitter.Split(text);
+        var phrases = EnablePhraseChunking
+            ? TextSplitter.Split(text)
+            : new System.Collections.Generic.List<string> { text };
         int count   = phrases.Count;
 
         // Channel carries (phraseIndex, pcm) in completion order.

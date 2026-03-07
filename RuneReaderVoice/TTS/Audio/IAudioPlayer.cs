@@ -35,6 +35,15 @@ public interface IAudioPlayer : IDisposable
     /// <summary>Plays the audio file at the given path.</summary>
     Task PlayAsync(string filePath, CancellationToken ct);
 
+    /// <summary>
+    /// Plays a sequence of audio files gaplessly, sourced from an async stream.
+    /// Files are enqueued as they arrive — playback begins on the first file
+    /// without waiting for the rest. Completes when the last file finishes playing.
+    /// Implementations that do not support gapless playback may fall back to
+    /// sequential PlayAsync calls.
+    /// </summary>
+    Task PlaylistPlayAsync(IAsyncEnumerable<string> filePaths, CancellationToken ct);
+
     /// <summary>Stops playback immediately.</summary>
     void Stop();
 
