@@ -254,6 +254,9 @@ public sealed class KokoroTtsProvider : ITtsProvider
 
     // ── Voice resolution ──────────────────────────────────────────────────────
 
+    public string ResolveVoiceId(VoiceSlot slot)
+        => _voiceAssignments.TryGetValue(slot, out var id) ? id : DefaultVoiceId;
+
     private KokoroVoice GetVoiceForSlot(VoiceSlot slot)
     {
         var id = _voiceAssignments.TryGetValue(slot, out var v) ? v : DefaultVoiceId;
@@ -337,5 +340,3 @@ public sealed class KokoroTtsProvider : ITtsProvider
         _tts?.Dispose();
     }
 }
-
-

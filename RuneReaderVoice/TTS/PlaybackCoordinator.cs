@@ -112,11 +112,13 @@ public sealed class PlaybackCoordinator : IDisposable
 
     /// <summary>
     /// Called when the QR source disappears (no barcode for >2 seconds).
-    /// Stops playback and discards the queue.
+    /// We deliberately do NOT cancel here — the user has walked away from the NPC
+    /// but the dialog audio that was already queued should finish playing naturally.
+    /// Only a new dialog ID (OnSessionReset) should interrupt playback.
     /// </summary>
     public void OnSourceGone()
     {
-        CancelCurrentSession();
+        // Intentional no-op: let the current queue drain and audio finish.
     }
 
     // ── ESC hotkey ────────────────────────────────────────────────────────────
@@ -201,8 +203,12 @@ public sealed class PlaybackCoordinator : IDisposable
 
     private async Task SynthesizeAndPlayAsync(AssembledSegment segment, CancellationToken ct)
     {
+        // Resolve the actual voice ID for this slot — used as the cache key so that
+        // changing a voice assignment produces a natural miss, not a stale hit.
+        var voiceId = _provider.ResolveVoiceId(segment.Slot);
+
         // Check cache first
-        var audioPath = await _cache.TryGetAsync(segment.Text, segment.Slot, _provider.ProviderId);
+        var audioPath = await _cache.TryGetAsync(segment.Text, voiceId, _provider.ProviderId);
 
         if (audioPath == null)
         {
@@ -218,7 +224,7 @@ public sealed class PlaybackCoordinator : IDisposable
             LastSynthesisLatency = sw.Elapsed;
 
             audioPath = await _cache.StoreAsync(
-                wavPath, segment.Text, segment.Slot, _provider.ProviderId, ct);
+                wavPath, segment.Text, voiceId, _provider.ProviderId, ct);
         }
 
         ct.ThrowIfCancellationRequested();

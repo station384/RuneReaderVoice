@@ -73,6 +73,14 @@ public interface ITtsProvider : IDisposable
         CancellationToken ct);
 
     /// <summary>
+    /// Returns the resolved voice identifier for the given slot — the actual voice ID
+    /// string (e.g. "bm_lewis" or "mix:am_adam:0.2|bm_lewis:0.8") that will be used
+    /// for synthesis. Used as the cache key component so that changing a voice
+    /// assignment produces a natural cache miss without requiring a full cache clear.
+    /// </summary>
+    string ResolveVoiceId(VoiceSlot slot);
+
+    /// <summary>
     /// Returns the voices available for this provider on this platform.
     /// The UI uses this to populate the accent group voice assignment grid.
     /// </summary>

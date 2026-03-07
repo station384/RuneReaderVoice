@@ -56,6 +56,8 @@ public sealed class LinuxPiperTtsProvider : ITtsProvider
         _modelDirectory  = modelDirectory;
     }
 
+    public string ResolveVoiceId(VoiceSlot slot) => string.Empty;
+
     public IReadOnlyList<VoiceInfo> GetAvailableVoices()
     {
         // Enumerate .onnx files in the model directory.

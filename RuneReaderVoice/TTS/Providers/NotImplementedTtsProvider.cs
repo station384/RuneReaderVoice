@@ -44,6 +44,8 @@ public sealed class NotImplementedTtsProvider : ITtsProvider
     public bool IsAvailable     => false;
     public bool RequiresFullText => true;
 
+    public string ResolveVoiceId(VoiceSlot slot) => string.Empty;
+
     public IReadOnlyList<VoiceInfo> GetAvailableVoices() => Array.Empty<VoiceInfo>();
 
     public Task<string> SynthesizeToFileAsync(

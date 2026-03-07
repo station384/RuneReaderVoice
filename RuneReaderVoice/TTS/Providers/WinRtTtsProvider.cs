@@ -49,11 +49,16 @@ public sealed class WinRtTtsProvider : ITtsProvider
     // Voice assignments: VoiceSlot → WinRT VoiceInformation
     // Populated by the settings layer via SetVoice().
     private readonly Dictionary<VoiceSlot, VoiceInformation> _voiceAssignments = new();
+    // Parallel raw ID store for cache keying (VoiceInformation.Id is the same string)
+    private readonly Dictionary<VoiceSlot, string> _voiceIds = new();
 
     public string ProviderId   => "winrt";
     public string DisplayName  => "Windows Speech (WinRT)";
     public bool IsAvailable    => true; // always available on Windows build
     public bool RequiresFullText => false; // WinRT handles short segments fine
+
+    public string ResolveVoiceId(VoiceSlot slot)
+        => _voiceIds.TryGetValue(slot, out var id) ? id : string.Empty;
 
     public IReadOnlyList<VoiceInfo> GetAvailableVoices()
     {
@@ -73,7 +78,10 @@ public sealed class WinRtTtsProvider : ITtsProvider
     {
         var voice = SpeechSynthesizer.AllVoices.FirstOrDefault(v => v.Id == voiceId);
         if (voice != null)
+        {
             _voiceAssignments[slot] = voice;
+            _voiceIds[slot] = voiceId;
+        }
     }
 
     public async Task<string> SynthesizeToFileAsync(

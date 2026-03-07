@@ -19,7 +19,7 @@
 // TtsAudioCache.cs
 // Content-addressable audio cache for synthesized TTS audio.
 //
-// Cache key: SHA256(text + voiceSlotId + providerId) truncated to 16 hex chars.
+// Cache key: SHA256(text + resolvedVoiceId + providerId) truncated to 16 hex chars.
 // Storage format: OGG/Vorbis (when compression enabled) or WAV (when disabled).
 // Eviction: LRU size-limit only. No TTL — quest dialog never becomes stale.
 // Manifest: cache_manifest.json maps keys to file metadata.
@@ -107,9 +107,9 @@ public sealed class TtsAudioCache : IDisposable
     /// Returns the cached audio file path if a hit, or null on a miss.
     /// Updates last-accessed timestamp on hit.
     /// </summary>
-    public async Task<string?> TryGetAsync(string text, VoiceSlot slot, string providerId)
+    public async Task<string?> TryGetAsync(string text, string voiceId, string providerId)
     {
-        var key = ComputeKey(text, slot, providerId);
+        var key = ComputeKey(text, voiceId, providerId);
         await _manifestLock.WaitAsync();
         try
         {
@@ -136,17 +136,17 @@ public sealed class TtsAudioCache : IDisposable
     /// the original may be deleted. Returns the final cached file path.
     /// </summary>
     public async Task<string> StoreAsync(
-        string wavPath, string text, VoiceSlot slot, string providerId,
+        string wavPath, string text, string voiceId, string providerId,
         CancellationToken ct)
     {
-        var key      = ComputeKey(text, slot, providerId);
+        var key      = ComputeKey(text, voiceId, providerId);
         var keyLock  = GetKeyLock(key);
 
         await keyLock.WaitAsync(ct);
         try
         {
             // Re-check after acquiring key lock (another task may have cached it)
-            var existing = await TryGetAsync(text, slot, providerId);
+            var existing = await TryGetAsync(text, voiceId, providerId);
             if (existing != null) return existing;
 
             // Post-processing pipeline
@@ -182,7 +182,7 @@ public sealed class TtsAudioCache : IDisposable
             {
                 Key          = key,
                 FileName     = Path.GetFileName(finalPath),
-                VoiceSlotId  = slot.ToString(),
+                VoiceSlotId  = voiceId,
                 TextPreview  = text.Length > 60 ? text[..60] : text,
                 FileSizeBytes = fi.Length,
                 Created      = DateTime.UtcNow,
@@ -262,9 +262,9 @@ public sealed class TtsAudioCache : IDisposable
 
     // ── Key computation ───────────────────────────────────────────────────────
 
-    public static string ComputeKey(string text, VoiceSlot slot, string providerId)
+    public static string ComputeKey(string text, string voiceId, string providerId)
     {
-        var input = $"{text}\x00{slot}\x00{providerId}";
+        var input = $"{text}\x00{voiceId}\x00{providerId}";
         var hash  = SHA256.HashData(Encoding.UTF8.GetBytes(input));
         return Convert.ToHexString(hash)[..16].ToLowerInvariant();
     }
@@ -341,3 +341,4 @@ public sealed class TtsAudioCache : IDisposable
         _manifestLock.Dispose();
     }
 }
+

@@ -211,9 +211,8 @@ public partial class MainWindow : Window
         AppServices.SwapProvider(newProvider);
         oldProvider.Dispose();
 
-        // Clear the audio cache — old provider's files are keyed by provider ID,
-        // but clearing avoids any stale playback from the previous session.
-        _ = AppServices.Cache.ClearAsync();
+        // No full cache clear needed on provider switch — each provider has its own
+        // ProviderId component in the cache key, so entries are naturally isolated.
 
         VoiceSettingsManager.SaveSettings(AppServices.Settings);
 
@@ -457,7 +456,8 @@ public partial class MainWindow : Window
 #endif
             if (AppServices.Provider is RuneReaderVoice.TTS.Providers.KokoroTtsProvider kokoro)
                 kokoro.SetVoice(slot, voiceId);
-            _ = AppServices.Cache.ClearAsync();
+            // No cache clear needed — cache is keyed on resolved voice ID,
+            // so the old slot's entries become naturally unreachable (LRU-evicted).
         }
 
         combo.SelectionChanged += (_, _) =>
