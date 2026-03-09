@@ -62,6 +62,13 @@ public interface ITtsProvider : IDisposable
     bool RequiresFullText { get; }
 
     /// <summary>
+    /// True when the provider supports Kokoro/Misaki-style inline pronunciation hints
+    /// embedded directly in the text stream. Providers like WinRT should receive
+    /// plain text and therefore return false.
+    /// </summary>
+    bool SupportsInlinePronunciationHints { get; }
+
+    /// <summary>
     /// Synthesizes text phrase-by-phrase, yielding a WAV file path as each
     /// phrase completes encoding. Allows the coordinator to begin playback of
     /// the first phrase while later phrases are still being synthesized.

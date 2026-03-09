@@ -46,6 +46,7 @@ public sealed class LinuxPiperTtsProvider : ITtsProvider
     public string ProviderId   => "piper";
     public string DisplayName  => "Piper (Local ONNX)";
     public bool RequiresFullText => false;
+    public bool SupportsInlinePronunciationHints => false;
 
     public bool IsAvailable =>
         !string.IsNullOrWhiteSpace(_piperBinaryPath) &&

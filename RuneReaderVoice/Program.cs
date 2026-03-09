@@ -95,7 +95,11 @@ internal static class Program
 
         assembler.OnSegmentComplete += seg =>
         {
-            var processed = AppServices.PronunciationProcessor.Process(seg);
+            var activeProvider = AppServices.Provider;
+            var processed = activeProvider.SupportsInlinePronunciationHints
+                ? AppServices.PronunciationProcessor.Process(seg)
+                : seg;
+
             coordinator.EnqueueSegment(processed);
         };
 

@@ -56,6 +56,7 @@ public sealed class WinRtTtsProvider : ITtsProvider
     public string ProviderId   => "winrt";
     public string DisplayName  => "Windows Speech (WinRT)";
     public bool IsAvailable    => true; // always available on Windows build
+    public bool SupportsInlinePronunciationHints => false;
     public bool RequiresFullText => false; // WinRT handles short segments fine
 
     public string ResolveVoiceId(VoiceSlot slot)

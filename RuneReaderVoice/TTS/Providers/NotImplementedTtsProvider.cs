@@ -44,6 +44,7 @@ public sealed class NotImplementedTtsProvider : ITtsProvider
     public string DisplayName   => _displayName;
     public bool IsAvailable     => false;
     public bool RequiresFullText => true;
+    public bool SupportsInlinePronunciationHints => false;
 
     public string ResolveVoiceId(VoiceSlot slot) => string.Empty;
 

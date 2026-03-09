@@ -157,6 +157,7 @@ public sealed class KokoroTtsProvider : ITtsProvider
     public string DisplayName     => "Kokoro (Local ONNX)";
     public bool   IsAvailable     => true;
     public bool   RequiresFullText => true;
+    public bool SupportsInlinePronunciationHints => true;
 
     public IReadOnlyList<VoiceInfo> GetAvailableVoices() => KnownVoices;
 
