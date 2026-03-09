@@ -27,9 +27,9 @@ public static class WowPronunciationRules
             new("Scholomance",   "skɑ lə mæns", WholeWord: true, Priority: 100),
             new("Har'alnor",   "hɑɹ ˈælnɔɹ", WholeWord: true, Priority: 100),
             new("Amirdrassil",   "əmirdræsɪl", WholeWord: true, Priority: 100),
-           
-            
             new("need",   "nid", WholeWord: true, Priority: 100),
+            new("Boralus",   "bɔːˈrɑːləs", WholeWord: true, Priority: 100),
+            
 
             // ── Troll / Caribbean accent-group-specific ──────────────────────
             // These should only apply to Caribbean voices.

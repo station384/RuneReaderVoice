@@ -10,6 +10,7 @@ using Avalonia.Threading;
 using RuneReaderVoice;
 using RuneReaderVoice.Protocol;
 using RuneReaderVoice.TTS;
+using RuneReaderVoice.TTS.Pronunciation;
 using RuneReaderVoice.TTS.Providers;
 
 namespace RuneReaderVoice.UI.Views;
@@ -18,6 +19,7 @@ public partial class MainWindow : Window
 {
     private readonly DispatcherTimer _statusTimer;
     private bool _capturing;
+    private bool _pronunciationUiInitializing;
 
     public MainWindow()
     {
@@ -31,6 +33,7 @@ public partial class MainWindow : Window
         PopulateVoiceGrid();
         PopulateVolumeTrimGrid();
         SetPlatformVisibility();
+        PopulatePronunciationWorkbench();
 
         // Status refresh timer — 500ms is plenty for UI feedback
         _statusTimer = new DispatcherTimer
@@ -645,6 +648,223 @@ public partial class MainWindow : Window
         }
 
         VoiceSettingsManager.SaveSettings(AppServices.Settings);
+    }
+
+    private void PopulatePronunciationWorkbench()
+    {
+        _pronunciationUiInitializing = true;
+
+        PronAccentGroupSelector.Items.Clear();
+        foreach (AccentGroup group in Enum.GetValues<AccentGroup>())
+            PronAccentGroupSelector.Items.Add(new ComboBoxItem { Content = group.ToString(), Tag = group });
+
+        var savedGroup = Enum.TryParse<AccentGroup>(AppServices.Settings.PronunciationWorkbenchAccentGroup, out var parsedGroup)
+            ? parsedGroup
+            : AccentGroup.Caribbean;
+
+        var groupItem = PronAccentGroupSelector.Items
+            .OfType<ComboBoxItem>()
+            .FirstOrDefault(i => i.Tag is AccentGroup g && g == savedGroup);
+        if (groupItem != null)
+            PronAccentGroupSelector.SelectedItem = groupItem;
+        else
+            PronAccentGroupSelector.SelectedIndex = 0;
+
+        var savedGender = AppServices.Settings.PronunciationWorkbenchGender;
+        var genderItem = PronGenderSelector.Items
+            .OfType<ComboBoxItem>()
+            .FirstOrDefault(i => string.Equals(i.Tag?.ToString(), savedGender, StringComparison.OrdinalIgnoreCase));
+        if (genderItem != null)
+            PronGenderSelector.SelectedItem = genderItem;
+        else
+            PronGenderSelector.SelectedIndex = 0;
+
+        PronTestSentence.Text = AppServices.Settings.PronunciationWorkbenchTestSentence;
+        PronTargetText.Text = AppServices.Settings.PronunciationWorkbenchTargetText;
+        PronPhonemeText.Text = AppServices.Settings.PronunciationWorkbenchPhonemeText;
+
+        PronunciationSymbolGrid.Children.Clear();
+        foreach (var symbol in PronunciationWorkbenchCatalog.Symbols)
+        {
+            var button = new Button
+            {
+                Content = symbol.Symbol == " " ? "␠" : symbol.Symbol,
+                Tag = symbol,
+                Width = 64,
+                Height = 28,
+                Margin = new Avalonia.Thickness(0, 0, 6, 6),
+                Background = Avalonia.Media.SolidColorBrush.Parse("#0F3460"),
+                Foreground = Avalonia.Media.Brushes.WhiteSmoke,
+                FontSize = 14
+            };
+            Avalonia.Controls.ToolTip.SetTip(button, $"{symbol.Name} — {symbol.Example}");
+            button.Click += OnPronunciationSymbolClicked;
+            PronunciationSymbolGrid.Children.Add(button);
+        }
+
+        _pronunciationUiInitializing = false;
+        UpdatePronunciationPreview();
+    }
+
+    private void OnPronunciationSymbolClicked(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        if (sender is not Button { Tag: PronunciationSymbol symbol })
+            return;
+
+        PronSymbolTitle.Text = $"{symbol.Symbol}  —  {symbol.Name} ({symbol.Category})";
+        PronSymbolDescription.Text = symbol.Description;
+        PronSymbolExample.Text = $"Example: {symbol.Example}";
+
+        var insertText = symbol.Symbol;
+        var tb = PronPhonemeText;
+        var existing = tb.Text ?? string.Empty;
+        var caret = tb.CaretIndex;
+        if (caret < 0 || caret > existing.Length)
+            caret = existing.Length;
+
+        tb.Text = existing.Insert(caret, insertText);
+        tb.CaretIndex = caret + insertText.Length;
+        SavePronunciationWorkbenchState();
+        UpdatePronunciationPreview();
+        tb.Focus();
+    }
+
+    private void OnPronunciationInputChanged(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        if (_pronunciationUiInitializing)
+            return;
+
+        SavePronunciationWorkbenchState();
+        UpdatePronunciationPreview();
+    }
+
+    private void SavePronunciationWorkbenchState()
+    {
+        AppServices.Settings.PronunciationWorkbenchTestSentence = PronTestSentence.Text ?? string.Empty;
+        AppServices.Settings.PronunciationWorkbenchTargetText = PronTargetText.Text ?? string.Empty;
+        AppServices.Settings.PronunciationWorkbenchPhonemeText = PronPhonemeText.Text ?? string.Empty;
+        AppServices.Settings.PronunciationWorkbenchAccentGroup = ResolveWorkbenchGroup().ToString();
+        AppServices.Settings.PronunciationWorkbenchGender = ResolveWorkbenchGenderTag();
+        VoiceSettingsManager.SaveSettings(AppServices.Settings);
+    }
+
+    private void UpdatePronunciationPreview()
+    {
+        var original = PronTestSentence.Text ?? string.Empty;
+        var processed = PronunciationWorkbenchHelper.BuildPreview(
+            original,
+            PronTargetText.Text ?? string.Empty,
+            PronPhonemeText.Text ?? string.Empty);
+
+        PronOriginalPreview.Text = string.IsNullOrWhiteSpace(original) ? "—" : original;
+        PronProcessedPreview.Text = string.IsNullOrWhiteSpace(processed) ? "—" : processed;
+    }
+
+    private AccentGroup ResolveWorkbenchGroup()
+    {
+        if (PronAccentGroupSelector.SelectedItem is ComboBoxItem { Tag: AccentGroup group })
+            return group;
+        return AccentGroup.Narrator;
+    }
+
+    private string ResolveWorkbenchGenderTag()
+        => PronGenderSelector.SelectedItem is ComboBoxItem item
+            ? item.Tag?.ToString() ?? "Male"
+            : "Male";
+
+    private VoiceSlot ResolveWorkbenchSlot()
+    {
+        var group = ResolveWorkbenchGroup();
+        var tag = ResolveWorkbenchGenderTag();
+
+        if (group == AccentGroup.Narrator || string.Equals(tag, "Narrator", StringComparison.OrdinalIgnoreCase))
+            return VoiceSlot.Narrator;
+
+        var gender = string.Equals(tag, "Female", StringComparison.OrdinalIgnoreCase)
+            ? Gender.Female
+            : Gender.Male;
+
+        return new VoiceSlot(group, gender);
+    }
+
+    private async System.Threading.Tasks.Task SpeakWorkbenchTextAsync(string text)
+    {
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            SessionStatus.Text = "Pronunciation workbench: enter some test text first.";
+            return;
+        }
+
+        var slot = ResolveWorkbenchSlot();
+        var outPath = System.IO.Path.Combine(
+            System.IO.Path.GetTempPath(),
+            $"rrv_pron_preview_{System.Guid.NewGuid():N}.wav");
+
+        await AppServices.Provider.SynthesizeToFileAsync(text, slot, outPath, default);
+        await AppServices.Player.PlayAsync(outPath, default);
+    }
+
+    private async void OnPronunciationSpeakOriginalClicked(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        PronSpeakOriginalButton.IsEnabled = false;
+        try
+        {
+            await SpeakWorkbenchTextAsync(PronTestSentence.Text ?? string.Empty);
+        }
+        catch (Exception ex)
+        {
+            SessionStatus.Text = $"Pronunciation preview failed: {ex.Message}";
+        }
+        finally
+        {
+            PronSpeakOriginalButton.IsEnabled = true;
+        }
+    }
+
+    private async void OnPronunciationSpeakProcessedClicked(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        PronSpeakProcessedButton.IsEnabled = false;
+        try
+        {
+            await SpeakWorkbenchTextAsync(PronProcessedPreview.Text ?? string.Empty);
+        }
+        catch (Exception ex)
+        {
+            SessionStatus.Text = $"Pronunciation preview failed: {ex.Message}";
+        }
+        finally
+        {
+            PronSpeakProcessedButton.IsEnabled = true;
+        }
+    }
+
+    private async void OnPronunciationCopyPreviewClicked(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        try
+        {
+            var topLevel = TopLevel.GetTopLevel(this);
+            if (topLevel?.Clipboard != null)
+            {
+                await topLevel.Clipboard.SetTextAsync(PronProcessedPreview.Text ?? string.Empty);
+                SessionStatus.Text = "Pronunciation preview copied to clipboard.";
+            }
+        }
+        catch (Exception ex)
+        {
+            SessionStatus.Text = $"Clipboard copy failed: {ex.Message}";
+        }
+    }
+
+    private void OnPronunciationClearClicked(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        PronTestSentence.Text = string.Empty;
+        PronTargetText.Text = string.Empty;
+        PronPhonemeText.Text = string.Empty;
+        PronSymbolTitle.Text = "Select a sound symbol";
+        PronSymbolDescription.Text = "Descriptions and examples appear here.";
+        PronSymbolExample.Text = string.Empty;
+        SavePronunciationWorkbenchState();
+        UpdatePronunciationPreview();
     }
 
     private void PopulateProviderSelector()

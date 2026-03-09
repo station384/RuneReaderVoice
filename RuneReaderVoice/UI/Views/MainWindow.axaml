@@ -264,6 +264,125 @@ along with RuneReaderVoice. If not, see <https://www.gnu.org/licenses/>.
                 </ScrollViewer>
             </TabItem>
 
+            <TabItem Header="Pronunciation">
+                <ScrollViewer>
+                    <StackPanel Margin="12" Spacing="10">
+
+                        <TextBlock Text="Pronunciation Workbench" Foreground="#4ECDC4" FontWeight="SemiBold"/>
+                        <TextBlock Text="Use this to test Kokoro inline pronunciation hints before saving real rules."
+                                   Foreground="#888" FontSize="11" TextWrapping="Wrap"/>
+
+                        <Grid ColumnDefinitions="*,*" RowDefinitions="Auto,Auto" ColumnSpacing="10" RowSpacing="6">
+                            <StackPanel Grid.Row="0" Grid.Column="0" Spacing="4">
+                                <TextBlock Text="Accent Group" Foreground="#888" FontSize="11"/>
+                                <ComboBox x:Name="PronAccentGroupSelector"
+                                          SelectionChanged="OnPronunciationInputChanged"/>
+                            </StackPanel>
+
+                            <StackPanel Grid.Row="0" Grid.Column="1" Spacing="4">
+                                <TextBlock Text="Gender / Slot" Foreground="#888" FontSize="11"/>
+                                <ComboBox x:Name="PronGenderSelector"
+                                          SelectionChanged="OnPronunciationInputChanged">
+                                    <ComboBoxItem Content="Male" Tag="Male"/>
+                                    <ComboBoxItem Content="Female" Tag="Female"/>
+                                    <ComboBoxItem Content="Narrator" Tag="Narrator"/>
+                                </ComboBox>
+                            </StackPanel>
+
+                            <StackPanel Grid.Row="1" Grid.ColumnSpan="2" Spacing="4">
+                                <TextBlock Text="Test Sentence" Foreground="#888" FontSize="11"/>
+                                <TextBox x:Name="PronTestSentence"
+                                         AcceptsReturn="True"
+                                         TextWrapping="Wrap"
+                                         MinHeight="72"
+                                         Watermark="Stay away from Atal'zul, mon."
+                                         TextChanged="OnPronunciationInputChanged"/>
+                            </StackPanel>
+                        </Grid>
+
+                        <Grid ColumnDefinitions="*,*" ColumnSpacing="10">
+                            <StackPanel Grid.Column="0" Spacing="4">
+                                <TextBlock Text="Word / Phrase To Replace" Foreground="#888" FontSize="11"/>
+                                <TextBox x:Name="PronTargetText"
+                                         Watermark="Atal'zul"
+                                         TextChanged="OnPronunciationInputChanged"/>
+                            </StackPanel>
+
+                            <StackPanel Grid.Column="1" Spacing="4">
+                                <TextBlock Text="Phoneme Sounds" Foreground="#888" FontSize="11"/>
+                                <TextBox x:Name="PronPhonemeText"
+                                         Watermark="ə tɑl zʊl"
+                                         TextChanged="OnPronunciationInputChanged"/>
+                            </StackPanel>
+                        </Grid>
+
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <Button x:Name="PronSpeakOriginalButton"
+                                    Content="Speak Original"
+                                    Click="OnPronunciationSpeakOriginalClicked"/>
+                            <Button x:Name="PronSpeakProcessedButton"
+                                    Content="Speak Processed"
+                                    Click="OnPronunciationSpeakProcessedClicked"/>
+                            <Button x:Name="PronCopyPreviewButton"
+                                    Content="Copy Preview"
+                                    Click="OnPronunciationCopyPreviewClicked"/>
+                            <Button x:Name="PronClearButton"
+                                    Content="Clear"
+                                    Click="OnPronunciationClearClicked"/>
+                        </StackPanel>
+
+                        <Separator Margin="0,4"/>
+                        <TextBlock Text="Sound Picker" Foreground="#4ECDC4" FontWeight="SemiBold"/>
+                        <TextBlock Text="Click a symbol to insert it into the phoneme box."
+                                   Foreground="#888" FontSize="11"/>
+
+                        <ScrollViewer MaxHeight="180" HorizontalScrollBarVisibility="Disabled">
+                            <WrapPanel x:Name="PronunciationSymbolGrid"/>
+                        </ScrollViewer>
+
+                        <Border Background="#0F3460" CornerRadius="6" Padding="10">
+                            <StackPanel Spacing="4">
+                                <TextBlock x:Name="PronSymbolTitle"
+                                           Text="Select a sound symbol"
+                                           Foreground="#E0E0FF"
+                                           FontWeight="SemiBold"/>
+                                <TextBlock x:Name="PronSymbolDescription"
+                                           Text="Descriptions and examples appear here."
+                                           Foreground="#C0C0D0"
+                                           FontSize="11"
+                                           TextWrapping="Wrap"/>
+                                <TextBlock x:Name="PronSymbolExample"
+                                           Text=""
+                                           Foreground="#FFD166"
+                                           FontSize="11"/>
+                            </StackPanel>
+                        </Border>
+
+                        <Separator Margin="0,4"/>
+                        <TextBlock Text="Preview" Foreground="#4ECDC4" FontWeight="SemiBold"/>
+
+                        <TextBlock Text="Original" Foreground="#888" FontSize="11"/>
+                        <TextBox x:Name="PronOriginalPreview"
+                                 Text="—"
+                                 IsReadOnly="True"
+                                 AcceptsReturn="True"
+                                 TextWrapping="Wrap"
+                                 Background="#0F3460"
+                                 Foreground="#E0E0FF"/>
+
+                        <TextBlock Text="Processed / Kokoro Markup" Foreground="#888" FontSize="11" Margin="0,6,0,0"/>
+                        <TextBox x:Name="PronProcessedPreview"
+                                 Text="—"
+                                 IsReadOnly="True"
+                                 AcceptsReturn="True"
+                                 TextWrapping="Wrap"
+                                 Background="#0F3460"
+                                 Foreground="#FFD166"/>
+                    </StackPanel>
+                </ScrollViewer>
+            </TabItem>
+
+
         </TabControl>
 
     </DockPanel>

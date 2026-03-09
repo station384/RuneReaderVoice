@@ -114,6 +114,13 @@ public sealed class VoiceUserSettings
 
     public double AppStartX { get; set; } = 150;
     public double AppStartY { get; set; } = 150;
+
+    // Pronunciation workbench
+    public string PronunciationWorkbenchTestSentence { get; set; } = "Stay away from Atal'zul, mon.";
+    public string PronunciationWorkbenchTargetText { get; set; } = "Atal'zul";
+    public string PronunciationWorkbenchPhonemeText { get; set; } = "ə tɑl zʊl";
+    public string PronunciationWorkbenchAccentGroup { get; set; } = nameof(AccentGroup.Caribbean);
+    public string PronunciationWorkbenchGender { get; set; } = "Male";
 }
 
 // ── Settings manager ──────────────────────────────────────────────────────────
