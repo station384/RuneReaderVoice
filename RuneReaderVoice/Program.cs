@@ -31,6 +31,7 @@ using RuneReaderVoice.TTS.Cache;
 using RuneReaderVoice.TTS.Providers;
 using RuneReaderVoice.TTS.Audio;
 using RuneReaderVoice.Session;
+using RuneReaderVoice.TTS.Pronunciation;
 
 // ── Load settings ─────────────────────────────────────────────────────────────
 var settings = VoiceSettingsManager.LoadSettings();
@@ -62,6 +63,7 @@ if (provider is WinRtTtsProvider winRtProvider)
             winRtProvider.SetVoice(slot, voiceId);
 }
 #endif
+
 if (provider is KokoroTtsProvider kokoroProvider)
 {
     foreach (var (key, voiceId) in settings.VoiceAssignments)
@@ -91,6 +93,11 @@ if (settings.AudioDeviceId != null)
 
 // ── Session assembler ─────────────────────────────────────────────────────────
 var assembler   = new TtsSessionAssembler();
+var pronunciationProcessor = new DialoguePronunciationProcessor(
+    WowPronunciationRules.CreateDefault());
+
+
+
 
 // ── Playback coordinator ──────────────────────────────────────────────────────
 var tempDir     = Path.Combine(Path.GetTempPath(), "RuneReaderVoice");
@@ -104,7 +111,14 @@ var coordinator = new PlaybackCoordinator(
 coordinator.StartSession();
 
 // Wire assembler → coordinator
-assembler.OnSegmentComplete += coordinator.EnqueueSegment;
+//assembler.OnSegmentComplete += coordinator.EnqueueSegment;
+assembler.OnSegmentComplete += seg =>
+{
+    var processed = pronunciationProcessor.Process(seg);
+    coordinator.EnqueueSegment(processed);
+};
+
+
 assembler.OnSessionReset    += coordinator.OnSessionReset;
 
 // ── Barcode monitor ───────────────────────────────────────────────────────────
