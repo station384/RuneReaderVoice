@@ -97,7 +97,7 @@ along with RuneReaderVoice. If not, see <https://www.gnu.org/licenses/>.
             <!-- Basic settings tab -->
             <TabItem Header="Settings">
                 <ScrollViewer>
-                    <StackPanel Margin="12" Spacing="10">
+                    <StackPanel Margin="12" Spacing="10" HorizontalAlignment="Stretch">
 
                         <TextBlock Text="TTS Provider" Foreground="#888" FontSize="11"/>
                         <ComboBox x:Name="ProviderSelector"
@@ -162,10 +162,10 @@ along with RuneReaderVoice. If not, see <https://www.gnu.org/licenses/>.
             <!-- Advanced tab -->
             <TabItem Header="Advanced">
                 <ScrollViewer>
-                    <StackPanel Margin="12" Spacing="10">
+                    <StackPanel Margin="12" Spacing="10" HorizontalAlignment="Stretch">
 
-                        <Expander Header="Capture" IsExpanded="True">
-                            <StackPanel Margin="0,8,0,0" Spacing="6">
+                        <Expander Header="Capture" HorizontalAlignment="Stretch" IsExpanded="True">
+                            <StackPanel Margin="0,8,0,0" Spacing="6" HorizontalAlignment="Stretch">
                                 <TextBlock Text="Capture Interval (ms)" Foreground="#888" FontSize="11"/>
                                 <NumericUpDown x:Name="CaptureInterval"
                                                Minimum="1" Maximum="200" Value="5"
@@ -178,8 +178,8 @@ along with RuneReaderVoice. If not, see <https://www.gnu.org/licenses/>.
                             </StackPanel>
                         </Expander>
 
-                        <Expander Header="Playback" IsExpanded="True">
-                            <StackPanel Margin="0,8,0,0" Spacing="6">
+                        <Expander Header="Playback" HorizontalAlignment="Stretch" IsExpanded="True">
+                            <StackPanel Margin="0,8,0,0" Spacing="6" HorizontalAlignment="Stretch">
                                 <CheckBox x:Name="RepeatSuppressionEnabled"
                                           Content="Suppress repeated speech"
                                           IsChecked="True"
@@ -195,8 +195,8 @@ along with RuneReaderVoice. If not, see <https://www.gnu.org/licenses/>.
                             </StackPanel>
                         </Expander>
 
-                        <Expander Header="Cache" IsExpanded="False">
-                            <StackPanel Margin="0,8,0,0" Spacing="6">
+                        <Expander Header="Cache" HorizontalAlignment="Stretch" IsExpanded="False">
+                            <StackPanel Margin="0,8,0,0" Spacing="6" HorizontalAlignment="Stretch">
                                 <CheckBox x:Name="CompressionEnabled"
                                           Content="Enable OGG compression"
                                           IsChecked="True"
@@ -230,8 +230,8 @@ along with RuneReaderVoice. If not, see <https://www.gnu.org/licenses/>.
                             </StackPanel>
                         </Expander>
 
-                        <Expander Header="Audio" IsExpanded="False">
-                            <StackPanel Margin="0,8,0,0" Spacing="6">
+                        <Expander Header="Audio" HorizontalAlignment="Stretch" IsExpanded="False">
+                            <StackPanel Margin="0,8,0,0" Spacing="6" HorizontalAlignment="Stretch">
                                 <TextBlock Text="Per-Accent-Group Volume Trim (dB)" Foreground="#888" FontSize="11"/>
                                 <StackPanel x:Name="VolumeTrimGrid" Spacing="4">
                                     <!-- Populated in code-behind from AccentGroup enum -->
@@ -239,8 +239,8 @@ along with RuneReaderVoice. If not, see <https://www.gnu.org/licenses/>.
                             </StackPanel>
                         </Expander>
 
-                        <Expander Header="Piper (Linux)" x:Name="PiperSettings" IsVisible="False" IsExpanded="False">
-                            <StackPanel Margin="0,8,0,0" Spacing="6">
+                        <Expander Header="Piper (Linux)" HorizontalAlignment="Stretch" x:Name="PiperSettings" IsVisible="False" IsExpanded="False">
+                            <StackPanel Margin="0,8,0,0" Spacing="6" HorizontalAlignment="Stretch">
                                 <TextBlock Text="Piper Binary Path" Foreground="#888" FontSize="11"/>
                                 <TextBox x:Name="PiperBinaryPath"
                                          Watermark="/usr/bin/piper"
@@ -258,8 +258,8 @@ along with RuneReaderVoice. If not, see <https://www.gnu.org/licenses/>.
                             </StackPanel>
                         </Expander>
 
-                        <Expander Header="Diagnostics" IsExpanded="False">
-                            <StackPanel Margin="0,8,0,0" Spacing="6">
+                        <Expander Header="Diagnostics" HorizontalAlignment="Stretch" IsExpanded="False">
+                            <StackPanel Margin="0,8,0,0" Spacing="6" HorizontalAlignment="Stretch">
                                 <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto,Auto,Auto">
                                     <TextBlock Grid.Row="0" Grid.Column="0" Text="Last packet DIALOG" Foreground="#888" FontSize="10" Margin="0,0,12,0"/>
                                     <TextBlock x:Name="DiagDialog" Grid.Row="0" Grid.Column="1" Text="—" Foreground="#E0E0FF" FontSize="10"/>
@@ -276,8 +276,8 @@ along with RuneReaderVoice. If not, see <https://www.gnu.org/licenses/>.
                             </StackPanel>
                         </Expander>
 
-                        <Expander Header="Hotkey" IsExpanded="False">
-                            <StackPanel Margin="0,8,0,0" Spacing="6">
+                        <Expander Header="Hotkey" HorizontalAlignment="Stretch" IsExpanded="False">
+                            <StackPanel Margin="0,8,0,0" Spacing="6" HorizontalAlignment="Stretch">
                                 <TextBlock Text="Abort: ESC  (fixed — user-configurable in a future update)"
                                            Foreground="#888" FontSize="11" TextWrapping="Wrap"/>
                             </StackPanel>
@@ -289,7 +289,7 @@ along with RuneReaderVoice. If not, see <https://www.gnu.org/licenses/>.
 
             <TabItem Header="Pronunciation">
                 <ScrollViewer>
-                    <StackPanel Margin="12" Spacing="10">
+                    <StackPanel Margin="12" Spacing="10" HorizontalAlignment="Stretch">
 
                         <TextBlock Text="Pronunciation Workbench" Foreground="#4ECDC4" FontWeight="SemiBold"/>
                         <TextBlock Text="Use this to test Kokoro inline pronunciation hints before saving real rules."
