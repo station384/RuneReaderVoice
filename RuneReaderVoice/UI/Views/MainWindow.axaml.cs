@@ -192,6 +192,8 @@ public partial class MainWindow : Window
                 if (RuneReaderVoice.Protocol.VoiceSlot.TryParse(key, out var slot))
                     kokoro.SetVoice(slot, voiceId);
 
+            kokoro.EnablePhraseChunking = AppServices.Settings.EnablePhraseChunking;
+
             // Wire download feedback for the new Kokoro instance
             kokoro.OnModelDownloading += msg => Dispatcher.UIThread.Post(() =>
             {
@@ -251,6 +253,15 @@ public partial class MainWindow : Window
             // Hot-swap the coordinator's mode
 
         }
+    }
+
+    private void OnPhraseChunkingChanged(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        var enabled = PhraseChunking.IsChecked ?? true;
+        AppServices.Settings.EnablePhraseChunking = enabled;
+        if (AppServices.Provider is RuneReaderVoice.TTS.Providers.KokoroTtsProvider kokoro)
+            kokoro.EnablePhraseChunking = enabled;
+        VoiceSettingsManager.SaveSettings(AppServices.Settings);
     }
 
     private void OnAudioDeviceChanged(object? sender, SelectionChangedEventArgs e)
@@ -336,6 +347,7 @@ public partial class MainWindow : Window
         EnableProgress.IsChecked = s.EnableQuestProgress;
         EnableReward.IsChecked   = s.EnableQuestReward;
         EnableBooks.IsChecked    = s.EnableBooks;
+        PhraseChunking.IsChecked = s.EnablePhraseChunking;
         PiperBinaryPath.Text     = s.PiperBinaryPath;
         PiperModelDir.Text       = s.PiperModelDirectory;
       

@@ -67,6 +67,7 @@ if (provider is KokoroTtsProvider kokoroProvider)
     foreach (var (key, voiceId) in settings.VoiceAssignments)
         if (VoiceSlot.TryParse(key, out var slot))
             kokoroProvider.SetVoice(slot, voiceId);
+    kokoroProvider.EnablePhraseChunking = settings.EnablePhraseChunking;
 }
 
 // ── Audio cache ───────────────────────────────────────────────────────────────

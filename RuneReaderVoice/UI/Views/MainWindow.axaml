@@ -124,6 +124,12 @@ along with RuneReaderVoice. If not, see <https://www.gnu.org/licenses/>.
                             <ComboBoxItem Content="Stream on first chunk"        Tag="StreamOnFirstChunk"/>
                         </ComboBox>
 
+                        <CheckBox x:Name="PhraseChunking"
+                                  Content="Phrase chunking — split text into sentences for lower latency (Kokoro only)"
+                                  IsChecked="True"
+                                  Margin="0,4,0,0"
+                                  Click="OnPhraseChunkingChanged"/>
+
                         <TextBlock Text="Audio Output Device" Foreground="#888" FontSize="11" Margin="0,6,0,0"/>
                         <ComboBox x:Name="AudioDeviceSelector"
                                   HorizontalAlignment="Stretch"
