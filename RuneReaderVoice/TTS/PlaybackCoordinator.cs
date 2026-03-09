@@ -53,6 +53,7 @@ public sealed class PlaybackCoordinator : IDisposable
     private readonly IAudioPlayer  _player;
     private PlaybackMode  _mode;
     private readonly string        _tempDirectory;
+    private readonly RecentSpeechSuppressor _recentSpeechSuppressor;
 
     // Queue of assembled segments waiting for playback
     private readonly Queue<AssembledSegment> _segmentQueue = new();
@@ -67,6 +68,7 @@ public sealed class PlaybackCoordinator : IDisposable
     public TimeSpan LastSynthesisLatency { get; private set; }
 
     public bool IsPlaying => _player.IsPlaying;
+    public RecentSpeechSuppressor RecentSpeechSuppressor => _recentSpeechSuppressor;
 
     /// <summary>Hot-swaps the TTS provider without restarting the playback loop.</summary>
     public void SetProvider(ITtsProvider provider) => _provider = provider;
@@ -76,13 +78,15 @@ public sealed class PlaybackCoordinator : IDisposable
         TtsAudioCache cache,
         IAudioPlayer player,
         PlaybackMode mode,
-        string tempDirectory)
+        string tempDirectory,
+        RecentSpeechSuppressor recentSpeechSuppressor)
     {
         _provider       = provider;
         _cache          = cache;
         _player         = player;
         _mode           = mode;
         _tempDirectory  = tempDirectory;
+        _recentSpeechSuppressor = recentSpeechSuppressor;
 
         Directory.CreateDirectory(_tempDirectory);
     }
@@ -148,6 +152,7 @@ public sealed class PlaybackCoordinator : IDisposable
     private void CancelCurrentSession()
     {
         _player.Stop();
+        //_recentSpeechSuppressor.Clear();
         _sessionCts?.Cancel();
 
         lock (_queueLock) _segmentQueue.Clear();
@@ -204,6 +209,12 @@ public sealed class PlaybackCoordinator : IDisposable
 
     private async Task SynthesizeAndPlayAsync(AssembledSegment segment, CancellationToken ct)
     {
+        if (_recentSpeechSuppressor.ShouldSuppress(segment.Text))
+        {
+            System.Diagnostics.Debug.WriteLine($"[PlaybackCoordinator] Suppressed repeated line: {segment.Text}");
+            return;
+        }
+
         var voiceId = _provider.ResolveVoiceId(segment.Slot);
 
         // ── Cache hit: entire segment is already encoded ──────────────────────

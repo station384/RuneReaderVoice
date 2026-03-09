@@ -294,6 +294,24 @@ public partial class MainWindow : Window
         AppServices.Settings.ReScanIntervalMs = ms;
     }
 
+    private void OnRepeatSuppressionToggled(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        var enabled = RepeatSuppressionEnabled.IsChecked ?? true;
+        AppServices.Settings.RepeatSuppressionEnabled = enabled;
+        AppServices.Coordinator.RecentSpeechSuppressor.Enabled = enabled;
+        VoiceSettingsManager.SaveSettings(AppServices.Settings);
+    }
+
+    private void OnRepeatSuppressionWindowChanged(object? sender, NumericUpDownValueChangedEventArgs e)
+    {
+        var seconds = (int)(e.NewValue ?? 5);
+        if (seconds < 0) seconds = 0;
+
+        AppServices.Settings.RepeatSuppressionWindowSeconds = seconds;
+        AppServices.Coordinator.RecentSpeechSuppressor.Window = TimeSpan.FromSeconds(seconds);
+        VoiceSettingsManager.SaveSettings(AppServices.Settings);
+    }
+
     private void OnCompressionToggled(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
     {
         AppServices.Settings.CompressionEnabled = CompressionEnabled.IsChecked ?? true;
@@ -342,6 +360,8 @@ public partial class MainWindow : Window
         SpeedLabel.Text     = $"{s.PlaybackSpeed:F2}×";
         CaptureInterval.Value = s.CaptureIntervalMs;
         RescanInterval.Value  = s.ReScanIntervalMs;
+        RepeatSuppressionEnabled.IsChecked = s.RepeatSuppressionEnabled;
+        RepeatSuppressionWindow.Value = s.RepeatSuppressionWindowSeconds;
         CompressionEnabled.IsChecked = s.CompressionEnabled;
         OggQualitySlider.Value = s.OggQuality;
         CacheSizeLimit.Value   = s.CacheSizeLimitBytes / 1024 / 1024;

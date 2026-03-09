@@ -121,6 +121,10 @@ public sealed class VoiceUserSettings
     public string PronunciationWorkbenchPhonemeText { get; set; } = "ə tɑl zʊl";
     public string PronunciationWorkbenchAccentGroup { get; set; } = nameof(AccentGroup.Caribbean);
     public string PronunciationWorkbenchGender { get; set; } = "Male";
+
+    // Recently-spoken suppression (live playback only; workbench preview bypasses this)
+    public bool RepeatSuppressionEnabled { get; set; } = true;
+    public int RepeatSuppressionWindowSeconds { get; set; } = 5;
 }
 
 // ── Settings manager ──────────────────────────────────────────────────────────

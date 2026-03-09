@@ -82,8 +82,14 @@ internal static class Program
             ? PlaybackMode.StreamOnFirstChunk
             : PlaybackMode.WaitForFullText;
 
+        var recentSpeechSuppressor = new RecentSpeechSuppressor
+        {
+            Enabled = settings.RepeatSuppressionEnabled,
+            Window = TimeSpan.FromSeconds(Math.Max(0, settings.RepeatSuppressionWindowSeconds))
+        };
+
         var coordinator = new PlaybackCoordinator(
-            provider, cache, player, playbackMode, tempDir);
+            provider, cache, player, playbackMode, tempDir, recentSpeechSuppressor);
 
         coordinator.StartSession();
 
