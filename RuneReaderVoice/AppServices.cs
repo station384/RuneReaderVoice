@@ -28,6 +28,7 @@ using RuneReaderVoice.TTS.Cache;
 using RuneReaderVoice.TTS.Providers;
 using RuneReaderVoice.TTS.Audio;
 using RuneReaderVoice.Session;
+using RuneReaderVoice.TTS.Pronunciation;
 
 namespace RuneReaderVoice;
 
@@ -41,6 +42,7 @@ public static class AppServices
     public static TtsSessionAssembler  Assembler   { get; private set; } = null!;
     public static PlaybackCoordinator  Coordinator { get; private set; } = null!;
     public static RvBarcodeMonitor     Monitor     { get; private set; } = null!;
+    public static DialoguePronunciationProcessor PronunciationProcessor { get; private set; } = null!;
 
     public static void Initialize(
         VoiceUserSettings settings,
@@ -50,7 +52,8 @@ public static class AppServices
         IAudioPlayer player,
         TtsSessionAssembler assembler,
         PlaybackCoordinator coordinator,
-        RvBarcodeMonitor monitor)
+        RvBarcodeMonitor monitor,
+        DialoguePronunciationProcessor pronunciationProcessor)
     {
         Settings    = settings;
         Platform    = platform;
@@ -60,6 +63,7 @@ public static class AppServices
         Assembler   = assembler;
         Coordinator = coordinator;
         Monitor     = monitor;
+        PronunciationProcessor = pronunciationProcessor;
     }
 
     /// <summary>
@@ -75,5 +79,10 @@ public static class AppServices
         // so we just update the field here. If the coordinator caches the reference
         // internally, add a SetProvider method to PlaybackCoordinator instead.
         Coordinator.SetProvider(newProvider);
+    }
+
+    public static void SetPronunciationProcessor(DialoguePronunciationProcessor processor)
+    {
+        PronunciationProcessor = processor;
     }
 }

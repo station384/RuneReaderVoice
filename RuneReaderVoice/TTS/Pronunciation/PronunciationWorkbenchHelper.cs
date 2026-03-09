@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 using System;
+using System.Collections.Generic;
 using System.Text;
 
 namespace RuneReaderVoice.TTS.Pronunciation;
@@ -45,4 +46,13 @@ public static class PronunciationWorkbenchHelper
 
         return sb.ToString();
     }
+
+    public static IReadOnlyList<string> GetLookalikeNotes()
+        => new[]
+        {
+            ": is the normal keyboard colon. ː is the IPA length mark.",
+            "' is the normal apostrophe. ˈ is primary stress.",
+            ", is a comma. ˌ is secondary stress.",
+            "g is ASCII g. ɡ is the IPA hard-g symbol.",
+        };
 }

@@ -113,6 +113,27 @@ public sealed class WinRtAudioPlayer : IAudioPlayer
     /// </summary>
     public async Task PlaylistPlayAsync(IAsyncEnumerable<string> filePaths, CancellationToken ct)
     {
+        
+        void EnsurePlaybackStarted()
+        {
+            if (_disposed) return;
+
+            try
+            {
+                var state = _player.PlaybackSession.PlaybackState;
+
+                if (state != MediaPlaybackState.Playing)
+                {
+                    _player.Play();
+                    _player.PlaybackSession.PlaybackRate = _speed;
+                }
+            }
+            catch (Exception)
+            {
+                // Player may be shutting down / transitioning; ignore here.
+            }
+        }
+        
         ObjectDisposedException.ThrowIf(_disposed, this);
         Stop();
 
@@ -140,13 +161,40 @@ public sealed class WinRtAudioPlayer : IAudioPlayer
         var  listLock   = new object();
 
         // Fires when the list naturally runs out of items (last item finished).
+        // void OnPlayerEnded(MediaPlayer sender, object args)
+        // {
+        //     bool shouldComplete;
+        //     lock (listLock) shouldComplete = streamDone;
+        //     if (shouldComplete) tcs.TrySetResult(true);
+        // }
+
         void OnPlayerEnded(MediaPlayer sender, object args)
         {
             bool shouldComplete;
-            lock (listLock) shouldComplete = streamDone;
-            if (shouldComplete) tcs.TrySetResult(true);
-        }
 
+            lock (listLock)
+            {
+                shouldComplete = streamDone;
+            }
+
+            if (!shouldComplete)
+                return;
+
+            try
+            {
+                var state = _player.PlaybackSession.PlaybackState;
+                if (state == MediaPlaybackState.None ||
+                    state == MediaPlaybackState.Paused)
+                {
+                    tcs.TrySetResult(true);
+                }
+            }
+            catch (Exception)
+            {
+                tcs.TrySetResult(true);
+            }
+        }
+        
         // Fires on cancellation
         using var reg = ct.Register(() =>
         {
@@ -164,14 +212,18 @@ public sealed class WinRtAudioPlayer : IAudioPlayer
                 var item = new MediaPlaybackItem(
                     MediaSource.CreateFromUri(new Uri(path)));
 
+                // lock (listLock) totalAdded++;
+                // list.Items.Add(item);
+                //
+                // if (totalAdded == 1)
+                // {
+                //     _player.Play();
+                //     _player.PlaybackSession.PlaybackRate = _speed;
+                // }
                 lock (listLock) totalAdded++;
                 list.Items.Add(item);
 
-                if (totalAdded == 1)
-                {
-                    _player.Play();
-                    _player.PlaybackSession.PlaybackRate = _speed;
-                }
+                EnsurePlaybackStarted();
             }
 
             // Stream exhausted — all phrases have been enqueued

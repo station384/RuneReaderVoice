@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using System.Linq;
 using Avalonia;
 using RuneReaderVoice;
 using RuneReaderVoice.Platform;
@@ -74,8 +75,7 @@ internal static class Program
             player.SetOutputDevice(settings.AudioDeviceId);
 
         var assembler = new TtsSessionAssembler();
-        var pronunciationProcessor = new DialoguePronunciationProcessor(
-            WowPronunciationRules.CreateDefault());
+        var pronunciationProcessor = BuildPronunciationProcessor();
 
         var tempDir = Path.Combine(Path.GetTempPath(), "RuneReaderVoice");
         var playbackMode = settings.PlaybackMode == "StreamOnFirstChunk"
@@ -89,7 +89,7 @@ internal static class Program
 
         assembler.OnSegmentComplete += seg =>
         {
-            var processed = pronunciationProcessor.Process(seg);
+            var processed = AppServices.PronunciationProcessor.Process(seg);
             coordinator.EnqueueSegment(processed);
         };
 
@@ -115,7 +115,7 @@ internal static class Program
 
         AppServices.Initialize(
             settings, platform, provider, cache, player,
-            assembler, coordinator, monitor);
+            assembler, coordinator, monitor, pronunciationProcessor);
 
         return AppBuilder
             .Configure<App>()
@@ -125,6 +125,15 @@ internal static class Program
             .StartWithClassicDesktopLifetime(
                 args,
                 Avalonia.Controls.ShutdownMode.OnMainWindowClose);
+    }
+
+    private static DialoguePronunciationProcessor BuildPronunciationProcessor()
+    {
+        var rules = WowPronunciationRules.CreateDefault()
+            .Concat(PronunciationRuleStore.LoadUserRules())
+            .ToList();
+
+        return new DialoguePronunciationProcessor(rules);
     }
 
     private static ITtsProvider CreateDefaultProvider(VoiceUserSettings settings)

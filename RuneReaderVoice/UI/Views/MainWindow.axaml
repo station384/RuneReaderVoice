@@ -333,11 +333,28 @@ along with RuneReaderVoice. If not, see <https://www.gnu.org/licenses/>.
 
                         <Separator Margin="0,4"/>
                         <TextBlock Text="Sound Picker" Foreground="#4ECDC4" FontWeight="SemiBold"/>
-                        <TextBlock Text="Click a symbol to insert it into the phoneme box."
-                                   Foreground="#888" FontSize="11"/>
+                        <TextBlock Text="All non-US-keyboard symbols used by the workbench should be inserted from here."
+                                   Foreground="#888" FontSize="11" TextWrapping="Wrap"/>
 
-                        <ScrollViewer MaxHeight="180" HorizontalScrollBarVisibility="Disabled">
-                            <WrapPanel x:Name="PronunciationSymbolGrid"/>
+                        <ScrollViewer MaxHeight="260" HorizontalScrollBarVisibility="Disabled">
+                            <StackPanel Spacing="8">
+                                <StackPanel Spacing="4">
+                                    <TextBlock Text="Stress / Timing" Foreground="#88C0FF" FontSize="11" FontWeight="SemiBold"/>
+                                    <WrapPanel x:Name="PronStressTimingGrid"/>
+                                </StackPanel>
+                                <StackPanel Spacing="4">
+                                    <TextBlock Text="Diphthongs" Foreground="#88C0FF" FontSize="11" FontWeight="SemiBold"/>
+                                    <WrapPanel x:Name="PronDiphthongGrid"/>
+                                </StackPanel>
+                                <StackPanel Spacing="4">
+                                    <TextBlock Text="Vowels" Foreground="#88C0FF" FontSize="11" FontWeight="SemiBold"/>
+                                    <WrapPanel x:Name="PronVowelGrid"/>
+                                </StackPanel>
+                                <StackPanel Spacing="4">
+                                    <TextBlock Text="Consonants" Foreground="#88C0FF" FontSize="11" FontWeight="SemiBold"/>
+                                    <WrapPanel x:Name="PronConsonantGrid"/>
+                                </StackPanel>
+                            </StackPanel>
                         </ScrollViewer>
 
                         <Border Background="#0F3460" CornerRadius="6" Padding="10">
@@ -355,6 +372,22 @@ along with RuneReaderVoice. If not, see <https://www.gnu.org/licenses/>.
                                            Text=""
                                            Foreground="#FFD166"
                                            FontSize="11"/>
+                            </StackPanel>
+                        </Border>
+
+                        <Border Background="#101A2B" CornerRadius="6" Padding="10">
+                            <StackPanel Spacing="4">
+                                <TextBlock Text="Lookalikes / Quick Help"
+                                           Foreground="#E0E0FF"
+                                           FontWeight="SemiBold"/>
+                                <TextBlock Text=": is a normal colon. ː is the IPA length mark."
+                                           Foreground="#C0C0D0" FontSize="11" TextWrapping="Wrap"/>
+                                <TextBlock Text="' is an apostrophe. ˈ is primary stress."
+                                           Foreground="#C0C0D0" FontSize="11" TextWrapping="Wrap"/>
+                                <TextBlock Text=", is a comma. ˌ is secondary stress."
+                                           Foreground="#C0C0D0" FontSize="11" TextWrapping="Wrap"/>
+                                <TextBlock Text="g is ASCII g. ɡ is the IPA hard-g symbol."
+                                           Foreground="#C0C0D0" FontSize="11" TextWrapping="Wrap"/>
                             </StackPanel>
                         </Border>
 
@@ -378,6 +411,66 @@ along with RuneReaderVoice. If not, see <https://www.gnu.org/licenses/>.
                                  TextWrapping="Wrap"
                                  Background="#0F3460"
                                  Foreground="#FFD166"/>
+
+                        <Separator Margin="0,4"/>
+                        <TextBlock Text="Rule Authoring" Foreground="#4ECDC4" FontWeight="SemiBold"/>
+                        <TextBlock Text="Save the current target + phoneme text as a reusable rule in config/pronunciation-rules.json."
+                                   Foreground="#888" FontSize="11" TextWrapping="Wrap"/>
+
+                        <Grid ColumnDefinitions="*,*" RowDefinitions="Auto,Auto" ColumnSpacing="10" RowSpacing="6">
+                            <StackPanel Grid.Row="0" Grid.Column="0" Spacing="4">
+                                <TextBlock Text="Scope" Foreground="#888" FontSize="11"/>
+                                <ComboBox x:Name="PronRuleScopeSelector"
+                                          SelectionChanged="OnPronunciationRuleInputChanged">
+                                    <ComboBoxItem Content="Global" Tag="Global"/>
+                                    <ComboBoxItem Content="Accent Group" Tag="AccentGroup"/>
+                                </ComboBox>
+                            </StackPanel>
+
+                            <StackPanel Grid.Row="0" Grid.Column="1" Spacing="4">
+                                <TextBlock Text="Rule Accent Group" Foreground="#888" FontSize="11"/>
+                                <ComboBox x:Name="PronRuleAccentGroupSelector"
+                                          SelectionChanged="OnPronunciationRuleInputChanged"/>
+                            </StackPanel>
+
+                            <StackPanel Grid.Row="1" Grid.ColumnSpan="2" Orientation="Horizontal" Spacing="12">
+                                <CheckBox x:Name="PronRuleWholeWord"
+                                          Content="Whole word"
+                                          IsChecked="True"
+                                          Click="OnPronunciationRuleInputChanged"/>
+                                <CheckBox x:Name="PronRuleCaseSensitive"
+                                          Content="Case sensitive"
+                                          IsChecked="False"
+                                          Click="OnPronunciationRuleInputChanged"/>
+                                <CheckBox x:Name="PronRuleEnabled"
+                                          Content="Enabled"
+                                          IsChecked="True"
+                                          Click="OnPronunciationRuleInputChanged"/>
+                            </StackPanel>
+                        </Grid>
+
+                        <TextBlock Text="Notes" Foreground="#888" FontSize="11"/>
+                        <TextBox x:Name="PronRuleNotes"
+                                 Watermark="Optional note, such as how the name should sound."
+                                 TextChanged="OnPronunciationRuleInputChanged"/>
+
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <Button x:Name="PronSaveRuleButton"
+                                    Content="Save Rule"
+                                    Click="OnPronunciationSaveRuleClicked"/>
+                            <Button x:Name="PronOpenRulesFileButton"
+                                    Content="Open Rules File"
+                                    Click="OnPronunciationOpenRulesFileClicked"/>
+                            <Button x:Name="PronReloadRulesButton"
+                                    Content="Reload Rules"
+                                    Click="OnPronunciationReloadRulesClicked"/>
+                        </StackPanel>
+
+                        <TextBlock x:Name="PronRuleStatus"
+                                   Text="Rules save into the portable config folder."
+                                   Foreground="#888"
+                                   FontSize="11"
+                                   TextWrapping="Wrap"/>
                     </StackPanel>
                 </ScrollViewer>
             </TabItem>

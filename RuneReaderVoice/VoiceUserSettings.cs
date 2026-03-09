@@ -18,8 +18,8 @@
 
 // VoiceUserSettings.cs
 // All user-configurable settings for RuneReader Voice.
-// Persisted as JSON in the platform config directory.
-// Follows the same pattern as RuneReader's UserSettings/SettingsManager.
+// Persisted as JSON in the portable app config directory.
+// All config stays under the application folder tree.
 
 using System;
 using System.Collections.Generic;
@@ -127,7 +127,6 @@ public sealed class VoiceUserSettings
 
 public static class VoiceSettingsManager
 {
-    private const string AppName          = "RuneReaderVoice";
     private const string SettingsFileName = "settings.json";
 
     private static readonly JsonSerializerOptions JsonSaveOptions = new() { WriteIndented = true };
@@ -135,20 +134,7 @@ public static class VoiceSettingsManager
     private static string SettingsFilePath => Path.Combine(GetConfigDirectory(), SettingsFileName);
 
     public static string GetConfigDirectory()
-    {
-        if (OperatingSystem.IsLinux())
-        {
-            var xdg = Environment.GetEnvironmentVariable("XDG_CONFIG_HOME");
-            if (!string.IsNullOrWhiteSpace(xdg))
-                return Path.Combine(xdg, AppName);
-            var home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
-            return Path.Combine(home, ".config", AppName);
-        }
-        var baseDir = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
-        if (string.IsNullOrWhiteSpace(baseDir))
-            baseDir = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
-        return Path.Combine(baseDir, AppName);
-    }
+        => Path.Combine(AppContext.BaseDirectory, "config");
 
     public static string GetDefaultCacheDirectory()
         => Path.Combine(AppContext.BaseDirectory, "tts_cache");

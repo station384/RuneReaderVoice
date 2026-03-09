@@ -7,4 +7,8 @@ public sealed record PronunciationSymbol(
     string Name,
     string Description,
     string Example,
-    string Category);
+    string Category,
+    string? DisplayLabel = null)
+{
+    public string ButtonLabel => string.IsNullOrWhiteSpace(DisplayLabel) ? Symbol : DisplayLabel!;
+}
