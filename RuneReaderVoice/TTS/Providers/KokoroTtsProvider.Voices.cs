@@ -41,6 +41,7 @@ public sealed partial class KokoroTtsProvider
         new() { VoiceId = "bf_isabella", Name = "Isabella (BF)",  Language = "en-GB", Gender = Gender.Female },
         new() { VoiceId = "bf_alice",    Name = "Alice (BF)",     Language = "en-GB", Gender = Gender.Female },
         new() { VoiceId = "bf_lily",     Name = "Lily (BF)",      Language = "en-GB", Gender = Gender.Female },
+        new() { VoiceId = "bf_fable",    Name = "Fable (BF)",     Language = "en-GB", Gender = Gender.Female },
 
         new() { VoiceId = "bm_george",   Name = "George (BM)",    Language = "en-GB", Gender = Gender.Male },
         new() { VoiceId = "bm_fable",    Name = "Fable (BM)",     Language = "en-GB", Gender = Gender.Male },
@@ -87,6 +88,10 @@ public sealed partial class KokoroTtsProvider
 
     private VoiceProfile GetDefaultProfile(VoiceSlot slot)
     {
+        var preset = SpeakerPresetCatalog.GetRecommendedForSlot(slot);
+        if (preset != null)
+            return preset.Profile.Clone();
+
         if (slot.Group == AccentGroup.Narrator)
             return VoiceProfileDefaults.Create("af_bella");
 

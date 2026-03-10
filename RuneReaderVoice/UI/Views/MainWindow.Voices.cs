@@ -86,12 +86,21 @@ public partial class MainWindow
         var provider = AppServices.Provider;
         var providerId = provider.ProviderId;
 
-        if (!AppServices.Settings.PerProviderVoiceProfiles.TryGetValue(providerId, out var dict) ||
-            !dict.TryGetValue(slot.ToString(), out var profile) ||
-            profile == null)
+        VoiceProfile? profile = null;
+
+        if (AppServices.Settings.PerProviderVoiceProfiles.TryGetValue(providerId, out var dict) &&
+            dict.TryGetValue(slot.ToString(), out var stored) &&
+            stored != null)
         {
-            return "(default)";
+            profile = stored;
         }
+        else if (provider is KokoroTtsProvider kokoro)
+        {
+            profile = kokoro.ResolveVoiceProfile(slot);
+        }
+
+        if (profile == null)
+            return "(default)";
 
         var lang = EspeakLanguageCatalog.All.FirstOrDefault(x =>
             string.Equals(x.Code, profile.LangCode, StringComparison.OrdinalIgnoreCase))?.DisplayName ?? profile.LangCode;
@@ -101,6 +110,14 @@ public partial class MainWindow
             : profile.VoiceId;
 
         var accentText = NpcVoiceSlotCatalog.All.FirstOrDefault(x => x.Slot.Equals(slot))?.AccentLabel ?? slot.Group.ToString();
+        var preset = SpeakerPresetCatalog.GetRecommendedForSlot(slot);
+
+        if (preset != null && string.Equals(profile.VoiceId, preset.Profile.VoiceId, StringComparison.OrdinalIgnoreCase) &&
+            string.Equals(profile.LangCode, preset.Profile.LangCode, StringComparison.OrdinalIgnoreCase) &&
+            Math.Abs(profile.SpeechRate - preset.Profile.SpeechRate) < 0.001f)
+        {
+            return $"{preset.DisplayName} · {lang} · {profile.SpeechRate:0.00}x";
+        }
 
         return $"{voiceText} · {lang} · {profile.SpeechRate:0.00}x · {accentText}";
     }
@@ -167,6 +184,4 @@ public partial class MainWindow
         if (_voiceSummaryBlocks.TryGetValue(slot.ToString(), out var summary))
             summary.Text = DescribeVoiceProfile(slot);
     }
-
-
 }

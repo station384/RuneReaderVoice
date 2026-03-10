@@ -14,19 +14,29 @@ namespace RuneReaderVoice.UI.Views;
 
 public sealed class VoiceProfileEditorDialog : Window
 {
+    private sealed class VoiceChoice
+    {
+        public string VoiceId { get; init; } = string.Empty;
+        public string Display { get; init; } = string.Empty;
+        public override string ToString() => Display;
+    }
+
     private readonly VoiceSlot _slot;
     private readonly VoiceProfile _workingProfile;
+
+    private readonly ComboBox _presetCombo;
+    private readonly TextBlock _presetDescriptionText;
 
     private readonly RadioButton _singleVoiceRadio;
     private readonly RadioButton _blendVoiceRadio;
     private readonly Border _singleVoiceSection;
     private readonly Border _blendVoiceSection;
+
     private readonly ComboBox _voiceCombo;
     private readonly TextBlock _voiceSummaryText;
     private readonly TextBlock _blendSummaryText;
-    private readonly TextBlock _blendRawText;
+
     private readonly TextBlock _languageNameText;
-    private readonly TextBlock _languageCodeText;
     private readonly Slider _speechRateSlider;
     private readonly TextBox _speechRateText;
     private readonly TextBox _previewText;
@@ -42,32 +52,71 @@ public sealed class VoiceProfileEditorDialog : Window
         _workingProfile = initialProfile.Clone();
 
         Title = $"Edit NPC Voice Profile — {npcLabel}";
-        Width = 760;
-        Height = 700;
-        MinWidth = 680;
-        MinHeight = 620;
+        Width = 860;
+        Height = 720;
+        MinWidth = 780;
+        MinHeight = 640;
         WindowStartupLocation = WindowStartupLocation.CenterOwner;
         CanResize = true;
+
+        var presetItems = SpeakerPresetCatalog.GetForSlot(slot).ToArray();
+
+        _presetCombo = new ComboBox
+        {
+            HorizontalAlignment = HorizontalAlignment.Stretch,
+            ItemsSource = presetItems
+        };
+        _presetCombo.SelectionChanged += PresetCombo_SelectionChanged;
+
+        _presetDescriptionText = new TextBlock
+        {
+            Foreground = Brushes.Gray,
+            FontSize = 11,
+            TextWrapping = TextWrapping.Wrap
+        };
+
+        var useRecommendedButton = new Button
+        {
+            Content = "Use Recommended",
+            Width = 130
+        };
+        useRecommendedButton.Click += UseRecommendedButton_Click;
+
+        var applyPresetButton = new Button
+        {
+            Content = "Apply Preset",
+            Width = 110
+        };
+        applyPresetButton.Click += ApplyPresetButton_Click;
 
         _singleVoiceRadio = new RadioButton
         {
             Content = "Single Voice",
-            IsChecked = !_workingProfile.VoiceId.StartsWith(KokoroTtsProvider.MixPrefix, StringComparison.OrdinalIgnoreCase)
+            IsChecked = !_workingProfile.VoiceId.StartsWith(KokoroTtsProvider.MixPrefix, StringComparison.OrdinalIgnoreCase),
+            GroupName = "voiceMode"
         };
+
         _blendVoiceRadio = new RadioButton
         {
             Content = "Blend Voices",
             IsChecked = _workingProfile.VoiceId.StartsWith(KokoroTtsProvider.MixPrefix, StringComparison.OrdinalIgnoreCase),
             GroupName = "voiceMode"
         };
-        _singleVoiceRadio.GroupName = "voiceMode";
+
         _singleVoiceRadio.Checked += VoiceModeChanged;
         _blendVoiceRadio.Checked += VoiceModeChanged;
 
         _voiceCombo = new ComboBox
         {
             HorizontalAlignment = HorizontalAlignment.Stretch,
-            ItemsSource = KokoroTtsProvider.KnownVoices.OrderBy(v => v.Name).ToArray()
+            ItemsSource = KokoroTtsProvider.KnownVoices
+                .OrderBy(v => v.Name)
+                .Select(v => new VoiceChoice
+                {
+                    VoiceId = v.VoiceId,
+                    Display = $"{v.Name} · {v.Language}"
+                })
+                .ToArray()
         };
         _voiceCombo.SelectionChanged += VoiceCombo_SelectionChanged;
 
@@ -78,26 +127,18 @@ public sealed class VoiceProfileEditorDialog : Window
             TextWrapping = TextWrapping.Wrap
         };
 
-        var selectedVoice = KokoroTtsProvider.KnownVoices.FirstOrDefault(v =>
-            string.Equals(v.VoiceId, _workingProfile.VoiceId, StringComparison.OrdinalIgnoreCase));
-        if (selectedVoice != null)
-            _voiceCombo.SelectedItem = selectedVoice;
-
-        var editBlendButton = new Button { Content = "Edit Blend…", Width = 110 };
-        editBlendButton.Click += EditBlendButton_Click;
-
         _blendSummaryText = new TextBlock
         {
             TextWrapping = TextWrapping.Wrap,
             FontWeight = FontWeight.SemiBold
         };
 
-        _blendRawText = new TextBlock
+        var editBlendButton = new Button
         {
-            Foreground = Brushes.Gray,
-            FontSize = 11,
-            TextWrapping = TextWrapping.Wrap
+            Content = "Edit Blend…",
+            Width = 110
         };
+        editBlendButton.Click += EditBlendButton_Click;
 
         var currentLang = EspeakLanguageCatalog.All.FirstOrDefault(x =>
             string.Equals(x.Code, _workingProfile.LangCode, StringComparison.OrdinalIgnoreCase));
@@ -105,17 +146,15 @@ public sealed class VoiceProfileEditorDialog : Window
         _languageNameText = new TextBlock
         {
             Text = currentLang?.DisplayName ?? _workingProfile.LangCode,
-            VerticalAlignment = VerticalAlignment.Center
+            VerticalAlignment = VerticalAlignment.Center,
+            TextWrapping = TextWrapping.Wrap
         };
 
-        _languageCodeText = new TextBlock
+        var chooseLanguageButton = new Button
         {
-            Text = $"Code: {_workingProfile.LangCode}",
-            Foreground = Brushes.Gray,
-            FontSize = 11
+            Content = "Choose…",
+            Width = 100
         };
-
-        var chooseLanguageButton = new Button { Content = "Choose…", Width = 100 };
         chooseLanguageButton.Click += ChooseLanguageButton_Click;
 
         _speechRateSlider = new Slider
@@ -165,13 +204,25 @@ public sealed class VoiceProfileEditorDialog : Window
             Text = "The tides of fate are shifting."
         };
 
-        var previewButton = new Button { Content = "Preview", Width = 90 };
+        var previewButton = new Button
+        {
+            Content = "Preview",
+            Width = 90
+        };
         previewButton.Click += PreviewButton_Click;
 
-        var applyButton = new Button { Content = "Save & Close", Width = 120 };
-        applyButton.Click += (_, _) => Close(_workingProfile.Clone());
+        var saveButton = new Button
+        {
+            Content = "Save & Close",
+            Width = 120
+        };
+        saveButton.Click += (_, _) => Close(_workingProfile.Clone());
 
-        var cancelButton = new Button { Content = "Cancel", Width = 90 };
+        var cancelButton = new Button
+        {
+            Content = "Cancel",
+            Width = 90
+        };
         cancelButton.Click += (_, _) => Close(null);
 
         _singleVoiceSection = new Border
@@ -203,15 +254,7 @@ public sealed class VoiceProfileEditorDialog : Window
                 {
                     new TextBlock { Text = "Blend Voices", FontWeight = FontWeight.SemiBold },
                     _blendSummaryText,
-                    editBlendButton,
-                    new TextBlock
-                    {
-                        Text = "Advanced detail:",
-                        FontWeight = FontWeight.SemiBold,
-                        FontSize = 11,
-                        Foreground = Brushes.Gray
-                    },
-                    _blendRawText
+                    editBlendButton
                 }
             }
         };
@@ -220,6 +263,136 @@ public sealed class VoiceProfileEditorDialog : Window
         {
             TextWrapping = TextWrapping.Wrap
         };
+
+        // Preset card
+        var presetCard = new Border
+        {
+            BorderThickness = new Avalonia.Thickness(1),
+            Padding = new Avalonia.Thickness(10),
+            CornerRadius = new Avalonia.CornerRadius(6),
+            Child = new StackPanel
+            {
+                Spacing = 8,
+                Children =
+                {
+                    new TextBlock { Text = "Voice Preset", FontWeight = FontWeight.SemiBold },
+                    _presetCombo,
+                    _presetDescriptionText,
+                    new StackPanel
+                    {
+                        Orientation = Orientation.Horizontal,
+                        Spacing = 8,
+                        Children = { useRecommendedButton, applyPresetButton }
+                    }
+                }
+            }
+        };
+
+        // Voice mode card
+        var voiceModeCard = new Border
+        {
+            BorderThickness = new Avalonia.Thickness(1),
+            Padding = new Avalonia.Thickness(10),
+            CornerRadius = new Avalonia.CornerRadius(6),
+            Child = new StackPanel
+            {
+                Spacing = 8,
+                Children =
+                {
+                    new TextBlock { Text = "Voice Mode", FontWeight = FontWeight.SemiBold },
+                    new StackPanel
+                    {
+                        Orientation = Orientation.Horizontal,
+                        Spacing = 16,
+                        Children = { _singleVoiceRadio, _blendVoiceRadio }
+                    }
+                }
+            }
+        };
+
+        // Language card
+        var languageCard = new Border
+        {
+            BorderThickness = new Avalonia.Thickness(1),
+            Padding = new Avalonia.Thickness(10),
+            CornerRadius = new Avalonia.CornerRadius(6),
+            Child = new StackPanel
+            {
+                Spacing = 8,
+                Children =
+                {
+                    new TextBlock { Text = "Dialect / Language", FontWeight = FontWeight.SemiBold },
+                    new StackPanel
+                    {
+                        Orientation = Orientation.Horizontal,
+                        Spacing = 8,
+                        Children = { _languageNameText, chooseLanguageButton }
+                    }
+                }
+            }
+        };
+
+        // Rate card
+        var rateGrid = new Grid
+        {
+            ColumnDefinitions = new ColumnDefinitions("*,80"),
+            ColumnSpacing = 10
+        };
+        rateGrid.Children.Add(_speechRateSlider);
+        Grid.SetColumn(_speechRateText, 1);
+        rateGrid.Children.Add(_speechRateText);
+
+        var rateCard = new Border
+        {
+            BorderThickness = new Avalonia.Thickness(1),
+            Padding = new Avalonia.Thickness(10),
+            CornerRadius = new Avalonia.CornerRadius(6),
+            Child = new StackPanel
+            {
+                Spacing = 8,
+                Children =
+                {
+                    new TextBlock { Text = "Voice Speech Rate", FontWeight = FontWeight.SemiBold },
+                    rateGrid
+                }
+            }
+        };
+
+        // Top area grid
+        var topGrid = new Grid
+        {
+            ColumnDefinitions = new ColumnDefinitions("*,*"),
+            RowDefinitions = new RowDefinitions("Auto,Auto,Auto"),
+            ColumnSpacing = 10,
+            RowSpacing = 10
+        };
+
+        // Row 0
+        topGrid.Children.Add(presetCard);
+        Grid.SetRow(presetCard, 0);
+        Grid.SetColumn(presetCard, 0);
+
+        topGrid.Children.Add(_blendVoiceSection);
+        Grid.SetRow(_blendVoiceSection, 0);
+        Grid.SetColumn(_blendVoiceSection, 1);
+
+        // Row 1
+        topGrid.Children.Add(voiceModeCard);
+        Grid.SetRow(voiceModeCard, 1);
+        Grid.SetColumn(voiceModeCard, 0);
+
+        topGrid.Children.Add(languageCard);
+        Grid.SetRow(languageCard, 1);
+        Grid.SetColumn(languageCard, 1);
+
+        // Row 2
+        topGrid.Children.Add(_singleVoiceSection);
+        Grid.SetRow(_singleVoiceSection, 2);
+        Grid.SetColumn(_singleVoiceSection, 0);
+
+        topGrid.Children.Add(rateCard);
+        Grid.SetRow(rateCard, 2);
+        Grid.SetColumn(rateCard, 1);
 
         Content = new ScrollViewer
         {
@@ -246,83 +419,7 @@ public sealed class VoiceProfileEditorDialog : Window
                         TextWrapping = TextWrapping.Wrap
                     },
 
-                    new Border
-                    {
-                        BorderThickness = new Avalonia.Thickness(1),
-                        Padding = new Avalonia.Thickness(10),
-                        CornerRadius = new Avalonia.CornerRadius(6),
-                        Child = new StackPanel
-                        {
-                            Spacing = 8,
-                            Children =
-                            {
-                                new TextBlock { Text = "Voice Mode", FontWeight = FontWeight.SemiBold },
-                                new StackPanel
-                                {
-                                    Orientation = Orientation.Horizontal,
-                                    Spacing = 16,
-                                    Children = { _singleVoiceRadio, _blendVoiceRadio }
-                                }
-                            }
-                        }
-                    },
-
-                    _singleVoiceSection,
-                    _blendVoiceSection,
-
-                    new Border
-                    {
-                        BorderThickness = new Avalonia.Thickness(1),
-                        Padding = new Avalonia.Thickness(10),
-                        CornerRadius = new Avalonia.CornerRadius(6),
-                        Child = new StackPanel
-                        {
-                            Spacing = 8,
-                            Children =
-                            {
-                                new TextBlock { Text = "Dialect / Language", FontWeight = FontWeight.SemiBold },
-                                new StackPanel
-                                {
-                                    Orientation = Orientation.Horizontal,
-                                    Spacing = 8,
-                                    Children = { _languageNameText, chooseLanguageButton }
-                                },
-                                _languageCodeText
-                            }
-                        }
-                    },
-
-                    new Border
-                    {
-                        BorderThickness = new Avalonia.Thickness(1),
-                        Padding = new Avalonia.Thickness(10),
-                        CornerRadius = new Avalonia.CornerRadius(6),
-                        Child = new StackPanel
-                        {
-                            Spacing = 8,
-                            Children =
-                            {
-                                new TextBlock { Text = "Voice Speech Rate", FontWeight = FontWeight.SemiBold },
-                                new Grid
-                                {
-                                    ColumnDefinitions = new ColumnDefinitions("*,80"),
-                                    ColumnSpacing = 10,
-                                    Children =
-                                    {
-                                        _speechRateSlider,
-                                        _speechRateText
-                                    }
-                                },
-                                new TextBlock
-                                {
-                                    Text = "Affects synthesis voice delivery, not playback speed.",
-                                    Foreground = Brushes.Gray,
-                                    FontSize = 11,
-                                    TextWrapping = TextWrapping.Wrap
-                                }
-                            }
-                        }
-                    },
+                    topGrid,
 
                     new Border
                     {
@@ -339,7 +436,7 @@ public sealed class VoiceProfileEditorDialog : Window
                                 previewButton,
                                 new TextBlock
                                 {
-                                    Text = "Preview uses current unsaved settings and should not use cache or repeat suppression.",
+                                    Text = "Preview uses current unsaved settings and does not use cache or repeat suppression.",
                                     TextWrapping = TextWrapping.Wrap,
                                     Opacity = 0.8
                                 }
@@ -368,18 +465,90 @@ public sealed class VoiceProfileEditorDialog : Window
                         Orientation = Orientation.Horizontal,
                         HorizontalAlignment = HorizontalAlignment.Right,
                         Spacing = 8,
-                        Children = { cancelButton, applyButton }
+                        Children = { cancelButton, saveButton }
                     }
                 }
             }
         };
 
-        Grid.SetColumn(_speechRateText, 1);
-
+        ApplyProfileToControls();
+        TrySelectMatchingPreset();
         RefreshVoiceModeUi();
         RefreshSingleVoiceSummary();
         RefreshBlendSummary();
         RefreshSummary();
+    }
+
+    private void PresetCombo_SelectionChanged(object? sender, SelectionChangedEventArgs e)
+    {
+        if (_presetCombo.SelectedItem is SpeakerPreset preset)
+            _presetDescriptionText.Text = preset.Description;
+        else
+            _presetDescriptionText.Text = "";
+    }
+
+    private void UseRecommendedButton_Click(object? sender, RoutedEventArgs e)
+    {
+        var preset = SpeakerPresetCatalog.GetRecommendedForSlot(_slot);
+        if (preset != null)
+            ApplyPreset(preset);
+    }
+
+    private void ApplyPresetButton_Click(object? sender, RoutedEventArgs e)
+    {
+        if (_presetCombo.SelectedItem is SpeakerPreset preset)
+            ApplyPreset(preset);
+    }
+
+    private void ApplyPreset(SpeakerPreset preset)
+    {
+        _workingProfile.VoiceId = preset.Profile.VoiceId;
+        _workingProfile.LangCode = preset.Profile.LangCode;
+        _workingProfile.SpeechRate = preset.Profile.SpeechRate;
+
+        ApplyProfileToControls();
+        RefreshVoiceModeUi();
+        RefreshSingleVoiceSummary();
+        RefreshBlendSummary();
+        RefreshSummary();
+    }
+
+    private void TrySelectMatchingPreset()
+    {
+        var presets = SpeakerPresetCatalog.GetForSlot(_slot);
+        var match = presets.FirstOrDefault(p =>
+            string.Equals(p.Profile.VoiceId, _workingProfile.VoiceId, StringComparison.OrdinalIgnoreCase) &&
+            string.Equals(p.Profile.LangCode, _workingProfile.LangCode, StringComparison.OrdinalIgnoreCase) &&
+            Math.Abs(p.Profile.SpeechRate - _workingProfile.SpeechRate) < 0.001f);
+
+        _presetCombo.SelectedItem = match ?? SpeakerPresetCatalog.GetRecommendedForSlot(_slot);
+    }
+
+    private void ApplyProfileToControls()
+    {
+        var isBlend = _workingProfile.VoiceId.StartsWith(KokoroTtsProvider.MixPrefix, StringComparison.OrdinalIgnoreCase);
+        _singleVoiceRadio.IsChecked = !isBlend;
+        _blendVoiceRadio.IsChecked = isBlend;
+
+        if (!isBlend)
+            SetVoiceSelection(_workingProfile.VoiceId);
+
+        var currentLang = EspeakLanguageCatalog.All.FirstOrDefault(x =>
+            string.Equals(x.Code, _workingProfile.LangCode, StringComparison.OrdinalIgnoreCase));
+        _languageNameText.Text = currentLang?.DisplayName ?? _workingProfile.LangCode;
+
+        _speechRateSlider.Value = _workingProfile.SpeechRate;
+        _speechRateText.Text = _workingProfile.SpeechRate.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture);
+    }
+
+    private void SetVoiceSelection(string voiceId)
+    {
+        var match = _voiceCombo.ItemsSource?
+            .OfType<VoiceChoice>()
+            .FirstOrDefault(v => string.Equals(v.VoiceId, voiceId, StringComparison.OrdinalIgnoreCase));
+
+        if (match != null)
+            _voiceCombo.SelectedItem = match;
     }
 
     private void VoiceModeChanged(object? sender, RoutedEventArgs e)
@@ -391,6 +560,7 @@ public sealed class VoiceProfileEditorDialog : Window
     private void RefreshVoiceModeUi()
     {
         var isBlend = _blendVoiceRadio.IsChecked == true;
+
         _singleVoiceSection.IsVisible = !isBlend;
         _blendVoiceSection.IsVisible = isBlend;
 
@@ -411,9 +581,7 @@ public sealed class VoiceProfileEditorDialog : Window
             {
                 var first = ExtractFirstVoiceId(_workingProfile.VoiceId) ?? KokoroTtsProvider.DefaultVoiceId;
                 _workingProfile.VoiceId = first;
-                var match = KokoroTtsProvider.KnownVoices.FirstOrDefault(v => string.Equals(v.VoiceId, first, StringComparison.OrdinalIgnoreCase));
-                if (match != null)
-                    _voiceCombo.SelectedItem = match;
+                SetVoiceSelection(first);
             }
             RefreshSingleVoiceSummary();
         }
@@ -421,9 +589,9 @@ public sealed class VoiceProfileEditorDialog : Window
 
     private void VoiceCombo_SelectionChanged(object? sender, SelectionChangedEventArgs e)
     {
-        if (_singleVoiceRadio.IsChecked == true && _voiceCombo.SelectedItem is VoiceInfo vi)
+        if (_singleVoiceRadio.IsChecked == true && _voiceCombo.SelectedItem is VoiceChoice choice)
         {
-            _workingProfile.VoiceId = vi.VoiceId;
+            _workingProfile.VoiceId = choice.VoiceId;
             RefreshSingleVoiceSummary();
             RefreshSummary();
         }
@@ -431,12 +599,10 @@ public sealed class VoiceProfileEditorDialog : Window
 
     private void RefreshSingleVoiceSummary()
     {
-        if (_voiceCombo.SelectedItem is VoiceInfo vi)
-            _voiceSummaryText.Text = $"{vi.Name} · {vi.Language}";
-        else
-            _voiceSummaryText.Text = string.IsNullOrWhiteSpace(_workingProfile.VoiceId)
-                ? "Select a voice."
-                : _workingProfile.VoiceId;
+        _voiceSummaryText.Text =
+            _voiceCombo.SelectedItem is VoiceChoice choice
+                ? choice.Display
+                : "Select a voice.";
     }
 
     private void RefreshBlendSummary()
@@ -445,19 +611,16 @@ public sealed class VoiceProfileEditorDialog : Window
         if (parts.Length == 0)
         {
             _blendSummaryText.Text = "No blend configured.";
-            _blendRawText.Text = "";
             return;
         }
 
-        var summary = string.Join(" + ", parts.Select(p =>
+        _blendSummaryText.Text = string.Join(" + ", parts.Select(p =>
         {
-            var voice = KokoroTtsProvider.KnownVoices.FirstOrDefault(v => string.Equals(v.VoiceId, p.voiceId, StringComparison.OrdinalIgnoreCase));
+            var voice = KokoroTtsProvider.KnownVoices.FirstOrDefault(v =>
+                string.Equals(v.VoiceId, p.voiceId, StringComparison.OrdinalIgnoreCase));
             var label = voice?.Name ?? p.voiceId;
             return $"{label} {(p.weight * 100):0.#}%";
         }));
-
-        _blendSummaryText.Text = summary;
-        _blendRawText.Text = _workingProfile.VoiceId;
     }
 
     private void RefreshSummary()
@@ -472,7 +635,6 @@ public sealed class VoiceProfileEditorDialog : Window
             $"Mode: {mode}\n" +
             $"Voice: {voiceText}\n" +
             $"Dialect / Language: {lang}\n" +
-            $"Code: {_workingProfile.LangCode}\n" +
             $"Voice Speech Rate: {_workingProfile.SpeechRate:0.00}x";
     }
 
@@ -498,7 +660,6 @@ public sealed class VoiceProfileEditorDialog : Window
 
         _workingProfile.LangCode = selected.Code;
         _languageNameText.Text = selected.DisplayName;
-        _languageCodeText.Text = $"Code: {selected.Code}";
         RefreshSummary();
     }
 
@@ -551,8 +712,12 @@ public sealed class VoiceProfileEditorDialog : Window
                 return (part, 1f);
 
             var id = part[..colon];
-            var weight = float.TryParse(part[(colon + 1)..], System.Globalization.NumberStyles.Float,
-                System.Globalization.CultureInfo.InvariantCulture, out var w) ? w : 1f;
+            var weight = float.TryParse(
+                part[(colon + 1)..],
+                System.Globalization.NumberStyles.Float,
+                System.Globalization.CultureInfo.InvariantCulture,
+                out var w) ? w : 1f;
+
             return (id, weight);
         }).ToArray();
     }
