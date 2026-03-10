@@ -43,19 +43,27 @@ internal static class Program
     #if WINDOWS
         if (provider is WinRtTtsProvider winRtProvider)
         {
-            foreach (var (key, voiceId) in settings.VoiceAssignments)
+            foreach (var (key, profile) in settings.VoiceProfiles)
                 if (VoiceSlot.TryParse(key, out var slot))
-                    winRtProvider.SetVoice(slot, voiceId);
+                    winRtProvider.SetVoice(slot, profile.VoiceId);
+        }
+    #elif LINUX
+        if (provider is LinuxPiperTtsProvider piperProvider)
+        {
+            foreach (var (key, profile) in settings.VoiceProfiles)
+                if (VoiceSlot.TryParse(key, out var slot))
+                    piperProvider.SetModel(slot, profile.VoiceId);
         }
     #endif
 
         if (provider is KokoroTtsProvider kokoroProvider)
         {
-            foreach (var (key, voiceId) in settings.VoiceAssignments)
+            foreach (var (key, profile) in settings.VoiceProfiles)
                 if (VoiceSlot.TryParse(key, out var slot))
-                    kokoroProvider.SetVoice(slot, voiceId);
+                    kokoroProvider.SetVoiceProfile(slot, profile);
             kokoroProvider.EnablePhraseChunking = settings.EnablePhraseChunking;
         }
+
 
         var cacheDir = !string.IsNullOrWhiteSpace(settings.CacheDirectoryOverride)
             ? settings.CacheDirectoryOverride

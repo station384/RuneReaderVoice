@@ -10,7 +10,23 @@ namespace RuneReaderVoice.UI.Views;
 
 public partial class MainWindow
 {
-    private void OnPronunciationRuleInputChanged(object? sender, RoutedEventArgs e)
+    private void OnPronunciationRuleSelectionChanged(object? sender, SelectionChangedEventArgs e)
+    {
+        if (_pronunciationUiInitializing)
+            return;
+
+        UpdatePronunciationRuleUi();
+    }
+
+    private void OnPronunciationRuleTextChanged(object? sender, TextChangedEventArgs e)
+    {
+        if (_pronunciationUiInitializing)
+            return;
+
+        UpdatePronunciationRuleUi();
+    }
+
+    private void OnPronunciationRuleClickChanged(object? sender, RoutedEventArgs e)
     {
         if (_pronunciationUiInitializing)
             return;

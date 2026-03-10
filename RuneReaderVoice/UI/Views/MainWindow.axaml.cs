@@ -28,9 +28,8 @@ public partial class MainWindow : Window
         PopulateProviderSelector();
         LoadSettingsIntoUI();
         PopulateAudioDevices();
-        // Seed Kokoro defaults if it is the active provider and has no assignments yet
-        if (AppServices.Settings.ActiveProvider == "kokoro")
-            ApplyKokoroDefaults();
+
+
         PopulateVoiceGrid();
         PopulateVolumeTrimGrid();
         SetPlatformVisibility();
