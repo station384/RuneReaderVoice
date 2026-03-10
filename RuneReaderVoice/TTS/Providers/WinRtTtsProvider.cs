@@ -42,22 +42,17 @@ namespace RuneReaderVoice.TTS.Providers;
 [SupportedOSPlatform("windows10.0.10240.0")]
 public sealed class WinRtTtsProvider : ITtsProvider
 {
-    // One synthesizer instance per accent group slot for concurrent synthesis.
-    // In practice we synthesize sequentially, so one instance is fine for now.
     private readonly SpeechSynthesizer _synth = new();
     private bool _disposed;
 
-    // Voice assignments: VoiceSlot → WinRT VoiceInformation
-    // Populated by the settings layer via SetVoice().
     private readonly Dictionary<VoiceSlot, VoiceInformation> _voiceAssignments = new();
-    // Parallel raw ID store for cache keying (VoiceInformation.Id is the same string)
     private readonly Dictionary<VoiceSlot, string> _voiceIds = new();
 
     public string ProviderId   => "winrt";
     public string DisplayName  => "Windows Speech (WinRT)";
-    public bool IsAvailable    => true; // always available on Windows build
+    public bool IsAvailable    => true;
     public bool SupportsInlinePronunciationHints => false;
-    public bool RequiresFullText => false; // WinRT handles short segments fine
+    public bool RequiresFullText => false;
 
     public string ResolveVoiceId(VoiceSlot slot)
         => _voiceIds.TryGetValue(slot, out var id) ? id : string.Empty;
@@ -75,7 +70,6 @@ public sealed class WinRtTtsProvider : ITtsProvider
             .ToList();
     }
 
-    /// <summary>Assigns a WinRT voice to a specific slot.</summary>
     public void SetVoice(VoiceSlot slot, string voiceId)
     {
         var voice = SpeechSynthesizer.AllVoices.FirstOrDefault(v => v.Id == voiceId);
@@ -86,40 +80,34 @@ public sealed class WinRtTtsProvider : ITtsProvider
         }
     }
 
-    public async Task<string> SynthesizeToFileAsync(
+    public async Task<PcmAudio> SynthesizeAsync(
         string text,
         VoiceSlot slot,
-        string outputPath,
         CancellationToken ct)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
 
-        // Apply the assigned voice for this slot
         if (_voiceAssignments.TryGetValue(slot, out var voice))
             _synth.Voice = voice;
-        // else: use the synthesizer's default voice
 
         var stream = await _synth.SynthesizeTextToStreamAsync(text);
-
         ct.ThrowIfCancellationRequested();
 
-        // Ensure .wav extension
-        var wavPath = Path.ChangeExtension(outputPath, ".wav");
-        await using var fileStream = File.Create(wavPath);
-        await stream.AsStream().CopyToAsync(fileStream, ct);
+        await using var wavStream = stream.AsStream();
+        using var ms = new MemoryStream();
+        await wavStream.CopyToAsync(ms, ct);
+        ms.Position = 0;
 
-        return wavPath;
+        return ReadWavToPcm(ms);
     }
 
-    public async IAsyncEnumerable<(string wavPath, int phraseIndex, int phraseCount)>
+    public async IAsyncEnumerable<(PcmAudio audio, int phraseIndex, int phraseCount)>
         SynthesizePhraseStreamAsync(
             string text, VoiceSlot slot, string tempDirectory,
             [EnumeratorCancellation] CancellationToken ct)
     {
-        // WinRT synthesizes the full text at once — yield a single result.
-        var tmpPath = Path.Combine(tempDirectory, $"winrt_{Guid.NewGuid():N}.wav");
-        var wavPath = await SynthesizeToFileAsync(text, slot, tmpPath, ct);
-        yield return (wavPath, 0, 1);
+        var audio = await SynthesizeAsync(text, slot, ct);
+        yield return (audio, 0, 1);
     }
 
     public void Dispose()
@@ -127,6 +115,73 @@ public sealed class WinRtTtsProvider : ITtsProvider
         if (_disposed) return;
         _disposed = true;
         _synth.Dispose();
+    }
+
+    private static PcmAudio ReadWavToPcm(Stream stream)
+    {
+        using var reader = new BinaryReader(stream, System.Text.Encoding.UTF8, leaveOpen: true);
+
+        var riff = new string(reader.ReadChars(4));
+        if (riff != "RIFF") throw new InvalidDataException("Invalid WAV: missing RIFF header.");
+
+        reader.ReadInt32();
+        var wave = new string(reader.ReadChars(4));
+        if (wave != "WAVE") throw new InvalidDataException("Invalid WAV: missing WAVE header.");
+
+        int sampleRate = 0;
+        int channels = 0;
+        int bitsPerSample = 0;
+        byte[]? dataBytes = null;
+
+        while (stream.Position <= stream.Length - 8)
+        {
+            var chunkId = new string(reader.ReadChars(4));
+            var chunkSize = reader.ReadInt32();
+
+            if (chunkId == "fmt ")
+            {
+                var audioFormat = reader.ReadInt16();
+                channels = reader.ReadInt16();
+                sampleRate = reader.ReadInt32();
+                reader.ReadInt32();
+                reader.ReadInt16();
+                bitsPerSample = reader.ReadInt16();
+
+                if (chunkSize > 16)
+                    reader.ReadBytes(chunkSize - 16);
+
+                if (audioFormat != 1)
+                    throw new InvalidDataException($"Unsupported WAV format: {audioFormat}.");
+            }
+            else if (chunkId == "data")
+            {
+                dataBytes = reader.ReadBytes(chunkSize);
+            }
+            else
+            {
+                reader.ReadBytes(chunkSize);
+            }
+
+            if ((chunkSize & 1) != 0 && stream.Position < stream.Length)
+                reader.ReadByte();
+
+            if (sampleRate > 0 && channels > 0 && bitsPerSample > 0 && dataBytes != null)
+                break;
+        }
+
+        if (dataBytes == null || sampleRate <= 0 || channels <= 0 || bitsPerSample != 16)
+            throw new InvalidDataException("Unsupported or incomplete WAV returned by WinRT TTS.");
+
+        var sampleCount = dataBytes.Length / 2;
+        var samples = new float[sampleCount];
+        for (int i = 0; i < sampleCount; i++)
+        {
+            int byteIndex = i * 2;
+            short sample = (short)(dataBytes[byteIndex] | (dataBytes[byteIndex + 1] << 8));
+            samples[i] = sample / 32768f;
+        }
+
+        return new PcmAudio(samples, sampleRate, channels);
     }
 }
 #endif

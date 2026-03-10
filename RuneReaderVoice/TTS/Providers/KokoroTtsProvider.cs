@@ -167,29 +167,27 @@ public sealed class KokoroTtsProvider : ITtsProvider
         _voiceCache.Remove(voiceId);
     }
 
-    public async Task<string> SynthesizeToFileAsync(
-        string text, VoiceSlot slot, string outputPath, CancellationToken ct)
+    public async Task<PcmAudio> SynthesizeAsync(
+        string text, VoiceSlot slot, CancellationToken ct)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
         await EnsureInitializedAsync(ct);
         ct.ThrowIfCancellationRequested();
 
-        var voice   = GetVoiceForSlot(slot);
-        var wavPath = Path.ChangeExtension(outputPath, ".wav");
-        var pcm     = await Task.Run(() => InferAllPhrases(text, voice), ct);
+        var voice = GetVoiceForSlot(slot);
+        var pcm   = await Task.Run(() => InferAllPhrases(text, voice), ct);
 
         ct.ThrowIfCancellationRequested();
-        await File.WriteAllBytesAsync(wavPath, PcmToWav(pcm, 24000), ct);
-        return wavPath;
+        return new PcmAudio(pcm, 24000, 1);
     }
 
     /// <summary>
     /// Streams synthesized audio phrase by phrase.
     /// All phrase jobs are enqueued immediately so the ONNX engine works on them
-    /// concurrently. Each phrase WAV is yielded as soon as its encoding completes,
-    /// allowing the coordinator to start playing phrase 0 while phrase 1 encodes.
+    /// concurrently. Each phrase PCM buffer is yielded as soon as it completes,
+    /// allowing the coordinator to start caching and playing phrase 0 while phrase 1 synthesizes.
     /// </summary>
-    public async IAsyncEnumerable<(string wavPath, int phraseIndex, int phraseCount)>
+    public async IAsyncEnumerable<(PcmAudio audio, int phraseIndex, int phraseCount)>
         SynthesizePhraseStreamAsync(
             string text,
             VoiceSlot slot,
@@ -272,10 +270,8 @@ public sealed class KokoroTtsProvider : ITtsProvider
             {
                 pending.Remove(nextExpected);
 
-                var tmpPath = Path.Combine(tempDirectory, $"phrase_{nextExpected}_{Guid.NewGuid():N}.wav");
-                await File.WriteAllBytesAsync(tmpPath, PcmToWav(readyPcm, 24000), ct);
-
-                yield return (tmpPath, nextExpected, count);
+                ct.ThrowIfCancellationRequested();
+                yield return (new PcmAudio(readyPcm, 24000, 1), nextExpected, count);
                 nextExpected++;
             }
         }
@@ -283,7 +279,7 @@ public sealed class KokoroTtsProvider : ITtsProvider
 
     // ── PCM inference ─────────────────────────────────────────────────────────
 
-    // Full-text blocking inference used by SynthesizeToFileAsync.
+    // Full-text blocking inference used by SynthesizeAsync.
     private float[] InferAllPhrases(string text, KokoroVoice voice)
     {
         var phrases     = TextSplitter.Split(text);

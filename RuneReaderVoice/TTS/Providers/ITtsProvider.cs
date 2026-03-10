@@ -19,12 +19,9 @@
 // ITtsProvider.cs
 // Abstraction for all TTS synthesis backends.
 //
-// Design: providers write synthesized audio to a file path.
-// The cache layer sits between the provider and the playback layer.
-// Providers never play audio directly.
-//
-// All providers synthesize to WAV internally. The cache layer handles
-// OGG transcoding and silence trimming before writing to the cache.
+// Providers synthesize to in-memory PCM. They do not create temporary WAV files.
+// The cache layer is responsible for the first on-disk write, which is the
+// final cached WAV or OGG file.
 
 using System;
 using System.Collections.Generic;
@@ -41,6 +38,26 @@ public sealed class VoiceInfo
     public string Name      { get; init; } = string.Empty;
     public string Language  { get; init; } = string.Empty;
     public Gender Gender    { get; init; }
+}
+
+public sealed class PcmAudio
+{
+    public PcmAudio(float[] samples, int sampleRate, int channels = 1)
+    {
+        Samples = samples ?? Array.Empty<float>();
+        SampleRate = sampleRate;
+        Channels = channels <= 0 ? 1 : channels;
+    }
+
+    /// <summary>
+    /// Interleaved floating-point PCM samples in the range [-1, 1].
+    /// Mono providers use Channels = 1.
+    /// </summary>
+    public float[] Samples { get; }
+
+    public int SampleRate { get; }
+
+    public int Channels { get; }
 }
 
 public interface ITtsProvider : IDisposable
@@ -69,36 +86,26 @@ public interface ITtsProvider : IDisposable
     bool SupportsInlinePronunciationHints { get; }
 
     /// <summary>
-    /// Synthesizes text phrase-by-phrase, yielding a WAV file path as each
-    /// phrase completes encoding. Allows the coordinator to begin playback of
-    /// the first phrase while later phrases are still being synthesized.
+    /// Synthesizes text phrase-by-phrase, yielding PCM as each phrase completes.
+    /// Allows the coordinator to begin caching and playback of the first phrase
+    /// while later phrases are still synthesizing.
     ///
-    /// Implementations that cannot stream (e.g. WinRT, Piper) should yield a
-    /// single result identical to SynthesizeToFileAsync — the coordinator
-    /// handles both cases identically.
-    ///
-    /// Each yielded path is a temporary WAV. The coordinator owns the file
-    /// after it is yielded and will move/delete it.
-    ///
-    /// phraseIndex is 0-based and monotonically increasing within a call.
-    /// The full original text is passed as fullText for cache-key purposes.
+    /// Implementations that cannot stream should yield a single result identical
+    /// to <see cref="SynthesizeAsync"/>.
     /// </summary>
-    IAsyncEnumerable<(string wavPath, int phraseIndex, int phraseCount)> SynthesizePhraseStreamAsync(
+    IAsyncEnumerable<(PcmAudio audio, int phraseIndex, int phraseCount)> SynthesizePhraseStreamAsync(
         string text,
         VoiceSlot slot,
         string tempDirectory,
         CancellationToken ct);
 
     /// <summary>
-    /// Synthesizes text and writes raw WAV audio to outputPath.
-    /// Returns the path actually written (may differ in extension if the provider
-    /// chooses a different format).
-    /// The caller is responsible for post-processing (silence trim, OGG transcode).
+    /// Synthesizes text to in-memory PCM.
+    /// Providers must not create temporary files here.
     /// </summary>
-    Task<string> SynthesizeToFileAsync(
+    Task<PcmAudio> SynthesizeAsync(
         string text,
         VoiceSlot slot,
-        string outputPath,
         CancellationToken ct);
 
     /// <summary>

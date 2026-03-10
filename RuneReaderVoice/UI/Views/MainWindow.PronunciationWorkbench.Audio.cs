@@ -1,12 +1,34 @@
 using System;
-using System.IO;
 using System.Threading.Tasks;
 using Avalonia.Interactivity;
 using Avalonia.Controls;
+using RuneReaderVoice.Protocol;
 namespace RuneReaderVoice.UI.Views;
 
 public partial class MainWindow
 {
+    private async Task<string> GetOrCreateAudioPathAsync(string text, VoiceSlot slot)
+    {
+        var voiceId = AppServices.Provider.ResolveVoiceId(slot);
+
+        var cachedPath = await AppServices.Cache.TryGetAsync(
+            text,
+            voiceId,
+            AppServices.Provider.ProviderId);
+
+        if (cachedPath != null)
+            return cachedPath;
+
+        var audio = await AppServices.Provider.SynthesizeAsync(text, slot, default);
+
+        return await AppServices.Cache.StoreAsync(
+            audio,
+            text,
+            voiceId,
+            AppServices.Provider.ProviderId,
+            default);
+    }
+
     private async Task SpeakWorkbenchTextAsync(string text)
     {
         if (string.IsNullOrWhiteSpace(text))
@@ -16,12 +38,9 @@ public partial class MainWindow
         }
 
         var slot = ResolveWorkbenchSlot();
-        var outPath = Path.Combine(
-            Path.GetTempPath(),
-            $"rrv_pron_preview_{Guid.NewGuid():N}.wav");
+        var audioPath = await GetOrCreateAudioPathAsync(text, slot);
 
-        await AppServices.Provider.SynthesizeToFileAsync(text, slot, outPath, default);
-        await AppServices.Player.PlayAsync(outPath, default);
+        await AppServices.Player.PlayAsync(audioPath, default);
     }
 
     private async void OnPronunciationSpeakOriginalClicked(object? sender, RoutedEventArgs e)

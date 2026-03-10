@@ -50,12 +50,12 @@ public sealed class NotImplementedTtsProvider : ITtsProvider
 
     public IReadOnlyList<VoiceInfo> GetAvailableVoices() => Array.Empty<VoiceInfo>();
 
-    public Task<string> SynthesizeToFileAsync(
-        string text, VoiceSlot slot, string outputPath, CancellationToken ct)
+    public Task<PcmAudio> SynthesizeAsync(
+        string text, VoiceSlot slot, CancellationToken ct)
         => throw new NotImplementedException($"{_displayName} is not yet implemented.");
 
 #pragma warning disable CS1998
-    public async IAsyncEnumerable<(string wavPath, int phraseIndex, int phraseCount)>
+    public async IAsyncEnumerable<(PcmAudio audio, int phraseIndex, int phraseCount)>
         SynthesizePhraseStreamAsync(
             string text, VoiceSlot slot, string tempDirectory,
             [EnumeratorCancellation] CancellationToken ct)

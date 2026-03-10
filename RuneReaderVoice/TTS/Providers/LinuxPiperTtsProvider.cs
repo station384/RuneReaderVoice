@@ -19,15 +19,11 @@
 #if LINUX
 // LinuxPiperTtsProvider.cs
 // TTS synthesis via Piper (by Rhasspy/Nabu Casa) on Linux.
-// Piper is invoked as a subprocess: text is piped to stdin, WAV is read from stdout.
-//
-// Piper binary and model paths are user-configurable in settings.
-// Model files (.onnx + .onnx.json) must be downloaded separately.
-// The settings UI shows installed models and links to the download page.
-//
-// https://github.com/rhasspy/piper
+// Piper is invoked as a subprocess: text is piped to stdin and WAV is read
+// back from stdout so no temporary files are created.
 
 using System.Diagnostics;
+using System.IO;
 using System.Runtime.CompilerServices;
 using RuneReaderVoice.Protocol;
 
@@ -37,10 +33,7 @@ public sealed class LinuxPiperTtsProvider : ITtsProvider
 {
     private readonly string _piperBinaryPath;
     private readonly string _modelDirectory;
-
-    // VoiceSlot → model file path (e.g. "/home/user/.local/share/piper/en_US-lessac-medium.onnx")
     private readonly Dictionary<VoiceSlot, string> _modelAssignments = new();
-
     private bool _disposed;
 
     public string ProviderId   => "piper";
@@ -58,12 +51,11 @@ public sealed class LinuxPiperTtsProvider : ITtsProvider
         _modelDirectory  = modelDirectory;
     }
 
-    public string ResolveVoiceId(VoiceSlot slot) => string.Empty;
+    public string ResolveVoiceId(VoiceSlot slot)
+        => _modelAssignments.TryGetValue(slot, out var modelPath) ? modelPath : string.Empty;
 
     public IReadOnlyList<VoiceInfo> GetAvailableVoices()
     {
-        // Enumerate .onnx files in the model directory.
-        // Each .onnx file is a Piper voice model.
         if (!Directory.Exists(_modelDirectory))
             return Array.Empty<VoiceInfo>();
 
@@ -71,60 +63,55 @@ public sealed class LinuxPiperTtsProvider : ITtsProvider
             .Select(path =>
             {
                 var name = Path.GetFileNameWithoutExtension(path);
-                // Piper model names are typically: lang_REGION-voice-quality
-                // e.g. en_US-lessac-medium, en_GB-alan-medium
                 return new VoiceInfo
                 {
                     VoiceId  = path,
                     Name     = name,
                     Language = ExtractLanguage(name),
-                    Gender   = Gender.Unknown, // Piper doesn't expose gender in model name
+                    Gender   = Gender.Unknown,
                 };
             })
             .ToList();
     }
 
-    /// <summary>Assigns a Piper model file to a voice slot.</summary>
     public void SetModel(VoiceSlot slot, string modelPath)
     {
         _modelAssignments[slot] = modelPath;
     }
 
-    public async Task<string> SynthesizeToFileAsync(
+    public async Task<PcmAudio> SynthesizeAsync(
         string text,
         VoiceSlot slot,
-        string outputPath,
         CancellationToken ct)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
 
         if (!_modelAssignments.TryGetValue(slot, out var modelPath))
         {
-            // Fall back to any assigned model
             modelPath = _modelAssignments.Values.FirstOrDefault()
                 ?? throw new InvalidOperationException("No Piper model assigned for slot: " + slot);
         }
 
-        var wavPath = Path.ChangeExtension(outputPath, ".wav");
-
-        // piper --model <model> --output_file <wavPath>
-        // Text is piped to stdin.
         var psi = new ProcessStartInfo
         {
-            FileName               = _piperBinaryPath,
-            Arguments              = $"--model \"{modelPath}\" --output_file \"{wavPath}\"",
-            RedirectStandardInput  = true,
-            RedirectStandardError  = true,
-            UseShellExecute        = false,
-            CreateNoWindow         = true,
+            FileName              = _piperBinaryPath,
+            Arguments             = $"--model "{modelPath}"",
+            RedirectStandardInput = true,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            UseShellExecute       = false,
+            CreateNoWindow        = true,
         };
 
         using var process = Process.Start(psi)
             ?? throw new InvalidOperationException("Failed to start Piper process.");
 
-        await process.StandardInput.WriteAsync(text);
+        await process.StandardInput.WriteAsync(text.AsMemory(), ct);
+        await process.StandardInput.WriteLineAsync();
         process.StandardInput.Close();
 
+        using var wavBuffer = new MemoryStream();
+        await process.StandardOutput.BaseStream.CopyToAsync(wavBuffer, ct);
         await process.WaitForExitAsync(ct);
 
         if (process.ExitCode != 0)
@@ -133,17 +120,17 @@ public sealed class LinuxPiperTtsProvider : ITtsProvider
             throw new InvalidOperationException($"Piper exited with code {process.ExitCode}: {err}");
         }
 
-        return wavPath;
+        wavBuffer.Position = 0;
+        return ReadWavToPcm(wavBuffer);
     }
 
-    public async IAsyncEnumerable<(string wavPath, int phraseIndex, int phraseCount)>
+    public async IAsyncEnumerable<(PcmAudio audio, int phraseIndex, int phraseCount)>
         SynthesizePhraseStreamAsync(
             string text, VoiceSlot slot, string tempDirectory,
             [EnumeratorCancellation] CancellationToken ct)
     {
-        var tmpPath = Path.Combine(tempDirectory, $"piper_{Guid.NewGuid():N}.wav");
-        var wavPath = await SynthesizeToFileAsync(text, slot, tmpPath, ct);
-        yield return (wavPath, 0, 1);
+        var audio = await SynthesizeAsync(text, slot, ct);
+        yield return (audio, 0, 1);
     }
 
     public void Dispose()
@@ -153,9 +140,75 @@ public sealed class LinuxPiperTtsProvider : ITtsProvider
 
     private static string ExtractLanguage(string modelName)
     {
-        // "en_US-lessac-medium" → "en_US"
-        var underscore = modelName.IndexOf('-');
-        return underscore > 0 ? modelName[..underscore] : modelName;
+        var hyphen = modelName.IndexOf('-');
+        return hyphen > 0 ? modelName[..hyphen] : modelName;
+    }
+
+    private static PcmAudio ReadWavToPcm(Stream stream)
+    {
+        using var reader = new BinaryReader(stream, System.Text.Encoding.UTF8, leaveOpen: true);
+
+        var riff = new string(reader.ReadChars(4));
+        if (riff != "RIFF") throw new InvalidDataException("Invalid WAV: missing RIFF header.");
+
+        reader.ReadInt32();
+        var wave = new string(reader.ReadChars(4));
+        if (wave != "WAVE") throw new InvalidDataException("Invalid WAV: missing WAVE header.");
+
+        int sampleRate = 0;
+        int channels = 0;
+        int bitsPerSample = 0;
+        byte[]? dataBytes = null;
+
+        while (stream.Position <= stream.Length - 8)
+        {
+            var chunkId = new string(reader.ReadChars(4));
+            var chunkSize = reader.ReadInt32();
+
+            if (chunkId == "fmt ")
+            {
+                var audioFormat = reader.ReadInt16();
+                channels = reader.ReadInt16();
+                sampleRate = reader.ReadInt32();
+                reader.ReadInt32();
+                reader.ReadInt16();
+                bitsPerSample = reader.ReadInt16();
+
+                if (chunkSize > 16)
+                    reader.ReadBytes(chunkSize - 16);
+
+                if (audioFormat != 1)
+                    throw new InvalidDataException($"Unsupported WAV format: {audioFormat}.");
+            }
+            else if (chunkId == "data")
+            {
+                dataBytes = reader.ReadBytes(chunkSize);
+            }
+            else
+            {
+                reader.ReadBytes(chunkSize);
+            }
+
+            if ((chunkSize & 1) != 0 && stream.Position < stream.Length)
+                reader.ReadByte();
+
+            if (sampleRate > 0 && channels > 0 && bitsPerSample > 0 && dataBytes != null)
+                break;
+        }
+
+        if (dataBytes == null || sampleRate <= 0 || channels <= 0 || bitsPerSample != 16)
+            throw new InvalidDataException("Unsupported or incomplete WAV returned by Piper.");
+
+        var sampleCount = dataBytes.Length / 2;
+        var samples = new float[sampleCount];
+        for (int i = 0; i < sampleCount; i++)
+        {
+            int byteIndex = i * 2;
+            short sample = (short)(dataBytes[byteIndex] | (dataBytes[byteIndex + 1] << 8));
+            samples[i] = sample / 32768f;
+        }
+
+        return new PcmAudio(samples, sampleRate, channels);
     }
 }
 #endif

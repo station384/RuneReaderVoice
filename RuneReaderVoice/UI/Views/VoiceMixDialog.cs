@@ -16,16 +16,13 @@
 // You should have received a copy of the GNU General Public License
 // along with RuneReaderVoice. If not, see <https://www.gnu.org/licenses/>.
 
-
-// VoiceMixDialog.axaml.cs
-// Inline dialog for building a Kokoro voice blend spec.
-// Shows up to 4 voice+weight rows. Produces a "mix:id:w|id:w" string
-// that KokoroTtsProvider.ResolveMix() understands.
-
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
+using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Controls.Primitives;
 using Avalonia.Layout;
 using Avalonia.Media;
 using RuneReaderVoice.TTS.Providers;
@@ -36,49 +33,78 @@ public sealed class VoiceMixDialog : Window
 {
     public string? ResultSpec { get; private set; }
 
-    private readonly List<(ComboBox voiceCombo, NumericUpDown weightBox)> _rows = new();
+    private sealed class MixRow
+    {
+        public required ComboBox VoiceCombo { get; init; }
+        public required Slider PercentSlider { get; init; }
+        public required TextBlock PercentLabel { get; init; }
+        public required Grid RowGrid { get; init; }
+    }
+
+    private readonly List<MixRow> _rows = new();
     private readonly StackPanel _rowsPanel;
     private readonly IReadOnlyList<VoiceInfo> _voices;
+    private readonly TextBlock _totalLabel;
 
     public VoiceMixDialog(IReadOnlyList<VoiceInfo> voices, string? existingSpec = null)
     {
         _voices = voices;
 
-        Title           = "Voice Mix Editor";
-        Width           = 440;
-        SizeToContent   = SizeToContent.Height;
-        Background      = SolidColorBrush.Parse("#1A1A2E");
+        Title = "Voice Mix Editor";
+        Width = 560;
+        SizeToContent = SizeToContent.Height;
+        Background = SolidColorBrush.Parse("#1A1A2E");
         WindowStartupLocation = WindowStartupLocation.CenterOwner;
-        CanResize       = false;
+        CanResize = false;
 
-        _rowsPanel = new StackPanel { Spacing = 6, Margin = new Avalonia.Thickness(12, 8, 12, 4) };
+        _rowsPanel = new StackPanel
+        {
+            Spacing = 8,
+            Margin = new Thickness(12, 8, 12, 4)
+        };
 
         var addButton = new Button
         {
-            Content    = "+ Add Voice",
-            Margin     = new Avalonia.Thickness(12, 4, 12, 0),
+            Content = "+ Add Voice",
+            Margin = new Thickness(12, 4, 12, 0),
             Background = SolidColorBrush.Parse("#0F3460"),
             Foreground = Brushes.White,
             HorizontalAlignment = HorizontalAlignment.Left,
         };
-        addButton.Click += (_, _) => { if (_rows.Count < 4) AddRow(); };
+        addButton.Click += (_, _) =>
+        {
+            if (_rows.Count < 4)
+            {
+                AddRow();
+                RebalanceEvenly();
+                RefreshTotals();
+            }
+        };
+
+        _totalLabel = new TextBlock
+        {
+            Text = "Total: 100%",
+            Foreground = SolidColorBrush.Parse("#B8B8D8"),
+            FontSize = 11,
+            Margin = new Thickness(12, 2, 12, 2),
+        };
 
         var hint = new TextBlock
         {
-            Text       = "Weights are relative — they don't need to sum to 1.",
+            Text = "Adjust each voice as a percentage of the final mix.",
             Foreground = SolidColorBrush.Parse("#888"),
-            FontSize   = 10,
-            Margin     = new Avalonia.Thickness(12, 4, 12, 8),
+            FontSize = 10,
+            Margin = new Thickness(12, 2, 12, 8),
         };
 
         var okButton = new Button
         {
-            Content    = "Apply Mix",
+            Content = "Apply Mix",
             Background = SolidColorBrush.Parse("#E94560"),
             Foreground = Brushes.White,
-            FontWeight = Avalonia.Media.FontWeight.SemiBold,
+            FontWeight = FontWeight.SemiBold,
             HorizontalAlignment = HorizontalAlignment.Right,
-            Margin     = new Avalonia.Thickness(12, 4, 12, 12),
+            Margin = new Thickness(12, 4, 12, 12),
         };
         okButton.Click += OnApply;
 
@@ -88,124 +114,242 @@ public sealed class VoiceMixDialog : Window
             {
                 new TextBlock
                 {
-                    Text       = "Blend up to 4 voices. Drag weights to taste.",
+                    Text = "Blend up to 4 voices.",
                     Foreground = SolidColorBrush.Parse("#E0E0FF"),
-                    Margin     = new Avalonia.Thickness(12, 12, 12, 6),
+                    Margin = new Thickness(12, 12, 12, 6),
+                    FontSize = 14,
+                    FontWeight = FontWeight.SemiBold
                 },
                 _rowsPanel,
                 addButton,
+                _totalLabel,
                 hint,
                 okButton,
             }
         };
 
-        // Pre-populate from existing spec if provided
         if (!string.IsNullOrWhiteSpace(existingSpec))
             ParseExisting(existingSpec);
         else
-            AddRow(); // start with one row
+            AddRow(percent: 100);
+
+        RefreshTotals();
     }
 
-    private void AddRow(string voiceId = "", float weight = 1f)
+    private void AddRow(string voiceId = "", double percent = 25)
     {
         var voiceCombo = new ComboBox
         {
             HorizontalAlignment = HorizontalAlignment.Stretch,
-            Width = 220,
+            MinWidth = 240
         };
+
         foreach (var v in _voices)
             voiceCombo.Items.Add(new ComboBoxItem { Content = v.Name, Tag = v.VoiceId });
 
         if (!string.IsNullOrEmpty(voiceId))
         {
-            var match = voiceCombo.Items.OfType<ComboBoxItem>()
+            var match = voiceCombo.Items
+                .OfType<ComboBoxItem>()
                 .FirstOrDefault(i => i.Tag?.ToString() == voiceId);
-            if (match != null) voiceCombo.SelectedItem = match;
+
+            if (match != null)
+                voiceCombo.SelectedItem = match;
         }
         else
-            voiceCombo.SelectedIndex = _rows.Count < _voices.Count ? _rows.Count : 0;
-
-        var weightBox = new NumericUpDown
         {
-            Minimum   = 0.05m,
-            Maximum   = 10m,
-            Increment = 0.05m,
-            Value     = (decimal)weight,
-            Width     = 90,
-            FormatString = "0.00",
+            voiceCombo.SelectedIndex = _rows.Count < _voices.Count ? _rows.Count : 0;
+        }
+
+        var percentSlider = new Slider
+        {
+            Minimum = 0,
+            Maximum = 100,
+            Value = percent,
+            Width = 160,
+            HorizontalAlignment = HorizontalAlignment.Stretch
+        };
+
+        var percentLabel = new TextBlock
+        {
+            Text = $"{Math.Round(percent)}%",
+            Width = 44,
+            VerticalAlignment = VerticalAlignment.Center,
+            HorizontalAlignment = HorizontalAlignment.Center,
+            TextAlignment = TextAlignment.Right,
+            Foreground = Brushes.White
         };
 
         var removeBtn = new Button
         {
-            Content    = "✕",
-            Width      = 28,
-            Height     = 28,
+            Content = "✕",
+            Width = 28,
+            Height = 28,
             Background = SolidColorBrush.Parse("#333"),
             Foreground = Brushes.Gray,
-            Padding    = new Avalonia.Thickness(0),
+            Padding = new Thickness(0),
         };
 
         var row = new Grid
         {
-            ColumnDefinitions = new ColumnDefinitions("*,Auto,Auto"),
-            Margin = new Avalonia.Thickness(0, 0, 0, 2),
+            ColumnDefinitions = new ColumnDefinitions("*,Auto,Auto,Auto"),
+            Margin = new Thickness(0, 0, 0, 2),
+            ColumnSpacing = 8
         };
 
         Grid.SetColumn(voiceCombo, 0);
-        Grid.SetColumn(weightBox,  1);
-        Grid.SetColumn(removeBtn,  2);
+        Grid.SetColumn(percentSlider, 1);
+        Grid.SetColumn(percentLabel, 2);
+        Grid.SetColumn(removeBtn, 3);
+
         row.Children.Add(voiceCombo);
-        row.Children.Add(weightBox);
+        row.Children.Add(percentSlider);
+        row.Children.Add(percentLabel);
         row.Children.Add(removeBtn);
 
-        var entry = (voiceCombo, weightBox);
-        _rows.Add(entry);
-        _rowsPanel.Children.Add(row);
+        var entry = new MixRow
+        {
+            VoiceCombo = voiceCombo,
+            PercentSlider = percentSlider,
+            PercentLabel = percentLabel,
+            RowGrid = row
+        };
+
+        percentSlider.PropertyChanged += (_, e) =>
+        {
+            if (e.Property == RangeBase.ValueProperty)
+            {
+                entry.PercentLabel.Text = $"{Math.Round(percentSlider.Value)}%";
+                RefreshTotals();
+            }
+        };
 
         removeBtn.Click += (_, _) =>
         {
             _rows.Remove(entry);
             _rowsPanel.Children.Remove(row);
+
+            if (_rows.Count == 1)
+                _rows[0].PercentSlider.Value = 100;
+            else if (_rows.Count > 1)
+                RebalanceEvenly();
+
+            RefreshTotals();
         };
+
+        _rows.Add(entry);
+        _rowsPanel.Children.Add(row);
+    }
+
+    private void RefreshTotals()
+    {
+        var total = _rows.Sum(r => r.PercentSlider.Value);
+        _totalLabel.Text = $"Total: {Math.Round(total)}%";
+
+        if (Math.Abs(total - 100) < 0.5)
+            _totalLabel.Foreground = SolidColorBrush.Parse("#9FE870");
+        else
+            _totalLabel.Foreground = SolidColorBrush.Parse("#FFD166");
+    }
+
+    private void RebalanceEvenly()
+    {
+        if (_rows.Count == 0)
+            return;
+
+        var even = 100.0 / _rows.Count;
+
+        for (int i = 0; i < _rows.Count; i++)
+            _rows[i].PercentSlider.Value = even;
+
+        RefreshTotals();
     }
 
     private void ParseExisting(string spec)
     {
-        // Strip "mix:" prefix if present
-        var raw = spec.StartsWith(KokoroTtsProvider.MixPrefix)
+        var raw = spec.StartsWith(KokoroTtsProvider.MixPrefix, StringComparison.Ordinal)
             ? spec[KokoroTtsProvider.MixPrefix.Length..]
             : spec;
+
+        var parsed = new List<(string id, float weight)>();
 
         foreach (var part in raw.Split('|', StringSplitOptions.RemoveEmptyEntries))
         {
             var colon = part.LastIndexOf(':');
-            if (colon < 0) { AddRow(part, 1f); continue; }
+            if (colon < 0)
+            {
+                parsed.Add((part, 1f));
+                continue;
+            }
+
             var id = part[..colon];
-            var w  = float.TryParse(part[(colon + 1)..],
+            var w = float.TryParse(
+                part[(colon + 1)..],
                 System.Globalization.NumberStyles.Float,
-                System.Globalization.CultureInfo.InvariantCulture, out var wf) ? wf : 1f;
-            AddRow(id, w);
+                CultureInfo.InvariantCulture,
+                out var wf)
+                ? wf
+                : 1f;
+
+            parsed.Add((id, w));
         }
+
+        if (parsed.Count == 0)
+        {
+            AddRow(percent: 100);
+            return;
+        }
+
+        var totalWeight = parsed.Sum(x => x.weight);
+        if (totalWeight <= 0f)
+            totalWeight = parsed.Count;
+
+        foreach (var item in parsed)
+        {
+            var percent = (item.weight / totalWeight) * 100.0;
+            AddRow(item.id, percent);
+        }
+
+        RefreshTotals();
     }
 
     private void OnApply(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
     {
-        var parts = _rows
-            .Where(r => r.voiceCombo.SelectedItem is ComboBoxItem)
-            .Select(r =>
+        var selected = _rows
+            .Where(r => r.VoiceCombo.SelectedItem is ComboBoxItem)
+            .Select(r => new
             {
-                var id = ((ComboBoxItem)r.voiceCombo.SelectedItem!).Tag!.ToString()!;
-                var w  = (float)(r.weightBox.Value ?? 1m);
-                return $"{id}:{w:F2}";
+                Id = ((ComboBoxItem)r.VoiceCombo.SelectedItem!).Tag!.ToString()!,
+                Percent = Math.Max(0, r.PercentSlider.Value)
             })
             .ToList();
 
-        if (parts.Count == 0) { Close(); return; }
+        if (selected.Count == 0)
+        {
+            Close();
+            return;
+        }
 
-        ResultSpec = parts.Count == 1
-            ? parts[0]  // single voice — no mix prefix needed
-            : KokoroTtsProvider.MixPrefix + string.Join("|", parts);
+        if (selected.Count == 1)
+        {
+            ResultSpec = selected[0].Id;
+            Close();
+            return;
+        }
 
+        var total = selected.Sum(x => x.Percent);
+        if (total <= 0)
+            total = selected.Count;
+
+        var parts = selected
+            .Select(x =>
+            {
+                var normalized = x.Percent / total;
+                return $"{x.Id}:{normalized.ToString("0.####", CultureInfo.InvariantCulture)}";
+            })
+            .ToList();
+
+        ResultSpec = KokoroTtsProvider.MixPrefix + string.Join("|", parts);
         Close();
     }
 }

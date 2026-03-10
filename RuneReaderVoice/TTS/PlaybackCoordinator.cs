@@ -247,7 +247,7 @@ public sealed class PlaybackCoordinator : IDisposable
         System.Diagnostics.Stopwatch sw,
         [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken ct)
     {
-        await foreach (var (wavPath, phraseIndex, phraseCount)
+        await foreach (var (audio, phraseIndex, phraseCount)
             in _provider.SynthesizePhraseStreamAsync(
                 segment.Text, segment.Slot, _tempDirectory, ct))
         {
@@ -255,7 +255,7 @@ public sealed class PlaybackCoordinator : IDisposable
 
             var phraseText = GetPhraseText(segment.Text, phraseIndex, phraseCount);
             var audioPath  = await _cache.StoreAsync(
-                wavPath, phraseText, voiceId, _provider.ProviderId, ct);
+                audio, phraseText, voiceId, _provider.ProviderId, ct);
 
             yield return audioPath;
         }

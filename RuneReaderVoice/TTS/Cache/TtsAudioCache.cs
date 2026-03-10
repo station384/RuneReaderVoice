@@ -25,8 +25,8 @@
 // Manifest: cache_manifest.json maps keys to file metadata.
 //
 // Post-processing pipeline (applied before writing to cache):
-//   1. Silence trimming (if enabled): strip leading/trailing silence from WAV
-//   2. OGG transcode (if compression enabled): convert WAV → OGG
+//   1. Silence trimming (if enabled): strip leading/trailing silence from PCM
+//   2. OGG transcode (if compression enabled): convert PCM → OGG
 
 using System;
 using System.Collections.Generic;
@@ -40,6 +40,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using OggVorbisEncoder;
 using RuneReaderVoice.Protocol;
+using RuneReaderVoice.TTS.Providers;
 
 namespace RuneReaderVoice.TTS.Cache;
 
@@ -136,19 +137,13 @@ public sealed class TtsAudioCache : IDisposable
     }
 
     /// <summary>
-    /// Stores a synthesized WAV in the cache and returns the WAV path immediately
-    /// so playback can begin without waiting for compression.
+    /// Stores synthesized PCM in the cache and returns the cached WAV path immediately
+    /// so playback can begin without waiting for OGG compression.
     ///
-    /// Post-processing pipeline (play-first strategy):
-    ///   1. Silence trimming — applied synchronously before returning
-    ///   2. WAV is registered in the manifest and returned to the caller for playback
-    ///   3. OGG transcode runs in the background — when complete, the manifest entry
-    ///      is updated to point at the .ogg and the .wav is deleted
-    ///
-    /// If compression is disabled, the WAV is simply stored and returned.
+    /// No temporary files are created. The first write to disk is the final cache file.
     /// </summary>
     public async Task<string> StoreAsync(
-        string wavPath, string text, string voiceId, string providerId,
+        PcmAudio audio, string text, string voiceId, string providerId,
         CancellationToken ct)
     {
         var key     = ComputeKey(text, voiceId, providerId);
@@ -157,25 +152,14 @@ public sealed class TtsAudioCache : IDisposable
         await keyLock.WaitAsync(ct);
         try
         {
-            // Re-check after acquiring key lock (another task may have cached it)
             var existing = await TryGetAsync(text, voiceId, providerId);
             if (existing != null) return existing;
 
-            // 1. Silence trimming
-            var processedPath = _silenceTrimEnabled ? TrimSilence(wavPath) : wavPath;
+            var processedAudio = _silenceTrimEnabled ? TrimSilence(audio) : audio;
 
-            // Copy to cache as .wav — returned immediately for playback
             var cachedWavPath = Path.Combine(_cacheDirectory, key + ".wav");
-            File.Copy(processedPath, cachedWavPath, overwrite: true);
+            await WritePcmAsWavAsync(processedAudio, cachedWavPath, ct);
 
-            // Clean up any intermediate trimmed file
-            if (!string.Equals(processedPath, wavPath, StringComparison.OrdinalIgnoreCase)
-                && File.Exists(processedPath))
-                File.Delete(processedPath);
-            if (File.Exists(wavPath) && wavPath != cachedWavPath)
-                File.Delete(wavPath);
-
-            // 2. Register .wav in manifest so caller can play it right away
             var wavFi = new FileInfo(cachedWavPath);
             var entry = new CacheEntry
             {
@@ -196,9 +180,8 @@ public sealed class TtsAudioCache : IDisposable
             }
             finally { _manifestLock.Release(); }
 
-            // 3. Fire-and-forget background OGG transcode (if enabled)
             if (_compressionEnabled)
-                TrackCompressionTask(CompressInBackgroundAsync(cachedWavPath, key, voiceId, text));
+                TrackCompressionTask(CompressInBackgroundAsync(processedAudio, cachedWavPath, key, voiceId, text));
 
             EvictToSizeLimit();
             return cachedWavPath;
@@ -213,12 +196,12 @@ public sealed class TtsAudioCache : IDisposable
     /// compression, since we want the compressed file for future plays.
     /// </summary>
     private async Task CompressInBackgroundAsync(
-        string cachedWavPath, string key, string voiceId, string text)
+        PcmAudio audio, string cachedWavPath, string key, string voiceId, string text)
     {
         try
         {
             var oggPath = Path.Combine(_cacheDirectory, key + ".ogg");
-            await TranscodeToOggAsync(cachedWavPath, oggPath, CancellationToken.None);
+            await TranscodeToOggAsync(audio, oggPath, CancellationToken.None);
 
             var oggFi = new FileInfo(oggPath);
             var updatedEntry = new CacheEntry
@@ -300,38 +283,23 @@ public sealed class TtsAudioCache : IDisposable
     // ── Post-processing ───────────────────────────────────────────────────────
 
     /// <summary>
-    /// Trims leading and trailing silence from a WAV file.
-    /// Returns the path to the trimmed file (may be the same path, modified in-place).
-    /// TODO: implement proper WAV silence detection using PCM sample analysis.
-    /// Currently a stub — returns the input path unchanged.
+    /// Trims leading and trailing silence from PCM.
+    /// TODO: implement proper sample-based trimming.
+    /// Currently a pass-through to preserve existing behavior.
     /// </summary>
-    private static string TrimSilence(string wavPath)
+    private static PcmAudio TrimSilence(PcmAudio audio)
     {
-        // Phase 2 TODO: read PCM samples, find first/last non-silent frame,
-        // re-write WAV header and sample data.
-        // Threshold: samples below ~1% of max amplitude are treated as silence.
-        // For now: pass-through.
-        return wavPath;
+        return audio;
     }
 
     /// <summary>
-    /// Transcodes a 16-bit mono WAV file to OGG/Vorbis using OggVorbisEncoder.
+    /// Transcodes interleaved float PCM to OGG/Vorbis using OggVorbisEncoder.
     /// Pure managed, cross-platform, no native dependencies.
-    /// Quality scale: 0.0–1.0 mapped from the 0–10 user setting.
-    /// At quality 0.4 (~64 kbps) speech is indistinguishable from the source WAV.
-    /// WinRT MediaPlayer and GStreamer both play OGG/Vorbis natively.
     /// </summary>
-    private async Task TranscodeToOggAsync(string wavPath, string oggPath, CancellationToken ct)
+    private async Task TranscodeToOggAsync(PcmAudio audio, string oggPath, CancellationToken ct)
     {
-        // Read WAV on calling thread — file is small and already written
-        float[][] pcmChannels;
-        int sampleRate;
-
-        await using (var fs = File.OpenRead(wavPath))
-        using (var r = new BinaryReader(fs))
-        {
-            (pcmChannels, sampleRate) = ReadWavPcmForVorbis(r);
-        }
+        var pcmChannels = Deinterleave(audio);
+        int sampleRate  = audio.SampleRate;
 
         ct.ThrowIfCancellationRequested();
 
@@ -408,67 +376,73 @@ public sealed class TtsAudioCache : IDisposable
         }, ct);
     }
 
-    /// <summary>
-    /// Reads a 16-bit mono or stereo WAV and returns float[][] PCM in [-1, 1]
-    /// plus the sample rate. OggVorbisEncoder expects separate channel arrays.
-    /// </summary>
-    private static (float[][] channels, int sampleRate) ReadWavPcmForVorbis(BinaryReader r)
+    private static float[][] Deinterleave(PcmAudio audio)
     {
-        // RIFF header
-        r.ReadBytes(4);  // "RIFF"
-        r.ReadInt32();   // file size
-        r.ReadBytes(4);  // "WAVE"
-
-        int sampleRate = 0, channels = 0, bitsPerSample = 0;
-        byte[]? dataBytes = null;
-
-        while (r.BaseStream.Position < r.BaseStream.Length - 8)
+        int channels = Math.Max(1, audio.Channels);
+        if (audio.Samples.Length == 0)
         {
-            var chunkId   = new string(r.ReadChars(4));
-            var chunkSize = r.ReadInt32();
-
-            if (chunkId == "fmt ")
-            {
-                r.ReadInt16();               // audio format (1 = PCM)
-                channels      = r.ReadInt16();
-                sampleRate    = r.ReadInt32();
-                r.ReadInt32();               // byte rate
-                r.ReadInt16();               // block align
-                bitsPerSample = r.ReadInt16();
-                if (chunkSize > 16) r.ReadBytes(chunkSize - 16);
-            }
-            else if (chunkId == "data")
-            {
-                dataBytes = r.ReadBytes(chunkSize);
-            }
-            else
-            {
-                r.ReadBytes(chunkSize);
-            }
-
-            if (sampleRate > 0 && dataBytes != null) break;
+            var empty = new float[channels][];
+            for (int c = 0; c < channels; c++) empty[c] = Array.Empty<float>();
+            return empty;
         }
 
-        if (dataBytes == null || sampleRate == 0)
-            throw new InvalidDataException("WAV file missing fmt or data chunk.");
-
-        int sampleCount    = dataBytes.Length / (bitsPerSample / 8) / channels;
-        var channelArrays  = new float[channels][];
+        int sampleCount = audio.Samples.Length / channels;
+        var channelArrays = new float[channels][];
         for (int c = 0; c < channels; c++)
             channelArrays[c] = new float[sampleCount];
 
-        // Deinterleave 16-bit samples into per-channel float arrays
         for (int i = 0; i < sampleCount; i++)
         {
             for (int c = 0; c < channels; c++)
-            {
-                int byteIdx = (i * channels + c) * 2;
-                short s = (short)(dataBytes[byteIdx] | (dataBytes[byteIdx + 1] << 8));
-                channelArrays[c][i] = s / 32768f;
-            }
+                channelArrays[c][i] = audio.Samples[(i * channels) + c];
         }
 
-        return (channelArrays, sampleRate);
+        return channelArrays;
+    }
+
+    private static async Task WritePcmAsWavAsync(PcmAudio audio, string wavPath, CancellationToken ct)
+    {
+        int channels = Math.Max(1, audio.Channels);
+        int bitsPerSample = 16;
+        int blockAlign = channels * (bitsPerSample / 8);
+        int byteRate = audio.SampleRate * blockAlign;
+        int dataLength = audio.Samples.Length * 2;
+
+        await using var fs = File.Create(wavPath);
+        using var writer = new BinaryWriter(fs, System.Text.Encoding.UTF8, leaveOpen: true);
+
+        writer.Write(System.Text.Encoding.ASCII.GetBytes("RIFF"));
+        writer.Write(36 + dataLength);
+        writer.Write(System.Text.Encoding.ASCII.GetBytes("WAVE"));
+
+        writer.Write(System.Text.Encoding.ASCII.GetBytes("fmt "));
+        writer.Write(16);
+        writer.Write((short)1);
+        writer.Write((short)channels);
+        writer.Write(audio.SampleRate);
+        writer.Write(byteRate);
+        writer.Write((short)blockAlign);
+        writer.Write((short)bitsPerSample);
+
+        writer.Write(System.Text.Encoding.ASCII.GetBytes("data"));
+        writer.Write(dataLength);
+
+        var pcm16 = new byte[dataLength];
+        for (int i = 0; i < audio.Samples.Length; i++)
+        {
+            short sample = FloatToPcm16(audio.Samples[i]);
+            pcm16[i * 2] = (byte)(sample & 0xFF);
+            pcm16[i * 2 + 1] = (byte)((sample >> 8) & 0xFF);
+        }
+
+        await fs.WriteAsync(pcm16, ct);
+        await fs.FlushAsync(ct);
+    }
+
+    private static short FloatToPcm16(float sample)
+    {
+        sample = Math.Clamp(sample, -1f, 1f);
+        return (short)Math.Round(sample * short.MaxValue);
     }
 
     // ── Key computation ───────────────────────────────────────────────────────

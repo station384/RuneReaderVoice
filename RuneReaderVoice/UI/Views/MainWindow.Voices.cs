@@ -143,17 +143,10 @@ public partial class MainWindow
 
             try
             {
-                // Synthesize directly — bypass the session queue so it doesn't
-                // interfere with any live dialog that might be playing.
-                var outPath = System.IO.Path.Combine(
-                    System.IO.Path.GetTempPath(),
-                    $"rrv_preview_{System.Guid.NewGuid():N}.wav");
-
-                await AppServices.Provider.SynthesizeToFileAsync(
-                    previewText, slot, outPath, default);
+                var audioPath = await GetOrCreateAudioPathAsync(previewText, slot);
 
                 // Play on current audio device, respecting volume
-                await AppServices.Player.PlayAsync(outPath, default);
+                await AppServices.Player.PlayAsync(audioPath, default);
             }
             catch (Exception ex)
             {
