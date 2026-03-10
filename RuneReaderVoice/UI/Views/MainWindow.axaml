@@ -25,7 +25,7 @@ along with RuneReaderVoice. If not, see <https://www.gnu.org/licenses/>.
         mc:Ignorable="d"
         x:Class="RuneReaderVoice.UI.Views.MainWindow"
         Title="RuneReader Voice"
-        Width="560" Height="680"
+        Width="600" Height="680"
         MinWidth="480" MinHeight="500"
         Background="#1A1A2E">
 

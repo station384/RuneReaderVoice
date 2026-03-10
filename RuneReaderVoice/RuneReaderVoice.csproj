@@ -75,4 +75,64 @@
     </Content>
   </ItemGroup>
 
+  <ItemGroup>
+    <Compile Update="UI\Views\MainWindow.Pronunciation.cs">
+      <DependentUpon>MainWindow.axaml</DependentUpon>
+    </Compile>
+    <Compile Update="UI\Views\MainWindow.PronunciationWorkbench.Audio.cs">
+      <DependentUpon>MainWindow.Pronunciation.cs</DependentUpon>
+    </Compile>
+    <Compile Update="UI\Views\MainWindow.PronunciationWorkbench.Init.cs">
+      <DependentUpon>MainWindow.Pronunciation.cs</DependentUpon>
+    </Compile>
+    <Compile Update="UI\Views\MainWindow.PronunciationWorkbench.Preview.cs">
+      <DependentUpon>MainWindow.Pronunciation.cs</DependentUpon>
+    </Compile>
+    <Compile Update="UI\Views\MainWindow.PronunciationWorkbench.Rules.cs">
+      <DependentUpon>MainWindow.Pronunciation.cs</DependentUpon>
+    </Compile>
+    <Compile Update="UI\Views\MainWindow.PronunciationWorkbench.State.cs">
+      <DependentUpon>MainWindow.Pronunciation.cs</DependentUpon>
+    </Compile>
+    <Compile Update="UI\Views\MainWindow.PronunciationWorkbench.Symbols.cs">
+      <DependentUpon>MainWindow.Pronunciation.cs</DependentUpon>
+    </Compile>
+    <Compile Update="UI\Views\MainWindow.Settings.cs">
+      <DependentUpon>MainWindow.axaml</DependentUpon>
+    </Compile>
+    <Compile Update="UI\Views\MainWindow.Voices.cs">
+      <DependentUpon>MainWindow.axaml</DependentUpon>
+    </Compile>
+    <Compile Update="TTS\Providers\KokoroTtsProvider.Audio.cs">
+      <DependentUpon>KokoroTtsProvider.cs</DependentUpon>
+    </Compile>
+    <Compile Update="TTS\Providers\KokoroTtsProvider.Dispose.cs">
+      <DependentUpon>KokoroTtsProvider.cs</DependentUpon>
+    </Compile>
+    <Compile Update="TTS\Providers\KokoroTtsProvider.Initialization.cs">
+      <DependentUpon>KokoroTtsProvider.cs</DependentUpon>
+    </Compile>
+    <Compile Update="TTS\Providers\KokoroTtsProvider.Synthesis.cs">
+      <DependentUpon>KokoroTtsProvider.cs</DependentUpon>
+    </Compile>
+    <Compile Update="TTS\Providers\KokoroTtsProvider.Voices.cs">
+      <DependentUpon>KokoroTtsProvider.cs</DependentUpon>
+    </Compile>
+    <Compile Update="TTS\Cache\TtsAudioCache.Dispose.cs">
+      <DependentUpon>TtsAudioCache.cs</DependentUpon>
+    </Compile>
+    <Compile Update="TTS\Cache\TtsAudioCache.Locks.cs">
+      <DependentUpon>TtsAudioCache.cs</DependentUpon>
+    </Compile>
+    <Compile Update="TTS\Cache\TtsAudioCache.Manifest.cs">
+      <DependentUpon>TtsAudioCache.cs</DependentUpon>
+    </Compile>
+    <Compile Update="TTS\Cache\TtsAudioCache.PostProcessing.cs">
+      <DependentUpon>TtsAudioCache.cs</DependentUpon>
+    </Compile>
+    <Compile Update="TTS\Cache\TtsAudioCache.Storage.cs">
+      <DependentUpon>TtsAudioCache.cs</DependentUpon>
+    </Compile>
+  </ItemGroup>
+
 </Project>
