@@ -216,9 +216,16 @@ public sealed class KokoroTtsProvider : ITtsProvider
         for (int i = 0; i < count; i++)
         {
             var phraseIndex = i;
-            var tokens  = Tokenizer.Tokenize(phrases[i]);
+            var tokens  = Tokenizer.Tokenize(phrases[i], "en-uk");
+            //var tokens  = Tokenizer.Tokenize(phrases[i]);
+            var dSegConfig = new DefaultSegmentationConfig();
+            dSegConfig.MaxFirstSegmentLength = 250;
+            dSegConfig.MinFirstSegmentLength = 10;
+            dSegConfig.MaxSecondSegmentLength = 250;
+            
+            dSegConfig.MinFollowupSegmentsLength = 500;
             var subSegs = SegmentationSystem.SplitToSegments(
-                tokens, new DefaultSegmentationConfig());
+                tokens, dSegConfig);
 
             // For multi-segment phrases (>510 tokens) we collect sub-segments
             // and write to channel only when all sub-segments for this phrase complete.
@@ -283,9 +290,14 @@ public sealed class KokoroTtsProvider : ITtsProvider
         var allSegments = new List<int[]>();
         foreach (var phrase in phrases)
         {
-            var tokens  = Tokenizer.Tokenize(phrase);
-            var subSegs = SegmentationSystem.SplitToSegments(
-                tokens, new DefaultSegmentationConfig());
+            var tokens  = Tokenizer.Tokenize(phrase, "en-gb-x-rp");
+            var dSegConfig = new DefaultSegmentationConfig();
+            dSegConfig.MaxFirstSegmentLength = 250;
+            dSegConfig.MinFirstSegmentLength = 10;
+            dSegConfig.MaxSecondSegmentLength = 250;
+            dSegConfig.MinFollowupSegmentsLength = 500;
+            
+            var subSegs = SegmentationSystem.SplitToSegments(  tokens, dSegConfig);
             allSegments.AddRange(subSegs);
         }
 
@@ -300,12 +312,15 @@ public sealed class KokoroTtsProvider : ITtsProvider
         {
             var segRef    = allSegments[i];
             var slotIndex = i;
-            _tts!.EnqueueJob(KokoroJob.Create(segRef, voice, speed: 1f, OnComplete: chunk =>
+            var kjob = KokoroJob.Create(segRef, voice, speed: 1f, OnComplete: chunk =>
             {
                 chunks[slotIndex] = chunk;
                 if (Interlocked.Decrement(ref remaining) == 0)
                     done.Set();
-            }));
+            });
+
+
+            _tts!.EnqueueJob(kjob);
         }
 
         done.Wait();
@@ -348,9 +363,9 @@ public sealed class KokoroTtsProvider : ITtsProvider
                     opts.EnableCpuMemArena        = true;
                     opts.GraphOptimizationLevel   = GraphOptimizationLevel.ORT_ENABLE_ALL;
                     opts.ExecutionMode            = ExecutionMode.ORT_SEQUENTIAL;
-                    
 
                     _tts = KokoroTTS.LoadModel(modelPath, sessionOptions: opts);
+                    _tts.NicifyAudio = true;
                 }, ct);
                 lock (_initLock) { _initialized = true; _initializing = false; }
                 OnModelReady?.Invoke();

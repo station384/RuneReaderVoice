@@ -90,6 +90,7 @@ public sealed class TtsSessionAssembler
     private readonly Dictionary<string, SegmentAccumulator> _segments     = new();
     // Keys of segments that have already fired — re-loops are ignored
     private readonly HashSet<string>                        _completedKeys = new();
+    private readonly HashSet<string> _completedUtteranceKeys = new();
     // Early chunks (arrived before IDX=0): key = (flags<<16|race<<8|total)
     private readonly Dictionary<string, List<(int idx, string payload)>> _earlyChunks = new();
 
@@ -114,6 +115,7 @@ public sealed class TtsSessionAssembler
                 _nextSegmentIndex  = 0;
                 _segments.Clear();
                 _completedKeys.Clear();
+                _completedUtteranceKeys.Clear();
                 _earlyChunks.Clear();
                 OnSessionReset?.Invoke(_currentDialogId);
             }
@@ -208,17 +210,23 @@ public sealed class TtsSessionAssembler
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────
-
+    private static string MakeUtteranceKey(int dialogId, VoiceSlot slot, int npcId, string text)
+        => $"{dialogId}|{slot}|{npcId}|{text.Trim()}";
+    
     private AssembledSegment? TryComplete(SegmentAccumulator acc, string key)
     {
         if (acc.SlotsReceived != acc.Slots.Length) return null;
         if (acc.Slots.Any(s => s == null)) return null;
         if (_completedKeys.Contains(key)) return null;
 
-        _completedKeys.Add(key);
-
         var text = DecodeAndClean(acc.Slots!);
         if (string.IsNullOrWhiteSpace(text)) return null;
+
+        var utteranceKey = MakeUtteranceKey(_currentDialogId, acc.Slot, acc.NpcId, text);
+        if (_completedUtteranceKeys.Contains(utteranceKey)) return null;
+
+        _completedKeys.Add(key);
+        _completedUtteranceKeys.Add(utteranceKey);
 
         return new AssembledSegment
         {
