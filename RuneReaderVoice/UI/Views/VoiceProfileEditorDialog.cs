@@ -41,6 +41,8 @@ public sealed class VoiceProfileEditorDialog : Window
     private readonly TextBox _speechRateText;
     private readonly TextBox _previewText;
     private readonly TextBlock _summaryText;
+    private bool _saved;
+
 
     public VoiceProfileEditorDialog(
         VoiceSlot slot,
@@ -216,7 +218,11 @@ public sealed class VoiceProfileEditorDialog : Window
             Content = "Save & Close",
             Width = 120
         };
-        saveButton.Click += (_, _) => Close(_workingProfile.Clone());
+        saveButton.Click += (_, _) =>
+        {
+            _saved = true;
+            Close(_workingProfile.Clone());
+        };
 
         var cancelButton = new Button
         {
@@ -680,7 +686,8 @@ public sealed class VoiceProfileEditorDialog : Window
         }
         finally
         {
-            kokoro.SetVoiceProfile(_slot, original);
+            if (!_saved)
+                kokoro.SetVoiceProfile(_slot, original);
         }
     }
 

@@ -52,7 +52,7 @@ public partial class MainWindow : Window
         });
         AppServices.Assembler.OnSegmentComplete += seg => Dispatcher.UIThread.Post(() =>
         {
-            SessionStatus.Text = $"Dialog 0x{seg.DialogId:X4}  seg {seg.SegmentIndex}  {seg.Slot}";
+            SessionStatus.Text = $"Dialog 0x{seg.DialogId:X4}  seg {seg.SegmentIndex}  {GetDisplaySlotLabel(seg.Slot)}";
             DiagDialog.Text    = $"0x{seg.DialogId:X4}";
             DiagLastText.Text  = seg.Text;
         });
@@ -147,7 +147,11 @@ public partial class MainWindow : Window
         }
     }
 
-
+    private static string GetDisplaySlotLabel(VoiceSlot slot)
+    {
+        return NpcVoiceSlotCatalog.All.FirstOrDefault(x => x.Slot.Equals(slot))?.NpcLabel
+               ?? slot.ToString();
+    }
 
     // ── Population helpers ────────────────────────────────────────────────────
 

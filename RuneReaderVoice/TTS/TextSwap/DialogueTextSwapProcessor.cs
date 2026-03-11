@@ -10,8 +10,6 @@ namespace RuneReaderVoice.TTS.TextSwap;
 
 public sealed class DialogueTextSwapProcessor
 {
-    private static readonly Regex MultiWhitespace = new(@"\s{2,}", RegexOptions.Compiled);
-
     private readonly IReadOnlyList<TextSwapRule> _rules;
 
     public DialogueTextSwapProcessor(IEnumerable<TextSwapRule> rules)
@@ -25,15 +23,14 @@ public sealed class DialogueTextSwapProcessor
 
     public string Process(string? text)
     {
-        if (string.IsNullOrWhiteSpace(text))
+        if (text == null)
             return string.Empty;
 
-        var current = text.Trim();
+        var current = text;
 
         foreach (var rule in _rules)
             current = ApplyRule(current, rule);
 
-        current = MultiWhitespace.Replace(current, " ").Trim();
         return current;
     }
 
@@ -41,7 +38,7 @@ public sealed class DialogueTextSwapProcessor
 
     private static string ApplyRule(string source, TextSwapRule rule)
     {
-        if (string.IsNullOrEmpty(source) || string.IsNullOrWhiteSpace(rule.FindText))
+        if (string.IsNullOrEmpty(source) || string.IsNullOrEmpty(rule.FindText))
             return source;
 
         if (!rule.WholeWord)
@@ -65,6 +62,7 @@ public sealed class DialogueTextSwapProcessor
                 sb.Append(rule.ReplaceText);
                 scan = index + rule.FindText.Length;
             }
+
             return sb.ToString();
         }
 

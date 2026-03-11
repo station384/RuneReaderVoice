@@ -532,56 +532,86 @@ along with RuneReaderVoice. If not, see <https://www.gnu.org/licenses/>.
                     </StackPanel>
                 </Grid>
 
-                <StackPanel Orientation="Horizontal" Spacing="12">
-                    <CheckBox x:Name="TextSwapWholeWord"
+                <Grid ColumnDefinitions="Auto,Auto,Auto,Auto,140" ColumnSpacing="12" VerticalAlignment="Center">
+                    <CheckBox Grid.Column="0"
+                              x:Name="TextSwapWholeWord"
                               Content="Whole word"
                               IsChecked="False"
                               Click="OnTextSwapClickChanged"/>
-                    <CheckBox x:Name="TextSwapCaseSensitive"
+                    <CheckBox Grid.Column="1"
+                              x:Name="TextSwapCaseSensitive"
                               Content="Case sensitive"
                               IsChecked="False"
                               Click="OnTextSwapClickChanged"/>
-                    <CheckBox x:Name="TextSwapEnabled"
+                    <CheckBox Grid.Column="2"
+                              x:Name="TextSwapEnabled"
                               Content="Enabled"
                               IsChecked="True"
                               Click="OnTextSwapClickChanged"/>
-                </StackPanel>
-
-                <StackPanel Spacing="4">
-                    <TextBlock Text="Priority" Foreground="#888" FontSize="11"/>
-                    <NumericUpDown x:Name="TextSwapPriority"
-                                   Minimum="0" Maximum="1000" Value="100"
+                    <TextBlock Grid.Column="3"
+                               Text="Priority"
+                               Foreground="#888"
+                               FontSize="11"
+                               VerticalAlignment="Center"
+                               Margin="8,0,0,0"/>
+                    <NumericUpDown Grid.Column="4"
+                                   x:Name="TextSwapPriority"
+                                   Minimum="0"
+                                   Maximum="1000"
+                                   Value="100"
+                                   HorizontalAlignment="Stretch"
                                    ValueChanged="OnTextSwapPriorityChanged"/>
-                </StackPanel>
+                </Grid>
 
                 <TextBlock Text="Preview" Foreground="#4ECDC4" FontWeight="SemiBold" Margin="0,4,0,0"/>
 
                 <TextBlock Text="Original" Foreground="#888" FontSize="11"/>
-                <TextBox x:Name="TextSwapOriginalPreview"
-                         Text="—"
-                         IsReadOnly="True"
-                         AcceptsReturn="True"
-                         TextWrapping="Wrap"
-                         Background="#0F3460"
-                         Foreground="#E0E0FF"/>
+                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                    <TextBox Grid.Column="0"
+                             x:Name="TextSwapOriginalPreview"
+                             IsReadOnly="True"
+                             AcceptsReturn="True"
+                             TextWrapping="Wrap"
+                             Background="#0F3460"
+                             Foreground="#E0E0FF"/>
+                    <Button Grid.Column="1"
+                            x:Name="TextSwapSpeakOriginalButton"
+                            Content="Speak"
+                            MinWidth="72"
+                            Click="OnTextSwapSpeakOriginalClicked"/>
+                </Grid>
 
                 <TextBlock Text="After Text Shaping" Foreground="#888" FontSize="11" Margin="0,6,0,0"/>
-                <TextBox x:Name="TextSwapProcessedPreview"
-                         Text="—"
-                         IsReadOnly="True"
-                         AcceptsReturn="True"
-                         TextWrapping="Wrap"
-                         Background="#0F3460"
-                         Foreground="#FFD166"/>
+                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                    <TextBox Grid.Column="0"
+                             x:Name="TextSwapProcessedPreview"
+                             IsReadOnly="True"
+                             AcceptsReturn="True"
+                             TextWrapping="Wrap"
+                             Background="#0F3460"
+                             Foreground="#FFD166"/>
+                    <Button Grid.Column="1"
+                            x:Name="TextSwapSpeakProcessedButton"
+                            Content="Speak"
+                            MinWidth="72"
+                            Click="OnTextSwapSpeakProcessedClicked"/>
+                </Grid>
 
                 <TextBlock Text="Final TTS Text" Foreground="#888" FontSize="11" Margin="0,6,0,0"/>
-                <TextBox x:Name="TextSwapFinalPreview"
-                         Text="—"
-                         IsReadOnly="True"
-                         AcceptsReturn="True"
-                         TextWrapping="Wrap"
-                         Background="#0F3460"
-                         Foreground="#B8E986"/>
+                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                    <TextBox Grid.Column="0"
+                             x:Name="TextSwapFinalPreview"
+                             IsReadOnly="True"
+                             AcceptsReturn="True"
+                             TextWrapping="Wrap"
+                             Background="#0F3460"
+                             Foreground="#B8E986"/>
+                    <Button Grid.Column="1"
+                            x:Name="TextSwapSpeakFinalButton"
+                            Content="Speak"
+                            MinWidth="72"
+                            Click="OnTextSwapSpeakFinalClicked"/>
+                </Grid>
 
                 <Button x:Name="TextSwapCopyPreviewButton"
                         Content="Copy Final Preview"

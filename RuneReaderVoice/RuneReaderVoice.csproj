@@ -129,6 +129,9 @@
     <Compile Update="TTS\Cache\TtsAudioCache.Storage.cs">
       <DependentUpon>TtsAudioCache.cs</DependentUpon>
     </Compile>
+    <Compile Update="UI\Views\MainWindow.TextSwap.cs">
+      <DependentUpon>MainWindow.axaml</DependentUpon>
+    </Compile>
   </ItemGroup>
 
 </Project>

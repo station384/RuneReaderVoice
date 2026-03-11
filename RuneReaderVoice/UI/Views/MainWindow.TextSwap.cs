@@ -1,10 +1,14 @@
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
+using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Interactivity;
+using RuneReaderVoice.Protocol;
+using RuneReaderVoice.Session;
 using RuneReaderVoice.TTS.TextSwap;
 
 namespace RuneReaderVoice.UI.Views;
@@ -82,32 +86,58 @@ public partial class MainWindow
         return $"{rule.FindText} → {rule.ReplaceText}  [{flags}]";
     }
 
+    private DialogueTextSwapProcessor BuildEffectiveTextSwapProcessor()
+    {
+        var file = TextSwapRuleStore.LoadRuleFile();
+        var workingEntry = BuildTextSwapRuleEntry();
+
+        var workingHasFindText = !string.IsNullOrEmpty(workingEntry.FindText);
+
+        if (workingHasFindText)
+        {
+            file.Rules.RemoveAll(r =>
+                string.Equals(r.FindText, workingEntry.FindText, StringComparison.OrdinalIgnoreCase) &&
+                r.WholeWord == workingEntry.WholeWord &&
+                r.CaseSensitive == workingEntry.CaseSensitive);
+
+            if (workingEntry.Enabled)
+                file.Rules.Add(workingEntry);
+        }
+
+        var effectiveRules = DefaultTextSwapRules.CreateDefault()
+            .Concat(file.Rules
+                .Where(r => r.Enabled && !string.IsNullOrEmpty(r.FindText))
+                .Select(r => r.ToRule()))
+            .ToList();
+
+        return new DialogueTextSwapProcessor(effectiveRules);
+    }
+
+    private string BuildFinalTtsPreviewText(string processedText)
+    {
+        if (!AppServices.Provider.SupportsInlinePronunciationHints)
+            return processedText;
+
+        return AppServices.PronunciationProcessor.Process(new AssembledSegment
+        {
+            Text = processedText,
+            Slot = VoiceSlot.Narrator,
+            DialogId = 0,
+            SegmentIndex = 0,
+            NpcId = 0,
+        }).Text;
+    }
+
     private void UpdateTextSwapPreview()
     {
         var original = TextSwapOriginalText.Text ?? string.Empty;
-        var fullShaped = string.IsNullOrWhiteSpace(TextSwapFindText.Text)
-            ? AppServices.TextSwapProcessor.Process(original)
-            : TextSwapWorkbenchHelper.BuildPreview(
-                original,
-                TextSwapFindText.Text ?? string.Empty,
-                TextSwapReplaceText.Text ?? string.Empty,
-                TextSwapWholeWord.IsChecked ?? false,
-                TextSwapCaseSensitive.IsChecked ?? false);
+        var effectiveProcessor = BuildEffectiveTextSwapProcessor();
+        var processed = effectiveProcessor.Process(original);
+        var finalText = BuildFinalTtsPreviewText(processed);
 
-        var finalText = AppServices.Provider.SupportsInlinePronunciationHints
-            ? AppServices.PronunciationProcessor.Process(new Session.AssembledSegment
-            {
-                Text = fullShaped,
-                Slot = Protocol.VoiceSlot.Narrator,
-                DialogId = 0,
-                SegmentIndex = 0,
-                NpcId = 0,
-            }).Text
-            : fullShaped;
-
-        TextSwapOriginalPreview.Text = string.IsNullOrWhiteSpace(original) ? "—" : original;
-        TextSwapProcessedPreview.Text = string.IsNullOrWhiteSpace(fullShaped) ? "—" : fullShaped;
-        TextSwapFinalPreview.Text = string.IsNullOrWhiteSpace(finalText) ? "—" : finalText;
+        TextSwapOriginalPreview.Text = original;
+        TextSwapProcessedPreview.Text = processed;
+        TextSwapFinalPreview.Text = finalText;
     }
 
     private void OnTextSwapTextChanged(object? sender, TextChangedEventArgs e)
@@ -161,7 +191,7 @@ public partial class MainWindow
     private TextSwapRuleEntry BuildTextSwapRuleEntry()
         => new()
         {
-            FindText = (TextSwapFindText.Text ?? string.Empty).Trim(),
+            FindText = TextSwapFindText.Text ?? string.Empty,
             ReplaceText = TextSwapReplaceText.Text ?? string.Empty,
             WholeWord = TextSwapWholeWord.IsChecked ?? false,
             CaseSensitive = TextSwapCaseSensitive.IsChecked ?? false,
@@ -172,7 +202,7 @@ public partial class MainWindow
 
     private bool ValidateTextSwapRuleEntry(TextSwapRuleEntry entry)
     {
-        if (string.IsNullOrWhiteSpace(entry.FindText))
+        if (entry.FindText.Length == 0)
         {
             TextSwapRuleStatus.Text = "Enter text to find before saving a rule.";
             return false;
@@ -195,7 +225,7 @@ public partial class MainWindow
             ReloadTextSwapRuleList();
             UpdateTextSwapPreview();
             TextSwapRuleStatus.Text = $"Saved rule to {TextSwapRuleStore.GetRulesFilePath()}";
-            await System.Threading.Tasks.Task.CompletedTask;
+            await Task.CompletedTask;
         }
         catch (Exception ex)
         {
@@ -236,6 +266,7 @@ public partial class MainWindow
             TextSwapRuleStore.DeleteRule(entry);
             ReloadTextSwapProcessor();
             ReloadTextSwapRuleList();
+            UpdateTextSwapPreview();
             TextSwapRuleStatus.Text = "Deleted matching text swap rule.";
         }
         catch (Exception ex)
@@ -290,7 +321,7 @@ public partial class MainWindow
         _ = CopyTextSwapPreviewAsync();
     }
 
-    private async System.Threading.Tasks.Task CopyTextSwapPreviewAsync()
+    private async Task CopyTextSwapPreviewAsync()
     {
         try
         {
@@ -305,5 +336,44 @@ public partial class MainWindow
         {
             TextSwapRuleStatus.Text = $"Clipboard copy failed: {ex.Message}";
         }
+    }
+
+    private async Task SpeakTextSwapPreviewAsync(string text, Button button)
+    {
+        if (string.IsNullOrEmpty(text))
+        {
+            TextSwapRuleStatus.Text = "There is no text to preview.";
+            return;
+        }
+
+        button.IsEnabled = false;
+        try
+        {
+            var audioPath = await GetOrCreateAudioPathAsync(text, VoiceSlot.Narrator);
+            await AppServices.Player.PlayAsync(audioPath, default);
+        }
+        catch (Exception ex)
+        {
+            TextSwapRuleStatus.Text = $"Text shaping preview failed: {ex.Message}";
+        }
+        finally
+        {
+            button.IsEnabled = true;
+        }
+    }
+
+    private async void OnTextSwapSpeakOriginalClicked(object? sender, RoutedEventArgs e)
+    {
+        await SpeakTextSwapPreviewAsync(TextSwapOriginalPreview.Text ?? string.Empty, TextSwapSpeakOriginalButton);
+    }
+
+    private async void OnTextSwapSpeakProcessedClicked(object? sender, RoutedEventArgs e)
+    {
+        await SpeakTextSwapPreviewAsync(TextSwapProcessedPreview.Text ?? string.Empty, TextSwapSpeakProcessedButton);
+    }
+
+    private async void OnTextSwapSpeakFinalClicked(object? sender, RoutedEventArgs e)
+    {
+        await SpeakTextSwapPreviewAsync(TextSwapFinalPreview.Text ?? string.Empty, TextSwapSpeakFinalButton);
     }
 }

@@ -1,0 +1,41 @@
+{
+  "Version": 1,
+  "Rules": [
+    {
+      "FindText": "-",
+      "ReplaceText": "... ",
+      "WholeWord": true,
+      "CaseSensitive": false,
+      "Enabled": true,
+      "Priority": 99,
+      "Notes": ""
+    },
+    {
+      "FindText": "- -",
+      "ReplaceText": "... ",
+      "WholeWord": true,
+      "CaseSensitive": false,
+      "Enabled": true,
+      "Priority": 100,
+      "Notes": ""
+    },
+    {
+      "FindText": ", ",
+      "ReplaceText": ",,",
+      "WholeWord": false,
+      "CaseSensitive": false,
+      "Enabled": true,
+      "Priority": 100,
+      "Notes": ""
+    },
+    {
+      "FindText": "! ",
+      "ReplaceText": "! , ",
+      "WholeWord": false,
+      "CaseSensitive": false,
+      "Enabled": true,
+      "Priority": 100,
+      "Notes": ""
+    }
+  ]
+}
