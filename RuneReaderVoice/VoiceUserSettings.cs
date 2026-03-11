@@ -86,6 +86,7 @@ public sealed class VoiceUserSettings
 
     public string TextSwapWorkbenchOriginalText { get; set; } = "Wait... I know what to do - give me a moment.";
     public string TextSwapWorkbenchFindText { get; set; } = " - ";
+    public bool TextSwapWorkbenchReplaceWithCrLf { get; set; } = false;
     public string TextSwapWorkbenchReplaceText { get; set; } = " ... ";
     public bool TextSwapWorkbenchWholeWord { get; set; } = false;
     public bool TextSwapWorkbenchCaseSensitive { get; set; } = false;

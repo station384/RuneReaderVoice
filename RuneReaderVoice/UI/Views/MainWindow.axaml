@@ -535,6 +535,11 @@ along with RuneReaderVoice. If not, see <https://www.gnu.org/licenses/>.
                         <TextBox x:Name="TextSwapReplaceText"
                                  Watermark=" ... "
                                  TextChanged="OnTextSwapTextChanged"/>
+                        <CheckBox x:Name="TextSwapReplaceWithCrLf"
+                                  Margin="0,6,0,0"
+                                  Content="Replace with new line (CR/LF)"
+                                  IsChecked="False"
+                                  Click="OnTextSwapClickChanged"/>
                     </StackPanel>
                 </Grid>
 

@@ -24,12 +24,14 @@ public partial class MainWindow
         var s = AppServices.Settings;
         TextSwapOriginalText.Text = s.TextSwapWorkbenchOriginalText;
         TextSwapFindText.Text = s.TextSwapWorkbenchFindText;
+        TextSwapReplaceWithCrLf.IsChecked = s.TextSwapWorkbenchReplaceWithCrLf;
         TextSwapReplaceText.Text = s.TextSwapWorkbenchReplaceText;
         TextSwapWholeWord.IsChecked = s.TextSwapWorkbenchWholeWord;
         TextSwapCaseSensitive.IsChecked = s.TextSwapWorkbenchCaseSensitive;
         TextSwapRuleNotes.Text = s.TextSwapWorkbenchNotes;
         TextSwapEnabled.IsChecked = true;
         TextSwapPriority.Value = 100;
+        TextSwapReplaceText.IsEnabled = !(TextSwapReplaceWithCrLf.IsChecked ?? false);
 
         ReloadTextSwapRuleList();
 
@@ -42,6 +44,7 @@ public partial class MainWindow
         var s = AppServices.Settings;
         s.TextSwapWorkbenchOriginalText = TextSwapOriginalText.Text ?? string.Empty;
         s.TextSwapWorkbenchFindText = TextSwapFindText.Text ?? string.Empty;
+        s.TextSwapWorkbenchReplaceWithCrLf = TextSwapReplaceWithCrLf.IsChecked ?? false;
         s.TextSwapWorkbenchReplaceText = TextSwapReplaceText.Text ?? string.Empty;
         s.TextSwapWorkbenchWholeWord = TextSwapWholeWord.IsChecked ?? false;
         s.TextSwapWorkbenchCaseSensitive = TextSwapCaseSensitive.IsChecked ?? false;
@@ -83,13 +86,14 @@ public partial class MainWindow
             $"Priority {rule.Priority}"
         });
 
-        return $"{rule.FindText} → {rule.ReplaceText}  [{flags}]";
+        var replaceDisplay = rule.ReplaceWithCrLf ? @"\r\n" : rule.ReplaceText;
+        return $"{rule.FindText} → {replaceDisplay}  [{flags}]";
     }
 
     private DialogueTextSwapProcessor BuildEffectiveTextSwapProcessor()
     {
         var file = TextSwapRuleStore.LoadRuleFile();
-        var workingEntry = BuildTextSwapRuleEntry();
+        var workingEntry = BuildTextSwapRuleEntry(includeReplaceTextWhenDisabled: false);
 
         var workingHasFindText = !string.IsNullOrEmpty(workingEntry.FindText);
 
@@ -146,6 +150,7 @@ public partial class MainWindow
             return;
 
         SaveTextSwapWorkbenchState();
+        TextSwapReplaceText.IsEnabled = !(TextSwapReplaceWithCrLf.IsChecked ?? false);
         UpdateTextSwapPreview();
     }
 
@@ -177,6 +182,7 @@ public partial class MainWindow
         _textSwapUiInitializing = true;
         TextSwapFindText.Text = entry.FindText;
         TextSwapReplaceText.Text = entry.ReplaceText;
+        TextSwapReplaceWithCrLf.IsChecked = entry.ReplaceWithCrLf;
         TextSwapWholeWord.IsChecked = entry.WholeWord;
         TextSwapCaseSensitive.IsChecked = entry.CaseSensitive;
         TextSwapEnabled.IsChecked = entry.Enabled;
@@ -184,15 +190,17 @@ public partial class MainWindow
         TextSwapRuleNotes.Text = entry.Notes;
         _textSwapUiInitializing = false;
 
+        TextSwapReplaceText.IsEnabled = !(TextSwapReplaceWithCrLf.IsChecked ?? false);
         SaveTextSwapWorkbenchState();
         UpdateTextSwapPreview();
     }
 
-    private TextSwapRuleEntry BuildTextSwapRuleEntry()
+    private TextSwapRuleEntry BuildTextSwapRuleEntry(bool includeReplaceTextWhenDisabled = true)
         => new()
         {
             FindText = TextSwapFindText.Text ?? string.Empty,
-            ReplaceText = TextSwapReplaceText.Text ?? string.Empty,
+            ReplaceWithCrLf = TextSwapReplaceWithCrLf.IsChecked ?? false,
+            ReplaceText = (TextSwapReplaceWithCrLf.IsChecked ?? false) && !includeReplaceTextWhenDisabled ? string.Empty : (TextSwapReplaceText.Text ?? string.Empty),
             WholeWord = TextSwapWholeWord.IsChecked ?? false,
             CaseSensitive = TextSwapCaseSensitive.IsChecked ?? false,
             Enabled = TextSwapEnabled.IsChecked ?? true,
@@ -242,6 +250,7 @@ public partial class MainWindow
         _textSwapUiInitializing = true;
         TextSwapFindText.Text = string.Empty;
         TextSwapReplaceText.Text = string.Empty;
+        TextSwapReplaceWithCrLf.IsChecked = false;
         TextSwapWholeWord.IsChecked = false;
         TextSwapCaseSensitive.IsChecked = false;
         TextSwapEnabled.IsChecked = true;
@@ -249,6 +258,7 @@ public partial class MainWindow
         TextSwapRuleNotes.Text = string.Empty;
         TextSwapRuleList.SelectedItem = null;
         _textSwapUiInitializing = false;
+        TextSwapReplaceText.IsEnabled = true;
 
         SaveTextSwapWorkbenchState();
         UpdateTextSwapPreview();

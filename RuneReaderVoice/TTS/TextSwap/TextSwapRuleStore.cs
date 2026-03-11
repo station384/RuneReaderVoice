@@ -19,6 +19,7 @@ public sealed class TextSwapRuleEntry
 {
     public string FindText { get; set; } = string.Empty;
     public string ReplaceText { get; set; } = string.Empty;
+    public bool ReplaceWithCrLf { get; set; } = false;
     public bool WholeWord { get; set; } = false;
     public bool CaseSensitive { get; set; } = false;
     public bool Enabled { get; set; } = true;
@@ -28,7 +29,7 @@ public sealed class TextSwapRuleEntry
     public TextSwapRule ToRule()
         => new(
             FindText: FindText,
-            ReplaceText: ReplaceText,
+            ReplaceText: ReplaceWithCrLf ? "\r\n" : ReplaceText,
             WholeWord: WholeWord,
             CaseSensitive: CaseSensitive,
             Priority: Priority);
@@ -37,7 +38,8 @@ public sealed class TextSwapRuleEntry
         => new()
         {
             FindText = rule.FindText,
-            ReplaceText = rule.ReplaceText,
+            ReplaceText = rule.ReplaceText == "\r\n" ? string.Empty : rule.ReplaceText,
+            ReplaceWithCrLf = rule.ReplaceText == "\r\n",
             WholeWord = rule.WholeWord,
             CaseSensitive = rule.CaseSensitive,
             Enabled = true,
@@ -110,6 +112,7 @@ public static class TextSwapRuleStore
         if (existing != null)
         {
             existing.ReplaceText = entry.ReplaceText;
+            existing.ReplaceWithCrLf = entry.ReplaceWithCrLf;
             existing.Enabled = entry.Enabled;
             existing.Priority = entry.Priority;
             existing.Notes = entry.Notes;
