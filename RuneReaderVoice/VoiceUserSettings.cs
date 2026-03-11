@@ -84,6 +84,14 @@ public sealed class VoiceUserSettings
     public bool RepeatSuppressionEnabled { get; set; } = true;
     public int RepeatSuppressionWindowSeconds { get; set; } = 5;
 
+    public string TextSwapWorkbenchOriginalText { get; set; } = "Wait... I know what to do - give me a moment.";
+    public string TextSwapWorkbenchFindText { get; set; } = " - ";
+    public string TextSwapWorkbenchReplaceText { get; set; } = " ... ";
+    public bool TextSwapWorkbenchWholeWord { get; set; } = false;
+    public bool TextSwapWorkbenchCaseSensitive { get; set; } = false;
+    public string TextSwapWorkbenchNotes { get; set; } = string.Empty;
+
+
     public void NormalizeVoiceProfiles()
     {
         foreach (var (providerId, assignments) in PerProviderVoiceAssignments)

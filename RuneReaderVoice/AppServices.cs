@@ -29,6 +29,7 @@ using RuneReaderVoice.TTS.Providers;
 using RuneReaderVoice.TTS.Audio;
 using RuneReaderVoice.Session;
 using RuneReaderVoice.TTS.Pronunciation;
+using RuneReaderVoice.TTS.TextSwap;
 
 namespace RuneReaderVoice;
 
@@ -43,6 +44,7 @@ public static class AppServices
     public static PlaybackCoordinator  Coordinator { get; private set; } = null!;
     public static RvBarcodeMonitor     Monitor     { get; private set; } = null!;
     public static DialoguePronunciationProcessor PronunciationProcessor { get; private set; } = null!;
+    public static DialogueTextSwapProcessor TextSwapProcessor { get; private set; } = null!;
 
     public static void Initialize(
         VoiceUserSettings settings,
@@ -53,7 +55,8 @@ public static class AppServices
         TtsSessionAssembler assembler,
         PlaybackCoordinator coordinator,
         RvBarcodeMonitor monitor,
-        DialoguePronunciationProcessor pronunciationProcessor)
+        DialoguePronunciationProcessor pronunciationProcessor,
+        DialogueTextSwapProcessor textSwapProcessor)
     {
         Settings    = settings;
         Platform    = platform;
@@ -64,6 +67,7 @@ public static class AppServices
         Coordinator = coordinator;
         Monitor     = monitor;
         PronunciationProcessor = pronunciationProcessor;
+        TextSwapProcessor = textSwapProcessor;
     }
 
     /// <summary>
@@ -84,5 +88,10 @@ public static class AppServices
     public static void SetPronunciationProcessor(DialoguePronunciationProcessor processor)
     {
         PronunciationProcessor = processor;
+    }
+
+    public static void SetTextSwapProcessor(DialogueTextSwapProcessor processor)
+    {
+        TextSwapProcessor = processor;
     }
 }

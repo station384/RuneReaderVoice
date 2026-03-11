@@ -11,6 +11,7 @@ using RuneReaderVoice.TTS.Providers;
 using RuneReaderVoice.TTS.Audio;
 using RuneReaderVoice.Session;
 using RuneReaderVoice.TTS.Pronunciation;
+using RuneReaderVoice.TTS.TextSwap;
 
 namespace RuneReaderVoice;
 
@@ -83,6 +84,7 @@ internal static class Program
             player.SetOutputDevice(settings.AudioDeviceId);
 
         var assembler = new TtsSessionAssembler();
+        var textSwapProcessor = BuildTextSwapProcessor();
         var pronunciationProcessor = BuildPronunciationProcessor();
 
         var tempDir = Path.Combine(Path.GetTempPath(), "RuneReaderVoice");
@@ -104,9 +106,18 @@ internal static class Program
         assembler.OnSegmentComplete += seg =>
         {
             var activeProvider = AppServices.Provider;
+            var shapedText = AppServices.TextSwapProcessor.Process(seg.Text);
+            var shapedSegment = new AssembledSegment
+            {
+                Text = shapedText,
+                Slot = seg.Slot,
+                DialogId = seg.DialogId,
+                SegmentIndex = seg.SegmentIndex,
+                NpcId = seg.NpcId,
+            };
             var processed = activeProvider.SupportsInlinePronunciationHints
-                ? AppServices.PronunciationProcessor.Process(seg)
-                : seg;
+                ? AppServices.PronunciationProcessor.Process(shapedSegment)
+                : shapedSegment;
 
             coordinator.EnqueueSegment(processed);
         };
@@ -133,7 +144,7 @@ internal static class Program
 
         AppServices.Initialize(
             settings, platform, provider, cache, player,
-            assembler, coordinator, monitor, pronunciationProcessor);
+            assembler, coordinator, monitor, pronunciationProcessor, textSwapProcessor);
 
         return AppBuilder
             .Configure<App>()
@@ -143,6 +154,15 @@ internal static class Program
             .StartWithClassicDesktopLifetime(
                 args,
                 Avalonia.Controls.ShutdownMode.OnMainWindowClose);
+    }
+
+    private static DialogueTextSwapProcessor BuildTextSwapProcessor()
+    {
+        var rules = DefaultTextSwapRules.CreateDefault()
+            .Concat(TextSwapRuleStore.LoadUserRules())
+            .ToList();
+
+        return new DialogueTextSwapProcessor(rules);
     }
 
     private static DialoguePronunciationProcessor BuildPronunciationProcessor()

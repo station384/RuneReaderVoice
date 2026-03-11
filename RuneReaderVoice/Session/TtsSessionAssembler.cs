@@ -42,7 +42,6 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
-using System.Text.RegularExpressions;
 using System.Threading;
 using RuneReaderVoice.Protocol;
 
@@ -246,21 +245,6 @@ public sealed class TtsSessionAssembler
 
     // ── Text decoding and cleaning ────────────────────────────────────────────
 
-    private static readonly Regex MultiSpace = new(@" {2,}", RegexOptions.Compiled);
-
-    private static readonly (string From, string To)[] SubstitutionTable =
-    {
-        // Punctuation → prosody hints for TTS
-        (",",  ", "),     // ensure space after comma
-        ("...", "... "),  // ellipsis breath
-        ("—",  ", "),     // em-dash → short pause
-        ("–",  ", "),     // en-dash → short pause
-        (";",  ". "),     // semicolon → sentence break
-        ("!",  "! "),     // ensure space after exclamation
-        ("?",  "? "),     // ensure space after question mark
-        ("--",  ", "),     // ensure space after question mark
-    };
-
     private static string DecodeAndClean(string[] slots)
     {
         var sb = new StringBuilder();
@@ -280,12 +264,7 @@ public sealed class TtsSessionAssembler
 
         var text = sb.ToString();
 
-        // Apply substitution table
-        foreach (var (from, to) in SubstitutionTable)
-            text = text.Replace(from, to);
-
-        // Collapse multiple spaces to single
-        text = MultiSpace.Replace(text, " ").Trim();
+        text = text.Trim();
 
         System.Diagnostics.Debug.WriteLine($"[Assembler] final text='{text}'");
 

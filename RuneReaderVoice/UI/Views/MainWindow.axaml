@@ -501,7 +501,137 @@ along with RuneReaderVoice. If not, see <https://www.gnu.org/licenses/>.
                     </StackPanel>
                 </ScrollViewer>
             </TabItem>
+<TabItem Header="Text Shaping">
+    <ScrollViewer>
+        <Grid Margin="12" ColumnDefinitions="1.1*,0.9*" ColumnSpacing="12">
+            <StackPanel Grid.Column="0" Spacing="8">
+                <TextBlock Text="Text Shaping Workbench" Foreground="#4ECDC4" FontWeight="SemiBold"/>
+                <TextBlock Text="Apply simple text swaps before pronunciation rules. This is best for pause shaping, contemplation dots, and light phrasing cleanup."
+                           Foreground="#888" FontSize="11" TextWrapping="Wrap"/>
 
+                <TextBlock Text="Original Text" Foreground="#888" FontSize="11"/>
+                <TextBox x:Name="TextSwapOriginalText"
+                         AcceptsReturn="True"
+                         TextWrapping="Wrap"
+                         MinHeight="84"
+                         Watermark="Wait... I know what to do - give me a moment."
+                         TextChanged="OnTextSwapTextChanged"/>
+
+                <Grid ColumnDefinitions="*,*" ColumnSpacing="10">
+                    <StackPanel Grid.Column="0" Spacing="4">
+                        <TextBlock Text="Find Text" Foreground="#888" FontSize="11"/>
+                        <TextBox x:Name="TextSwapFindText"
+                                 Watermark=" - "
+                                 TextChanged="OnTextSwapTextChanged"/>
+                    </StackPanel>
+                    <StackPanel Grid.Column="1" Spacing="4">
+                        <TextBlock Text="Replace With" Foreground="#888" FontSize="11"/>
+                        <TextBox x:Name="TextSwapReplaceText"
+                                 Watermark=" ... "
+                                 TextChanged="OnTextSwapTextChanged"/>
+                    </StackPanel>
+                </Grid>
+
+                <StackPanel Orientation="Horizontal" Spacing="12">
+                    <CheckBox x:Name="TextSwapWholeWord"
+                              Content="Whole word"
+                              IsChecked="False"
+                              Click="OnTextSwapClickChanged"/>
+                    <CheckBox x:Name="TextSwapCaseSensitive"
+                              Content="Case sensitive"
+                              IsChecked="False"
+                              Click="OnTextSwapClickChanged"/>
+                    <CheckBox x:Name="TextSwapEnabled"
+                              Content="Enabled"
+                              IsChecked="True"
+                              Click="OnTextSwapClickChanged"/>
+                </StackPanel>
+
+                <StackPanel Spacing="4">
+                    <TextBlock Text="Priority" Foreground="#888" FontSize="11"/>
+                    <NumericUpDown x:Name="TextSwapPriority"
+                                   Minimum="0" Maximum="1000" Value="100"
+                                   ValueChanged="OnTextSwapPriorityChanged"/>
+                </StackPanel>
+
+                <TextBlock Text="Preview" Foreground="#4ECDC4" FontWeight="SemiBold" Margin="0,4,0,0"/>
+
+                <TextBlock Text="Original" Foreground="#888" FontSize="11"/>
+                <TextBox x:Name="TextSwapOriginalPreview"
+                         Text="—"
+                         IsReadOnly="True"
+                         AcceptsReturn="True"
+                         TextWrapping="Wrap"
+                         Background="#0F3460"
+                         Foreground="#E0E0FF"/>
+
+                <TextBlock Text="After Text Shaping" Foreground="#888" FontSize="11" Margin="0,6,0,0"/>
+                <TextBox x:Name="TextSwapProcessedPreview"
+                         Text="—"
+                         IsReadOnly="True"
+                         AcceptsReturn="True"
+                         TextWrapping="Wrap"
+                         Background="#0F3460"
+                         Foreground="#FFD166"/>
+
+                <TextBlock Text="Final TTS Text" Foreground="#888" FontSize="11" Margin="0,6,0,0"/>
+                <TextBox x:Name="TextSwapFinalPreview"
+                         Text="—"
+                         IsReadOnly="True"
+                         AcceptsReturn="True"
+                         TextWrapping="Wrap"
+                         Background="#0F3460"
+                         Foreground="#B8E986"/>
+
+                <Button x:Name="TextSwapCopyPreviewButton"
+                        Content="Copy Final Preview"
+                        HorizontalAlignment="Left"
+                        Click="OnTextSwapCopyPreviewClicked"/>
+            </StackPanel>
+
+            <StackPanel Grid.Column="1" Spacing="8">
+                <TextBlock Text="Saved Rules" Foreground="#4ECDC4" FontWeight="SemiBold"/>
+                <TextBlock Text="Use saved rules for reusable pause and phrasing cleanup. Rules are applied before pronunciation processing."
+                           Foreground="#888" FontSize="11" TextWrapping="Wrap"/>
+
+                <ListBox x:Name="TextSwapRuleList"
+                         Height="180"
+                         SelectionChanged="OnTextSwapRuleSelectionChanged"/>
+
+                <TextBlock Text="Notes" Foreground="#888" FontSize="11"/>
+                <TextBox x:Name="TextSwapRuleNotes"
+                         Watermark="Optional note, such as why this phrasing works better."
+                         TextChanged="OnTextSwapTextChanged"/>
+
+                <WrapPanel Orientation="Horizontal" ItemWidth="120" ItemHeight="32">
+                    <Button x:Name="TextSwapNewRuleButton" Content="New Rule" Click="OnTextSwapNewRuleClicked"/>
+                    <Button x:Name="TextSwapSaveRuleButton" Content="Save Rule" Click="OnTextSwapSaveRuleClicked"/>
+                    <Button x:Name="TextSwapDeleteRuleButton" Content="Delete Rule" Click="OnTextSwapDeleteRuleClicked"/>
+                    <Button x:Name="TextSwapOpenRulesFileButton" Content="Open Rules File" Click="OnTextSwapOpenRulesFileClicked"/>
+                    <Button x:Name="TextSwapReloadRulesButton" Content="Reload Rules" Click="OnTextSwapReloadRulesClicked"/>
+                </WrapPanel>
+
+                <Border Background="#101A2B" CornerRadius="6" Padding="10">
+                    <StackPanel Spacing="4">
+                        <TextBlock Text="Suggested uses" Foreground="#E0E0FF" FontWeight="SemiBold"/>
+                        <TextBlock Text="• turn ' - ' into a pause like ' ... ' or ', '"
+                                   Foreground="#C0C0D0" FontSize="11" TextWrapping="Wrap"/>
+                        <TextBlock Text="• add breathing space after ellipses or punctuation"
+                                   Foreground="#C0C0D0" FontSize="11" TextWrapping="Wrap"/>
+                        <TextBlock Text="• swap a small phrase when pronunciation markup would be overkill"
+                                   Foreground="#C0C0D0" FontSize="11" TextWrapping="Wrap"/>
+                    </StackPanel>
+                </Border>
+
+                <TextBlock x:Name="TextSwapRuleStatus"
+                           Text="Rules save into config/text-swap-rules.json."
+                           Foreground="#888"
+                           FontSize="11"
+                           TextWrapping="Wrap"/>
+            </StackPanel>
+        </Grid>
+    </ScrollViewer>
+</TabItem>
 
         </TabControl>
 

@@ -34,6 +34,7 @@ public partial class MainWindow : Window
         PopulateVolumeTrimGrid();
         SetPlatformVisibility();
         PopulatePronunciationWorkbench();
+        PopulateTextSwapWorkbench();
 
         // Status refresh timer — 500ms is plenty for UI feedback
         _statusTimer = new DispatcherTimer

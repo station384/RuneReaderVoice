@@ -65,10 +65,6 @@
   </ItemGroup>
 
   <ItemGroup>
-
-  </ItemGroup>
-
-  <ItemGroup>
     <None Remove="Models\kokoro.onnx" />
     <Content Include="Models\kokoro.onnx">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
