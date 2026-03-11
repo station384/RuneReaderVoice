@@ -20,20 +20,13 @@
 // Splits NPC dialog text into natural speech segments for Kokoro TTS.
 //
 // Split strategy:
-//   Sentence endings (.  !  ?  …): punctuation stays with LEFT chunk.
-//   Clause breaks (, ; :):         punctuation moves to START of RIGHT chunk,
-//                                  so Kokoro sees ", next clause" and renders
-//                                  the natural brief pause before continuing.
+//   Hard line breaks (\r, \n, \r\n): split boundary.
+//   Paragraph breaks (blank lines):   split boundary.
+//   Colons (:):                       punctuation stays with LEFT chunk.
 //
 // Example:
-//   "Follow the road north, past the mill, until you reach the river."
-//   → ["Follow the road north", ", past the mill", ", until you reach the river."]
-//
-// Short fragments (< MinFragmentWords words) are merged into the next chunk
-// rather than sent to the model alone, avoiding clipped micro-clips.
-//
-// Abbreviations (Mr. Mrs. Dr. etc.) are protected from false sentence splits.
-// Decimal numbers (1.5, 3.14) are also protected.
+//   "Commander\r\nAnduin Lothar: A man who would flop like a fish."
+//   → ["Commander", "Anduin Lothar:", "A man who would flop like a fish."]
 
 using System;
 using System.Collections.Generic;
@@ -56,9 +49,6 @@ public static class TextSplitter
         "est", "govt", "inc", "corp", "ltd", "vol", "no", "fig",
     };
 
-    // Matches a decimal number like 1.5 or 3.14 — period is NOT a sentence break.
-    private static readonly Regex DecimalPattern = new(@"\d\.\d", RegexOptions.Compiled);
-
     /// <summary>
     /// Splits <paramref name="text"/> into speech segments suitable for
     /// individual Kokoro inference jobs.
@@ -72,7 +62,6 @@ public static class TextSplitter
             return new List<string> { text };
 
         text = text.Trim();
-
         var raw = SplitRaw(text);
         var merged = MergeShortFragments(raw);
         return merged;
@@ -90,80 +79,33 @@ public static class TextSplitter
         {
             char c = text[i];
 
-            // ── Ellipsis (…  or  ...) ─────────────────────────────────────
-            if (c == '…')
+            // ── Hard line breaks (\r, \n, \r\n) ──────────────────────────
+            if (c == '\r')
             {
-                current.Append(c);
                 FlushIfNonEmpty(current, segments);
                 i++;
-                continue;
-            }
-            if (c == '.' && i + 2 < text.Length && text[i+1] == '.' && text[i+2] == '.')
-            {
-                current.Append("...");
-                FlushIfNonEmpty(current, segments);
-                i += 3;
+                if (i < text.Length && text[i] == '\n')
+                    i++;
                 continue;
             }
 
-            // ── Period ────────────────────────────────────────────────────
-            if (c == '.')
+            if (c == '\n')
             {
-                // Protect decimals: digit.digit
-                if (i > 0 && i + 1 < text.Length &&
-                    char.IsDigit(text[i - 1]) && char.IsDigit(text[i + 1]))
-                {
-                    current.Append(c);
-                    i++;
-                    continue;
-                }
-
-                // Protect abbreviations: grab word to the left of the dot
-                var leftWord = GetWordLeftOf(text, i);
-                if (Abbreviations.Contains(leftWord))
-                {
-                    current.Append(c);
-                    i++;
-                    continue;
-                }
-
-                // Real sentence end
-                current.Append(c);
                 FlushIfNonEmpty(current, segments);
                 i++;
                 continue;
             }
 
-            // ── Sentence-final punctuation (! ?) ─────────────────────────
-            if (c == '!' || c == '?')
+            // ── Colon boundary — punctuation stays with LEFT segment ─────
+            if (c == ':')
             {
                 current.Append(c);
-                // Absorb any trailing ?! combinations (e.g. "What?!")
-                while (i + 1 < text.Length && (text[i+1] == '!' || text[i+1] == '?'))
-                {
-                    i++;
-                    current.Append(text[i]);
-                }
                 FlushIfNonEmpty(current, segments);
                 i++;
+                while (i < text.Length && text[i] == ' ')
+                    i++;
                 continue;
             }
-
-            // ── Clause breaks (, ; :) — punctuation goes to NEXT segment ─
-            // if (c == ',' || c == ';' || c == ':')
-            // {
-            //     FlushIfNonEmpty(current, segments);
-            //     // Punctuation moves to the START of the next segment so Kokoro
-            //     // hears ", next clause" and renders the natural leading pause.
-            //     // We add a space after it so the model sees ", word" not ",word".
-            //     current.Append(c);
-            //     current.Append(' ');
-            //     i++;
-            //     // Skip the original whitespace that followed the punctuation
-            //     while (i < text.Length && text[i] == ' ')
-            //         i++;
-            //     continue;
-            // }
 
             current.Append(c);
             i++;
@@ -184,39 +126,6 @@ public static class TextSplitter
     /// </summary>
     private static List<string> MergeShortFragments(List<string> segments)
     {
-        if (segments.Count <= 1) return segments;
-
-        bool changed = true;
-        while (changed && segments.Count > 1)
-        {
-            changed = false;
-            for (int i = 0; i < segments.Count; i++)
-            {
-                if (WordCount(segments[i]) < MinFragmentWords)
-                {
-                    if (i + 1 < segments.Count)
-                    {
-                        // If the right segment starts with clause punctuation it
-                        // already carries its own leading ", " — attach directly
-                        // so we get "Greetings, traveler!" not "Greetings , traveler!"
-                        var right = segments[i + 1];
-                        segments[i] = right.Length > 0 && right[0] is ',' or ';' or ':'
-                            ? segments[i].TrimEnd() + right
-                            : segments[i].TrimEnd() + " " + right.TrimStart();
-                        segments.RemoveAt(i + 1);
-                    }
-                    else
-                    {
-                        // Last segment — merge backward
-                        segments[i - 1] = segments[i - 1].TrimEnd() + " " + segments[i].TrimStart();
-                        segments.RemoveAt(i);
-                    }
-                    changed = true;
-                    break;
-                }
-            }
-        }
-
         return segments;
     }
 
@@ -239,15 +148,5 @@ public static class TextSplitter
             else if (!inWord)         { inWord = true; count++; }
         }
         return count;
-    }
-
-    /// <summary>Returns the word immediately to the left of position <paramref name="dotIndex"/>.</summary>
-    private static string GetWordLeftOf(string text, int dotIndex)
-    {
-        int end = dotIndex - 1;
-        while (end >= 0 && char.IsWhiteSpace(text[end])) end--;
-        int start = end;
-        while (start > 0 && char.IsLetter(text[start - 1])) start--;
-        return end >= start ? text[start..(end + 1)] : string.Empty;
     }
 }
