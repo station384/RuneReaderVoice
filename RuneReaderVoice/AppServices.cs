@@ -22,6 +22,7 @@
 // Used by the Avalonia UI to bind to live state without constructor injection
 // through the Avalonia application lifecycle.
 
+using RuneReaderVoice.Protocol;
 using RuneReaderVoice.Platform;
 using RuneReaderVoice.TTS;
 using RuneReaderVoice.TTS.Cache;
@@ -45,6 +46,11 @@ public static class AppServices
     public static RvBarcodeMonitor     Monitor     { get; private set; } = null!;
     public static DialoguePronunciationProcessor PronunciationProcessor { get; private set; } = null!;
     public static DialogueTextSwapProcessor TextSwapProcessor { get; private set; } = null!;
+    
+    public static string LastDecodedText { get; set; } = string.Empty;
+    public static string LastProcessedText { get; set; } = string.Empty;
+    public static string LastTextSpoken { get; set; } = string.Empty;
+    public static VoiceSlot LastRuntimeSlot { get; set; } = VoiceSlot.Narrator;
 
     public static void Initialize(
         VoiceUserSettings settings,

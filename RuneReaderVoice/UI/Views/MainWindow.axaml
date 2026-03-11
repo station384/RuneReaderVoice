@@ -262,23 +262,29 @@ along with RuneReaderVoice. If not, see <https://www.gnu.org/licenses/>.
                             </StackPanel>
                         </Expander>
 
-                        <Expander Header="Diagnostics" HorizontalAlignment="Stretch" IsExpanded="False">
-                            <StackPanel Margin="0,8,0,0" Spacing="6" HorizontalAlignment="Stretch">
-                                <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto,Auto,Auto">
-                                    <TextBlock Grid.Row="0" Grid.Column="0" Text="Last packet DIALOG" Foreground="#888" FontSize="10" Margin="0,0,12,0"/>
-                                    <TextBlock x:Name="DiagDialog" Grid.Row="0" Grid.Column="1" Text="—" Foreground="#E0E0FF" FontSize="10"/>
+<Expander Header="Diagnostics" HorizontalAlignment="Stretch" IsExpanded="False">
+    <StackPanel Margin="0,8,0,0" Spacing="6" HorizontalAlignment="Stretch">
+        <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto">
+            <TextBlock Grid.Row="0" Grid.Column="0" Text="Last packet DIALOG" Foreground="#888" FontSize="10" Margin="0,0,12,0"/>
+            <TextBlock x:Name="DiagDialog" Grid.Row="0" Grid.Column="1" Text="—" Foreground="#E0E0FF" FontSize="10"/>
 
-                                    <TextBlock Grid.Row="1" Grid.Column="0" Text="Last synthesis latency" Foreground="#888" FontSize="10" Margin="0,3,12,0"/>
-                                    <TextBlock x:Name="DiagLatency" Grid.Row="1" Grid.Column="1" Text="—" Foreground="#E0E0FF" FontSize="10" Margin="0,3,0,0"/>
+            <TextBlock Grid.Row="1" Grid.Column="0" Text="Last synthesis latency" Foreground="#888" FontSize="10" Margin="0,3,12,0"/>
+            <TextBlock x:Name="DiagLatency" Grid.Row="1" Grid.Column="1" Text="—" Foreground="#E0E0FF" FontSize="10" Margin="0,3,0,0"/>
 
-                                    <TextBlock Grid.Row="2" Grid.Column="0" Text="Cache hit rate" Foreground="#888" FontSize="10" Margin="0,3,12,0"/>
-                                    <TextBlock x:Name="DiagHitRate" Grid.Row="2" Grid.Column="1" Text="—" Foreground="#E0E0FF" FontSize="10" Margin="0,3,0,0"/>
+            <TextBlock Grid.Row="2" Grid.Column="0" Text="Cache hit rate" Foreground="#888" FontSize="10" Margin="0,3,12,0"/>
+            <TextBlock x:Name="DiagHitRate" Grid.Row="2" Grid.Column="1" Text="—" Foreground="#E0E0FF" FontSize="10" Margin="0,3,0,0"/>
 
-                                    <TextBlock Grid.Row="3" Grid.Column="0" Text="Last decoded text" Foreground="#888" FontSize="10" Margin="0,3,12,0" VerticalAlignment="Top"/>
-                                    <TextBlock x:Name="DiagLastText" Grid.Row="3" Grid.Column="1" Text="—" Foreground="#FFD166" FontSize="10" Margin="0,3,0,0" TextWrapping="Wrap"/>
-                                </Grid>
-                            </StackPanel>
-                        </Expander>
+            <TextBlock Grid.Row="3" Grid.Column="0" Text="Last decoded text" Foreground="#888" FontSize="10" Margin="0,3,12,0" VerticalAlignment="Top"/>
+            <TextBlock x:Name="DiagLastDecodedText" Grid.Row="3" Grid.Column="1" Text="—" Foreground="#FFD166" FontSize="10" Margin="0,3,0,0" TextWrapping="Wrap"/>
+
+            <TextBlock Grid.Row="4" Grid.Column="0" Text="Processed text" Foreground="#888" FontSize="10" Margin="0,3,12,0" VerticalAlignment="Top"/>
+            <TextBlock x:Name="DiagProcessedText" Grid.Row="4" Grid.Column="1" Text="—" Foreground="#B8E986" FontSize="10" Margin="0,3,0,0" TextWrapping="Wrap"/>
+
+            <TextBlock Grid.Row="5" Grid.Column="0" Text="Text spoken" Foreground="#888" FontSize="10" Margin="0,3,12,0" VerticalAlignment="Top"/>
+            <TextBlock x:Name="DiagTextSpoken" Grid.Row="5" Grid.Column="1" Text="—" Foreground="#88C0FF" FontSize="10" Margin="0,3,0,0" TextWrapping="Wrap"/>
+        </Grid>
+    </StackPanel>
+</Expander>
 
                         <Expander Header="Hotkey" HorizontalAlignment="Stretch" IsExpanded="False">
                             <StackPanel Margin="0,8,0,0" Spacing="6" HorizontalAlignment="Stretch">

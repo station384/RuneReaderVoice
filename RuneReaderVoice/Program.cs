@@ -105,6 +105,8 @@ internal static class Program
 
         assembler.OnSegmentComplete += seg =>
         {
+            AppServices.LastDecodedText = seg.Text ?? string.Empty;
+            AppServices.LastRuntimeSlot = seg.Slot;
             var activeProvider = AppServices.Provider;
             var shapedText = AppServices.TextSwapProcessor.Process(seg.Text);
             var shapedSegment = new AssembledSegment
@@ -118,6 +120,9 @@ internal static class Program
             var processed = activeProvider.SupportsInlinePronunciationHints
                 ? AppServices.PronunciationProcessor.Process(shapedSegment)
                 : shapedSegment;
+            
+            AppServices.LastProcessedText = processed.Text ?? string.Empty;
+            AppServices.LastTextSpoken = processed.Text ?? string.Empty;
 
             coordinator.EnqueueSegment(processed);
         };

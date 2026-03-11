@@ -44,6 +44,8 @@ public partial class MainWindow : Window
         _statusTimer.Tick += OnStatusTick;
         _statusTimer.Start();
 
+
+        
         // Subscribe to assembler events for live session status
         AppServices.Assembler.OnSessionReset    += id => Dispatcher.UIThread.Post(() =>
         {
@@ -54,7 +56,7 @@ public partial class MainWindow : Window
         {
             SessionStatus.Text = $"Dialog 0x{seg.DialogId:X4}  seg {seg.SegmentIndex}  {GetDisplaySlotLabel(seg.Slot)}";
             DiagDialog.Text    = $"0x{seg.DialogId:X4}";
-            DiagLastText.Text  = seg.Text;
+            //DiagLastText.Text  = seg.Text;
         });
 
         // Wire Kokoro model download feedback if that provider is active
@@ -93,6 +95,7 @@ public partial class MainWindow : Window
         };
     }
 
+
     // ── Status tick ───────────────────────────────────────────────────────────
 
     private void OnStatusTick(object? sender, EventArgs e)
@@ -121,6 +124,10 @@ public partial class MainWindow : Window
         DiagLatency.Text = latency.TotalMilliseconds > 0
             ? $"{latency.TotalMilliseconds:F0} ms"
             : "—";
+
+        DiagLastDecodedText.Text = string.IsNullOrEmpty(AppServices.LastDecodedText) ? "—" : AppServices.LastDecodedText;
+        DiagProcessedText.Text   = string.IsNullOrEmpty(AppServices.LastProcessedText) ? "—" : AppServices.LastProcessedText;
+        DiagTextSpoken.Text      = string.IsNullOrEmpty(AppServices.LastTextSpoken) ? "—" : AppServices.LastTextSpoken;
         DiagHitRate.Text = hitRate;
 
         CacheStatsLabel.Text =
