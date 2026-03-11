@@ -4,6 +4,7 @@
     {
       "FindText": "-",
       "ReplaceText": "... ",
+      "ReplaceWithCrLf": false,
       "WholeWord": true,
       "CaseSensitive": false,
       "Enabled": true,
@@ -12,7 +13,8 @@
     },
     {
       "FindText": "- -",
-      "ReplaceText": "... ",
+      "ReplaceText": ".. ",
+      "ReplaceWithCrLf": false,
       "WholeWord": true,
       "CaseSensitive": false,
       "Enabled": true,
@@ -22,19 +24,41 @@
     {
       "FindText": ", ",
       "ReplaceText": ",,",
+      "ReplaceWithCrLf": false,
       "WholeWord": false,
       "CaseSensitive": false,
       "Enabled": true,
-      "Priority": 100,
+      "Priority": 50,
       "Notes": ""
     },
     {
       "FindText": "! ",
       "ReplaceText": "! , ",
+      "ReplaceWithCrLf": false,
       "WholeWord": false,
       "CaseSensitive": false,
       "Enabled": true,
-      "Priority": 100,
+      "Priority": 50,
+      "Notes": ""
+    },
+    {
+      "FindText": ": ",
+      "ReplaceText": "., ",
+      "ReplaceWithCrLf": true,
+      "WholeWord": false,
+      "CaseSensitive": false,
+      "Enabled": true,
+      "Priority": 49,
+      "Notes": ""
+    },
+    {
+      "FindText": "?",
+      "ReplaceText": "?,",
+      "ReplaceWithCrLf": false,
+      "WholeWord": false,
+      "CaseSensitive": false,
+      "Enabled": true,
+      "Priority": 35,
       "Notes": ""
     }
   ]
