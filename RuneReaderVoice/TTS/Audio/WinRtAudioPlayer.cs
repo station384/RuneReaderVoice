@@ -113,6 +113,14 @@ public sealed class WinRtAudioPlayer : IAudioPlayer
     /// </summary>
     public async Task PlaylistPlayAsync(IAsyncEnumerable<string> filePaths, CancellationToken ct)
     {
+        MediaPlaybackList CreatePlaybackList()
+        {
+            return new MediaPlaybackList
+            {
+                MaxPrefetchTime   = TimeSpan.FromSeconds(5),
+                AutoRepeatEnabled = false,
+            };
+        }
         
         void EnsurePlaybackStarted()
         {
@@ -137,11 +145,7 @@ public sealed class WinRtAudioPlayer : IAudioPlayer
         ObjectDisposedException.ThrowIf(_disposed, this);
         Stop();
 
-        var list = new MediaPlaybackList
-        {
-            MaxPrefetchTime   = TimeSpan.FromSeconds(5),
-            AutoRepeatEnabled = false,
-        };
+        var list = CreatePlaybackList();
 
         // Re-apply speed on every item transition — WinRT can reset PlaybackRate
         // to 1.0 when the session changes between playlist items.
@@ -152,12 +156,29 @@ public sealed class WinRtAudioPlayer : IAudioPlayer
             try { _player.PlaybackSession.PlaybackRate = _speed; }
             catch (Exception) { /* player disposed during shutdown */ }
         }
+
         list.CurrentItemChanged += OnItemChanged;
+
+        void RestartPlaylistWithSingleItem(MediaPlaybackItem item)
+        {
+            try { list.CurrentItemChanged -= OnItemChanged; }
+            catch (Exception) { /* ignore teardown / transition races */ }
+
+            list = CreatePlaybackList();
+            list.CurrentItemChanged += OnItemChanged;
+            list.Items.Add(item);
+
+            _player.Source = list;
+            _player.Play();
+            _player.PlaybackSession.PlaybackRate = _speed;
+        }
 
         var tcs      = new TaskCompletionSource<bool>(
             TaskCreationOptions.RunContinuationsAsynchronously);
         int totalAdded  = 0;
         bool streamDone = false;
+        bool playlistStarved = false;
+
         var  listLock   = new object();
 
         // Fires when the list naturally runs out of items (last item finished).
@@ -175,6 +196,10 @@ public sealed class WinRtAudioPlayer : IAudioPlayer
             lock (listLock)
             {
                 shouldComplete = streamDone;
+                if (!streamDone)
+                {
+                    playlistStarved = true;
+                }
             }
 
             if (!shouldComplete)
@@ -220,8 +245,21 @@ public sealed class WinRtAudioPlayer : IAudioPlayer
                 //     _player.Play();
                 //     _player.PlaybackSession.PlaybackRate = _speed;
                 // }
-                lock (listLock) totalAdded++;
-                list.Items.Add(item);
+                lock (listLock)
+                {
+                    totalAdded++;
+
+                    if (playlistStarved)
+                    {
+                        playlistStarved = false;
+                        RestartPlaylistWithSingleItem(item);
+                    }
+                    else
+                    {
+                        list.Items.Add(item);
+                    }
+                }
+
 
                 EnsurePlaybackStarted();
             }
@@ -230,6 +268,7 @@ public sealed class WinRtAudioPlayer : IAudioPlayer
             lock (listLock)
             {
                 streamDone = true;
+                playlistStarved = false;
                 // Edge case: player already fired MediaEnded before stream finished
                 if (totalAdded == 0)
                 {
