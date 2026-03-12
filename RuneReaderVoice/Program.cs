@@ -193,7 +193,7 @@ internal static class Program
     private static IAudioPlayer CreateAudioPlayer()
     {
     #if WINDOWS
-        return new WinRtAudioPlayer();
+        return new WasapiStreamAudioPlayer();
     #elif LINUX
         return new GstAudioPlayer();
     #else

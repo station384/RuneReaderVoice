@@ -47,6 +47,10 @@
 
     <PackageReference Include="ScreenCapture.NET.DX11" Version="3.0.0"
                       Condition="'$(OS)'=='Windows_NT'" />
+    <PackageReference Include="NAudio" Version="2.2.1"
+                      Condition="'$(OS)'=='Windows_NT'" />
+    <PackageReference Include="VorbisPizza" Version="1.4.2"
+                      Condition="'$(OS)'=='Windows_NT'" />
     <PackageReference Include="ScreenCapture.NET.X11" Version="3.0.0"
                       Condition="'$(OS)'!='Windows_NT'" />
 
