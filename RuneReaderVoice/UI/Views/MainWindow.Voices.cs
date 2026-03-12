@@ -128,8 +128,22 @@ public partial class MainWindow
             return;
 
         const string previewText = "The tides of fate are shifting.";
-        var audioPath = await GetOrCreateAudioPathAsync(previewText, slot);
-        await AppServices.Player.PlayAsync(audioPath, CancellationToken.None);
+
+        btn.IsEnabled = false;
+        try
+        {
+            var audioPath = await GetOrCreateAudioPathAsync(previewText, slot);
+            await AppServices.Player.PlayAsync(audioPath, CancellationToken.None);
+        }
+        catch (OperationCanceledException)
+        {
+            // Expected when a new preview interrupts an older one.
+        }
+
+        finally
+        {
+            btn.IsEnabled = true;
+        }
     }
 
     private async void VoiceProfileEdit_Click(object? sender, Avalonia.Interactivity.RoutedEventArgs e)

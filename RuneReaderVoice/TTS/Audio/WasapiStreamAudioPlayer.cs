@@ -103,8 +103,10 @@ public sealed class WasapiStreamAudioPlayer : IAudioPlayer
         var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
         var tcs = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
 
-        BufferedWaveProvider? localBuffer;
-        WasapiOut? localOutput;
+        BufferedWaveProvider localBuffer;
+        WasapiOut localOutput;
+        Task? localFeedTask;
+        CancellationTokenSource localPlaybackCts;
 
         lock (_sync)
         {
@@ -124,12 +126,20 @@ public sealed class WasapiStreamAudioPlayer : IAudioPlayer
 
             localBuffer = _buffer;
             localOutput = _output;
+            localPlaybackCts = _playbackCts;
         }
 
-        localOutput.PlaybackStopped += OnPlaybackStopped;
+        void OnLocalPlaybackStopped(object? sender, StoppedEventArgs e)
+        {
+            if (e.Exception != null)
+                tcs.TrySetException(e.Exception);
+        }
+
+        localOutput.PlaybackStopped += OnLocalPlaybackStopped;
         localOutput.Play();
 
-        _feedTask = FeedStreamAsync(filePaths, localBuffer!, localOutput, linkedCts.Token);
+        _feedTask = FeedStreamAsync(filePaths, localBuffer, localOutput, tcs, linkedCts.Token);
+        localFeedTask = _feedTask;
 
         using var reg = linkedCts.Token.Register(() =>
         {
@@ -151,13 +161,13 @@ public sealed class WasapiStreamAudioPlayer : IAudioPlayer
         try
         {
             await tcs.Task.ConfigureAwait(false);
-            if (_feedTask != null)
-                await _feedTask.ConfigureAwait(false);
+            if (localFeedTask != null)
+                await localFeedTask.ConfigureAwait(false);
         }
         finally
         {
-            localOutput.PlaybackStopped -= OnPlaybackStopped;
-            CleanupPlaybackObjects();
+            localOutput.PlaybackStopped -= OnLocalPlaybackStopped;
+            CleanupPlaybackObjects(localOutput, localBuffer, localPlaybackCts, localFeedTask, tcs);
         }
     }
 
@@ -212,7 +222,18 @@ public sealed class WasapiStreamAudioPlayer : IAudioPlayer
 
         _disposed = true;
         Stop();
-        CleanupPlaybackObjects();
+
+        WasapiOut? output;
+        BufferedWaveProvider? buffer;
+        CancellationTokenSource? cts;
+        Task? feedTask;
+        TaskCompletionSource<bool>? tcs;
+
+        lock (_sync)
+        {
+            output = _output; buffer = _buffer; cts = _playbackCts; feedTask = _feedTask; tcs = _playbackTcs;
+        }
+        CleanupPlaybackObjects(output, buffer, cts, feedTask, tcs);
     }
 
     private WasapiOut CreateOutput(string? deviceId)
@@ -229,6 +250,7 @@ public sealed class WasapiStreamAudioPlayer : IAudioPlayer
         IAsyncEnumerable<string> filePaths,
         BufferedWaveProvider buffer,
         WasapiOut output,
+        TaskCompletionSource<bool> playbackTcs,
         CancellationToken ct)
     {
         Exception? failure = null;
@@ -252,10 +274,7 @@ public sealed class WasapiStreamAudioPlayer : IAudioPlayer
         }
         catch (OperationCanceledException)
         {
-            lock (_sync)
-            {
-                _playbackTcs?.TrySetCanceled();
-            }
+            playbackTcs.TrySetCanceled();
             return;
         }
         catch (Exception ex)
@@ -263,13 +282,10 @@ public sealed class WasapiStreamAudioPlayer : IAudioPlayer
             failure = ex;
         }
 
-        lock (_sync)
-        {
-            if (failure != null)
-                _playbackTcs?.TrySetException(failure);
-            else
-                _playbackTcs?.TrySetResult(true);
-        }
+        if (failure != null)
+            playbackTcs.TrySetException(failure);
+        else
+            playbackTcs.TrySetResult(true);
     }
 
     private async Task DecodeAndQueueFileAsync(string filePath, BufferedWaveProvider buffer, CancellationToken ct)
@@ -433,23 +449,29 @@ public sealed class WasapiStreamAudioPlayer : IAudioPlayer
         }
     }
 
-    private void CleanupPlaybackObjects()
+    private void CleanupPlaybackObjects(
+        WasapiOut? output,
+        BufferedWaveProvider? buffer,
+        CancellationTokenSource? cts,
+        Task? feedTask,
+        TaskCompletionSource<bool>? tcs)
     {
-        WasapiOut? output;
-        CancellationTokenSource? cts;
-        Task? feedTask;
-
         lock (_sync)
         {
-            output = _output;
-            cts = _playbackCts;
-            feedTask = _feedTask;
+            if (ReferenceEquals(_output, output))
+                _output = null;
 
-            _output = null;
-            _buffer = null;
-            _playbackCts = null;
-            _feedTask = null;
-            _playbackTcs = null;
+            if (ReferenceEquals(_buffer, buffer))
+                _buffer = null;
+
+            if (ReferenceEquals(_playbackCts, cts))
+                _playbackCts = null;
+
+            if (ReferenceEquals(_feedTask, feedTask))
+                _feedTask = null;
+
+            if (ReferenceEquals(_playbackTcs, tcs))
+                _playbackTcs = null;
         }
 
         try { cts?.Cancel(); } catch { }
@@ -465,6 +487,14 @@ public sealed class WasapiStreamAudioPlayer : IAudioPlayer
         }
 
         try { output?.Stop(); } catch { }
+        try
+        {
+            if (output != null)
+                output.PlaybackStopped -= OnPlaybackStopped;
+        }
+        catch
+        {
+        }
         try { output?.Dispose(); } catch { }
         try { cts?.Dispose(); } catch { }
     }
