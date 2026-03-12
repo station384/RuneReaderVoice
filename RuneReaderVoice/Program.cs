@@ -1,8 +1,10 @@
 using System;
 using System.IO;
 using System.Linq;
+using System.Threading.Tasks;
 using Avalonia;
 using RuneReaderVoice;
+using RuneReaderVoice.Data;
 using RuneReaderVoice.Platform;
 using RuneReaderVoice.Protocol;
 using RuneReaderVoice.TTS;
@@ -13,12 +15,13 @@ using RuneReaderVoice.Session;
 using RuneReaderVoice.TTS.Pronunciation;
 using RuneReaderVoice.TTS.TextSwap;
 
+
 namespace RuneReaderVoice;
 
 internal static class Program
 {
     [STAThread]
-    public static int Main(string[] args)
+    public static async Task<int> Main(string[] args)
     {
         // ── Load settings ─────────────────────────────────────────────────────
         var settings = VoiceSettingsManager.LoadSettings();
@@ -65,7 +68,6 @@ internal static class Program
             kokoroProvider.EnablePhraseChunking = settings.EnablePhraseChunking;
         }
 
-
         var cacheDir = !string.IsNullOrWhiteSpace(settings.CacheDirectoryOverride)
             ? settings.CacheDirectoryOverride
             : VoiceSettingsManager.GetDefaultCacheDirectory();
@@ -83,8 +85,15 @@ internal static class Program
         if (settings.AudioDeviceId != null)
             player.SetOutputDevice(settings.AudioDeviceId);
 
-        var assembler = new TtsSessionAssembler();
-        var textSwapProcessor = BuildTextSwapProcessor();
+        // ── NPC race override DB ──────────────────────────────────────────────
+        var dbPath = Path.Combine(VoiceSettingsManager.GetConfigDirectory(), "npc-overrides.db");
+
+        var npcOverrides = new NpcRaceOverrideDb(dbPath);
+        await npcOverrides.InitializeAsync();
+        var assembler = new TtsSessionAssembler(npcOverrides);
+        await assembler.LoadOverridesAsync();
+
+        var textSwapProcessor      = BuildTextSwapProcessor();
         var pronunciationProcessor = BuildPronunciationProcessor();
 
         var tempDir = Path.Combine(Path.GetTempPath(), "RuneReaderVoice");
@@ -95,7 +104,7 @@ internal static class Program
         var recentSpeechSuppressor = new RecentSpeechSuppressor
         {
             Enabled = settings.RepeatSuppressionEnabled,
-            Window = TimeSpan.FromSeconds(Math.Max(0, settings.RepeatSuppressionWindowSeconds))
+            Window  = TimeSpan.FromSeconds(Math.Max(0, settings.RepeatSuppressionWindowSeconds))
         };
 
         var coordinator = new PlaybackCoordinator(
@@ -111,18 +120,18 @@ internal static class Program
             var shapedText = AppServices.TextSwapProcessor.Process(seg.Text);
             var shapedSegment = new AssembledSegment
             {
-                Text = shapedText,
-                Slot = seg.Slot,
-                DialogId = seg.DialogId,
+                Text         = shapedText,
+                Slot         = seg.Slot,
+                DialogId     = seg.DialogId,
                 SegmentIndex = seg.SegmentIndex,
-                NpcId = seg.NpcId,
+                NpcId        = seg.NpcId,
             };
             var processed = activeProvider.SupportsInlinePronunciationHints
                 ? AppServices.PronunciationProcessor.Process(shapedSegment)
                 : shapedSegment;
-            
+
             AppServices.LastProcessedText = processed.Text ?? string.Empty;
-            AppServices.LastTextSpoken = processed.Text ?? string.Empty;
+            AppServices.LastTextSpoken    = processed.Text ?? string.Empty;
 
             coordinator.EnqueueSegment(processed);
         };
@@ -149,7 +158,8 @@ internal static class Program
 
         AppServices.Initialize(
             settings, platform, provider, cache, player,
-            assembler, coordinator, monitor, pronunciationProcessor, textSwapProcessor);
+            assembler, coordinator, monitor, pronunciationProcessor, textSwapProcessor,
+            npcOverrides);
 
         return AppBuilder
             .Configure<App>()

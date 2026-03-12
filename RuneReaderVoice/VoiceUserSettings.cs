@@ -92,6 +92,19 @@ public sealed class VoiceUserSettings
     public bool TextSwapWorkbenchCaseSensitive { get; set; } = false;
     public string TextSwapWorkbenchNotes { get; set; } = string.Empty;
 
+    /// <summary>
+    /// Persisted expander collapsed states. Key = expander name, Value = IsExpanded.
+    /// Defaults to collapsed (false) for any key not present.
+    /// </summary>
+    public Dictionary<string, bool> ExpanderStates { get; set; } = new();
+
+    /// <summary>Returns the saved IsExpanded state for a named expander, defaulting to false.</summary>
+    public bool GetExpanderState(string name)
+        => ExpanderStates.TryGetValue(name, out var v) ? v : false;
+
+    /// <summary>Saves the IsExpanded state for a named expander.</summary>
+    public void SetExpanderState(string name, bool isExpanded)
+        => ExpanderStates[name] = isExpanded;
 
     public void NormalizeVoiceProfiles()
     {

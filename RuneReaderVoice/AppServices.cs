@@ -22,35 +22,43 @@
 // Used by the Avalonia UI to bind to live state without constructor injection
 // through the Avalonia application lifecycle.
 
-using RuneReaderVoice.Protocol;
+using RuneReaderVoice.Data;
 using RuneReaderVoice.Platform;
-using RuneReaderVoice.TTS;
-using RuneReaderVoice.TTS.Cache;
-using RuneReaderVoice.TTS.Providers;
-using RuneReaderVoice.TTS.Audio;
+using RuneReaderVoice.Protocol;
 using RuneReaderVoice.Session;
+using RuneReaderVoice.TTS;
+using RuneReaderVoice.TTS.Audio;
+using RuneReaderVoice.TTS.Cache;
 using RuneReaderVoice.TTS.Pronunciation;
+using RuneReaderVoice.TTS.Providers;
 using RuneReaderVoice.TTS.TextSwap;
 
 namespace RuneReaderVoice;
 
 public static class AppServices
 {
-    public static VoiceUserSettings    Settings    { get; private set; } = new();
-    public static IVoicePlatformServices Platform  { get; private set; } = null!;
-    public static ITtsProvider         Provider    { get; private set; } = null!;
-    public static TtsAudioCache        Cache       { get; private set; } = null!;
-    public static IAudioPlayer         Player      { get; private set; } = null!;
-    public static TtsSessionAssembler  Assembler   { get; private set; } = null!;
-    public static PlaybackCoordinator  Coordinator { get; private set; } = null!;
-    public static RvBarcodeMonitor     Monitor     { get; private set; } = null!;
+    public static VoiceUserSettings              Settings               { get; private set; } = new();
+    public static IVoicePlatformServices         Platform               { get; private set; } = null!;
+    public static ITtsProvider                   Provider               { get; private set; } = null!;
+    public static TtsAudioCache                  Cache                  { get; private set; } = null!;
+    public static IAudioPlayer                   Player                 { get; private set; } = null!;
+    public static TtsSessionAssembler            Assembler              { get; private set; } = null!;
+    public static PlaybackCoordinator            Coordinator            { get; private set; } = null!;
+    public static RvBarcodeMonitor               Monitor                { get; private set; } = null!;
     public static DialoguePronunciationProcessor PronunciationProcessor { get; private set; } = null!;
-    public static DialogueTextSwapProcessor TextSwapProcessor { get; private set; } = null!;
-    
-    public static string LastDecodedText { get; set; } = string.Empty;
-    public static string LastProcessedText { get; set; } = string.Empty;
-    public static string LastTextSpoken { get; set; } = string.Empty;
-    public static VoiceSlot LastRuntimeSlot { get; set; } = VoiceSlot.Narrator;
+    public static DialogueTextSwapProcessor      TextSwapProcessor      { get; private set; } = null!;
+    public static NpcRaceOverrideDb              NpcOverrides           { get; private set; } = null!;
+
+    public static string    LastDecodedText   { get; set; } = string.Empty;
+    public static string    LastProcessedText { get; set; } = string.Empty;
+    public static string    LastTextSpoken    { get; set; } = string.Empty;
+    public static VoiceSlot LastRuntimeSlot   { get; set; } = VoiceSlot.Narrator;
+
+    /// <summary>
+    /// The most recently completed segment. Updated by TtsSessionAssembler
+    /// via OnSegmentComplete. The UI reads this to populate the "Last NPC" panel.
+    /// </summary>
+    public static AssembledSegment? LastSegment { get; set; }
 
     public static void Initialize(
         VoiceUserSettings settings,
@@ -62,18 +70,20 @@ public static class AppServices
         PlaybackCoordinator coordinator,
         RvBarcodeMonitor monitor,
         DialoguePronunciationProcessor pronunciationProcessor,
-        DialogueTextSwapProcessor textSwapProcessor)
+        DialogueTextSwapProcessor textSwapProcessor,
+        NpcRaceOverrideDb npcOverrides)
     {
-        Settings    = settings;
-        Platform    = platform;
-        Provider    = provider;
-        Cache       = cache;
-        Player      = player;
-        Assembler   = assembler;
-        Coordinator = coordinator;
-        Monitor     = monitor;
+        Settings               = settings;
+        Platform               = platform;
+        Provider               = provider;
+        Cache                  = cache;
+        Player                 = player;
+        Assembler              = assembler;
+        Coordinator            = coordinator;
+        Monitor                = monitor;
         PronunciationProcessor = pronunciationProcessor;
-        TextSwapProcessor = textSwapProcessor;
+        TextSwapProcessor      = textSwapProcessor;
+        NpcOverrides           = npcOverrides;
     }
 
     /// <summary>
@@ -84,20 +94,12 @@ public static class AppServices
     public static void SwapProvider(ITtsProvider newProvider)
     {
         Provider = newProvider;
-        // The coordinator holds a reference to the provider but only uses it inside
-        // SynthesizeAndPlayAsync — which always reads through AppServices.Provider —
-        // so we just update the field here. If the coordinator caches the reference
-        // internally, add a SetProvider method to PlaybackCoordinator instead.
         Coordinator.SetProvider(newProvider);
     }
 
     public static void SetPronunciationProcessor(DialoguePronunciationProcessor processor)
-    {
-        PronunciationProcessor = processor;
-    }
+        => PronunciationProcessor = processor;
 
     public static void SetTextSwapProcessor(DialogueTextSwapProcessor processor)
-    {
-        TextSwapProcessor = processor;
-    }
+        => TextSwapProcessor = processor;
 }

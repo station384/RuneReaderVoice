@@ -31,6 +31,7 @@ public partial class MainWindow
         var volume = (float)(e.NewValue / 100.0);
         AppServices.Settings.Volume = volume;
         AppServices.Player.Volume = volume;
+        VolumeLabel.Text = $"{(int)e.NewValue}%";
         VoiceSettingsManager.SaveSettings(AppServices.Settings);
     }
 

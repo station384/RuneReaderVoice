@@ -1,3 +1,21 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+//
+// This file is part of RuneReaderVoice.
+// Copyright (C) 2026 Michael Sutton
+//
+// RuneReaderVoice is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// RuneReaderVoice is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with RuneReaderVoice. If not, see <https://www.gnu.org/licenses/>.
+
 // MainWindow.axaml.cs
 // Code-behind for the main RuneReader Voice window.
 // Binds to AppServices for live status, wires all control events.
@@ -5,6 +23,7 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.IO;
 using System.Linq;
 using Avalonia.Controls;
 using Avalonia.Threading;
@@ -27,14 +46,14 @@ public partial class MainWindow : Window
         InitializeComponent();
         PopulateProviderSelector();
         LoadSettingsIntoUI();
+        WireExpanderStateSaving();
         PopulateAudioDevices();
-
-
         PopulateVoiceGrid();
         PopulateVolumeTrimGrid();
         SetPlatformVisibility();
         PopulatePronunciationWorkbench();
         PopulateTextSwapWorkbench();
+        InitNpcOverridesUI();
 
         // Status refresh timer — 500ms is plenty for UI feedback
         _statusTimer = new DispatcherTimer
@@ -44,8 +63,6 @@ public partial class MainWindow : Window
         _statusTimer.Tick += OnStatusTick;
         _statusTimer.Start();
 
-
-        
         // Subscribe to assembler events for live session status
         AppServices.Assembler.OnSessionReset    += id => Dispatcher.UIThread.Post(() =>
         {
@@ -56,11 +73,10 @@ public partial class MainWindow : Window
         {
             SessionStatus.Text = $"Dialog 0x{seg.DialogId:X4}  seg {seg.SegmentIndex}  {GetDisplaySlotLabel(seg.Slot)}";
             DiagDialog.Text    = $"0x{seg.DialogId:X4}";
-            //DiagLastText.Text  = seg.Text;
         });
 
         // Wire Kokoro model download feedback if that provider is active
-        if (AppServices.Provider is RuneReaderVoice.TTS.Providers.KokoroTtsProvider kokoro)
+        if (AppServices.Provider is KokoroTtsProvider kokoro)
         {
             kokoro.OnModelDownloading += msg => Dispatcher.UIThread.Post(() =>
             {
@@ -101,14 +117,14 @@ public partial class MainWindow : Window
     private void OnStatusTick(object? sender, EventArgs e)
     {
         // Capture status
-        CaptureStatus.Text      = _capturing ? "Active" : "Stopped";
+        CaptureStatus.Text       = _capturing ? "Active" : "Stopped";
         CaptureStatus.Foreground = _capturing
             ? Avalonia.Media.Brushes.LightGreen
             : Avalonia.Media.Brushes.IndianRed;
 
         // Playback state
         bool playing = AppServices.Player.IsPlaying;
-        PlaybackStatus.Text      = playing ? "Playing" : "Idle";
+        PlaybackStatus.Text       = playing ? "Playing" : "Idle";
         PlaybackStatus.Foreground = playing
             ? Avalonia.Media.Brushes.LightSkyBlue
             : Avalonia.Media.SolidColorBrush.Parse("#4ECDC4");
@@ -166,6 +182,7 @@ public partial class MainWindow : Window
     {
         var s = AppServices.Settings;
         VolumeSlider.Value  = s.Volume * 100;
+        VolumeLabel.Text    = $"{(int)(s.Volume * 100)}%";
         SpeedSlider.Value   = s.PlaybackSpeed * 100;
         SpeedLabel.Text     = $"{s.PlaybackSpeed:F2}×";
         CaptureInterval.Value = s.CaptureIntervalMs;
@@ -184,7 +201,7 @@ public partial class MainWindow : Window
         PhraseChunking.IsChecked = s.EnablePhraseChunking;
         PiperBinaryPath.Text     = s.PiperBinaryPath;
         PiperModelDir.Text       = s.PiperModelDirectory;
-      
+
         var playbackMatch = PlaybackModeSelector.Items
             .OfType<ComboBoxItem>()
             .FirstOrDefault(i => i.Tag?.ToString() == s.PlaybackMode);
@@ -192,7 +209,51 @@ public partial class MainWindow : Window
             PlaybackModeSelector.SelectedItem = playbackMatch;
         else
             PlaybackModeSelector.SelectedIndex = 0;
-        
+
+        // Restore expander states (all default to collapsed if not in settings)
+        RestoreExpanders(s);
+    }
+
+    // ── Expander state persistence ────────────────────────────────────────────
+
+    private void RestoreExpanders(VoiceUserSettings s)
+    {
+        ExpanderSettings.IsExpanded      = s.GetExpanderState(nameof(ExpanderSettings));
+        ExpanderProvider.IsExpanded      = s.GetExpanderState(nameof(ExpanderProvider));
+        ExpanderPlayback.IsExpanded      = s.GetExpanderState(nameof(ExpanderPlayback));
+        ExpanderDialogSources.IsExpanded = s.GetExpanderState(nameof(ExpanderDialogSources));
+        ExpanderCapture.IsExpanded       = s.GetExpanderState(nameof(ExpanderCapture));
+        ExpanderAdvPlayback.IsExpanded   = s.GetExpanderState(nameof(ExpanderAdvPlayback));
+        ExpanderCache.IsExpanded         = s.GetExpanderState(nameof(ExpanderCache));
+        ExpanderAudio.IsExpanded         = s.GetExpanderState(nameof(ExpanderAudio));
+        ExpanderDiagnostics.IsExpanded   = s.GetExpanderState(nameof(ExpanderDiagnostics));
+        ExpanderHotkey.IsExpanded        = s.GetExpanderState(nameof(ExpanderHotkey));
+    }
+
+    private void WireExpanderStateSaving()
+    {
+        WireExpander(ExpanderSettings,      nameof(ExpanderSettings));
+        WireExpander(ExpanderProvider,      nameof(ExpanderProvider));
+        WireExpander(ExpanderPlayback,      nameof(ExpanderPlayback));
+        WireExpander(ExpanderDialogSources, nameof(ExpanderDialogSources));
+        WireExpander(ExpanderCapture,       nameof(ExpanderCapture));
+        WireExpander(ExpanderAdvPlayback,   nameof(ExpanderAdvPlayback));
+        WireExpander(ExpanderCache,         nameof(ExpanderCache));
+        WireExpander(ExpanderAudio,         nameof(ExpanderAudio));
+        WireExpander(ExpanderDiagnostics,   nameof(ExpanderDiagnostics));
+        WireExpander(ExpanderHotkey,        nameof(ExpanderHotkey));
+    }
+
+    private void WireExpander(Expander expander, string name)
+    {
+        expander.PropertyChanged += (_, e) =>
+        {
+            if (e.Property == Expander.IsExpandedProperty)
+            {
+                AppServices.Settings.SetExpanderState(name, expander.IsExpanded);
+                VoiceSettingsManager.SaveSettings(AppServices.Settings);
+            }
+        };
     }
 
     private void PopulateAudioDevices()
@@ -210,7 +271,7 @@ public partial class MainWindow : Window
         if (AudioDeviceSelector.Items.Count > 0)
             AudioDeviceSelector.SelectedIndex = 0;
     }
-    
+
     private void PopulateProviderSelector()
     {
         ProviderSelector.Items.Clear();
@@ -233,7 +294,6 @@ public partial class MainWindow : Window
         else
             ProviderSelector.SelectedIndex = 0;
     }
-    
 
     private void PopulateVolumeTrimGrid()
     {
@@ -242,7 +302,7 @@ public partial class MainWindow : Window
         {
             var key = group == AccentGroup.Narrator
                 ? VoiceSlot.Narrator.ToString()
-                : $"{group}/Male"; // use same key pattern as voice slot
+                : $"{group}/Male";
 
             var row = new Grid { ColumnDefinitions = new ColumnDefinitions("2*,*,Auto") };
             AddGridLabel(row, group.ToString(), 0, Avalonia.Media.Brushes.LightGray);
@@ -318,7 +378,6 @@ public partial class MainWindow : Window
     protected override void OnClosing(Avalonia.Controls.WindowClosingEventArgs e)
     {
         _statusTimer.Stop();
-        // Save settings on window close
         _ = VoiceSettingsManager.SaveSettingsAsync(AppServices.Settings);
         base.OnClosing(e);
     }

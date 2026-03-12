@@ -37,12 +37,19 @@
 // Chunk ordering:
 //   Non-zero chunks that arrive before IDX=0 are stashed in _earlyChunks and
 //   replayed when IDX=0 arrives to establish the segment key.
+//
+// NPC race override lookup chain:
+//   1. _npcRaceStore (in-memory, pre-loaded from NpcRaceOverrideDb at startup)
+//   2. packet.Race (from QR header — creature type or player race)
+//   3. Falls through to RaceAccentMapping which returns Narrator on unknown values
 
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading;
+using System.Threading.Tasks;
+using RuneReaderVoice.Data;
 using RuneReaderVoice.Protocol;
 
 namespace RuneReaderVoice.Session;
@@ -82,22 +89,47 @@ public sealed class TtsSessionAssembler
 
     // ── State ─────────────────────────────────────────────────────────────────
 
-    private int  _currentDialogId  = -1;
-    private int  _nextSegmentIndex;
+    private int _currentDialogId = -1;
+    private int _nextSegmentIndex;
 
     // Active accumulators: key = MakeKey(total, flags, race, slot0payload)
-    private readonly Dictionary<string, SegmentAccumulator> _segments     = new();
+    private readonly Dictionary<string, SegmentAccumulator> _segments          = new();
     // Keys of segments that have already fired — re-loops are ignored
-    private readonly HashSet<string>                        _completedKeys = new();
-    private readonly HashSet<string> _completedUtteranceKeys = new();
+    private readonly HashSet<string>                        _completedKeys      = new();
+    private readonly HashSet<string>                        _completedUtteranceKeys = new();
     // Early chunks (arrived before IDX=0): key = (flags<<16|race<<8|total)
     private readonly Dictionary<string, List<(int idx, string payload)>> _earlyChunks = new();
 
     private readonly object _lock = new();
 
-    // ── NPC race datastore ────────────────────────────────────────────────────
+    // ── NPC race override store ───────────────────────────────────────────────
+    // Pre-loaded from NpcRaceOverrideDb at startup. Feed() is synchronous so
+    // we maintain an in-memory copy here — the DB is the durable backing store.
+    // Key = NpcId, Value = RaceId.
 
     private readonly Dictionary<int, int> _npcRaceStore = new();
+    private readonly NpcRaceOverrideDb    _overrideDb;
+
+    // ── Construction ──────────────────────────────────────────────────────────
+
+    public TtsSessionAssembler(NpcRaceOverrideDb overrideDb)
+    {
+        _overrideDb = overrideDb;
+    }
+
+    /// <summary>
+    /// Pre-loads all local overrides from the DB into the in-memory race store.
+    /// Call once at startup after the DB is initialized.
+    /// </summary>
+    public async Task LoadOverridesAsync(CancellationToken ct = default)
+    {
+        var all = await _overrideDb.GetAllAsync(ct);
+        lock (_lock)
+        {
+            foreach (var entry in all)
+                _npcRaceStore[entry.NpcId] = entry.RaceId;
+        }
+    }
 
     // ── Public API ────────────────────────────────────────────────────────────
 
@@ -110,8 +142,8 @@ public sealed class TtsSessionAssembler
             // ── New dialog ────────────────────────────────────────────────────
             if (packet.DialogId != _currentDialogId)
             {
-                _currentDialogId   = packet.DialogId;
-                _nextSegmentIndex  = 0;
+                _currentDialogId  = packet.DialogId;
+                _nextSegmentIndex = 0;
                 _segments.Clear();
                 _completedKeys.Clear();
                 _completedUtteranceKeys.Clear();
@@ -119,7 +151,8 @@ public sealed class TtsSessionAssembler
                 OnSessionReset?.Invoke(_currentDialogId);
             }
 
-            // ── NPC race datastore ────────────────────────────────────────────
+            // ── NPC race override lookup ──────────────────────────────────────
+            // Priority: user override (in-memory) > packet race > Narrator fallback
             int effectiveRace = packet.Race;
             if (packet.NpcId != 0)
             {
@@ -200,7 +233,38 @@ public sealed class TtsSessionAssembler
         }
 
         if (completed != null)
+        {
+            AppServices.LastSegment = completed;
             OnSegmentComplete?.Invoke(completed);
+        }
+    }
+
+    /// <summary>
+    /// Applies a new NPC race override at runtime (called from the UI after the
+    /// user saves an assignment). Updates the in-memory store immediately so the
+    /// next dialog using this NpcId picks up the new race without a restart.
+    /// The caller is responsible for persisting to the DB via NpcRaceOverrideDb.
+    /// </summary>
+    public void ApplyRaceOverride(int npcId, int raceId)
+    {
+        if (npcId == 0) return;
+        lock (_lock)
+        {
+            _npcRaceStore[npcId] = raceId;
+        }
+    }
+
+    /// <summary>
+    /// Removes an NPC race override from the in-memory store (called from the UI
+    /// after the user deletes a local override).
+    /// The caller is responsible for deleting from the DB via NpcRaceOverrideDb.
+    /// </summary>
+    public void RemoveRaceOverride(int npcId)
+    {
+        lock (_lock)
+        {
+            _npcRaceStore.Remove(npcId);
+        }
     }
 
     public void SignalSourceGone()
@@ -209,9 +273,10 @@ public sealed class TtsSessionAssembler
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────
+
     private static string MakeUtteranceKey(int dialogId, VoiceSlot slot, int npcId, string text)
         => $"{dialogId}|{slot}|{npcId}|{text.Trim()}";
-    
+
     private AssembledSegment? TryComplete(SegmentAccumulator acc, string key)
     {
         if (acc.SlotsReceived != acc.Slots.Length) return null;
@@ -262,9 +327,7 @@ public sealed class TtsSessionAssembler
             sb.Append(raw);
         }
 
-        var text = sb.ToString();
-
-        text = text.Trim();
+        var text = sb.ToString().Trim();
 
         System.Diagnostics.Debug.WriteLine($"[Assembler] final text='{text}'");
 

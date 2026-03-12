@@ -25,8 +25,9 @@ along with RuneReaderVoice. If not, see <https://www.gnu.org/licenses/>.
         mc:Ignorable="d"
         x:Class="RuneReaderVoice.UI.Views.MainWindow"
         Title="RuneReader Voice"
-        Width="600" Height="680"
-        MinWidth="480" MinHeight="500"
+        Width="600"
+        MinWidth="480" MinHeight="240"
+        SizeToContent="Height"
         Background="#1A1A2E">
 
     <DockPanel>
@@ -77,72 +78,150 @@ along with RuneReaderVoice. If not, see <https://www.gnu.org/licenses/>.
             </Grid>
         </Border>
 
-        <!-- ── Start / Stop button ────────────────────────────────────── -->
+
+        <!-- ── Volume + Start/Stop row ──────────────────────────────────────── -->
         <Border DockPanel.Dock="Top" Margin="8,8,8,0">
-            <Button x:Name="StartStopButton"
-                    Content="Start Capture"
-                    HorizontalAlignment="Stretch"
-                    Height="36"
-                    Background="#E94560"
-                    Foreground="White"
-                    FontWeight="SemiBold"
-                    Click="OnStartStopClicked"/>
+            <Grid ColumnDefinitions="Auto,*,Auto,Auto" ColumnSpacing="10">
+                <TextBlock Grid.Column="0"
+                           Text="Vol" Foreground="#888" FontSize="11"
+                           VerticalAlignment="Center"/>
+                <Slider Grid.Column="1"
+                        x:Name="VolumeSlider"
+                        Minimum="0" Maximum="100" Value="80"
+                        VerticalAlignment="Center"
+                        ValueChanged="OnVolumeChanged"/>
+                <TextBlock Grid.Column="2"
+                           x:Name="VolumeLabel"
+                           Text="80%" Foreground="#888" FontSize="11"
+                           VerticalAlignment="Center" Width="34"/>
+                <Button Grid.Column="3"
+                        x:Name="StartStopButton"
+                        Content="Start Capture"
+                        Width="130" Height="36"
+                        Background="#E94560"
+                        Foreground="White"
+                        FontWeight="SemiBold"
+                        Click="OnStartStopClicked"/>
+            </Grid>
         </Border>
 
-        <!-- ── Settings tabs ──────────────────────────────────────────── -->
-        <TabControl DockPanel.Dock="Bottom"
-                    Margin="8,8,8,8"
-                    Background="#16213E">
+        <!-- ── Last NPC panel ─────────────────────────────────────────── -->
+        <!-- Appears after each NPC dialog. Hidden for narrator/book (NpcId=0). -->
+        <Border x:Name="LastNpcPanel"
+                DockPanel.Dock="Top"
+                IsVisible="False"
+                Background="#1A2E1A" Margin="8,8,8,0"
+                CornerRadius="6" Padding="10,8">
+            <Grid ColumnDefinitions="Auto,*,Auto,Auto"
+                  RowDefinitions="Auto,Auto"
+                  ColumnSpacing="8" RowSpacing="6">
+
+                <!-- Row 0: NPC id label + notes box + Save + Clear -->
+                <TextBlock x:Name="LastNpcIdLabel"
+                           Grid.Row="0" Grid.Column="0"
+                           Text="NPC ID: —"
+                           Foreground="#4ECDC4" FontSize="11" FontWeight="SemiBold"
+                           VerticalAlignment="Center"/>
+                <TextBox x:Name="LastNpcNotesBox"
+                         Grid.Row="0" Grid.Column="1"
+                         Watermark="optional name / note (e.g. Thrall)"
+                         FontSize="11" Background="Transparent" BorderBrush="#334"/>
+                <Button x:Name="LastNpcSaveButton"
+                        Grid.Row="0" Grid.Column="2"
+                        Content="Save" FontSize="11"
+                        Padding="10,3"
+                        Click="OnLastNpcSaveClicked"/>
+                <Button x:Name="LastNpcClearButton"
+                        Grid.Row="0" Grid.Column="3"
+                        Content="Clear" FontSize="11"
+                        Padding="10,3" IsEnabled="False"
+                        Background="#4A2020"
+                        Click="OnLastNpcClearClicked"/>
+
+                <!-- Row 1: race dropdown -->
+                <TextBlock Grid.Row="1" Grid.Column="0"
+                           Text="Voice accent" Foreground="#888" FontSize="10"
+                           VerticalAlignment="Center"/>
+                <ComboBox x:Name="LastNpcRaceDropdown"
+                          Grid.Row="1" Grid.Column="1" Grid.ColumnSpan="3"
+                          FontSize="11" HorizontalAlignment="Stretch"/>
+            </Grid>
+        </Border>
+
+
+        <!-- ── Settings expander ──────────────────────────────────────── -->
+        <Expander x:Name="ExpanderSettings"
+                  Header="Settings"
+                  DockPanel.Dock="Bottom"
+                  IsExpanded="False"
+                  HorizontalAlignment="Stretch"
+                  Margin="8,4,8,8">
+            <TabControl
+                        Margin="0"
+                        MaxHeight="480"
+                        Background="#16213E">
 
             <!-- Basic settings tab -->
             <TabItem Header="Settings">
                 <ScrollViewer>
-                    <StackPanel Margin="12" Spacing="10" HorizontalAlignment="Stretch">
+                    <StackPanel Margin="12" Spacing="6" HorizontalAlignment="Stretch">
 
-                        <TextBlock Text="TTS Provider" Foreground="#888" FontSize="11"/>
-                        <ComboBox x:Name="ProviderSelector"
+                        <Expander x:Name="ExpanderProvider"
+                                  Header="TTS Provider"
                                   HorizontalAlignment="Stretch"
-                                  SelectionChanged="OnProviderChanged"/>
+                                  IsExpanded="False">
+                            <StackPanel Margin="0,8,0,0" Spacing="6">
+                                <ComboBox x:Name="ProviderSelector"
+                                          HorizontalAlignment="Stretch"
+                                          SelectionChanged="OnProviderChanged"/>
+                            </StackPanel>
+                        </Expander>
 
-                        <TextBlock Text="Volume" Foreground="#888" FontSize="11" Margin="0,6,0,0"/>
-                        <Slider x:Name="VolumeSlider"
-                                Minimum="0" Maximum="100" Value="80"
-                                ValueChanged="OnVolumeChanged"/>
-
-                        <TextBlock Text="Playback Speed" Foreground="#888" FontSize="11" Margin="0,6,0,0"/>
-                        <Slider x:Name="SpeedSlider"
-                                Minimum="75" Maximum="150" Value="100"
-                                ValueChanged="OnSpeedChanged"/>
-                        <TextBlock x:Name="SpeedLabel" Text="1.00×"
-                                   Foreground="#888" FontSize="11" HorizontalAlignment="Right"/>
-
-                        <TextBlock Text="Playback Mode" Foreground="#888" FontSize="11" Margin="0,6,0,0"/>
-                        <ComboBox x:Name="PlaybackModeSelector"
+                        <Expander x:Name="ExpanderPlayback"
+                                  Header="Playback"
                                   HorizontalAlignment="Stretch"
-                                  SelectionChanged="OnPlaybackModeChanged">
-                            <ComboBoxItem Content="Wait for full text (default)" Tag="WaitForFullText"/>
-                            <ComboBoxItem Content="Stream on first chunk"        Tag="StreamOnFirstChunk"/>
-                        </ComboBox>
+                                  IsExpanded="False">
+                            <StackPanel Margin="0,8,0,0" Spacing="6">
+                                <TextBlock Text="Speed" Foreground="#888" FontSize="11"/>
+                                <Slider x:Name="SpeedSlider"
+                                        Minimum="75" Maximum="150" Value="100"
+                                        ValueChanged="OnSpeedChanged"/>
+                                <TextBlock x:Name="SpeedLabel" Text="1.00×"
+                                           Foreground="#888" FontSize="11" HorizontalAlignment="Right"/>
 
-                        <CheckBox x:Name="PhraseChunking"
-                                  Content="Phrase chunking — split text into sentences for lower latency (Kokoro only)"
-                                  IsChecked="True"
-                                  Margin="0,4,0,0"
-                                  Click="OnPhraseChunkingChanged"/>
+                                <TextBlock Text="Playback Mode" Foreground="#888" FontSize="11" Margin="0,6,0,0"/>
+                                <ComboBox x:Name="PlaybackModeSelector"
+                                          HorizontalAlignment="Stretch"
+                                          SelectionChanged="OnPlaybackModeChanged">
+                                    <ComboBoxItem Content="Wait for full text (default)" Tag="WaitForFullText"/>
+                                    <ComboBoxItem Content="Stream on first chunk"        Tag="StreamOnFirstChunk"/>
+                                </ComboBox>
 
-                        <TextBlock Text="Audio Output Device" Foreground="#888" FontSize="11" Margin="0,6,0,0"/>
-                        <ComboBox x:Name="AudioDeviceSelector"
+                                <CheckBox x:Name="PhraseChunking"
+                                          Content="Phrase chunking — split long text into sentences (Kokoro only)"
+                                          IsChecked="True"
+                                          Margin="0,4,0,0"
+                                          Click="OnPhraseChunkingChanged"/>
+
+                                <TextBlock Text="Audio Output Device" Foreground="#888" FontSize="11" Margin="0,6,0,0"/>
+                                <ComboBox x:Name="AudioDeviceSelector"
+                                          HorizontalAlignment="Stretch"
+                                          SelectionChanged="OnAudioDeviceChanged"/>
+                            </StackPanel>
+                        </Expander>
+
+                        <Expander x:Name="ExpanderDialogSources"
+                                  Header="Dialog Sources"
                                   HorizontalAlignment="Stretch"
-                                  SelectionChanged="OnAudioDeviceChanged"/>
-
-                        <Separator Margin="0,8"/>
-
-                        <TextBlock Text="Dialog Sources" Foreground="#888" FontSize="11"/>
-                        <CheckBox x:Name="EnableGreeting"  Content="NPC Greeting / Gossip" IsChecked="True"/>
-                        <CheckBox x:Name="EnableDetail"    Content="Quest Description"     IsChecked="True"/>
-                        <CheckBox x:Name="EnableProgress"  Content="Quest Progress"        IsChecked="True"/>
-                        <CheckBox x:Name="EnableReward"    Content="Quest Reward"          IsChecked="True"/>
-                        <CheckBox x:Name="EnableBooks"     Content="In-game Books (experimental)" IsChecked="False"/>
+                                  IsExpanded="False">
+                            <StackPanel Margin="0,8,0,0" Spacing="6">
+                                <CheckBox x:Name="EnableGreeting"  Content="NPC Greeting / Gossip" IsChecked="True"/>
+                                <CheckBox x:Name="EnableDetail"    Content="Quest Description"     IsChecked="True"/>
+                                <CheckBox x:Name="EnableProgress"  Content="Quest Progress"        IsChecked="True"/>
+                                <CheckBox x:Name="EnableReward"    Content="Quest Reward"          IsChecked="True"/>
+                                <CheckBox x:Name="EnableBooks"     Content="In-game Books (experimental)" IsChecked="False"/>
+                            </StackPanel>
+                        </Expander>
 
                     </StackPanel>
                 </ScrollViewer>
@@ -155,10 +234,39 @@ along with RuneReaderVoice. If not, see <https://www.gnu.org/licenses/>.
                         <TextBlock Text="NPC Voice Profiles"
                                    FontWeight="SemiBold"
                                    FontSize="16"/>
-                        <TextBlock Text="Choose how RuneReader should read text for each NPC type. These settings affect RuneReader speech only and do not change the game’s own audio."
+                        <TextBlock Text="Choose how RuneReader should read text for each NPC type. These settings affect RuneReader speech only and do not change the game's own audio."
                                    TextWrapping="Wrap"
                                    Foreground="#888"
                                    FontSize="11"/>
+                    </StackPanel>
+                </ScrollViewer>
+            </TabItem>
+
+            <!-- NPC Overrides tab -->
+            <TabItem Header="NPC Voices">
+                <ScrollViewer>
+                    <StackPanel Margin="12" Spacing="10">
+                        <TextBlock Text="NPC Voice Overrides"
+                                   Foreground="#4ECDC4" FontWeight="SemiBold"/>
+                        <TextBlock Text="Assign a specific voice accent to any NPC by ID. Local overrides take priority over everything else. Server-sourced entries are read-only but can be shadowed with a local override."
+                                   Foreground="#888" FontSize="11" TextWrapping="Wrap"/>
+
+                        <!-- Rows populated in code-behind -->
+                        <Grid x:Name="NpcOverridesGrid"
+                              ColumnDefinitions="70,*,180,80,60,60"
+                              HorizontalAlignment="Stretch"/>
+
+                        <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,4,0,0">
+                            <Button Content="Export JSON"
+                                    FontSize="11"
+                                    Click="OnNpcOverridesExportClicked"/>
+                            <Button Content="Import JSON"
+                                    FontSize="11"
+                                    Click="OnNpcOverridesImportClicked"/>
+                            <Button Content="Refresh"
+                                    FontSize="11"
+                                    Click="OnNpcOverridesRefreshClicked"/>
+                        </StackPanel>
                     </StackPanel>
                 </ScrollViewer>
             </TabItem>
@@ -168,7 +276,7 @@ along with RuneReaderVoice. If not, see <https://www.gnu.org/licenses/>.
                 <ScrollViewer>
                     <StackPanel Margin="12" Spacing="10" HorizontalAlignment="Stretch">
 
-                        <Expander Header="Capture" HorizontalAlignment="Stretch" IsExpanded="True">
+                        <Expander x:Name="ExpanderCapture" Header="Capture" HorizontalAlignment="Stretch" IsExpanded="False">
                             <StackPanel Margin="0,8,0,0" Spacing="6" HorizontalAlignment="Stretch">
                                 <TextBlock Text="Capture Interval (ms)" Foreground="#888" FontSize="11"/>
                                 <NumericUpDown x:Name="CaptureInterval"
@@ -182,7 +290,7 @@ along with RuneReaderVoice. If not, see <https://www.gnu.org/licenses/>.
                             </StackPanel>
                         </Expander>
 
-                        <Expander Header="Playback" HorizontalAlignment="Stretch" IsExpanded="True">
+                        <Expander x:Name="ExpanderAdvPlayback" Header="Playback" HorizontalAlignment="Stretch" IsExpanded="False">
                             <StackPanel Margin="0,8,0,0" Spacing="6" HorizontalAlignment="Stretch">
                                 <CheckBox x:Name="RepeatSuppressionEnabled"
                                           Content="Suppress repeated speech"
@@ -199,7 +307,7 @@ along with RuneReaderVoice. If not, see <https://www.gnu.org/licenses/>.
                             </StackPanel>
                         </Expander>
 
-                        <Expander Header="Cache" HorizontalAlignment="Stretch" IsExpanded="False">
+                        <Expander x:Name="ExpanderCache" Header="Cache" HorizontalAlignment="Stretch" IsExpanded="False">
                             <StackPanel Margin="0,8,0,0" Spacing="6" HorizontalAlignment="Stretch">
                                 <CheckBox x:Name="CompressionEnabled"
                                           Content="Enable OGG compression"
@@ -234,7 +342,7 @@ along with RuneReaderVoice. If not, see <https://www.gnu.org/licenses/>.
                             </StackPanel>
                         </Expander>
 
-                        <Expander Header="Audio" HorizontalAlignment="Stretch" IsExpanded="False">
+                        <Expander x:Name="ExpanderAudio" Header="Audio" HorizontalAlignment="Stretch" IsExpanded="False">
                             <StackPanel Margin="0,8,0,0" Spacing="6" HorizontalAlignment="Stretch">
                                 <TextBlock Text="Per-Accent-Group Volume Trim (dB)" Foreground="#888" FontSize="11"/>
                                 <StackPanel x:Name="VolumeTrimGrid" Spacing="4">
@@ -262,31 +370,31 @@ along with RuneReaderVoice. If not, see <https://www.gnu.org/licenses/>.
                             </StackPanel>
                         </Expander>
 
-<Expander Header="Diagnostics" HorizontalAlignment="Stretch" IsExpanded="False">
-    <StackPanel Margin="0,8,0,0" Spacing="6" HorizontalAlignment="Stretch">
-        <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto">
-            <TextBlock Grid.Row="0" Grid.Column="0" Text="Last packet DIALOG" Foreground="#888" FontSize="10" Margin="0,0,12,0"/>
-            <TextBlock x:Name="DiagDialog" Grid.Row="0" Grid.Column="1" Text="—" Foreground="#E0E0FF" FontSize="10"/>
+                        <Expander x:Name="ExpanderDiagnostics" Header="Diagnostics" HorizontalAlignment="Stretch" IsExpanded="False">
+                            <StackPanel Margin="0,8,0,0" Spacing="6" HorizontalAlignment="Stretch">
+                                <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto">
+                                    <TextBlock Grid.Row="0" Grid.Column="0" Text="Last packet DIALOG" Foreground="#888" FontSize="10" Margin="0,0,12,0"/>
+                                    <TextBlock x:Name="DiagDialog" Grid.Row="0" Grid.Column="1" Text="—" Foreground="#E0E0FF" FontSize="10"/>
 
-            <TextBlock Grid.Row="1" Grid.Column="0" Text="Last synthesis latency" Foreground="#888" FontSize="10" Margin="0,3,12,0"/>
-            <TextBlock x:Name="DiagLatency" Grid.Row="1" Grid.Column="1" Text="—" Foreground="#E0E0FF" FontSize="10" Margin="0,3,0,0"/>
+                                    <TextBlock Grid.Row="1" Grid.Column="0" Text="Last synthesis latency" Foreground="#888" FontSize="10" Margin="0,3,12,0"/>
+                                    <TextBlock x:Name="DiagLatency" Grid.Row="1" Grid.Column="1" Text="—" Foreground="#E0E0FF" FontSize="10" Margin="0,3,0,0"/>
 
-            <TextBlock Grid.Row="2" Grid.Column="0" Text="Cache hit rate" Foreground="#888" FontSize="10" Margin="0,3,12,0"/>
-            <TextBlock x:Name="DiagHitRate" Grid.Row="2" Grid.Column="1" Text="—" Foreground="#E0E0FF" FontSize="10" Margin="0,3,0,0"/>
+                                    <TextBlock Grid.Row="2" Grid.Column="0" Text="Cache hit rate" Foreground="#888" FontSize="10" Margin="0,3,12,0"/>
+                                    <TextBlock x:Name="DiagHitRate" Grid.Row="2" Grid.Column="1" Text="—" Foreground="#E0E0FF" FontSize="10" Margin="0,3,0,0"/>
 
-            <TextBlock Grid.Row="3" Grid.Column="0" Text="Last decoded text" Foreground="#888" FontSize="10" Margin="0,3,12,0" VerticalAlignment="Top"/>
-            <TextBlock x:Name="DiagLastDecodedText" Grid.Row="3" Grid.Column="1" Text="—" Foreground="#FFD166" FontSize="10" Margin="0,3,0,0" TextWrapping="Wrap"/>
+                                    <TextBlock Grid.Row="3" Grid.Column="0" Text="Last decoded text" Foreground="#888" FontSize="10" Margin="0,3,12,0" VerticalAlignment="Top"/>
+                                    <TextBlock x:Name="DiagLastDecodedText" Grid.Row="3" Grid.Column="1" Text="—" Foreground="#FFD166" FontSize="10" Margin="0,3,0,0" TextWrapping="Wrap"/>
 
-            <TextBlock Grid.Row="4" Grid.Column="0" Text="Processed text" Foreground="#888" FontSize="10" Margin="0,3,12,0" VerticalAlignment="Top"/>
-            <TextBlock x:Name="DiagProcessedText" Grid.Row="4" Grid.Column="1" Text="—" Foreground="#B8E986" FontSize="10" Margin="0,3,0,0" TextWrapping="Wrap"/>
+                                    <TextBlock Grid.Row="4" Grid.Column="0" Text="Processed text" Foreground="#888" FontSize="10" Margin="0,3,12,0" VerticalAlignment="Top"/>
+                                    <TextBlock x:Name="DiagProcessedText" Grid.Row="4" Grid.Column="1" Text="—" Foreground="#B8E986" FontSize="10" Margin="0,3,0,0" TextWrapping="Wrap"/>
 
-            <TextBlock Grid.Row="5" Grid.Column="0" Text="Text spoken" Foreground="#888" FontSize="10" Margin="0,3,12,0" VerticalAlignment="Top"/>
-            <TextBlock x:Name="DiagTextSpoken" Grid.Row="5" Grid.Column="1" Text="—" Foreground="#88C0FF" FontSize="10" Margin="0,3,0,0" TextWrapping="Wrap"/>
-        </Grid>
-    </StackPanel>
-</Expander>
+                                    <TextBlock Grid.Row="5" Grid.Column="0" Text="Text spoken" Foreground="#888" FontSize="10" Margin="0,3,12,0" VerticalAlignment="Top"/>
+                                    <TextBlock x:Name="DiagTextSpoken" Grid.Row="5" Grid.Column="1" Text="—" Foreground="#88C0FF" FontSize="10" Margin="0,3,0,0" TextWrapping="Wrap"/>
+                                </Grid>
+                            </StackPanel>
+                        </Expander>
 
-                        <Expander Header="Hotkey" HorizontalAlignment="Stretch" IsExpanded="False">
+                        <Expander x:Name="ExpanderHotkey" Header="Hotkey" HorizontalAlignment="Stretch" IsExpanded="False">
                             <StackPanel Margin="0,8,0,0" Spacing="6" HorizontalAlignment="Stretch">
                                 <TextBlock Text="Abort: ESC  (fixed — user-configurable in a future update)"
                                            Foreground="#888" FontSize="11" TextWrapping="Wrap"/>
@@ -507,174 +615,176 @@ along with RuneReaderVoice. If not, see <https://www.gnu.org/licenses/>.
                     </StackPanel>
                 </ScrollViewer>
             </TabItem>
-<TabItem Header="Text Shaping">
-    <ScrollViewer>
-        <Grid Margin="12" ColumnDefinitions="1.1*,0.9*" ColumnSpacing="12">
-            <StackPanel Grid.Column="0" Spacing="8">
-                <TextBlock Text="Text Shaping Workbench" Foreground="#4ECDC4" FontWeight="SemiBold"/>
-                <TextBlock Text="Apply simple text swaps before pronunciation rules. This is best for pause shaping, contemplation dots, and light phrasing cleanup."
-                           Foreground="#888" FontSize="11" TextWrapping="Wrap"/>
 
-                <TextBlock Text="Original Text" Foreground="#888" FontSize="11"/>
-                <TextBox x:Name="TextSwapOriginalText"
-                         AcceptsReturn="True"
-                         TextWrapping="Wrap"
-                         MinHeight="84"
-                         Watermark="Wait... I know what to do - give me a moment."
-                         TextChanged="OnTextSwapTextChanged"/>
+            <TabItem Header="Text Shaping">
+                <ScrollViewer>
+                    <Grid Margin="12" ColumnDefinitions="1.1*,0.9*" ColumnSpacing="12">
+                        <StackPanel Grid.Column="0" Spacing="8">
+                            <TextBlock Text="Text Shaping Workbench" Foreground="#4ECDC4" FontWeight="SemiBold"/>
+                            <TextBlock Text="Apply simple text swaps before pronunciation rules. This is best for pause shaping, contemplation dots, and light phrasing cleanup."
+                                       Foreground="#888" FontSize="11" TextWrapping="Wrap"/>
 
-                <Grid ColumnDefinitions="*,*" ColumnSpacing="10">
-                    <StackPanel Grid.Column="0" Spacing="4">
-                        <TextBlock Text="Find Text" Foreground="#888" FontSize="11"/>
-                        <TextBox x:Name="TextSwapFindText"
-                                 Watermark=" - "
-                                 TextChanged="OnTextSwapTextChanged"/>
-                    </StackPanel>
-                    <StackPanel Grid.Column="1" Spacing="4">
-                        <TextBlock Text="Replace With" Foreground="#888" FontSize="11"/>
-                        <TextBox x:Name="TextSwapReplaceText"
-                                 Watermark=" ... "
-                                 TextChanged="OnTextSwapTextChanged"/>
-                        <CheckBox x:Name="TextSwapReplaceWithCrLf"
-                                  Margin="0,6,0,0"
-                                  Content="Replace with new line (CR/LF)"
-                                  IsChecked="False"
-                                  Click="OnTextSwapClickChanged"/>
-                    </StackPanel>
-                </Grid>
+                            <TextBlock Text="Original Text" Foreground="#888" FontSize="11"/>
+                            <TextBox x:Name="TextSwapOriginalText"
+                                     AcceptsReturn="True"
+                                     TextWrapping="Wrap"
+                                     MinHeight="84"
+                                     Watermark="Wait... I know what to do - give me a moment."
+                                     TextChanged="OnTextSwapTextChanged"/>
 
-                <Grid ColumnDefinitions="Auto,Auto,Auto,Auto,140" ColumnSpacing="12" VerticalAlignment="Center">
-                    <CheckBox Grid.Column="0"
-                              x:Name="TextSwapWholeWord"
-                              Content="Whole word"
-                              IsChecked="False"
-                              Click="OnTextSwapClickChanged"/>
-                    <CheckBox Grid.Column="1"
-                              x:Name="TextSwapCaseSensitive"
-                              Content="Case sensitive"
-                              IsChecked="False"
-                              Click="OnTextSwapClickChanged"/>
-                    <CheckBox Grid.Column="2"
-                              x:Name="TextSwapEnabled"
-                              Content="Enabled"
-                              IsChecked="True"
-                              Click="OnTextSwapClickChanged"/>
-                    <TextBlock Grid.Column="3"
-                               Text="Priority"
-                               Foreground="#888"
-                               FontSize="11"
-                               VerticalAlignment="Center"
-                               Margin="8,0,0,0"/>
-                    <NumericUpDown Grid.Column="4"
-                                   x:Name="TextSwapPriority"
-                                   Minimum="0"
-                                   Maximum="1000"
-                                   Value="100"
-                                   HorizontalAlignment="Stretch"
-                                   ValueChanged="OnTextSwapPriorityChanged"/>
-                </Grid>
+                            <Grid ColumnDefinitions="*,*" ColumnSpacing="10">
+                                <StackPanel Grid.Column="0" Spacing="4">
+                                    <TextBlock Text="Find Text" Foreground="#888" FontSize="11"/>
+                                    <TextBox x:Name="TextSwapFindText"
+                                             Watermark=" - "
+                                             TextChanged="OnTextSwapTextChanged"/>
+                                </StackPanel>
+                                <StackPanel Grid.Column="1" Spacing="4">
+                                    <TextBlock Text="Replace With" Foreground="#888" FontSize="11"/>
+                                    <TextBox x:Name="TextSwapReplaceText"
+                                             Watermark=" ... "
+                                             TextChanged="OnTextSwapTextChanged"/>
+                                    <CheckBox x:Name="TextSwapReplaceWithCrLf"
+                                              Margin="0,6,0,0"
+                                              Content="Replace with new line (CR/LF)"
+                                              IsChecked="False"
+                                              Click="OnTextSwapClickChanged"/>
+                                </StackPanel>
+                            </Grid>
 
-                <TextBlock Text="Preview" Foreground="#4ECDC4" FontWeight="SemiBold" Margin="0,4,0,0"/>
+                            <Grid ColumnDefinitions="Auto,Auto,Auto,Auto,140" ColumnSpacing="12" VerticalAlignment="Center">
+                                <CheckBox Grid.Column="0"
+                                          x:Name="TextSwapWholeWord"
+                                          Content="Whole word"
+                                          IsChecked="False"
+                                          Click="OnTextSwapClickChanged"/>
+                                <CheckBox Grid.Column="1"
+                                          x:Name="TextSwapCaseSensitive"
+                                          Content="Case sensitive"
+                                          IsChecked="False"
+                                          Click="OnTextSwapClickChanged"/>
+                                <CheckBox Grid.Column="2"
+                                          x:Name="TextSwapEnabled"
+                                          Content="Enabled"
+                                          IsChecked="True"
+                                          Click="OnTextSwapClickChanged"/>
+                                <TextBlock Grid.Column="3"
+                                           Text="Priority"
+                                           Foreground="#888"
+                                           FontSize="11"
+                                           VerticalAlignment="Center"
+                                           Margin="8,0,0,0"/>
+                                <NumericUpDown Grid.Column="4"
+                                               x:Name="TextSwapPriority"
+                                               Minimum="0"
+                                               Maximum="1000"
+                                               Value="100"
+                                               HorizontalAlignment="Stretch"
+                                               ValueChanged="OnTextSwapPriorityChanged"/>
+                            </Grid>
 
-                <TextBlock Text="Original" Foreground="#888" FontSize="11"/>
-                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
-                    <TextBox Grid.Column="0"
-                             x:Name="TextSwapOriginalPreview"
-                             IsReadOnly="True"
-                             AcceptsReturn="True"
-                             TextWrapping="Wrap"
-                             Background="#0F3460"
-                             Foreground="#E0E0FF"/>
-                    <Button Grid.Column="1"
-                            x:Name="TextSwapSpeakOriginalButton"
-                            Content="Speak"
-                            MinWidth="72"
-                            Click="OnTextSwapSpeakOriginalClicked"/>
-                </Grid>
+                            <TextBlock Text="Preview" Foreground="#4ECDC4" FontWeight="SemiBold" Margin="0,4,0,0"/>
 
-                <TextBlock Text="After Text Shaping" Foreground="#888" FontSize="11" Margin="0,6,0,0"/>
-                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
-                    <TextBox Grid.Column="0"
-                             x:Name="TextSwapProcessedPreview"
-                             IsReadOnly="True"
-                             AcceptsReturn="True"
-                             TextWrapping="Wrap"
-                             Background="#0F3460"
-                             Foreground="#FFD166"/>
-                    <Button Grid.Column="1"
-                            x:Name="TextSwapSpeakProcessedButton"
-                            Content="Speak"
-                            MinWidth="72"
-                            Click="OnTextSwapSpeakProcessedClicked"/>
-                </Grid>
+                            <TextBlock Text="Original" Foreground="#888" FontSize="11"/>
+                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                                <TextBox Grid.Column="0"
+                                         x:Name="TextSwapOriginalPreview"
+                                         IsReadOnly="True"
+                                         AcceptsReturn="True"
+                                         TextWrapping="Wrap"
+                                         Background="#0F3460"
+                                         Foreground="#E0E0FF"/>
+                                <Button Grid.Column="1"
+                                        x:Name="TextSwapSpeakOriginalButton"
+                                        Content="Speak"
+                                        MinWidth="72"
+                                        Click="OnTextSwapSpeakOriginalClicked"/>
+                            </Grid>
 
-                <TextBlock Text="Final TTS Text" Foreground="#888" FontSize="11" Margin="0,6,0,0"/>
-                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
-                    <TextBox Grid.Column="0"
-                             x:Name="TextSwapFinalPreview"
-                             IsReadOnly="True"
-                             AcceptsReturn="True"
-                             TextWrapping="Wrap"
-                             Background="#0F3460"
-                             Foreground="#B8E986"/>
-                    <Button Grid.Column="1"
-                            x:Name="TextSwapSpeakFinalButton"
-                            Content="Speak"
-                            MinWidth="72"
-                            Click="OnTextSwapSpeakFinalClicked"/>
-                </Grid>
+                            <TextBlock Text="After Text Shaping" Foreground="#888" FontSize="11" Margin="0,6,0,0"/>
+                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                                <TextBox Grid.Column="0"
+                                         x:Name="TextSwapProcessedPreview"
+                                         IsReadOnly="True"
+                                         AcceptsReturn="True"
+                                         TextWrapping="Wrap"
+                                         Background="#0F3460"
+                                         Foreground="#FFD166"/>
+                                <Button Grid.Column="1"
+                                        x:Name="TextSwapSpeakProcessedButton"
+                                        Content="Speak"
+                                        MinWidth="72"
+                                        Click="OnTextSwapSpeakProcessedClicked"/>
+                            </Grid>
 
-                <Button x:Name="TextSwapCopyPreviewButton"
-                        Content="Copy Final Preview"
-                        HorizontalAlignment="Left"
-                        Click="OnTextSwapCopyPreviewClicked"/>
-            </StackPanel>
+                            <TextBlock Text="Final TTS Text" Foreground="#888" FontSize="11" Margin="0,6,0,0"/>
+                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                                <TextBox Grid.Column="0"
+                                         x:Name="TextSwapFinalPreview"
+                                         IsReadOnly="True"
+                                         AcceptsReturn="True"
+                                         TextWrapping="Wrap"
+                                         Background="#0F3460"
+                                         Foreground="#B8E986"/>
+                                <Button Grid.Column="1"
+                                        x:Name="TextSwapSpeakFinalButton"
+                                        Content="Speak"
+                                        MinWidth="72"
+                                        Click="OnTextSwapSpeakFinalClicked"/>
+                            </Grid>
 
-            <StackPanel Grid.Column="1" Spacing="8">
-                <TextBlock Text="Saved Rules" Foreground="#4ECDC4" FontWeight="SemiBold"/>
-                <TextBlock Text="Use saved rules for reusable pause and phrasing cleanup. Rules are applied before pronunciation processing."
-                           Foreground="#888" FontSize="11" TextWrapping="Wrap"/>
+                            <Button x:Name="TextSwapCopyPreviewButton"
+                                    Content="Copy Final Preview"
+                                    HorizontalAlignment="Left"
+                                    Click="OnTextSwapCopyPreviewClicked"/>
+                        </StackPanel>
 
-                <ListBox x:Name="TextSwapRuleList"
-                         Height="180"
-                         SelectionChanged="OnTextSwapRuleSelectionChanged"/>
+                        <StackPanel Grid.Column="1" Spacing="8">
+                            <TextBlock Text="Saved Rules" Foreground="#4ECDC4" FontWeight="SemiBold"/>
+                            <TextBlock Text="Use saved rules for reusable pause and phrasing cleanup. Rules are applied before pronunciation processing."
+                                       Foreground="#888" FontSize="11" TextWrapping="Wrap"/>
 
-                <TextBlock Text="Notes" Foreground="#888" FontSize="11"/>
-                <TextBox x:Name="TextSwapRuleNotes"
-                         Watermark="Optional note, such as why this phrasing works better."
-                         TextChanged="OnTextSwapTextChanged"/>
+                            <ListBox x:Name="TextSwapRuleList"
+                                     Height="180"
+                                     SelectionChanged="OnTextSwapRuleSelectionChanged"/>
 
-                <WrapPanel Orientation="Horizontal" ItemWidth="120" ItemHeight="32">
-                    <Button x:Name="TextSwapNewRuleButton" Content="New Rule" Click="OnTextSwapNewRuleClicked"/>
-                    <Button x:Name="TextSwapSaveRuleButton" Content="Save Rule" Click="OnTextSwapSaveRuleClicked"/>
-                    <Button x:Name="TextSwapDeleteRuleButton" Content="Delete Rule" Click="OnTextSwapDeleteRuleClicked"/>
-                    <Button x:Name="TextSwapOpenRulesFileButton" Content="Open Rules File" Click="OnTextSwapOpenRulesFileClicked"/>
-                    <Button x:Name="TextSwapReloadRulesButton" Content="Reload Rules" Click="OnTextSwapReloadRulesClicked"/>
-                </WrapPanel>
+                            <TextBlock Text="Notes" Foreground="#888" FontSize="11"/>
+                            <TextBox x:Name="TextSwapRuleNotes"
+                                     Watermark="Optional note, such as why this phrasing works better."
+                                     TextChanged="OnTextSwapTextChanged"/>
 
-                <Border Background="#101A2B" CornerRadius="6" Padding="10">
-                    <StackPanel Spacing="4">
-                        <TextBlock Text="Suggested uses" Foreground="#E0E0FF" FontWeight="SemiBold"/>
-                        <TextBlock Text="• turn ' - ' into a pause like ' ... ' or ', '"
-                                   Foreground="#C0C0D0" FontSize="11" TextWrapping="Wrap"/>
-                        <TextBlock Text="• add breathing space after ellipses or punctuation"
-                                   Foreground="#C0C0D0" FontSize="11" TextWrapping="Wrap"/>
-                        <TextBlock Text="• swap a small phrase when pronunciation markup would be overkill"
-                                   Foreground="#C0C0D0" FontSize="11" TextWrapping="Wrap"/>
-                    </StackPanel>
-                </Border>
+                            <WrapPanel Orientation="Horizontal" ItemWidth="120" ItemHeight="32">
+                                <Button x:Name="TextSwapNewRuleButton"    Content="New Rule"       Click="OnTextSwapNewRuleClicked"/>
+                                <Button x:Name="TextSwapSaveRuleButton"   Content="Save Rule"      Click="OnTextSwapSaveRuleClicked"/>
+                                <Button x:Name="TextSwapDeleteRuleButton" Content="Delete Rule"    Click="OnTextSwapDeleteRuleClicked"/>
+                                <Button x:Name="TextSwapOpenRulesFileButton" Content="Open Rules File" Click="OnTextSwapOpenRulesFileClicked"/>
+                                <Button x:Name="TextSwapReloadRulesButton"   Content="Reload Rules"    Click="OnTextSwapReloadRulesClicked"/>
+                            </WrapPanel>
 
-                <TextBlock x:Name="TextSwapRuleStatus"
-                           Text="Rules save into config/text-swap-rules.json."
-                           Foreground="#888"
-                           FontSize="11"
-                           TextWrapping="Wrap"/>
-            </StackPanel>
-        </Grid>
-    </ScrollViewer>
-</TabItem>
+                            <Border Background="#101A2B" CornerRadius="6" Padding="10">
+                                <StackPanel Spacing="4">
+                                    <TextBlock Text="Suggested uses" Foreground="#E0E0FF" FontWeight="SemiBold"/>
+                                    <TextBlock Text="• turn ' - ' into a pause like ' ... ' or ', '"
+                                               Foreground="#C0C0D0" FontSize="11" TextWrapping="Wrap"/>
+                                    <TextBlock Text="• add breathing space after ellipses or punctuation"
+                                               Foreground="#C0C0D0" FontSize="11" TextWrapping="Wrap"/>
+                                    <TextBlock Text="• swap a small phrase when pronunciation markup would be overkill"
+                                               Foreground="#C0C0D0" FontSize="11" TextWrapping="Wrap"/>
+                                </StackPanel>
+                            </Border>
 
-        </TabControl>
+                            <TextBlock x:Name="TextSwapRuleStatus"
+                                       Text="Rules save into config/text-swap-rules.json."
+                                       Foreground="#888"
+                                       FontSize="11"
+                                       TextWrapping="Wrap"/>
+                        </StackPanel>
+                    </Grid>
+                </ScrollViewer>
+            </TabItem>
+
+            </TabControl>
+        </Expander>
 
     </DockPanel>
 

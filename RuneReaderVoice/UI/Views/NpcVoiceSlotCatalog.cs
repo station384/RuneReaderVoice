@@ -24,9 +24,9 @@ public static class NpcVoiceSlotCatalog
         new NpcVoiceSlotCatalogItem(new VoiceSlot(AccentGroup.Scottish, Gender.Male),   "Dwarf / Male NPC", "Scottish", 30),
         new NpcVoiceSlotCatalogItem(new VoiceSlot(AccentGroup.Scottish, Gender.Female), "Dwarf / Female NPC", "Scottish", 31),
 
-        new NpcVoiceSlotCatalogItem(new VoiceSlot(AccentGroup.BritishHaughty, Gender.Male),   "Blood Elf / Male NPC", "British Haughty", 40),
-        new NpcVoiceSlotCatalogItem(new VoiceSlot(AccentGroup.BritishHaughty, Gender.Female), "Blood Elf / Female NPC", "British Haughty", 41),
-
+        new NpcVoiceSlotCatalogItem(new VoiceSlot(AccentGroup.BritishHaughty, Gender.Male),   "Blood Elf / Void Elf / Male NPC",   "British Haughty", 40),
+        new NpcVoiceSlotCatalogItem(new VoiceSlot(AccentGroup.BritishHaughty, Gender.Female), "Blood Elf / Void Elf / Female NPC", "British Haughty", 41),
+        
         new NpcVoiceSlotCatalogItem(new VoiceSlot(AccentGroup.BritishRugged, Gender.Male),   "Worgen / Male NPC", "British Rugged", 50),
         new NpcVoiceSlotCatalogItem(new VoiceSlot(AccentGroup.BritishRugged, Gender.Female), "Worgen / Female NPC", "British Rugged", 51),
 
