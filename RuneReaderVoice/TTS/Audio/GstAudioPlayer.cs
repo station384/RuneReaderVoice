@@ -31,6 +31,7 @@
 
 using System.Runtime.InteropServices;
 using System.Diagnostics;
+using RuneReaderVoice.TTS.Providers;
 
 namespace RuneReaderVoice.TTS.Audio;
 
@@ -79,60 +80,9 @@ public sealed class GstAudioPlayer : IAudioPlayer
         };
     }
 
-    public async Task PlayAsync(string filePath, CancellationToken ct)
+    public Task PlayAsync(PcmAudio audio, CancellationToken ct)
     {
-        ObjectDisposedException.ThrowIf(_disposed, this);
-        Stop();
-
-        // Escape path for GStreamer pipeline string
-        var escapedPath = filePath.Replace("\\", "/").Replace("\"", "\\\"");
-
-        // Build sink element: pulsesink with device if specified, else autoaudiosink
-        var sinkElement = string.IsNullOrEmpty(_deviceId)
-            ? "autoaudiosink"
-            : $"pulsesink device=\"{_deviceId}\"";
-
-        // Speed: insert scaletempo if speed != 1.0
-        var speedElement = Math.Abs(_speed - 1.0f) > 0.01f
-            ? $"scaletempo rate={_speed:F2} ! "
-            : string.Empty;
-
-        // Volume: insert volume element
-        var volumeElement = $"volume volume={_volume:F2} ! ";
-
-        var pipelineStr =
-            $"filesrc location=\"{escapedPath}\" ! decodebin ! audioconvert ! audioresample ! " +
-            $"{speedElement}{volumeElement}{sinkElement}";
-
-        nint error = nint.Zero;
-        _pipeline = GstNative.gst_parse_launch(pipelineStr, out error);
-
-        if (error != nint.Zero)
-        {
-            var msg = GstNative.GErrorToStringAndFree(error);
-            throw new InvalidOperationException($"GStreamer pipeline error: {msg}");
-        }
-
-        if (_pipeline == nint.Zero)
-            throw new InvalidOperationException("Failed to create GStreamer pipeline.");
-
-        _playbackTcs = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
-        _ctReg = ct.Register(Stop);
-
-        var ret = GstNative.gst_element_set_state(_pipeline, GstNative.GstState.GST_STATE_PLAYING);
-        if (ret == GstNative.GstStateChangeReturn.GST_STATE_CHANGE_FAILURE)
-        {
-            CleanupPipeline();
-            throw new InvalidOperationException("GStreamer failed to enter PLAYING state.");
-        }
-
-        IsPlaying = true;
-
-        // Poll the bus for EOS or ERROR on a background task
-        _busCts  = new CancellationTokenSource();
-        _busTask = PollBusAsync(_busCts.Token);
-
-        await _playbackTcs.Task;
+        throw new NotSupportedException("GstAudioPlayer PCM playback path has not been updated yet.");
     }
 
     public void Stop()
@@ -184,12 +134,12 @@ public sealed class GstAudioPlayer : IAudioPlayer
     /// GStreamer supports gapless concat demuxer but that requires a more complex
     /// pipeline setup; this is sufficient until Linux gapless is prioritized.
     /// </summary>
-    public async Task PlaylistPlayAsync(IAsyncEnumerable<string> filePaths, CancellationToken ct)
+    public async Task PlaylistPlayAsync(IAsyncEnumerable<PcmAudio> audioChunks, CancellationToken ct)
     {
-        await foreach (var path in filePaths.WithCancellation(ct))
+        await foreach (var audio in audioChunks.WithCancellation(ct))
         {
             ct.ThrowIfCancellationRequested();
-            await PlayAsync(path, ct);
+            await PlayAsync(audio, ct);
         }
     }
 

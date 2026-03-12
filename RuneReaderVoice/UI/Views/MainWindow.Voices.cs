@@ -132,8 +132,8 @@ public partial class MainWindow
         btn.IsEnabled = false;
         try
         {
-            var audioPath = await GetOrCreateAudioPathAsync(previewText, slot);
-            await AppServices.Player.PlayAsync(audioPath, CancellationToken.None);
+            var audio = await GetOrCreateAudioAsync(previewText, slot);
+            await AppServices.Player.PlayAsync(audio, CancellationToken.None);
         }
         catch (OperationCanceledException)
         {

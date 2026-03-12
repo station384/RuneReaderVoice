@@ -36,6 +36,7 @@ using System.Threading.Tasks;
 using Windows.Media.Core;
 using Windows.Media.Devices;
 using Windows.Media.Playback;
+using RuneReaderVoice.TTS.Providers;
 
 namespace RuneReaderVoice.TTS.Audio;
 
@@ -78,26 +79,9 @@ public sealed class WinRtAudioPlayer : IAudioPlayer
 
     // ── Single-file playback ──────────────────────────────────────────────────
 
-    public async Task PlayAsync(string filePath, CancellationToken ct)
+    public Task PlayAsync(PcmAudio audio, CancellationToken ct)
     {
-        ObjectDisposedException.ThrowIf(_disposed, this);
-        Stop();
-
-        var source = MediaSource.CreateFromUri(new Uri(filePath));
-        _player.Source = source;
-
-        _playbackTcs = new TaskCompletionSource<bool>(
-            TaskCreationOptions.RunContinuationsAsynchronously);
-
-        using var reg = ct.Register(() =>
-        {
-            _player.Pause();
-            _playbackTcs?.TrySetCanceled();
-        });
-
-        _player.Play();
-        _player.PlaybackSession.PlaybackRate = _speed;
-        await _playbackTcs.Task;
+        throw new NotSupportedException("WinRtAudioPlayer no longer supports PCM playback. Use WasapiStreamAudioPlayer on Windows.");
     }
 
     // ── Gapless playlist playback ─────────────────────────────────────────────
@@ -111,189 +95,9 @@ public sealed class WinRtAudioPlayer : IAudioPlayer
     ///
     /// Completes when the final item finishes playing or ct is cancelled.
     /// </summary>
-    public async Task PlaylistPlayAsync(IAsyncEnumerable<string> filePaths, CancellationToken ct)
+    public Task PlaylistPlayAsync(IAsyncEnumerable<PcmAudio> audioChunks, CancellationToken ct)
     {
-        MediaPlaybackList CreatePlaybackList()
-        {
-            return new MediaPlaybackList
-            {
-                MaxPrefetchTime   = TimeSpan.FromSeconds(5),
-                AutoRepeatEnabled = false,
-            };
-        }
-        
-        void EnsurePlaybackStarted()
-        {
-            if (_disposed) return;
-
-            try
-            {
-                var state = _player.PlaybackSession.PlaybackState;
-
-                if (state != MediaPlaybackState.Playing)
-                {
-                    _player.Play();
-                    _player.PlaybackSession.PlaybackRate = _speed;
-                }
-            }
-            catch (Exception)
-            {
-                // Player may be shutting down / transitioning; ignore here.
-            }
-        }
-        
-        ObjectDisposedException.ThrowIf(_disposed, this);
-        Stop();
-
-        var list = CreatePlaybackList();
-
-        // Re-apply speed on every item transition — WinRT can reset PlaybackRate
-        // to 1.0 when the session changes between playlist items.
-        // Named handler so we can unsubscribe in finally before _player is disposed.
-        void OnItemChanged(MediaPlaybackList sender, CurrentMediaPlaybackItemChangedEventArgs args)
-        {
-            if (_disposed) return;
-            try { _player.PlaybackSession.PlaybackRate = _speed; }
-            catch (Exception) { /* player disposed during shutdown */ }
-        }
-
-        list.CurrentItemChanged += OnItemChanged;
-
-        void RestartPlaylistWithSingleItem(MediaPlaybackItem item)
-        {
-            try { list.CurrentItemChanged -= OnItemChanged; }
-            catch (Exception) { /* ignore teardown / transition races */ }
-
-            list = CreatePlaybackList();
-            list.CurrentItemChanged += OnItemChanged;
-            list.Items.Add(item);
-
-            _player.Source = list;
-            _player.Play();
-            _player.PlaybackSession.PlaybackRate = _speed;
-        }
-
-        var tcs      = new TaskCompletionSource<bool>(
-            TaskCreationOptions.RunContinuationsAsynchronously);
-        int totalAdded  = 0;
-        bool streamDone = false;
-        bool playlistStarved = false;
-
-        var  listLock   = new object();
-
-        // Fires when the list naturally runs out of items (last item finished).
-        // void OnPlayerEnded(MediaPlayer sender, object args)
-        // {
-        //     bool shouldComplete;
-        //     lock (listLock) shouldComplete = streamDone;
-        //     if (shouldComplete) tcs.TrySetResult(true);
-        // }
-
-        void OnPlayerEnded(MediaPlayer sender, object args)
-        {
-            bool shouldComplete;
-
-            lock (listLock)
-            {
-                shouldComplete = streamDone;
-                if (!streamDone)
-                {
-                    playlistStarved = true;
-                }
-            }
-
-            if (!shouldComplete)
-                return;
-
-            try
-            {
-                var state = _player.PlaybackSession.PlaybackState;
-                if (state == MediaPlaybackState.None ||
-                    state == MediaPlaybackState.Paused)
-                {
-                    tcs.TrySetResult(true);
-                }
-            }
-            catch (Exception)
-            {
-                tcs.TrySetResult(true);
-            }
-        }
-        
-        // Fires on cancellation
-        using var reg = ct.Register(() =>
-        {
-            _player.Pause();
-            tcs.TrySetCanceled();
-        });
-
-        _player.MediaEnded += OnPlayerEnded;
-        _player.Source      = list;
-
-        try
-        {
-            await foreach (var path in filePaths.WithCancellation(ct))
-            {
-                var item = new MediaPlaybackItem(
-                    MediaSource.CreateFromUri(new Uri(path)));
-
-                // lock (listLock) totalAdded++;
-                // list.Items.Add(item);
-                //
-                // if (totalAdded == 1)
-                // {
-                //     _player.Play();
-                //     _player.PlaybackSession.PlaybackRate = _speed;
-                // }
-                lock (listLock)
-                {
-                    totalAdded++;
-
-                    if (playlistStarved)
-                    {
-                        playlistStarved = false;
-                        RestartPlaylistWithSingleItem(item);
-                    }
-                    else
-                    {
-                        list.Items.Add(item);
-                    }
-                }
-
-
-                EnsurePlaybackStarted();
-            }
-
-            // Stream exhausted — all phrases have been enqueued
-            lock (listLock)
-            {
-                streamDone = true;
-                playlistStarved = false;
-                // Edge case: player already fired MediaEnded before stream finished
-                if (totalAdded == 0)
-                {
-                    tcs.TrySetResult(false);
-                }
-                else
-                {
-                    try
-                    {
-                        var state = _player.PlaybackSession.PlaybackState;
-                        if (state == MediaPlaybackState.None ||
-                            state == MediaPlaybackState.Paused)
-                            tcs.TrySetResult(true);
-                    }
-                    catch (Exception) { tcs.TrySetResult(true); }
-                }
-            }
-
-            await tcs.Task;
-        }
-        finally
-        {
-            list.CurrentItemChanged -= OnItemChanged;
-            _player.MediaEnded      -= OnPlayerEnded;
-        }
+        throw new NotSupportedException("WinRtAudioPlayer no longer supports PCM playback. Use WasapiStreamAudioPlayer on Windows.");
     }
 
     // ── Stop ──────────────────────────────────────────────────────────────────

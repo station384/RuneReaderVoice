@@ -45,10 +45,6 @@ public sealed partial class TtsAudioCache : IDisposable
     private readonly Dictionary<string, SemaphoreSlim> _keyLocks = new();
     private readonly object _keyLocksGate = new();
 
-    // Background compression tasks — tracked so Dispose() can await them
-    private readonly List<Task> _compressionTasks = new();
-    private readonly object _compressionTasksGate = new();
-
     private const string ManifestFileName = "cache_manifest.json";
     private static readonly JsonSerializerOptions JsonOptions = new() { WriteIndented = true };
 

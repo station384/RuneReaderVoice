@@ -218,11 +218,11 @@ public sealed class PlaybackCoordinator : IDisposable
         var voiceId = _provider.ResolveVoiceId(segment.Slot);
 
         // ── Cache hit: entire segment is already encoded ──────────────────────
-        var cachedPath = await _cache.TryGetAsync(segment.Text, voiceId, _provider.ProviderId);
-        if (cachedPath != null)
+        var cachedAudio = await _cache.TryGetDecodedAsync(segment.Text, voiceId, _provider.ProviderId, ct);
+        if (cachedAudio != null)
         {
             ct.ThrowIfCancellationRequested();
-            await _player.PlayAsync(cachedPath, ct);
+            await _player.PlayAsync(cachedAudio, ct);
             return;
         }
 
@@ -234,30 +234,29 @@ public sealed class PlaybackCoordinator : IDisposable
         var sw = System.Diagnostics.Stopwatch.StartNew();
 
         await _player.PlaylistPlayAsync(
-            PhrasePathStream(segment, voiceId, sw, ct), ct);
+            PhraseAudioStream(segment, voiceId, sw, ct), ct);
     }
 
     /// <summary>
-    /// Adapts the phrase stream into a file-path stream for PlaylistPlayAsync.
-    /// Stores each phrase in the cache as it arrives, records first-phrase latency.
+    /// Adapts the phrase stream into a PCM stream for PlaylistPlayAsync.
+    /// Stores each phrase in the OGG cache as it arrives, records first-phrase latency.
     /// </summary>
-    private async IAsyncEnumerable<string> PhrasePathStream(
+    private async IAsyncEnumerable<PcmAudio> PhraseAudioStream(
         AssembledSegment segment,
         string voiceId,
         System.Diagnostics.Stopwatch sw,
         [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken ct)
     {
-        await foreach (var (audio, phraseIndex, phraseCount)
-            in _provider.SynthesizePhraseStreamAsync(
-                segment.Text, segment.Slot, _tempDirectory, ct))
+        await foreach (var (audio, phraseIndex, phraseCount) in
+            _provider.SynthesizePhraseStreamAsync(segment.Text, segment.Slot, _tempDirectory, ct))
         {
             if (phraseIndex == 0) { sw.Stop(); LastSynthesisLatency = sw.Elapsed; }
 
             var phraseText = GetPhraseText(segment.Text, phraseIndex, phraseCount);
-            var audioPath  = await _cache.StoreAsync(
+            await _cache.StoreAsync(
                 audio, phraseText, voiceId, _provider.ProviderId, ct);
 
-            yield return audioPath;
+            yield return audio;
         }
     }
 

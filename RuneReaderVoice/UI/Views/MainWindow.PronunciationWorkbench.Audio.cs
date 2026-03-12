@@ -3,30 +3,34 @@ using System.Threading.Tasks;
 using Avalonia.Interactivity;
 using Avalonia.Controls;
 using RuneReaderVoice.Protocol;
+using RuneReaderVoice.TTS.Providers;
 namespace RuneReaderVoice.UI.Views;
 
 public partial class MainWindow
 {
-    private async Task<string> GetOrCreateAudioPathAsync(string text, VoiceSlot slot)
+    private async Task<PcmAudio> GetOrCreateAudioAsync(string text, VoiceSlot slot)
     {
         var voiceId = AppServices.Provider.ResolveVoiceId(slot);
 
-        var cachedPath = await AppServices.Cache.TryGetAsync(
+        var cachedAudio = await AppServices.Cache.TryGetDecodedAsync(
             text,
             voiceId,
-            AppServices.Provider.ProviderId);
+            AppServices.Provider.ProviderId,
+            default);
 
-        if (cachedPath != null)
-            return cachedPath;
+        if (cachedAudio != null)
+            return cachedAudio;
 
         var audio = await AppServices.Provider.SynthesizeAsync(text, slot, default);
 
-        return await AppServices.Cache.StoreAsync(
+        await AppServices.Cache.StoreAsync(
             audio,
             text,
             voiceId,
             AppServices.Provider.ProviderId,
             default);
+
+        return audio;
     }
 
     private async Task SpeakWorkbenchTextAsync(string text)
@@ -38,9 +42,9 @@ public partial class MainWindow
         }
 
         var slot = ResolveWorkbenchSlot();
-        var audioPath = await GetOrCreateAudioPathAsync(text, slot);
+        var audio = await GetOrCreateAudioAsync(text, slot);
 
-        await AppServices.Player.PlayAsync(audioPath, default);
+        await AppServices.Player.PlayAsync(audio, default);
     }
 
     private async void OnPronunciationSpeakOriginalClicked(object? sender, RoutedEventArgs e)

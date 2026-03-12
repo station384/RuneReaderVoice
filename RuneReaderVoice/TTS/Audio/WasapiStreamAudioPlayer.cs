@@ -20,14 +20,13 @@
 using System;
 using System.Buffers;
 using System.Collections.Generic;
-using System.IO;
 using System.Runtime.Versioning;
 using System.Threading;
 using System.Threading.Tasks;
 using NAudio.CoreAudioApi;
 using NAudio.Wave;
 using NAudio.Wave.SampleProviders;
-using NVorbis;
+using RuneReaderVoice.TTS.Providers;
 
 namespace RuneReaderVoice.TTS.Audio;
 
@@ -83,18 +82,18 @@ public sealed class WasapiStreamAudioPlayer : IAudioPlayer
         set => _speed = Math.Clamp(value, 0.75f, 1.5f);
     }
 
-    public async Task PlayAsync(string filePath, CancellationToken ct)
+    public async Task PlayAsync(PcmAudio audio, CancellationToken ct)
     {
-        await PlaylistPlayAsync(OneItem(filePath), ct);
+        await PlaylistPlayAsync(OneItem(audio), ct);
 
-        static async IAsyncEnumerable<string> OneItem(string path)
+        static async IAsyncEnumerable<PcmAudio> OneItem(PcmAudio item)
         {
-            yield return path;
+            yield return item;
             await Task.CompletedTask;
         }
     }
 
-    public async Task PlaylistPlayAsync(IAsyncEnumerable<string> filePaths, CancellationToken ct)
+    public async Task PlaylistPlayAsync(IAsyncEnumerable<PcmAudio> audioChunks, CancellationToken ct)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
 
@@ -138,7 +137,7 @@ public sealed class WasapiStreamAudioPlayer : IAudioPlayer
         localOutput.PlaybackStopped += OnLocalPlaybackStopped;
         localOutput.Play();
 
-        _feedTask = FeedStreamAsync(filePaths, localBuffer, localOutput, tcs, linkedCts.Token);
+        _feedTask = FeedStreamAsync(audioChunks, localBuffer, localOutput, tcs, linkedCts.Token);
         localFeedTask = _feedTask;
 
         using var reg = linkedCts.Token.Register(() =>
@@ -147,7 +146,8 @@ public sealed class WasapiStreamAudioPlayer : IAudioPlayer
             {
                 lock (_sync)
                 {
-                    _output?.Stop();
+                    if (ReferenceEquals(_output, localOutput))
+                        _output.Stop();
                 }
             }
             catch
@@ -231,8 +231,13 @@ public sealed class WasapiStreamAudioPlayer : IAudioPlayer
 
         lock (_sync)
         {
-            output = _output; buffer = _buffer; cts = _playbackCts; feedTask = _feedTask; tcs = _playbackTcs;
+            output = _output;
+            buffer = _buffer;
+            cts = _playbackCts;
+            feedTask = _feedTask;
+            tcs = _playbackTcs;
         }
+
         CleanupPlaybackObjects(output, buffer, cts, feedTask, tcs);
     }
 
@@ -247,7 +252,7 @@ public sealed class WasapiStreamAudioPlayer : IAudioPlayer
     }
 
     private async Task FeedStreamAsync(
-        IAsyncEnumerable<string> filePaths,
+        IAsyncEnumerable<PcmAudio> audioChunks,
         BufferedWaveProvider buffer,
         WasapiOut output,
         TaskCompletionSource<bool> playbackTcs,
@@ -257,13 +262,12 @@ public sealed class WasapiStreamAudioPlayer : IAudioPlayer
 
         try
         {
-            await foreach (var path in filePaths.WithCancellation(ct).ConfigureAwait(false))
+            await foreach (var audio in audioChunks.WithCancellation(ct).ConfigureAwait(false))
             {
                 ct.ThrowIfCancellationRequested();
-                await DecodeAndQueueFileAsync(path, buffer, ct).ConfigureAwait(false);
+                await QueueAudioAsync(audio, buffer, ct).ConfigureAwait(false);
             }
 
-            // Wait for the queued audio to drain.
             while (!ct.IsCancellationRequested)
             {
                 if (buffer.BufferedBytes <= 0)
@@ -288,101 +292,22 @@ public sealed class WasapiStreamAudioPlayer : IAudioPlayer
             playbackTcs.TrySetResult(true);
     }
 
-    private async Task DecodeAndQueueFileAsync(string filePath, BufferedWaveProvider buffer, CancellationToken ct)
+    private async Task QueueAudioAsync(PcmAudio audio, BufferedWaveProvider buffer, CancellationToken ct)
     {
-        var ext = Path.GetExtension(filePath);
-
-        if (ext.Equals(".ogg", StringComparison.OrdinalIgnoreCase))
-        {
-            await DecodeOggAsync(filePath, buffer, ct).ConfigureAwait(false);
-            return;
-        }
-
-        if (ext.Equals(".wav", StringComparison.OrdinalIgnoreCase))
-        {
-            await DecodeWavAsync(filePath, buffer, ct).ConfigureAwait(false);
-            return;
-        }
-
-        throw new NotSupportedException($"Unsupported audio file for WASAPI stream playback: {filePath}");
-    }
-
-    private async Task DecodeWavAsync(string filePath, BufferedWaveProvider buffer, CancellationToken ct)
-    {
-        await using var fs = File.OpenRead(filePath);
-        using var reader = new WaveFileReader(fs);
-        await PumpWaveProviderAsync(reader, buffer, ct).ConfigureAwait(false);
-    }
-
-    private async Task DecodeOggAsync(string filePath, BufferedWaveProvider buffer, CancellationToken ct)
-    {
-        await using var fs = File.OpenRead(filePath);
-        using var vorbis = new VorbisReader(fs, false);
-
-        var sourceChannels = vorbis.Channels;
-        var sourceRate = vorbis.SampleRate;
-
-        var sampleProvider = new VorbisSampleProvider(vorbis);
+        var sampleProvider = new PcmAudioSampleProvider(audio);
         ISampleProvider working = sampleProvider;
 
-        if (sourceChannels == 1 && OutputChannels == 2)
+        if (audio.Channels == 1 && OutputChannels == 2)
             working = new MonoToStereoSampleProvider(working);
-        else if (sourceChannels == 2 && OutputChannels == 1)
+        else if (audio.Channels == 2 && OutputChannels == 1)
             working = new StereoToMonoSampleProvider(working);
-        else if (sourceChannels != OutputChannels)
-            throw new NotSupportedException($"Unsupported channel count conversion: {sourceChannels} -> {OutputChannels}");
+        else if (audio.Channels != OutputChannels)
+            throw new NotSupportedException($"Unsupported channel count conversion: {audio.Channels} -> {OutputChannels}");
 
-        if (sourceRate != OutputSampleRate)
+        if (audio.SampleRate != OutputSampleRate)
             working = new WdlResamplingSampleProvider(working, OutputSampleRate);
 
-        if (Math.Abs(_speed - 1.0f) > 0.001f)
-        {
-            // Placeholder: speed control for streamed PCM can be added later with
-            // a real time-stretch/pitch-safe provider if needed.
-            // For the first implementation we preserve correctness and ordering.
-        }
-
         await PumpSampleProviderAsync(working, buffer, ct).ConfigureAwait(false);
-    }
-
-    private async Task PumpWaveProviderAsync(IWaveProvider source, BufferedWaveProvider buffer, CancellationToken ct)
-    {
-        IWaveProvider working = source;
-
-        if (!source.WaveFormat.Equals(OutputWaveFormat))
-        {
-            var sample = source.ToSampleProvider();
-
-            if (sample.WaveFormat.Channels == 1 && OutputChannels == 2)
-                sample = new MonoToStereoSampleProvider(sample);
-            else if (sample.WaveFormat.Channels == 2 && OutputChannels == 1)
-                sample = new StereoToMonoSampleProvider(sample);
-            else if (sample.WaveFormat.Channels != OutputChannels)
-                throw new NotSupportedException($"Unsupported channel count conversion: {sample.WaveFormat.Channels} -> {OutputChannels}");
-
-            if (sample.WaveFormat.SampleRate != OutputSampleRate)
-                sample = new WdlResamplingSampleProvider(sample, OutputSampleRate);
-
-            working = sample.ToWaveProvider16();
-        }
-
-        var rent = ArrayPool<byte>.Shared.Rent(OutputWaveFormat.AverageBytesPerSecond / 4);
-        try
-        {
-            while (!ct.IsCancellationRequested)
-            {
-                var read = working.Read(rent, 0, rent.Length);
-                if (read <= 0)
-                    break;
-
-                await WaitForBufferSpaceAsync(buffer, read, ct).ConfigureAwait(false);
-                buffer.AddSamples(rent, 0, read);
-            }
-        }
-        finally
-        {
-            ArrayPool<byte>.Shared.Return(rent);
-        }
     }
 
     private async Task PumpSampleProviderAsync(ISampleProvider source, BufferedWaveProvider buffer, CancellationToken ct)
@@ -438,17 +363,6 @@ public sealed class WasapiStreamAudioPlayer : IAudioPlayer
         }
     }
 
-    private void OnPlaybackStopped(object? sender, StoppedEventArgs e)
-    {
-        if (e.Exception != null)
-        {
-            lock (_sync)
-            {
-                _playbackTcs?.TrySetException(e.Exception);
-            }
-        }
-    }
-
     private void CleanupPlaybackObjects(
         WasapiOut? output,
         BufferedWaveProvider? buffer,
@@ -487,47 +401,34 @@ public sealed class WasapiStreamAudioPlayer : IAudioPlayer
         }
 
         try { output?.Stop(); } catch { }
-        try
-        {
-            if (output != null)
-                output.PlaybackStopped -= OnPlaybackStopped;
-        }
-        catch
-        {
-        }
         try { output?.Dispose(); } catch { }
         try { cts?.Dispose(); } catch { }
     }
 
-    private sealed class VorbisSampleProvider : ISampleProvider
+    private sealed class PcmAudioSampleProvider : ISampleProvider
     {
-        private readonly VorbisReader _reader;
+        private readonly PcmAudio _audio;
+        private int _position;
         private readonly WaveFormat _waveFormat;
 
-        public VorbisSampleProvider(VorbisReader reader)
+        public PcmAudioSampleProvider(PcmAudio audio)
         {
-            _reader = reader;
-            _waveFormat = WaveFormat.CreateIeeeFloatWaveFormat(reader.SampleRate, reader.Channels);
+            _audio = audio;
+            _waveFormat = WaveFormat.CreateIeeeFloatWaveFormat(audio.SampleRate, audio.Channels);
         }
 
         public WaveFormat WaveFormat => _waveFormat;
 
         public int Read(float[] buffer, int offset, int count)
         {
-            if (offset == 0)
-                return _reader.ReadSamples(buffer, 0, count);
+            var remaining = _audio.Samples.Length - _position;
+            if (remaining <= 0)
+                return 0;
 
-            var temp = ArrayPool<float>.Shared.Rent(count);
-            try
-            {
-                var read = _reader.ReadSamples(temp, 0, count);
-                Array.Copy(temp, 0, buffer, offset, read);
-                return read;
-            }
-            finally
-            {
-                ArrayPool<float>.Shared.Return(temp);
-            }
+            var toCopy = Math.Min(count, remaining);
+            Array.Copy(_audio.Samples, _position, buffer, offset, toCopy);
+            _position += toCopy;
+            return toCopy;
         }
     }
 }

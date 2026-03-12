@@ -678,11 +678,19 @@ public sealed class VoiceProfileEditorDialog : Window
         try
         {
             kokoro.SetVoiceProfile(_slot, _workingProfile);
-            var pcm = await kokoro.SynthesizeAsync(_previewText.Text ?? "", _slot, CancellationToken.None);
-
-            var tempPath = Path.Combine(Path.GetTempPath(), $"rrv_preview_{Guid.NewGuid():N}.wav");
-            WriteWaveFile(tempPath, pcm);
-            await AppServices.Player.PlayAsync(tempPath, CancellationToken.None);
+            var previewText = _previewText.Text ?? string.Empty;
+            var voiceId = kokoro.ResolveVoiceId(_slot);
+            var cachedAudio = await AppServices.Cache.TryGetDecodedAsync(previewText, voiceId, kokoro.ProviderId, CancellationToken.None);
+            if (cachedAudio != null)
+            {
+                await AppServices.Player.PlayAsync(cachedAudio, CancellationToken.None);
+            }
+            else
+            {
+                var pcm = await kokoro.SynthesizeAsync(previewText, _slot, CancellationToken.None);
+                await AppServices.Cache.StoreAsync(pcm, previewText, voiceId, kokoro.ProviderId, CancellationToken.None);
+                await AppServices.Player.PlayAsync(pcm, CancellationToken.None);
+            }
         }
         finally
         {
@@ -727,41 +735,5 @@ public sealed class VoiceProfileEditorDialog : Window
 
             return (id, weight);
         }).ToArray();
-    }
-
-    private static void WriteWaveFile(string path, PcmAudio audio)
-    {
-        using var fs = File.Create(path);
-        using var bw = new BinaryWriter(fs);
-
-        int channels = audio.Channels <= 0 ? 1 : audio.Channels;
-        int sampleRate = audio.SampleRate;
-        short bitsPerSample = 16;
-        short blockAlign = (short)(channels * (bitsPerSample / 8));
-        int byteRate = sampleRate * blockAlign;
-        int dataSize = audio.Samples.Length * 2;
-
-        bw.Write(System.Text.Encoding.ASCII.GetBytes("RIFF"));
-        bw.Write(36 + dataSize);
-        bw.Write(System.Text.Encoding.ASCII.GetBytes("WAVE"));
-
-        bw.Write(System.Text.Encoding.ASCII.GetBytes("fmt "));
-        bw.Write(16);
-        bw.Write((short)1);
-        bw.Write((short)channels);
-        bw.Write(sampleRate);
-        bw.Write(byteRate);
-        bw.Write(blockAlign);
-        bw.Write(bitsPerSample);
-
-        bw.Write(System.Text.Encoding.ASCII.GetBytes("data"));
-        bw.Write(dataSize);
-
-        foreach (var sample in audio.Samples)
-        {
-            var clamped = Math.Clamp(sample, -1f, 1f);
-            short s = (short)Math.Round(clamped * short.MaxValue);
-            bw.Write(s);
-        }
     }
 }

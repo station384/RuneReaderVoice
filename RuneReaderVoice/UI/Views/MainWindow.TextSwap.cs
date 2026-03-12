@@ -359,8 +359,8 @@ public partial class MainWindow
         button.IsEnabled = false;
         try
         {
-            var audioPath = await GetOrCreateAudioPathAsync(text, VoiceSlot.Narrator);
-            await AppServices.Player.PlayAsync(audioPath, default);
+            var audio = await GetOrCreateAudioAsync(text, VoiceSlot.Narrator);
+            await AppServices.Player.PlayAsync(audio, default);
         }
         catch (Exception ex)
         {

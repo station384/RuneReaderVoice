@@ -18,13 +18,14 @@
 
 // IAudioPlayer.cs
 // Abstraction for platform audio playback.
-// Implementations: WinRtAudioPlayer (#if WINDOWS), GstAudioPlayer (#if LINUX).
-// The player reads from a file path (always a cached file — WAV or OGG).
+// Implementations: WasapiStreamAudioPlayer (#if WINDOWS), GstAudioPlayer (#if LINUX).
+// The player consumes decoded PCM only. Cache/file decoding happens above the player.
 
 using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
+using RuneReaderVoice.TTS.Providers;
 
 namespace RuneReaderVoice.TTS.Audio;
 
@@ -32,17 +33,14 @@ public interface IAudioPlayer : IDisposable
 {
     bool IsPlaying { get; }
 
-    /// <summary>Plays the audio file at the given path.</summary>
-    Task PlayAsync(string filePath, CancellationToken ct);
+    /// <summary>Plays decoded PCM audio.</summary>
+    Task PlayAsync(PcmAudio audio, CancellationToken ct);
 
     /// <summary>
-    /// Plays a sequence of audio files gaplessly, sourced from an async stream.
-    /// Files are enqueued as they arrive — playback begins on the first file
-    /// without waiting for the rest. Completes when the last file finishes playing.
-    /// Implementations that do not support gapless playback may fall back to
-    /// sequential PlayAsync calls.
+    /// Plays a sequence of decoded PCM chunks, preserving order.
+    /// Playback begins on the first chunk without waiting for the rest.
     /// </summary>
-    Task PlaylistPlayAsync(IAsyncEnumerable<string> filePaths, CancellationToken ct);
+    Task PlaylistPlayAsync(IAsyncEnumerable<PcmAudio> audioChunks, CancellationToken ct);
 
     /// <summary>Stops playback immediately.</summary>
     void Stop();

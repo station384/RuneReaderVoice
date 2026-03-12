@@ -17,11 +17,13 @@
 // along with RuneReaderVoice. If not, see <https://www.gnu.org/licenses/>.
 
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Security.Cryptography;
 using System.Threading;
 using System.Threading.Tasks;
+using NVorbis;
 using RuneReaderVoice.Protocol;
 using RuneReaderVoice.TTS.Providers;
 
@@ -66,10 +68,54 @@ public sealed partial class TtsAudioCache
     }
 
     /// <summary>
-    /// Stores synthesized PCM in the cache and returns the cached WAV path immediately
-    /// so playback can begin without waiting for OGG compression.
-    ///
-    /// No temporary files are created. The first write to disk is the final cache file.
+    /// Returns decoded cached PCM on a hit, or null on a miss.
+    /// Only OGG cache entries are considered valid in the current architecture.
+    /// </summary>
+    public async Task<PcmAudio?> TryGetDecodedAsync(string text, string voiceId, string providerId, CancellationToken ct)
+    {
+        string? path = null;
+        var key = ComputeKey(text, voiceId, providerId);
+
+        await _manifestLock.WaitAsync(ct);
+        try
+        {
+            if (!_manifest.TryGetValue(key, out var entry))
+            {
+                MissCount++;
+                return null;
+            }
+
+            path = Path.Combine(_cacheDirectory, entry.FileName);
+            if (!File.Exists(path))
+            {
+                _manifest.Remove(key);
+                MissCount++;
+                return null;
+            }
+
+            if (!path.EndsWith(".ogg", StringComparison.OrdinalIgnoreCase))
+            {
+                try { File.Delete(path); } catch { }
+                _manifest.Remove(key);
+                await SaveManifestAsync(ct);
+                MissCount++;
+                return null;
+            }
+
+            entry.LastAccessed = DateTime.UtcNow;
+            HitCount++;
+        }
+        finally
+        {
+            _manifestLock.Release();
+        }
+
+        return await DecodeCachedOggAsync(path!, ct);
+    }
+
+    /// <summary>
+    /// Stores synthesized PCM in the cache and returns the final cached OGG path.
+    /// No WAV files are generated.
     /// </summary>
     public async Task<string> StoreAsync(
         PcmAudio audio, string text, string voiceId, string providerId,
@@ -82,21 +128,22 @@ public sealed partial class TtsAudioCache
         try
         {
             var existing = await TryGetAsync(text, voiceId, providerId);
-            if (existing != null) return existing;
+            if (existing != null && existing.EndsWith(".ogg", StringComparison.OrdinalIgnoreCase))
+                return existing;
 
             var processedAudio = _silenceTrimEnabled ? TrimSilence(audio) : audio;
 
-            var cachedWavPath = Path.Combine(_cacheDirectory, key + ".wav");
-            await WritePcmAsWavAsync(processedAudio, cachedWavPath, ct);
+            var cachedOggPath = Path.Combine(_cacheDirectory, key + ".ogg");
+            await TranscodeToOggAsync(processedAudio, cachedOggPath, ct);
 
-            var wavFi = new FileInfo(cachedWavPath);
+            var oggFi = new FileInfo(cachedOggPath);
             var entry = new CacheEntry
             {
                 Key = key,
-                FileName = Path.GetFileName(cachedWavPath),
+                FileName = Path.GetFileName(cachedOggPath),
                 VoiceSlotId = voiceId,
                 TextPreview = text.Length > 60 ? text[..60] : text,
-                FileSizeBytes = wavFi.Length,
+                FileSizeBytes = oggFi.Length,
                 Created = DateTime.UtcNow,
                 LastAccessed = DateTime.UtcNow,
             };
@@ -112,11 +159,8 @@ public sealed partial class TtsAudioCache
                 _manifestLock.Release();
             }
 
-            if (_compressionEnabled)
-                TrackCompressionTask(CompressInBackgroundAsync(processedAudio, cachedWavPath, key, voiceId, text));
-
             EvictToSizeLimit();
-            return cachedWavPath;
+            return cachedOggPath;
         }
         finally
         {
@@ -124,79 +168,29 @@ public sealed partial class TtsAudioCache
         }
     }
 
-    /// <summary>
-    /// Transcodes the cached WAV to OGG on the thread-pool, then atomically
-    /// swaps the manifest entry to point at the .ogg and deletes the .wav.
-    /// Uses CancellationToken.None — session cancellation must not abort
-    /// compression, since we want the compressed file for future plays.
-    /// </summary>
-    private async Task CompressInBackgroundAsync(
-        PcmAudio audio, string cachedWavPath, string key, string voiceId, string text)
+    private static async Task<PcmAudio> DecodeCachedOggAsync(string oggPath, CancellationToken ct)
     {
-        try
+        return await Task.Run(() =>
         {
-            var oggPath = Path.Combine(_cacheDirectory, key + ".ogg");
-            await TranscodeToOggAsync(audio, oggPath, CancellationToken.None);
+            using var fs = new FileStream(oggPath, FileMode.Open, FileAccess.Read, FileShare.Read);
+            using var vorbis = new VorbisReader(fs, leaveOpen: false);
+            vorbis.Initialize(); // Required — populates _streamDecoder; SampleRate/Channels are null without this
 
-            var oggFi = new FileInfo(oggPath);
-            var updatedEntry = new CacheEntry
-            {
-                Key = key,
-                FileName = Path.GetFileName(oggPath),
-                VoiceSlotId = voiceId,
-                TextPreview = text.Length > 60 ? text[..60] : text,
-                FileSizeBytes = oggFi.Length,
-                Created = DateTime.UtcNow,
-                LastAccessed = DateTime.UtcNow,
-            };
+            var sampleRate = vorbis.SampleRate;
+            var channels   = vorbis.Channels;
+            var samples    = new List<float>(sampleRate * channels * 5);
+            var readBuf    = new float[4096];
 
-            await _manifestLock.WaitAsync();
-            try
+            int read;
+            while ((read = vorbis.ReadSamples(readBuf)) > 0)
             {
-                // Only swap if the manifest still has the .wav for this key
-                // (guards against a ClearAsync that ran during compression)
-                if (_manifest.TryGetValue(key, out var current) &&
-                    current.FileName.EndsWith(".wav", StringComparison.OrdinalIgnoreCase))
-                {
-                    _manifest[key] = updatedEntry;
-                    await SaveManifestAsync(CancellationToken.None);
-                }
-                else
-                {
-                    // Key was cleared or evicted — discard the orphaned OGG
-                    if (File.Exists(oggPath)) File.Delete(oggPath);
-                    return;
-                }
-            }
-            finally
-            {
-                _manifestLock.Release();
+                ct.ThrowIfCancellationRequested();
+                for (var i = 0; i < read; i++)
+                    samples.Add(readBuf[i]);
             }
 
-            // WAV is now superseded — delete it
-            if (File.Exists(cachedWavPath)) File.Delete(cachedWavPath);
-
-            Debug.WriteLine(
-                $"[TtsAudioCache] Background compressed {key} ({oggFi.Length / 1024} KB)");
-        }
-        catch (Exception ex)
-        {
-            // Non-fatal — the .wav remains in the cache and plays fine
-            Debug.WriteLine(
-                $"[TtsAudioCache] Background compression failed for {key}: {ex.Message}");
-        }
-    }
-
-    private void TrackCompressionTask(Task task)
-    {
-        lock (_compressionTasksGate)
-            _compressionTasks.Add(task);
-
-        task.ContinueWith(_ =>
-        {
-            lock (_compressionTasksGate)
-                _compressionTasks.RemoveAll(t => t.IsCompleted);
-        }, TaskScheduler.Default);
+            return new PcmAudio(samples.ToArray(), sampleRate, channels);
+        }, ct);
     }
 
     /// <summary>Deletes all cache files and resets the manifest.</summary>

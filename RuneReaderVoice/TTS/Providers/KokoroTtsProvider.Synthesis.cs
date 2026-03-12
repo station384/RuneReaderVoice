@@ -123,9 +123,9 @@ public sealed partial class KokoroTtsProvider
 
             var dSegConfig = new DefaultSegmentationConfig
             {
-                MaxFirstSegmentLength = 250,
+                MaxFirstSegmentLength = 50,
                 MinFirstSegmentLength = 10,
-                MaxSecondSegmentLength = 250,
+                MaxSecondSegmentLength = 150,
                 MinFollowupSegmentsLength = 500
             };
 
