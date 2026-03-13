@@ -25,15 +25,15 @@ along with RuneReaderVoice. If not, see <https://www.gnu.org/licenses/>.
         mc:Ignorable="d"
         x:Class="RuneReaderVoice.UI.Views.MainWindow"
         Title="RuneReader Voice"
-        Width="600"
+        Width="600" 
         MinWidth="480" MinHeight="160"
         SizeToContent="Height"
         Background="#1A1A2E">
 
-    <DockPanel x:Name="RootDockPanel" LastChildFill="False">
+    <Grid RowDefinitions="Auto,Auto,Auto,Auto,*">
 
         <!-- ── Title bar ──────────────────────────────────────────────── -->
-        <Border DockPanel.Dock="Top"
+        <Border Grid.Row="0"
                 Background="#16213E" Padding="12,8">
             <StackPanel Orientation="Horizontal" Spacing="8">
                 <TextBlock Text="RuneReader Voice"
@@ -47,7 +47,7 @@ along with RuneReaderVoice. If not, see <https://www.gnu.org/licenses/>.
         </Border>
 
         <!-- ── Live status panel ──────────────────────────────────────── -->
-        <Border DockPanel.Dock="Top"
+        <Border Grid.Row="1"
                 Background="#0F3460" Margin="8,8,8,0"
                 CornerRadius="6" Padding="12,10">
             <Grid ColumnDefinitions="*,*" RowDefinitions="Auto,Auto,Auto,Auto">
@@ -80,7 +80,7 @@ along with RuneReaderVoice. If not, see <https://www.gnu.org/licenses/>.
 
 
         <!-- ── Volume + Start/Stop row ──────────────────────────────────────── -->
-        <Border DockPanel.Dock="Top" Margin="8,8,8,0">
+        <Border Grid.Row="2" Margin="8,8,8,0">
             <Grid ColumnDefinitions="Auto,*,Auto,Auto" ColumnSpacing="10">
                 <TextBlock Grid.Column="0"
                            Text="Vol" Foreground="#888" FontSize="11"
@@ -108,10 +108,10 @@ along with RuneReaderVoice. If not, see <https://www.gnu.org/licenses/>.
         <!-- ── Last NPC panel ─────────────────────────────────────────── -->
         <!-- Appears after each NPC dialog. Hidden for narrator/book (NpcId=0). -->
         <Border x:Name="LastNpcPanel"
-                DockPanel.Dock="Top"
+                Grid.Row="3"
                 IsVisible="False"
                 Background="#1A2E1A" Margin="8,8,8,0"
-                CornerRadius="6" Padding="10,8">
+                CornerRadius="6" Padding="10,8" >
             <Grid ColumnDefinitions="Auto,*,Auto,Auto"
                   RowDefinitions="Auto,Auto"
                   ColumnSpacing="8" RowSpacing="6">
@@ -152,9 +152,10 @@ along with RuneReaderVoice. If not, see <https://www.gnu.org/licenses/>.
         <!-- ── Settings expander ──────────────────────────────────────── -->
         <Expander x:Name="ExpanderSettings"
                   Header="Settings"
-                  DockPanel.Dock="Top"
+                  Grid.Row="4"
                   IsExpanded="False"
                   HorizontalAlignment="Stretch"
+                  VerticalAlignment="Top"
                   Margin="8,4,8,8">
             <TabControl
                         x:Name="SettingsTabControl"
@@ -786,6 +787,6 @@ along with RuneReaderVoice. If not, see <https://www.gnu.org/licenses/>.
             </TabControl>
         </Expander>
 
-    </DockPanel>
+    </Grid>
 
 </Window>
