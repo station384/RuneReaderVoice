@@ -60,6 +60,13 @@ public partial class MainWindow : Window
             if (e.Property == Window.WindowStateProperty)
                 UpdateSettingsPanelHeight();
         };
+
+        // Ensure the window starts at the correct height for the restored
+        // expander state. Post at Render priority so the window is visible
+        // and has completed its first layout pass before we measure.
+        Avalonia.Threading.Dispatcher.UIThread.Post(
+            UpdateSettingsPanelHeight,
+            Avalonia.Threading.DispatcherPriority.Render);
         InitNpcOverridesUI();
 
         // Status refresh timer — 500ms is plenty for UI feedback
@@ -281,23 +288,43 @@ public partial class MainWindow : Window
 
         if (maximized)
         {
-            // No cap — fill the DockPanel remainder
+            CanResize = true;
+            RootDockPanel.LastChildFill = true;
             SettingsTabControl.MaxHeight = double.PositiveInfinity;
         }
         else if (expanded)
         {
-            SettingsTabControl.MaxHeight = 480;
+            MinHeight = 0;
+            CanResize = true;
+            RootDockPanel.LastChildFill = true;
+            SettingsTabControl.MaxHeight = double.PositiveInfinity;
+            // Let SizeToContent measure the expanded content first, then switch
+            // to Manual so the user can freely resize the window.
+            SizeToContent = SizeToContent.Height;
+            Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+            {
+                SizeToContent = SizeToContent.Manual;
+            }, Avalonia.Threading.DispatcherPriority.Render);
         }
         else
         {
             // Collapsed: snap window height back to content.
-            // SizeToContent="Height" only fires on layout changes; nudging it this
-            // way forces a re-measure on the next layout pass.
+            // Setting Height = NaN after SizeToContent = Height forces Avalonia
+            // to discard the current fixed height and re-measure from content.
             SizeToContent = SizeToContent.Manual;
+            RootDockPanel.LastChildFill = false;
             Avalonia.Threading.Dispatcher.UIThread.Post(() =>
             {
                 SizeToContent = SizeToContent.Height;
-            }, Avalonia.Threading.DispatcherPriority.Loaded);
+                Height = double.NaN;
+                // After layout settles, lock MinHeight so the window can't be
+                // dragged smaller than the collapsed content.
+                Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+                {
+                    MinHeight = Bounds.Height;
+                    CanResize = false;
+                }, Avalonia.Threading.DispatcherPriority.Render);
+            }, Avalonia.Threading.DispatcherPriority.Render);
         }
     }
 

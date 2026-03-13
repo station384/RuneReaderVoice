@@ -26,11 +26,11 @@ along with RuneReaderVoice. If not, see <https://www.gnu.org/licenses/>.
         x:Class="RuneReaderVoice.UI.Views.MainWindow"
         Title="RuneReader Voice"
         Width="600"
-        MinWidth="480" MinHeight="240"
+        MinWidth="480" MinHeight="160"
         SizeToContent="Height"
         Background="#1A1A2E">
 
-    <DockPanel>
+    <DockPanel x:Name="RootDockPanel" LastChildFill="False">
 
         <!-- ── Title bar ──────────────────────────────────────────────── -->
         <Border DockPanel.Dock="Top"
@@ -152,7 +152,7 @@ along with RuneReaderVoice. If not, see <https://www.gnu.org/licenses/>.
         <!-- ── Settings expander ──────────────────────────────────────── -->
         <Expander x:Name="ExpanderSettings"
                   Header="Settings"
-                  DockPanel.Dock="Bottom"
+                  DockPanel.Dock="Top"
                   IsExpanded="False"
                   HorizontalAlignment="Stretch"
                   Margin="8,4,8,8">
