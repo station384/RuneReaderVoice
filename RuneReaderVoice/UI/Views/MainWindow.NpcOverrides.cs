@@ -348,49 +348,49 @@ public partial class MainWindow
     /// Populates a ComboBox with all race ID → accent group options.
     /// Uses the player race map entries, sorted by accent group name.
     /// </summary>
+    /// <summary>
+    /// Populates a ComboBox with one entry per race / creature-type ID.
+    /// Derived from NpcVoiceSlotCatalog + RaceAccentMapping so it stays in
+    /// sync automatically whenever new races are added to either source.
+    ///
+    /// Label: "{Race name} — {AccentLabel}"  (male entry used as representative).
+    /// Tag  : integer raceId stored in NpcOverride records.
+    /// </summary>
     private static void PopulateNpcOverrideRaceDropdown(ComboBox dropdown)
     {
         dropdown.Items.Clear();
 
-        // Build a representative list: one entry per distinct (raceId, accentGroup) pair.
-        // We use a small fixed list so the user sees friendly WoW race names.
-        var options = new (int raceId, string label)[]
-        {
-            (1,    "Human — Neutral American"),
-            (2,    "Orc — Neutral American"),
-            (3,    "Dwarf — Scottish"),
-            (4,    "Night Elf — Neutral American"),
-            (5,    "Undead — American Raspy"),
-            (6,    "Tauren — Deep Resonant"),
-            (7,    "Gnome — Playful / Squeaky"),
-            (8,    "Troll — Caribbean"),
-            (9,    "Goblin — New York"),
-            (10,   "Blood Elf — British Haughty"),
-            (11,   "Draenei — Eastern European"),
-            (13,   "Pandaren — East Asian"),
-            (22,   "Worgen — British Rugged"),
-            (24,   "Nightborne — French"),
-            (27,   "Highmountain Tauren — Deep Resonant"),
-            (28,   "Lightforged Draenei — Eastern European"),
-            (29,   "Void Elf — British Haughty"),
-            (30,   "Dark Iron Dwarf — Scottish"),
-            (31,   "Zandalari Troll — Regal Tribal"),
-            (32,   "Kul Tiran — British Rugged"),
-            (35,   "Vulpera — Scrappy"),
-            (36,   "Mag'har Orc — Neutral American"),
-            (37,   "Mechagnome — Playful / Squeaky"),
-            (0x50, "Humanoid NPC — Neutral American"),
-            (0x51, "Beast — Narrator"),
-            (0x52, "Dragonkin — Deep Resonant"),
-            (0x53, "Undead creature — American Raspy"),
-            (0x54, "Demon — American Raspy"),
-            (0x55, "Elemental — Deep Resonant"),
-            (0x56, "Giant — Deep Resonant"),
-            (0x57, "Mechanical — Playful / Squeaky"),
-            (0x58, "Aberration — Narrator"),
-        };
+        var entries = new System.Collections.Generic.List<(int raceId, string label)>();
 
-        foreach (var (raceId, label) in options)
+        var playerIds   = RaceAccentMapping.PlayerRaceIds;
+        var creatureIds = RaceAccentMapping.CreatureTypeIds;
+
+        // One row per unique race: use the Male (or Narrator) catalog entry as
+        // the representative label; gender is resolved at runtime from NPC data.
+        foreach (var item in NpcVoiceSlotCatalog.All)
+        {
+            if (item.Slot.Gender == Gender.Female) continue;
+
+            var group     = item.Slot.Group;
+            var raceName  = item.NpcLabel
+                .Replace(" / Male", "")
+                .Replace(" NPC / Male", " NPC");
+            var label     = $"{raceName} — {item.AccentLabel}";
+
+            if (playerIds.TryGetValue(group, out int pid))
+            {
+                entries.Add((pid, label));
+            }
+            else if (creatureIds.TryGetValue(group, out int cid))
+            {
+                entries.Add((cid, label));
+            }
+        }
+
+        // Sort: player races (low IDs) first, then creature types (0x50+).
+        entries.Sort((a, b) => a.raceId.CompareTo(b.raceId));
+
+        foreach (var (raceId, label) in entries)
         {
             dropdown.Items.Add(new ComboBoxItem
             {

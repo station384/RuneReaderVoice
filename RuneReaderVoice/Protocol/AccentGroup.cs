@@ -166,6 +166,33 @@ public static class RaceAccentMapping
         { 0x58, AccentGroup.Narrator    },  // Aberration
     };
 
+    // ── Inverted maps (AccentGroup → raceId) — used by UI dropdowns ──────────────
+
+    /// <summary>
+    /// Maps each player-race AccentGroup to its canonical raceId.
+    /// When multiple raceIds map to the same group the lowest id is kept.
+    /// </summary>
+    public static IReadOnlyDictionary<AccentGroup, int> PlayerRaceIds { get; } =
+        BuildInverse(PlayerRaceMap);
+
+    /// <summary>
+    /// Maps each creature-type AccentGroup to its creature-type byte (0x50–0x58).
+    /// </summary>
+    public static IReadOnlyDictionary<AccentGroup, int> CreatureTypeIds { get; } =
+        BuildInverse(CreatureTypeMap);
+
+    private static System.Collections.Generic.Dictionary<AccentGroup, int>
+        BuildInverse(Dictionary<int, AccentGroup> map)
+    {
+        var inv = new System.Collections.Generic.Dictionary<AccentGroup, int>();
+        foreach (var (id, group) in map)
+        {
+            if (!inv.TryGetValue(group, out int existing) || id < existing)
+                inv[group] = id;
+        }
+        return inv;
+    }
+
     /// <summary>
     /// Maps a RACE byte and FLAGS to a VoiceSlot.
     /// FLAG_NARRATOR always returns VoiceSlot.Narrator regardless of race or gender.
