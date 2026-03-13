@@ -157,8 +157,8 @@ along with RuneReaderVoice. If not, see <https://www.gnu.org/licenses/>.
                   HorizontalAlignment="Stretch"
                   Margin="8,4,8,8">
             <TabControl
+                        x:Name="SettingsTabControl"
                         Margin="0"
-                        MaxHeight="480"
                         Background="#16213E">
 
             <!-- Basic settings tab -->

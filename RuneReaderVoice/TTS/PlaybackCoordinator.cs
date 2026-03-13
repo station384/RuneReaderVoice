@@ -40,6 +40,7 @@ using System.Threading.Tasks;
 using RuneReaderVoice.TTS.Providers;
 using RuneReaderVoice.TTS.Cache;
 using RuneReaderVoice.TTS.Audio;
+using RuneReaderVoice.TTS.Dsp;
 using RuneReaderVoice.Session;
 
 namespace RuneReaderVoice.TTS;
@@ -216,13 +217,16 @@ public sealed class PlaybackCoordinator : IDisposable
         }
 
         var voiceId = _provider.ResolveVoiceId(segment.Slot);
+        var profile = _provider.ResolveProfile(segment.Slot);
 
         // ── Cache hit: entire segment is already encoded ──────────────────────
         var cachedAudio = await _cache.TryGetDecodedAsync(segment.Text, voiceId, _provider.ProviderId, ct);
         if (cachedAudio != null)
         {
+            // Apply DSP to cached PCM before playback — cache stores raw synthesis.
+            var playAudio = DspFilterChain.Apply(cachedAudio, profile?.Dsp);
             ct.ThrowIfCancellationRequested();
-            await _player.PlayAsync(cachedAudio, ct);
+            await _player.PlayAsync(playAudio, ct);
             return;
         }
 
@@ -234,16 +238,18 @@ public sealed class PlaybackCoordinator : IDisposable
         var sw = System.Diagnostics.Stopwatch.StartNew();
 
         await _player.PlaylistPlayAsync(
-            PhraseAudioStream(segment, voiceId, sw, ct), ct);
+            PhraseAudioStream(segment, voiceId, profile, sw, ct), ct);
     }
 
     /// <summary>
     /// Adapts the phrase stream into a PCM stream for PlaylistPlayAsync.
     /// Stores each phrase in the OGG cache as it arrives, records first-phrase latency.
+    /// DSP is applied to each phrase after synthesis and before cache storage.
     /// </summary>
     private async IAsyncEnumerable<PcmAudio> PhraseAudioStream(
         AssembledSegment segment,
         string voiceId,
+        VoiceProfile? profile,
         System.Diagnostics.Stopwatch sw,
         [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken ct)
     {
@@ -252,11 +258,14 @@ public sealed class PlaybackCoordinator : IDisposable
         {
             if (phraseIndex == 0) { sw.Stop(); LastSynthesisLatency = sw.Elapsed; }
 
+            // Apply DSP post-synthesis, pre-cache. Cache stores DSP-processed audio.
+            var processedAudio = DspFilterChain.Apply(audio, profile?.Dsp);
+
             var phraseText = GetPhraseText(segment.Text, phraseIndex, phraseCount);
             await _cache.StoreAsync(
-                audio, phraseText, voiceId, _provider.ProviderId, ct);
+                processedAudio, phraseText, voiceId, _provider.ProviderId, ct);
 
-            yield return audio;
+            yield return processedAudio;
         }
     }
 

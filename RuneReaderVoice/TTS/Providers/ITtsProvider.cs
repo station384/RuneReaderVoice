@@ -117,6 +117,14 @@ public interface ITtsProvider : IDisposable
     string ResolveVoiceId(VoiceSlot slot);
 
     /// <summary>
+    /// Returns the full VoiceProfile for the given slot, including DSP settings and
+    /// the DisableChunking flag. Returns null if no profile is configured (caller
+    /// should use defaults). The coordinator uses this to apply DSP post-synthesis
+    /// and to decide whether to pass text through the TextSplitter.
+    /// </summary>
+    VoiceProfile? ResolveProfile(VoiceSlot slot);
+
+    /// <summary>
     /// Returns the voices available for this provider on this platform.
     /// The UI uses this to populate the accent group voice assignment grid.
     /// </summary>

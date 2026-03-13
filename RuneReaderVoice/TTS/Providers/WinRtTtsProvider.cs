@@ -57,6 +57,11 @@ public sealed class WinRtTtsProvider : ITtsProvider
     public string ResolveVoiceId(VoiceSlot slot)
         => _voiceIds.TryGetValue(slot, out var id) ? id : string.Empty;
 
+    public VoiceProfile? ResolveProfile(VoiceSlot slot)
+    {
+        return null;
+    }
+
     public IReadOnlyList<VoiceInfo> GetAvailableVoices()
     {
         return SpeechSynthesizer.AllVoices

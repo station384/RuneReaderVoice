@@ -53,6 +53,13 @@ public partial class MainWindow : Window
         SetPlatformVisibility();
         PopulatePronunciationWorkbench();
         PopulateTextSwapWorkbench();
+
+        // Keep the settings panel height cap in sync with window state.
+        this.PropertyChanged += (_, e) =>
+        {
+            if (e.Property == Window.WindowStateProperty)
+                UpdateSettingsPanelHeight();
+        };
         InitNpcOverridesUI();
 
         // Status refresh timer — 500ms is plenty for UI feedback
@@ -252,8 +259,46 @@ public partial class MainWindow : Window
             {
                 AppServices.Settings.SetExpanderState(name, expander.IsExpanded);
                 VoiceSettingsManager.SaveSettings(AppServices.Settings);
+
+                // When the main settings expander opens or closes, update the
+                // TabControl height cap and, if not maximized, snap window height.
+                if (expander == ExpanderSettings)
+                    UpdateSettingsPanelHeight();
             }
         };
+    }
+
+    /// <summary>
+    /// When maximized: let SettingsTabControl grow to fill available space (no cap).
+    /// When not maximized and settings are open: cap at 480px so the window stays manageable.
+    /// When not maximized and settings just closed: trigger SizeToContent re-measure so
+    /// the window shrinks back to fit just the capture area.
+    /// </summary>
+    private void UpdateSettingsPanelHeight()
+    {
+        bool maximized = WindowState == WindowState.Maximized;
+        bool expanded  = ExpanderSettings.IsExpanded;
+
+        if (maximized)
+        {
+            // No cap — fill the DockPanel remainder
+            SettingsTabControl.MaxHeight = double.PositiveInfinity;
+        }
+        else if (expanded)
+        {
+            SettingsTabControl.MaxHeight = 480;
+        }
+        else
+        {
+            // Collapsed: snap window height back to content.
+            // SizeToContent="Height" only fires on layout changes; nudging it this
+            // way forces a re-measure on the next layout pass.
+            SizeToContent = SizeToContent.Manual;
+            Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+            {
+                SizeToContent = SizeToContent.Height;
+            }, Avalonia.Threading.DispatcherPriority.Loaded);
+        }
     }
 
     private void PopulateAudioDevices()

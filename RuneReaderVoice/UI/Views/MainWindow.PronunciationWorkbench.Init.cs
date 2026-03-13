@@ -40,7 +40,7 @@ public partial class MainWindow
             AppServices.Settings.PronunciationWorkbenchAccentGroup,
             out var parsedGroup)
             ? parsedGroup
-            : AccentGroup.Caribbean;
+            : AccentGroup.Troll;
 
         var groupItem = PronAccentGroupSelector.Items
             .OfType<ComboBoxItem>()

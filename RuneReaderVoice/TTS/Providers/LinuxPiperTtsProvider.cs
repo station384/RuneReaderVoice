@@ -44,7 +44,10 @@ public sealed class LinuxPiperTtsProvider : ITtsProvider
     public bool IsAvailable =>
         !string.IsNullOrWhiteSpace(_piperBinaryPath) &&
         File.Exists(_piperBinaryPath);
-
+    public VoiceProfile? ResolveProfile(VoiceSlot slot)
+    {
+        return null;
+    }
     public LinuxPiperTtsProvider(string piperBinaryPath, string modelDirectory)
     {
         _piperBinaryPath = piperBinaryPath;

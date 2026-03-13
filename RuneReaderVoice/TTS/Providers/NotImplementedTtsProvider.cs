@@ -39,7 +39,10 @@ public sealed class NotImplementedTtsProvider : ITtsProvider
         _providerId  = providerId;
         _displayName = displayName;
     }
-
+    public VoiceProfile? ResolveProfile(VoiceSlot slot)
+    {
+        return null;
+    }
     public string ProviderId    => _providerId;
     public string DisplayName   => _displayName;
     public bool IsAvailable     => false;

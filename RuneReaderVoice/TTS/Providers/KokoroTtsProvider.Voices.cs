@@ -84,34 +84,57 @@ public sealed partial class KokoroTtsProvider
     }
 
     public string ResolveVoiceId(VoiceSlot slot)
-        => ResolveVoiceProfile(slot).BuildIdentityKey();
+        => ResolveVoiceProfile(slot).VoiceId;
+
+    /// <summary>ITtsProvider: returns the full profile (including DSP + DisableChunking).</summary>
+    public VoiceProfile? ResolveProfile(VoiceSlot slot)
+        => ResolveVoiceProfile(slot);
 
     private VoiceProfile GetDefaultProfile(VoiceSlot slot)
     {
+        // Prefer the recommended preset from the catalog — it includes DisableChunking + voice mixes.
         var preset = SpeakerPresetCatalog.GetRecommendedForSlot(slot);
         if (preset != null)
             return preset.Profile.Clone();
 
         if (slot.Group == AccentGroup.Narrator)
-            return VoiceProfileDefaults.Create("af_bella");
+            return VoiceProfileDefaults.Create("am_adam");
 
+        // Per-race single-voice fallback (no mix, for simplicity).
+        bool f = slot.Gender == Gender.Female;
         return slot.Group switch
         {
-            AccentGroup.NeutralAmerican => VoiceProfileDefaults.Create(slot.Gender == Gender.Female ? "af_sarah" : "am_michael"),
-            AccentGroup.AmericanRaspy   => VoiceProfileDefaults.Create(slot.Gender == Gender.Female ? "af_alloy" : "am_onyx"),
-            AccentGroup.Scottish        => VoiceProfileDefaults.Create(slot.Gender == Gender.Female ? "bf_alice" : "bm_george"),
-            AccentGroup.BritishHaughty  => VoiceProfileDefaults.Create(slot.Gender == Gender.Female ? "bf_isabella" : "bm_lewis"),
-            AccentGroup.BritishRugged   => VoiceProfileDefaults.Create(slot.Gender == Gender.Female ? "bf_emma" : "bm_daniel"),
-            AccentGroup.PlayfulSqueaky  => VoiceProfileDefaults.Create(slot.Gender == Gender.Female ? "af_nova" : "am_puck"),
-            AccentGroup.EasternEuropean => VoiceProfileDefaults.Create(slot.Gender == Gender.Female ? "bf_isabella" : "bm_lewis"),
-            AccentGroup.Caribbean       => VoiceProfileDefaults.Create(slot.Gender == Gender.Female ? "af_aoede" : "am_echo"),
-            AccentGroup.RegalTribal     => VoiceProfileDefaults.Create(slot.Gender == Gender.Female ? "bf_fable" : "bm_george"),
-            AccentGroup.DeepResonant    => VoiceProfileDefaults.Create(slot.Gender == Gender.Female ? "af_bella" : "am_fenrir"),
-            AccentGroup.NewYork         => VoiceProfileDefaults.Create(slot.Gender == Gender.Female ? "af_nova" : "am_eric"),
-            AccentGroup.EastAsian       => VoiceProfileDefaults.Create(slot.Gender == Gender.Female ? "jf_alpha" : "jm_kumo"),
-            AccentGroup.French          => VoiceProfileDefaults.Create(slot.Gender == Gender.Female ? "bf_fable" : "bm_fable"),
-            AccentGroup.Scrappy         => VoiceProfileDefaults.Create(slot.Gender == Gender.Female ? "af_sky" : "am_puck"),
-            _                           => VoiceProfileDefaults.Create(DefaultVoiceId)
+            AccentGroup.Human               => VoiceProfileDefaults.Create(f ? "af_sarah"    : "am_michael"),
+            AccentGroup.NightElf            => VoiceProfileDefaults.Create(f ? "bf_alice"    : "bm_george"),
+            AccentGroup.Dwarf               => VoiceProfileDefaults.Create(f ? "bf_alice"    : "bm_george"),
+            AccentGroup.DarkIronDwarf       => VoiceProfileDefaults.Create(f ? "bf_alice"    : "bm_george"),
+            AccentGroup.Gnome               => VoiceProfileDefaults.Create(f ? "af_nova"     : "am_puck"),
+            AccentGroup.Mechagnome          => VoiceProfileDefaults.Create(f ? "af_nova"     : "am_puck"),
+            AccentGroup.Draenei             => VoiceProfileDefaults.Create(f ? "bf_isabella" : "bm_lewis"),
+            AccentGroup.LightforgedDraenei  => VoiceProfileDefaults.Create(f ? "bf_isabella" : "bm_george"),
+            AccentGroup.Worgen              => VoiceProfileDefaults.Create(f ? "bf_emma"     : "bm_daniel"),
+            AccentGroup.KulTiran            => VoiceProfileDefaults.Create(f ? "bf_emma"     : "bm_george"),
+            AccentGroup.BloodElf            => VoiceProfileDefaults.Create(f ? "bf_isabella" : "bm_lewis"),
+            AccentGroup.VoidElf             => VoiceProfileDefaults.Create(f ? "bf_isabella" : "bm_lewis"),
+            AccentGroup.Orc                 => VoiceProfileDefaults.Create(f ? "af_alloy"    : "am_fenrir"),
+            AccentGroup.MagharOrc           => VoiceProfileDefaults.Create(f ? "af_alloy"    : "am_fenrir"),
+            AccentGroup.Undead              => VoiceProfileDefaults.Create(f ? "af_alloy"    : "am_onyx"),
+            AccentGroup.Tauren              => VoiceProfileDefaults.Create(f ? "af_bella"    : "am_fenrir"),
+            AccentGroup.HighmountainTauren  => VoiceProfileDefaults.Create(f ? "af_bella"    : "am_fenrir"),
+            AccentGroup.Troll               => VoiceProfileDefaults.Create(f ? "af_aoede"    : "am_echo"),
+            AccentGroup.ZandalariTroll      => VoiceProfileDefaults.Create(f ? "bf_fable"    : "am_adam"),
+            AccentGroup.Goblin              => VoiceProfileDefaults.Create(f ? "af_nova"     : "am_eric"),
+            AccentGroup.Nightborne          => VoiceProfileDefaults.Create(f ? "bf_fable"    : "bm_fable"),
+            AccentGroup.Vulpera             => VoiceProfileDefaults.Create(f ? "af_sky"      : "am_puck"),
+            AccentGroup.Pandaren            => VoiceProfileDefaults.Create(f ? "jf_alpha"    : "jm_kumo"),
+            AccentGroup.Earthen             => VoiceProfileDefaults.Create(f ? "bf_emma"     : "am_adam"),
+            AccentGroup.Haranir             => VoiceProfileDefaults.Create(f ? "af_bella"    : "am_adam"),
+            AccentGroup.Dracthyr            => VoiceProfileDefaults.Create(f ? "bf_isabella" : "bm_lewis"),
+            AccentGroup.Dragonkin           => VoiceProfileDefaults.Create(f ? "bf_isabella" : "am_onyx"),
+            AccentGroup.Elemental           => VoiceProfileDefaults.Create(f ? "af_alloy"    : "am_onyx"),
+            AccentGroup.Giant               => VoiceProfileDefaults.Create(f ? "af_kore"     : "am_fenrir"),
+            AccentGroup.Mechanical          => VoiceProfileDefaults.Create(f ? "af_nova"     : "am_puck"),
+            _                               => VoiceProfileDefaults.Create(DefaultVoiceId)
         };
     }
 

@@ -78,7 +78,7 @@ public sealed class VoiceUserSettings
     public string PronunciationWorkbenchTestSentence { get; set; } = "Stay away from Atal'zul, mon.";
     public string PronunciationWorkbenchTargetText { get; set; } = "Atal'zul";
     public string PronunciationWorkbenchPhonemeText { get; set; } = "ə tɑl zʊl";
-    public string PronunciationWorkbenchAccentGroup { get; set; } = nameof(Protocol.AccentGroup.Caribbean);
+    public string PronunciationWorkbenchAccentGroup { get; set; } = nameof(Protocol.AccentGroup.Troll);
     public string PronunciationWorkbenchGender { get; set; } = "Male";
 
     public bool RepeatSuppressionEnabled { get; set; } = true;

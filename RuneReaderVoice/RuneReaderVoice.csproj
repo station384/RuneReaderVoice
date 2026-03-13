@@ -67,6 +67,8 @@
 
     <PackageReference Include="System.Configuration.ConfigurationManager" Version="10.0.2" />
     <PackageReference Include="KokoroSharp.CPU" Version="*" />
+    <!-- DSP pipeline: post-synthesis audio processing -->
+    <PackageReference Include="NWaves" Version="*" />
 
   </ItemGroup>
 
