@@ -78,12 +78,20 @@ public sealed class TtsSessionAssembler
         public int       SlotsReceived { get; set; }
         public VoiceSlot Slot          { get; init; }
         public int       NpcId         { get; init; }
+        /// <summary>
+        /// Order in which this segment was started (IDX=0 received), not completed.
+        /// Used as the SegmentIndex so the playback coordinator can reorder segments
+        /// that complete out of sequence (e.g. a short narrator segment finishing
+        /// before a longer NPC segment that started earlier).
+        /// </summary>
+        public int       OrderIndex    { get; init; }
 
-        public SegmentAccumulator(int total, VoiceSlot slot, int npcId)
+        public SegmentAccumulator(int total, VoiceSlot slot, int npcId, int orderIndex)
         {
-            Slots = new string?[total];
-            Slot  = slot;
-            NpcId = npcId;
+            Slots      = new string?[total];
+            Slot       = slot;
+            NpcId      = npcId;
+            OrderIndex = orderIndex;
         }
     }
 
@@ -174,7 +182,8 @@ public sealed class TtsSessionAssembler
 
                 if (!_segments.TryGetValue(key, out var acc))
                 {
-                    acc = new SegmentAccumulator(packet.ChunkTotal, slot, packet.NpcId);
+                    acc = new SegmentAccumulator(packet.ChunkTotal, slot, packet.NpcId,
+                                                 _nextSegmentIndex++);
                     _segments[key] = acc;
 
                     // Replay stashed early chunks for this segment signature
@@ -297,7 +306,7 @@ public sealed class TtsSessionAssembler
             Text         = text,
             Slot         = acc.Slot,
             DialogId     = _currentDialogId,
-            SegmentIndex = _nextSegmentIndex++,
+            SegmentIndex = acc.OrderIndex,
             NpcId        = acc.NpcId,
         };
     }

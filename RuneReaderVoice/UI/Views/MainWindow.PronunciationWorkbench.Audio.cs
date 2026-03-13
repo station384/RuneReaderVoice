@@ -3,6 +3,7 @@ using System.Threading.Tasks;
 using Avalonia.Interactivity;
 using Avalonia.Controls;
 using RuneReaderVoice.Protocol;
+using RuneReaderVoice.TTS.Dsp;
 using RuneReaderVoice.TTS.Providers;
 namespace RuneReaderVoice.UI.Views;
 
@@ -11,23 +12,29 @@ public partial class MainWindow
     private async Task<PcmAudio> GetOrCreateAudioAsync(string text, VoiceSlot slot)
     {
         var voiceId = AppServices.Provider.ResolveVoiceId(slot);
+        var profile = AppServices.Provider.ResolveProfile(slot);
+        var dspKey  = profile?.Dsp?.BuildCacheKey() ?? "";
 
+        // Cache stores DSP-processed audio — play directly on hit, no second pass.
         var cachedAudio = await AppServices.Cache.TryGetDecodedAsync(
             text,
             voiceId,
             AppServices.Provider.ProviderId,
+            dspKey,
             default);
 
         if (cachedAudio != null)
             return cachedAudio;
 
-        var audio = await AppServices.Provider.SynthesizeAsync(text, slot, default);
+        var rawAudio = await AppServices.Provider.SynthesizeAsync(text, slot, default);
+        var audio    = DspFilterChain.Apply(rawAudio, profile?.Dsp);
 
         await AppServices.Cache.StoreAsync(
             audio,
             text,
             voiceId,
             AppServices.Provider.ProviderId,
+            dspKey,
             default);
 
         return audio;

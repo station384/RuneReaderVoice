@@ -56,8 +56,12 @@ public sealed class PlaybackCoordinator : IDisposable
     private readonly string        _tempDirectory;
     private readonly RecentSpeechSuppressor _recentSpeechSuppressor;
 
-    // Queue of assembled segments waiting for playback
-    private readonly Queue<AssembledSegment> _segmentQueue = new();
+    // Playback queue — segments are held in a reorder buffer keyed by SegmentIndex
+    // and released in strict order. This prevents a fast-assembling narrator segment
+    // (few chunks) from jumping ahead of a slower NPC segment (many chunks).
+    private readonly Queue<AssembledSegment>           _segmentQueue  = new();
+    private readonly Dictionary<int, AssembledSegment> _reorderBuffer = new();
+    private int _nextExpectedIndex;                     // reset on each new dialog
     private readonly SemaphoreSlim _queueSignal = new(0);
     private readonly object _queueLock = new();
 
@@ -96,15 +100,26 @@ public sealed class PlaybackCoordinator : IDisposable
 
     /// <summary>
     /// Called by TtsSessionAssembler.OnSegmentComplete.
-    /// Enqueues the segment for synthesis and playback.
+    /// Holds the segment in a reorder buffer until all earlier SegmentIndexes
+    /// have been enqueued, then flushes consecutive segments into the play queue.
+    /// This ensures a fast-assembling narrator segment never jumps ahead of a
+    /// slower NPC segment that was started first.
     /// </summary>
     public void EnqueueSegment(AssembledSegment segment)
     {
         lock (_queueLock)
         {
-            _segmentQueue.Enqueue(segment);
+            _reorderBuffer[segment.SegmentIndex] = segment;
+
+            // Flush any consecutive run starting from _nextExpectedIndex
+            while (_reorderBuffer.TryGetValue(_nextExpectedIndex, out var next))
+            {
+                _reorderBuffer.Remove(_nextExpectedIndex);
+                _segmentQueue.Enqueue(next);
+                _nextExpectedIndex++;
+                _queueSignal.Release();
+            }
         }
-        _queueSignal.Release();
     }
 
     /// <summary>
@@ -156,7 +171,12 @@ public sealed class PlaybackCoordinator : IDisposable
         //_recentSpeechSuppressor.Clear();
         _sessionCts?.Cancel();
 
-        lock (_queueLock) _segmentQueue.Clear();
+        lock (_queueLock)
+        {
+            _segmentQueue.Clear();
+            _reorderBuffer.Clear();
+            _nextExpectedIndex = 0;
+        }
 
         // Drain the semaphore
         while (_queueSignal.CurrentCount > 0)
@@ -218,15 +238,15 @@ public sealed class PlaybackCoordinator : IDisposable
 
         var voiceId = _provider.ResolveVoiceId(segment.Slot);
         var profile = _provider.ResolveProfile(segment.Slot);
+        var dspKey  = profile?.Dsp?.BuildCacheKey() ?? "";
 
         // ── Cache hit: entire segment is already encoded ──────────────────────
-        var cachedAudio = await _cache.TryGetDecodedAsync(segment.Text, voiceId, _provider.ProviderId, ct);
+        // Cache stores DSP-processed audio — play directly, no second DSP pass.
+        var cachedAudio = await _cache.TryGetDecodedAsync(segment.Text, voiceId, _provider.ProviderId, dspKey, ct);
         if (cachedAudio != null)
         {
-            // Apply DSP to cached PCM before playback — cache stores raw synthesis.
-            var playAudio = DspFilterChain.Apply(cachedAudio, profile?.Dsp);
             ct.ThrowIfCancellationRequested();
-            await _player.PlayAsync(playAudio, ct);
+            await _player.PlayAsync(cachedAudio, ct);
             return;
         }
 
@@ -238,7 +258,7 @@ public sealed class PlaybackCoordinator : IDisposable
         var sw = System.Diagnostics.Stopwatch.StartNew();
 
         await _player.PlaylistPlayAsync(
-            PhraseAudioStream(segment, voiceId, profile, sw, ct), ct);
+            PhraseAudioStream(segment, voiceId, profile, dspKey, sw, ct), ct);
     }
 
     /// <summary>
@@ -250,6 +270,7 @@ public sealed class PlaybackCoordinator : IDisposable
         AssembledSegment segment,
         string voiceId,
         VoiceProfile? profile,
+        string dspKey,
         System.Diagnostics.Stopwatch sw,
         [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken ct)
     {
@@ -258,12 +279,13 @@ public sealed class PlaybackCoordinator : IDisposable
         {
             if (phraseIndex == 0) { sw.Stop(); LastSynthesisLatency = sw.Elapsed; }
 
-            // Apply DSP post-synthesis, pre-cache. Cache stores DSP-processed audio.
+            // Apply DSP post-synthesis. Cache stores DSP-processed audio so
+            // cache hits play directly without re-applying DSP.
             var processedAudio = DspFilterChain.Apply(audio, profile?.Dsp);
 
             var phraseText = GetPhraseText(segment.Text, phraseIndex, phraseCount);
             await _cache.StoreAsync(
-                processedAudio, phraseText, voiceId, _provider.ProviderId, ct);
+                processedAudio, phraseText, voiceId, _provider.ProviderId, dspKey, ct);
 
             yield return processedAudio;
         }

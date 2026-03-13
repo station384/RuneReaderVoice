@@ -361,6 +361,91 @@ public sealed class DspProfile
 
     /// <summary>Returns a disabled DSP profile that bypasses the entire chain.</summary>
     public static DspProfile Neutral() => new() { Enabled = false };
+
+    /// <summary>
+    /// Compact deterministic string of all non-neutral DSP field values.
+    /// Used as a component of the audio cache key so that different DSP
+    /// configurations never share the same cache entry.
+    ///
+    /// Returns "" when the profile is neutral/bypassed, matching the key
+    /// produced by a null DspProfile — both mean "no DSP applied".
+    ///
+    /// Only fields that actually influence the audio output are included.
+    /// Default/neutral values are omitted to keep the string short.
+    /// </summary>
+    public string BuildCacheKey()
+    {
+        if (IsNeutral) return "";
+
+        var sb = new System.Text.StringBuilder();
+
+        // Helper: append only when value differs from its neutral default
+        void F(string tag, float v, float neutral = 0f)
+        { if (v != neutral) sb.Append(tag).Append(v.ToString("G4")).Append(';'); }
+
+        void I(string tag, int v, int neutral = 0)
+        { if (v != neutral) sb.Append(tag).Append(v).Append(';'); }
+
+        void B(string tag, bool v)
+        { if (v) sb.Append(tag).Append(';'); }
+
+        // Compressor
+        F("ct", CompressorThresholdDb);
+        F("cr", CompressorRatio, 4f);
+
+        // Pitch / Tempo
+        F("ps", PitchSemitones);
+        F("tp", TempoPercent);
+
+        // EQ
+        F("hp", HighPassHz);
+        F("ls", LowShelfDb);
+        F("mg", MidGainDb);
+        F("mf", MidFrequencyHz, 1000f);
+        F("hs", HighShelfDb);
+        F("ex", ExciterAmount);
+
+        // Distortion
+        B("td", TubeDistortion);
+        F("dd", TubeDistortionDist, 5f);
+        F("dq", TubeDistortionQ, -0.2f);
+        if (DistortionMode.HasValue)
+            sb.Append("dm").Append((int)DistortionMode.Value).Append(';');
+        F("di", DistortionInputGainDb);
+        F("do", DistortionOutputGainDb);
+        I("bc", BitCrushDepth);
+
+        // Modulation
+        F("cw", ChorusWet);
+        F("cr2", ChorusRateHz, 1.5f);
+        F("cw2", ChorusWidth, 0.02f);
+        F("vw", VibratoWidth);
+        F("vr", VibratoRateHz, 2f);
+        F("pw", PhaserWet);
+        F("pr", PhaserRateHz, 0.5f);
+        F("fw", FlangerWet);
+        F("fr", FlangerRateHz, 0.5f);
+        F("ff", FlangerFeedback, 0.5f);
+        F("aw", AutoWahWet);
+        F("an", AutoWahMinHz, 300f);
+        F("ax", AutoWahMaxHz, 3000f);
+        F("tr", TremoloDepth);
+        F("tr2", TremoloRateHz, 3f);
+
+        // Time-based
+        F("ed", EchoDelaySeconds);
+        F("ef", EchoFeedback, 0.4f);
+        F("ew", EchoWet);
+        F("rw", ReverbWet);
+        F("rs", ReverbRoomSize, 0.5f);
+        F("rd", ReverbDamping, 0.5f);
+
+        // Spectral
+        I("ro", RobotHopSize);
+        I("wh", WhisperHopSize);
+
+        return sb.ToString();
+    }
 }
 
 // ── VoiceProfile ──────────────────────────────────────────────────────────────

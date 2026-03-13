@@ -37,9 +37,9 @@ public sealed partial class TtsAudioCache
     /// Returns the cached audio file path if a hit, or null on a miss.
     /// Updates last-accessed timestamp on hit.
     /// </summary>
-    public async Task<string?> TryGetAsync(string text, string voiceId, string providerId)
+    public async Task<string?> TryGetAsync(string text, string voiceId, string providerId, string dspKey = "")
     {
-        var key = ComputeKey(text, voiceId, providerId);
+        var key = ComputeKey(text, voiceId, providerId, dspKey);
         await _manifestLock.WaitAsync();
         try
         {
@@ -71,10 +71,10 @@ public sealed partial class TtsAudioCache
     /// Returns decoded cached PCM on a hit, or null on a miss.
     /// Only OGG cache entries are considered valid in the current architecture.
     /// </summary>
-    public async Task<PcmAudio?> TryGetDecodedAsync(string text, string voiceId, string providerId, CancellationToken ct)
+    public async Task<PcmAudio?> TryGetDecodedAsync(string text, string voiceId, string providerId, string dspKey, CancellationToken ct)
     {
         string? path = null;
-        var key = ComputeKey(text, voiceId, providerId);
+        var key = ComputeKey(text, voiceId, providerId, dspKey);
 
         await _manifestLock.WaitAsync(ct);
         try
@@ -118,16 +118,16 @@ public sealed partial class TtsAudioCache
     /// No WAV files are generated.
     /// </summary>
     public async Task<string> StoreAsync(
-        PcmAudio audio, string text, string voiceId, string providerId,
+        PcmAudio audio, string text, string voiceId, string providerId, string dspKey,
         CancellationToken ct)
     {
-        var key = ComputeKey(text, voiceId, providerId);
+        var key = ComputeKey(text, voiceId, providerId, dspKey);
         var keyLock = GetKeyLock(key);
 
         await keyLock.WaitAsync(ct);
         try
         {
-            var existing = await TryGetAsync(text, voiceId, providerId);
+            var existing = await TryGetAsync(text, voiceId, providerId, dspKey);
             if (existing != null && existing.EndsWith(".ogg", StringComparison.OrdinalIgnoreCase))
                 return existing;
 
@@ -218,9 +218,9 @@ public sealed partial class TtsAudioCache
 
     // ── Key computation ───────────────────────────────────────────────────────
 
-    public static string ComputeKey(string text, string voiceId, string providerId)
+    public static string ComputeKey(string text, string voiceId, string providerId, string dspKey = "")
     {
-        var input = $"{text}\x00{voiceId}\x00{providerId}";
+        var input = $"{text}\x00{voiceId}\x00{providerId}\x00{dspKey}";
         var hash = SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(input));
         return Convert.ToHexString(hash)[..16].ToLowerInvariant();
     }
