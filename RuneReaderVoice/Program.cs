@@ -151,7 +151,7 @@ internal static class Program
         };
 
         platform.ScreenCapture.OnFullScreenUpdated += monitor.ProcessFrame;
-        platform.ScreenCapture.OnRegionUpdated     += monitor.ProcessFrame;
+        platform.ScreenCapture.OnRegionUpdated     += monitor.ProcessFrameRegion;
 
         platform.Hotkeys.EscPressed += coordinator.HandleEscPressed;
         platform.Hotkeys.Start();

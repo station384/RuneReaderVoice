@@ -48,6 +48,11 @@ using System.Runtime.InteropServices;
 
 public sealed class RvBarcodeMonitor : IDisposable
 {
+    
+    // Our statics
+    private BarcodeReaderGeneric multiReader = new ZXing.BarcodeReaderGeneric();
+    private BarcodeReaderGeneric singleReader = new ZXing.BarcodeReaderGeneric();
+
     // ── Events ────────────────────────────────────────────────────────────────
 
     /// <summary>Fires when a valid (non-preview) RV packet is decoded.</summary>
@@ -61,6 +66,8 @@ public sealed class RvBarcodeMonitor : IDisposable
 
     /// <summary>Fires with the latest full-screen Mat for the UI preview.</summary>
     public event Action<Mat>? OnFrameCaptured;
+    public event Action<Mat>? OnRegionCaptured;
+    
 
     // ── Configuration ─────────────────────────────────────────────────────────
 
@@ -90,17 +97,28 @@ public sealed class RvBarcodeMonitor : IDisposable
     {
         _capture = capture;
 
-        _reader = new BarcodeReaderGeneric
-        {
-            Options = new DecodingOptions
-            {
-                PossibleFormats    = new[] { BarcodeFormat.QR_CODE },
-                TryHarder          = true,
-                TryInverted        = false,
-                ReturnCodabarStartEnd = false,
-            },
-            AutoRotate = false,
-        };
+        multiReader.Options.Hints.Add(DecodeHintType.CHARACTER_SET, "ISO-8859-1");
+        multiReader.Options.Hints.Add(DecodeHintType.TRY_HARDER, true);
+        multiReader.Options.Hints.Add(DecodeHintType.PURE_BARCODE, false);
+        multiReader.Options.Hints.Add(DecodeHintType.POSSIBLE_FORMATS, new List<BarcodeFormat> { BarcodeFormat.QR_CODE });
+
+        singleReader.Options.Hints.Add(DecodeHintType.CHARACTER_SET, "ISO-8859-1");
+        singleReader.Options.Hints.Add(DecodeHintType.TRY_HARDER, true);
+        singleReader.Options.Hints.Add(DecodeHintType.PURE_BARCODE, false);
+        singleReader.Options.Hints.Add(DecodeHintType.POSSIBLE_FORMATS, new List<BarcodeFormat> { BarcodeFormat.QR_CODE });
+        
+        
+        // _reader = new BarcodeReaderGeneric
+        // {
+        //     Options = new DecodingOptions
+        //     {
+        //         PossibleFormats    = new[] { BarcodeFormat.QR_CODE },
+        //         TryHarder          = true,
+        //         TryInverted        = false,
+        //         ReturnCodabarStartEnd = false,
+        //     },
+        //     AutoRotate = false,
+        // };
     }
 
     // ── Control ───────────────────────────────────────────────────────────────
@@ -152,13 +170,14 @@ public sealed class RvBarcodeMonitor : IDisposable
                 {
                     _capture.EnableRegion  = true;
                     _capture.CaptureRegion = _lockedRegion.Value;
+                    _capture.CaptureOnce();
                 }
-                else
-                {
-                    _capture.EnableFullScreen = true;
-                }
+                // else
+                // {
+                //     _capture.EnableFullScreen = true;
+                // }
 
-                _capture.CaptureOnce();
+
             }
             catch (Exception ex)
             {
@@ -174,40 +193,92 @@ public sealed class RvBarcodeMonitor : IDisposable
 
     public void ProcessFrame(Mat frame)
     {
-        if (frame.Empty()) return;
-
-        OnFrameCaptured?.Invoke(frame);
-
-        // DecodeMultiple: handle 1 or 2 QR codes on screen simultaneously
-        // ZXing.Net BarcodeReaderGeneric can decode one at a time.
-        // For multi-decode, we use the LuminanceSource + HybridBinarizer approach.
-        var results = DecodeMultiple(frame);
-        if (results == null || results.Length == 0) return;
-        foreach (var result in results)
+        try
         {
-            if (result?.Text == null) continue;
+            if (frame.Empty()) return;
 
-            // Filter by "RV" magic prefix — only process RuneReaderVoice packets
-            var packet = RvPacket.TryParse(result.Text);
-            if (packet == null) continue;
+           //OnFrameCaptured?.Invoke(frame);
 
-            // Discard preview packets
-            if (packet.IsPreview) continue;
-
-            // Update region lock from barcode bounding box
-            UpdateRegionLock(result);
-
-            lock (_gate)
+            // DecodeMultiple: handle 1 or 2 QR codes on screen simultaneously
+            // ZXing.Net BarcodeReaderGeneric can decode one at a time.
+            // For multi-decode, we use the LuminanceSource + HybridBinarizer approach.
+            var results = DecodeMultiple(frame);
+            if (results == null || results.Length == 0) return;
+            foreach (var result in results)
             {
-                _rvQrFound         = true;
-                _lastRvDecodeTime  = DateTime.UtcNow;
-                _sourceGoneSignalled = false;
-            }
+                if (result?.Text == null) continue;
 
-            OnPacketDecoded?.Invoke(packet);
+                // Filter by "RV" magic prefix — only process RuneReaderVoice packets
+                var packet = RvPacket.TryParse(result.Text);
+                if (packet == null) continue;
+
+                // Discard preview packets
+                if (packet.IsPreview) continue;
+
+                // Update region lock from barcode bounding box
+                UpdateRegionLock(result);
+
+                lock (_gate)
+                {
+                    _rvQrFound = true;
+                    _lastRvDecodeTime = DateTime.UtcNow;
+                    _sourceGoneSignalled = false;
+                }
+
+                OnPacketDecoded?.Invoke(packet);
+            }
+        }
+        finally
+        {
+            frame.Dispose();
         }
     }
 
+    public void ProcessFrameRegion(Mat frame)
+    {
+        try
+        {
+            if (frame.Empty()) return;
+
+            //OnRegionCaptured?.Invoke(frame);
+
+            // DecodeMultiple: handle 1 or 2 QR codes on screen simultaneously
+            // ZXing.Net BarcodeReaderGeneric can decode one at a time.
+            // For multi-decode, we use the LuminanceSource + HybridBinarizer approach.
+            var results = DecodeSingle(frame);  // this needs to be updated as it should only ever return a single barcode.
+            if (results == null || results.Length == 0) return;
+            foreach (var result in results)
+            {
+                if (result?.Text == null) continue;
+
+                // Filter by "RV" magic prefix — only process RuneReaderVoice packets
+                var packet = RvPacket.TryParse(result.Text);
+                if (packet == null) continue;
+
+                // Discard preview packets
+                if (packet.IsPreview) continue;
+
+                // Update region lock from barcode bounding box
+                UpdateRegionLock(result);
+
+                lock (_gate)
+                {
+                    _rvQrFound = true;
+                    _lastRvDecodeTime = DateTime.UtcNow;
+                    _sourceGoneSignalled = false;
+                }
+
+                OnPacketDecoded?.Invoke(packet);
+            }
+        }
+        finally
+        {
+            frame.Dispose();
+        }
+    }
+    
+    
+    // May want to use OpenCv's QRDecodeer since its faster than ZXing's
     private Result[]? DecodeMultiple(Mat frame)
     {
         try
@@ -223,17 +294,8 @@ public sealed class RvBarcodeMonitor : IDisposable
 
             var luminance  = new ZXing.RGBLuminanceSource(bytes, gray.Cols, gray.Rows,
                 ZXing.RGBLuminanceSource.BitmapFormat.Gray8);
-            // var binarizer  = new HybridBinarizer(luminance);
-            // var bitmap     = new BinaryBitmap(binarizer);
-            
-            
+
             // ZXing.Net multi-decode via QRCodeMultiReader
-            var multiReader = new ZXing.BarcodeReaderGeneric();
-            multiReader.Options.Hints.Add(DecodeHintType.CHARACTER_SET, "ISO-8859-1");
-            multiReader.Options.Hints.Add(DecodeHintType.TRY_HARDER, true);
-            multiReader.Options.Hints.Add(DecodeHintType.PURE_BARCODE, false);
-            
-            multiReader.Options.Hints.Add(DecodeHintType.POSSIBLE_FORMATS, new List<BarcodeFormat> { BarcodeFormat.QR_CODE });
             var decResult = multiReader.DecodeMultiple(luminance);
             return decResult;
         }
@@ -243,6 +305,38 @@ public sealed class RvBarcodeMonitor : IDisposable
         }
     }
 
+    
+    // this needs to be re done so it doesn't do MultiDecode.  
+    // Maybe even use OpenCV's qr decoder since its faster than ZXing.  will need to try it out.
+    private Result[]? DecodeSingle(Mat frame)
+    {
+        try
+        {
+            // Convert Mat to ZXing LuminanceSource
+            // Using grayscale byte array approach
+            using var gray = frame.Channels() == 1
+                ? frame.Clone()
+                : frame.CvtColor(ColorConversionCodes.BGR2GRAY);
+
+            var bytes  = new byte[gray.Rows * gray.Cols];
+            Marshal.Copy(gray.Data, bytes, 0, bytes.Length);
+
+            var luminance  = new ZXing.RGBLuminanceSource(bytes, gray.Cols, gray.Rows,
+                ZXing.RGBLuminanceSource.BitmapFormat.Gray8);
+            
+            
+            // ZXing.Net multi-decode via QRCodeMultiReader
+
+            var decResult = multiReader.DecodeMultiple(luminance);  // this needs to be converted into a single decode
+            return decResult;
+        }
+        catch
+        {
+            return null;
+        }
+    }
+    
+    
     private void UpdateRegionLock(Result result)
     {
         if (result.ResultPoints == null || result.ResultPoints.Length < 3) return;
@@ -278,7 +372,7 @@ public sealed class RvBarcodeMonitor : IDisposable
             catch (OperationCanceledException) { break; }
 
             bool needsScan;
-            //lock (_gate) 
+            lock (_gate) 
                 needsScan = !_rvQrFound;
 
             if (needsScan)
@@ -303,7 +397,7 @@ public sealed class RvBarcodeMonitor : IDisposable
             catch (OperationCanceledException) { break; }
 
             bool shouldSignal;
-           // lock (_gate)
+            lock (_gate)
             {
                 var elapsed = (DateTime.UtcNow - _lastRvDecodeTime).TotalMilliseconds;
                 shouldSignal = _rvQrFound
@@ -332,7 +426,6 @@ public sealed class RvBarcodeMonitor : IDisposable
     {
         if (_disposed) return;
         _disposed = true;
-    
         CancellationTokenSource? cts;
         lock (_gate) 
         { cts = _cts; _cts = null; }

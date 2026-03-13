@@ -275,7 +275,7 @@ public sealed class TtsSessionAssembler
     public void ApplyRaceOverride(int npcId, int raceId)
     {
         if (npcId == 0) return;
-        //lock (_lock)
+        lock (_lock)
         {
             _npcRaceStore[npcId] = raceId;
         }
