@@ -148,7 +148,7 @@ public sealed class TtsSessionAssembler
     {
         List<AssembledSegment>? toFire = null;
 
-      //  lock (_lock)
+        lock (_lock)
         {
             // ── New dialog ────────────────────────────────────────────────────
             if (packet.DialogId != _currentDialogId)

@@ -139,6 +139,7 @@ internal static class Program
         assembler.OnSessionReset += coordinator.OnSessionReset;
 
         var monitor = new RvBarcodeMonitor(platform.ScreenCapture);
+        monitor.TrySetInitialLockedRegion(settings.LastBarcodeRegion);
         monitor.CaptureIntervalMs     = settings.CaptureIntervalMs;
         monitor.ReScanIntervalMs      = settings.ReScanIntervalMs;
         monitor.SourceGoneThresholdMs = settings.SourceGoneThresholdMs;
@@ -148,6 +149,19 @@ internal static class Program
         {
             assembler.SignalSourceGone();
             coordinator.OnSourceGone();
+        };
+        monitor.OnLockedRegionChanged += rect =>
+        {
+            settings.LastBarcodeRegion = new SavedBarcodeRegion
+            {
+                X = rect.X,
+                Y = rect.Y,
+                Width = rect.Width,
+                Height = rect.Height,
+                ScreenWidth = platform.ScreenCapture.ScreenWidth,
+                ScreenHeight = platform.ScreenCapture.ScreenHeight,
+            };
+            _ = VoiceSettingsManager.SaveSettingsAsync(settings);
         };
 
         platform.ScreenCapture.OnFullScreenUpdated += monitor.ProcessFrame;

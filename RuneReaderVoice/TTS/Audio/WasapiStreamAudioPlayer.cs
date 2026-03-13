@@ -116,7 +116,10 @@ public sealed class WasapiStreamAudioPlayer : IAudioPlayer
             {
                 DiscardOnBufferOverflow = false,
                 ReadFully = true,
-                BufferDuration = TimeSpan.FromSeconds(20),
+                // Keep this modest.
+                // Large BufferedWaveProvider durations can cause large retained allocations
+                // and make normal heap growth look like a memory leak during playback.
+                BufferDuration = TimeSpan.FromSeconds(2),
             };
 
             _output = CreateOutput(_deviceId);

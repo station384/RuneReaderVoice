@@ -8,6 +8,17 @@ using RuneReaderVoice.TTS.Providers;
 
 namespace RuneReaderVoice;
 
+
+public sealed class SavedBarcodeRegion
+{
+    public int X { get; set; }
+    public int Y { get; set; }
+    public int Width { get; set; }
+    public int Height { get; set; }
+    public int ScreenWidth { get; set; }
+    public int ScreenHeight { get; set; }
+}
+
 public sealed class VoiceUserSettings
 {
     public bool TtsEnabled { get; set; } = true;
@@ -61,6 +72,7 @@ public sealed class VoiceUserSettings
     public int CaptureIntervalMs { get; set; } = 5;
     public int ReScanIntervalMs { get; set; } = 5000;
     public int SourceGoneThresholdMs { get; set; } = 2000;
+    public SavedBarcodeRegion? LastBarcodeRegion { get; set; } = null;
 
     public bool CompressionEnabled { get; set; } = true;
     public int OggQuality { get; set; } = 4;

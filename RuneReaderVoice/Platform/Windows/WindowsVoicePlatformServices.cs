@@ -88,7 +88,8 @@ public sealed class WindowsVoiceHotkeys : IVoiceHotkeys
                 // Ask coordinator whether to consume this keypress
                 bool consumed = EscPressed?.Invoke() ?? false;
                 if (consumed)
-                    return 1; // suppress — do not pass to game
+                    return CallNextHookEx(0, nCode, wParam, lParam);
+                    //return 1; // suppress — do not pass to game
                 // else fall through to CallNextHookEx
             }
         }

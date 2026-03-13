@@ -67,6 +67,7 @@ public sealed class RvBarcodeMonitor : IDisposable
     /// <summary>Fires with the latest full-screen Mat for the UI preview.</summary>
     public event Action<Mat>? OnFrameCaptured;
     public event Action<Mat>? OnRegionCaptured;
+    public event Action<Rect>? OnLockedRegionChanged;
     
 
     // ── Configuration ─────────────────────────────────────────────────────────
@@ -78,7 +79,6 @@ public sealed class RvBarcodeMonitor : IDisposable
     // ── Internal state ────────────────────────────────────────────────────────
 
     private readonly IScreenCaptureProvider _capture;
-    private readonly BarcodeReaderGeneric _reader;
 
     private CancellationTokenSource? _cts;
     private Task? _captureTask;
@@ -121,6 +121,40 @@ public sealed class RvBarcodeMonitor : IDisposable
         // };
     }
 
+    public void TrySetInitialLockedRegion(SavedBarcodeRegion? saved)
+    {
+        if (saved == null) return;
+
+        var clamped = ClampRegionToScreen(new Rect(saved.X, saved.Y, saved.Width, saved.Height));
+        if (!clamped.HasValue) return;
+
+        lock (_gate)
+        {
+            if (_captureTask is { IsCompleted: false }) return;
+            _lockedRegion = clamped.Value;
+        }
+    }
+
+    private Rect? ClampRegionToScreen(Rect rect)
+    {
+        if (_capture.ScreenWidth <= 0 || _capture.ScreenHeight <= 0)
+            return null;
+
+        var x = Math.Max(0, rect.X);
+        var y = Math.Max(0, rect.Y);
+        var maxWidth = _capture.ScreenWidth - x;
+        var maxHeight = _capture.ScreenHeight - y;
+        if (maxWidth <= 0 || maxHeight <= 0)
+            return null;
+
+        var width = Math.Min(rect.Width, maxWidth);
+        var height = Math.Min(rect.Height, maxHeight);
+        if (width <= 0 || height <= 0)
+            return null;
+
+        return new Rect(x, y, width, height);
+    }
+
     // ── Control ───────────────────────────────────────────────────────────────
 
     public void Start()
@@ -128,9 +162,8 @@ public sealed class RvBarcodeMonitor : IDisposable
         lock (_gate)
         {
             if (_captureTask is { IsCompleted: false }) return;
-            _cts         = new CancellationTokenSource();
-            _rvQrFound   = false;
-            _lockedRegion = null;
+            _cts                 = new CancellationTokenSource();
+            _rvQrFound           = false;
             _sourceGoneSignalled = false;
 
             var token    = _cts.Token;
@@ -139,7 +172,15 @@ public sealed class RvBarcodeMonitor : IDisposable
             _sourceGoneTask = SourceGoneLoopAsync(token);
         }
     }
-
+    private int _frameCount = 0;
+    private void CheckIfWeShouldGC()
+    {
+        if (_frameCount++ > 100)
+        {
+            GC.Collect();
+            _frameCount = 0;
+        }
+    }
     public async Task StopAsync()
     {
         CancellationTokenSource? cts;
@@ -165,11 +206,14 @@ public sealed class RvBarcodeMonitor : IDisposable
         {
             try
             {
-                // Apply locked region if available
-                if (_lockedRegion.HasValue)
+                Rect? lockedRegion;
+                lock (_gate)
+                    lockedRegion = _lockedRegion;
+
+                if (lockedRegion.HasValue)
                 {
                     _capture.EnableRegion  = true;
-                    _capture.CaptureRegion = _lockedRegion.Value;
+                    _capture.CaptureRegion = lockedRegion.Value;
                     _capture.CaptureOnce();
                 }
                 // else
@@ -230,7 +274,9 @@ public sealed class RvBarcodeMonitor : IDisposable
         }
         finally
         {
+            
             frame.Dispose();
+            CheckIfWeShouldGC();
         }
     }
 
@@ -274,6 +320,8 @@ public sealed class RvBarcodeMonitor : IDisposable
         finally
         {
             frame.Dispose();
+            CheckIfWeShouldGC();
+            
         }
     }
     
@@ -324,11 +372,9 @@ public sealed class RvBarcodeMonitor : IDisposable
             var luminance  = new ZXing.RGBLuminanceSource(bytes, gray.Cols, gray.Rows,
                 ZXing.RGBLuminanceSource.BitmapFormat.Gray8);
             
-            
-            // ZXing.Net multi-decode via QRCodeMultiReader
 
-            var decResult = multiReader.DecodeMultiple(luminance);  // this needs to be converted into a single decode
-            return decResult;
+            var result = singleReader.Decode(luminance);
+            return result != null ? new[] { result } : null;
         }
         catch
         {
@@ -346,19 +392,28 @@ public sealed class RvBarcodeMonitor : IDisposable
         float maxX = result.ResultPoints.Max(p => p.X);
         float maxY = result.ResultPoints.Max(p => p.Y);
 
-        // Add margin and clamp to screen bounds
         const int Margin = 20;
-        int x = Math.Max(0, (int)minX - Margin);
-        int y = Math.Max(0, (int)minY - Margin);
-        int w = (int)(maxX - minX) + Margin * 2;
-        int h = (int)(maxY - minY) + Margin * 2;
+        var candidate = new Rect(
+            Math.Max(0, (int)minX - Margin),
+            Math.Max(0, (int)minY - Margin),
+            (int)(maxX - minX) + Margin * 2,
+            (int)(maxY - minY) + Margin * 2);
 
-        // Clamp to screen dimensions
-        w = Math.Min(w, _capture.ScreenWidth  - x);
-        h = Math.Min(h, _capture.ScreenHeight - y);
+        var clamped = ClampRegionToScreen(candidate);
+        if (!clamped.HasValue) return;
 
-        if (w > 0 && h > 0)
-            _lockedRegion = new Rect(x, y, w, h);
+        var changed = false;
+        lock (_gate)
+        {
+            if (!_lockedRegion.HasValue || !_lockedRegion.Value.Equals(clamped.Value))
+            {
+                _lockedRegion = clamped.Value;
+                changed = true;
+            }
+        }
+
+        if (changed)
+            OnLockedRegionChanged?.Invoke(clamped.Value);
     }
 
     // ── Full-screen rescan loop ───────────────────────────────────────────────
