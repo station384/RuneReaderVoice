@@ -218,11 +218,13 @@ public static class RaceAccentMapping
     {
         if (raceByte == 0) return AccentGroup.Narrator;
 
-        if (raceByte is >= 0x01 and <= 0x7F)
-            return PlayerRaceMap.TryGetValue(raceByte, out var g) ? g : AccentGroup.Human;
-
+        // Creature type bytes (0x50–0x58) must be checked BEFORE the player race
+        // range because 0x50–0x7F overlaps with the broad player race check below.
         if (raceByte is >= 0x50 and <= 0x58)
             return CreatureTypeMap.TryGetValue(raceByte, out var g) ? g : AccentGroup.Narrator;
+
+        if (raceByte is >= 0x01 and <= 0x7F)
+            return PlayerRaceMap.TryGetValue(raceByte, out var g) ? g : AccentGroup.Human;
 
         return AccentGroup.Narrator;
     }
