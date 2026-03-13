@@ -18,25 +18,31 @@
 
 // TtsSessionAssembler.cs
 // Collects QR chunks for a single dialog session and fires OnSegmentComplete
-// once per fully-assembled segment.
+// once all segments in the dialog are fully assembled, in SeqIndex order.
 //
-// Protocol reality (from payload.lua):
-//   - One dialog = one DialogID, but N independent segments (narrator splits).
-//   - Each segment has its own IDX (0-based) and TOTAL (chunk count for that segment).
+// Protocol v05 reality (from payload.lua):
+//   - One dialog = one DialogID, N segments (narrator splits etc.).
+//   - Each packet carries SEQ/SEQTOTAL (segment position in dialog) and
+//     SUB/SUBTOTAL (barcode chunk position within that segment).
+//   - SEQTOTAL is known from the very first barcode scan of a dialog.
 //   - Segments are streamed sequentially and cycle continuously until dialog closes.
-//   - The reader may catch segment 2 before segment 1 — all must be tracked.
 //
-// Segment identity within a dialog:
-//   FLAGS + RACE uniquely identify a segment's voice slot. Combined with TOTAL
-//   and the first chunk's payload they form a stable key that survives re-loops.
+// Assembly strategy:
+//   - On first packet of a new dialog, record SeqTotal.
+//   - Each segment has its own SegmentAccumulator keyed by SeqIndex.
+//   - When a segment's SUB chunks are all received it is marked complete but
+//     NOT yet fired — it waits in _completedSegments.
+//   - Only when _completedSegments.Count == SeqTotal do we fire OnSegmentComplete
+//     for all segments in SeqIndex order.
+//   - This guarantees ordered delivery regardless of which segment assembles fastest.
 //
 // Re-loop handling:
-//   When a completed segment's IDX=0 chunk arrives again, it is ignored.
+//   When a completed segment's SUB=0 chunk arrives again it is ignored.
 //   _completedKeys tracks which segments have already fired.
 //
 // Chunk ordering:
-//   Non-zero chunks that arrive before IDX=0 are stashed in _earlyChunks and
-//   replayed when IDX=0 arrives to establish the segment key.
+//   Non-zero SUB chunks that arrive before SUB=0 are stashed in _earlyChunks
+//   and replayed when SUB=0 arrives to establish the segment key.
 //
 // NPC race override lookup chain:
 //   1. _npcRaceStore (in-memory, pre-loaded from NpcRaceOverrideDb at startup)
@@ -74,39 +80,36 @@ public sealed class TtsSessionAssembler
 
     private sealed class SegmentAccumulator
     {
-        public string?[] Slots         { get; }
-        public int       SlotsReceived { get; set; }
-        public VoiceSlot Slot          { get; init; }
-        public int       NpcId         { get; init; }
-        /// <summary>
-        /// Order in which this segment was started (IDX=0 received), not completed.
-        /// Used as the SegmentIndex so the playback coordinator can reorder segments
-        /// that complete out of sequence (e.g. a short narrator segment finishing
-        /// before a longer NPC segment that started earlier).
-        /// </summary>
-        public int       OrderIndex    { get; init; }
+        public string?[] Subs         { get; }          // barcode chunks for this segment
+        public int       SubsReceived { get; set; }
+        public VoiceSlot Slot         { get; init; }
+        public int       NpcId        { get; init; }
+        public int       SeqIndex     { get; init; }    // position within dialog, assigned at creation
 
-        public SegmentAccumulator(int total, VoiceSlot slot, int npcId, int orderIndex)
+        public SegmentAccumulator(int subTotal, VoiceSlot slot, int npcId, int seqIndex)
         {
-            Slots      = new string?[total];
-            Slot       = slot;
-            NpcId      = npcId;
-            OrderIndex = orderIndex;
+            Subs     = new string?[subTotal];
+            Slot     = slot;
+            NpcId    = npcId;
+            SeqIndex = seqIndex;
         }
     }
 
     // ── State ─────────────────────────────────────────────────────────────────
 
     private int _currentDialogId = -1;
-    private int _nextSegmentIndex;
+    private int _seqTotal;          // how many segments this dialog has (from SeqTotal field)
 
-    // Active accumulators: key = MakeKey(total, flags, race, slot0payload)
+    // Active accumulators: key = MakeKey(subTotal, flags, race, sub0payload)
     private readonly Dictionary<string, SegmentAccumulator> _segments          = new();
-    // Keys of segments that have already fired — re-loops are ignored
+    // Keys of segments whose chunks are all received (re-loop guard)
     private readonly HashSet<string>                        _completedKeys      = new();
     private readonly HashSet<string>                        _completedUtteranceKeys = new();
-    // Early chunks (arrived before IDX=0): key = (flags<<16|race<<8|total)
-    private readonly Dictionary<string, List<(int idx, string payload)>> _earlyChunks = new();
+    // Early sub-chunks (arrived before SUB=0): key = MakeEarlyKey(subTotal, flags, race)
+    private readonly Dictionary<string, List<(int sub, string payload)>> _earlyChunks = new();
+    // Fully assembled segments waiting for the rest of the dialog to complete
+    // before being fired. Key = SeqIndex, guaranteed 0-based contiguous.
+    private readonly Dictionary<int, AssembledSegment> _completedSegments = new();
 
     private readonly object _lock = new();
 
@@ -143,19 +146,20 @@ public sealed class TtsSessionAssembler
 
     public void Feed(RvPacket packet)
     {
-        AssembledSegment? completed = null;
+        List<AssembledSegment>? toFire = null;
 
-        lock (_lock)
+      //  lock (_lock)
         {
             // ── New dialog ────────────────────────────────────────────────────
             if (packet.DialogId != _currentDialogId)
             {
-                _currentDialogId  = packet.DialogId;
-                _nextSegmentIndex = 0;
+                _currentDialogId = packet.DialogId;
+                _seqTotal        = packet.SeqTotal;
                 _segments.Clear();
                 _completedKeys.Clear();
                 _completedUtteranceKeys.Clear();
                 _earlyChunks.Clear();
+                _completedSegments.Clear();
                 OnSessionReset?.Invoke(_currentDialogId);
             }
 
@@ -170,11 +174,11 @@ public sealed class TtsSessionAssembler
                     _npcRaceStore[packet.NpcId] = packet.Race;
             }
 
-            if (packet.ChunkIndex == 0)
+            if (packet.SubIndex == 0)
             {
                 var slot = RaceAccentMapping.Resolve(
                     effectiveRace, packet.Flags, packet.IsMale, packet.IsFemale);
-                var key  = MakeKey(packet.ChunkTotal, packet.Flags,
+                var key  = MakeKey(packet.SubTotal, packet.Flags,
                                    effectiveRace, packet.Base64Payload);
 
                 // Already completed — re-loop, ignore
@@ -182,69 +186,83 @@ public sealed class TtsSessionAssembler
 
                 if (!_segments.TryGetValue(key, out var acc))
                 {
-                    acc = new SegmentAccumulator(packet.ChunkTotal, slot, packet.NpcId,
-                                                 _nextSegmentIndex++);
+                    acc = new SegmentAccumulator(packet.SubTotal, slot, packet.NpcId,
+                                                 packet.SeqIndex);
                     _segments[key] = acc;
 
-                    // Replay stashed early chunks for this segment signature
-                    var earlyKey = MakeEarlyKey(packet.ChunkTotal, packet.Flags, effectiveRace);
+                    // Replay stashed early sub-chunks for this segment
+                    var earlyKey = MakeEarlyKey(packet.SubTotal, packet.Flags, effectiveRace);
                     if (_earlyChunks.TryGetValue(earlyKey, out var early))
                     {
-                        foreach (var (idx, payload) in early)
+                        foreach (var (sub, payload) in early)
                         {
-                            if (idx < acc.Slots.Length && acc.Slots[idx] == null)
+                            if (sub < acc.Subs.Length && acc.Subs[sub] == null)
                             {
-                                acc.Slots[idx] = payload;
-                                acc.SlotsReceived++;
+                                acc.Subs[sub] = payload;
+                                acc.SubsReceived++;
                             }
                         }
                         _earlyChunks.Remove(earlyKey);
                     }
                 }
 
-                // Store IDX=0 (idempotent)
-                if (acc.Slots[0] == null)
+                // Store SUB=0 (idempotent)
+                if (acc.Subs[0] == null)
                 {
-                    acc.Slots[0] = packet.Base64Payload;
-                    acc.SlotsReceived++;
+                    acc.Subs[0] = packet.Base64Payload;
+                    acc.SubsReceived++;
                 }
 
-                completed = TryComplete(acc, key);
+                TryCompleteSegment(acc, key);
             }
             else
             {
-                // Non-zero chunk: find the matching in-progress accumulator
+                // Non-zero sub-chunk: find the matching in-progress accumulator
                 var acc = _segments.Values.FirstOrDefault(a =>
-                    a.Slots.Length == packet.ChunkTotal &&
-                    a.Slots[packet.ChunkIndex] == null);
+                    a.Subs.Length == packet.SubTotal &&
+                    a.Subs[packet.SubIndex] == null);
 
                 if (acc != null)
                 {
-                    acc.Slots[packet.ChunkIndex] = packet.Base64Payload;
-                    acc.SlotsReceived++;
+                    acc.Subs[packet.SubIndex] = packet.Base64Payload;
+                    acc.SubsReceived++;
 
                     var key = _segments.First(kv => kv.Value == acc).Key;
-                    completed = TryComplete(acc, key);
+                    TryCompleteSegment(acc, key);
                 }
                 else
                 {
-                    // IDX=0 hasn't arrived yet — stash
-                    var earlyKey = MakeEarlyKey(packet.ChunkTotal, packet.Flags, effectiveRace);
+                    // SUB=0 hasn't arrived yet — stash
+                    var earlyKey = MakeEarlyKey(packet.SubTotal, packet.Flags, effectiveRace);
                     if (!_earlyChunks.TryGetValue(earlyKey, out var early))
                     {
                         early = new List<(int, string)>();
                         _earlyChunks[earlyKey] = early;
                     }
-                    if (early.All(e => e.idx != packet.ChunkIndex))
-                        early.Add((packet.ChunkIndex, packet.Base64Payload));
+                    if (early.All(e => e.sub != packet.SubIndex))
+                        early.Add((packet.SubIndex, packet.Base64Payload));
                 }
+            }
+
+            // ── Fire all segments once the full dialog is assembled ───────────
+            // Only when every expected segment is in _completedSegments do we
+            // release them to the coordinator, in SeqIndex order.
+            if (_completedSegments.Count == _seqTotal && _seqTotal > 0)
+            {
+                toFire = new List<AssembledSegment>(_seqTotal);
+                for (int i = 0; i < _seqTotal; i++)
+                    toFire.Add(_completedSegments[i]);
+                _completedSegments.Clear();
             }
         }
 
-        if (completed != null)
+        if (toFire != null)
         {
-            AppServices.LastSegment = completed;
-            OnSegmentComplete?.Invoke(completed);
+            foreach (var seg in toFire)
+            {
+                AppServices.LastSegment = seg;
+                OnSegmentComplete?.Invoke(seg);
+            }
         }
     }
 
@@ -257,7 +275,7 @@ public sealed class TtsSessionAssembler
     public void ApplyRaceOverride(int npcId, int raceId)
     {
         if (npcId == 0) return;
-        lock (_lock)
+        //lock (_lock)
         {
             _npcRaceStore[npcId] = raceId;
         }
@@ -283,53 +301,59 @@ public sealed class TtsSessionAssembler
 
     // ── Helpers ───────────────────────────────────────────────────────────────
 
-    private static string MakeUtteranceKey(int dialogId, VoiceSlot slot, int npcId, string text)
-        => $"{dialogId}|{slot}|{npcId}|{text.Trim()}";
-
-    private AssembledSegment? TryComplete(SegmentAccumulator acc, string key)
+    /// <summary>
+    /// If all sub-chunks for this segment have arrived, decodes the text and
+    /// stores the result in _completedSegments keyed by SeqIndex.
+    /// Does NOT fire OnSegmentComplete — that only happens once the full dialog
+    /// (_seqTotal segments) are all present in _completedSegments.
+    /// </summary>
+    private void TryCompleteSegment(SegmentAccumulator acc, string key)
     {
-        if (acc.SlotsReceived != acc.Slots.Length) return null;
-        if (acc.Slots.Any(s => s == null)) return null;
-        if (_completedKeys.Contains(key)) return null;
+        if (acc.SubsReceived != acc.Subs.Length) return;
+        if (acc.Subs.Any(s => s == null)) return;
+        if (_completedKeys.Contains(key)) return;
 
-        var text = DecodeAndClean(acc.Slots!);
-        if (string.IsNullOrWhiteSpace(text)) return null;
+        var text = DecodeAndClean(acc.Subs!);
+        if (string.IsNullOrWhiteSpace(text)) return;
 
         var utteranceKey = MakeUtteranceKey(_currentDialogId, acc.Slot, acc.NpcId, text);
-        if (_completedUtteranceKeys.Contains(utteranceKey)) return null;
+        if (_completedUtteranceKeys.Contains(utteranceKey)) return;
 
         _completedKeys.Add(key);
         _completedUtteranceKeys.Add(utteranceKey);
 
-        return new AssembledSegment
+        _completedSegments[acc.SeqIndex] = new AssembledSegment
         {
             Text         = text,
             Slot         = acc.Slot,
             DialogId     = _currentDialogId,
-            SegmentIndex = acc.OrderIndex,
+            SegmentIndex = acc.SeqIndex,
             NpcId        = acc.NpcId,
         };
     }
 
-    private static string MakeKey(int total, int flags, int race, string slot0)
-        => $"{total}|{flags}|{race}|{slot0}";
+    private static string MakeUtteranceKey(int dialogId, VoiceSlot slot, int npcId, string text)
+        => $"{dialogId}|{slot}|{npcId}|{text.Trim()}";
 
-    private static string MakeEarlyKey(int total, int flags, int race)
-        => $"{total}|{flags}|{race}";
+    private static string MakeKey(int subTotal, int flags, int race, string sub0)
+        => $"{subTotal}|{flags}|{race}|{sub0}";
+
+    private static string MakeEarlyKey(int subTotal, int flags, int race)
+        => $"{subTotal}|{flags}|{race}";
 
     // ── Text decoding and cleaning ────────────────────────────────────────────
 
-    private static string DecodeAndClean(string[] slots)
+    private static string DecodeAndClean(string[] subs)
     {
         var sb = new StringBuilder();
-        for (int i = 0; i < slots.Length; i++)
+        for (int i = 0; i < subs.Length; i++)
         {
-            var b64   = slots[i];
+            var b64   = subs[i];
             var bytes = Convert.FromBase64String(b64);
             var raw   = Encoding.UTF8.GetString(bytes).Trim();
 
             System.Diagnostics.Debug.WriteLine(
-                $"[Assembler] slot {i}/{slots.Length - 1} b64len={b64.Length} " +
+                $"[Assembler] sub {i}/{subs.Length - 1} b64len={b64.Length} " +
                 $"bytelen={bytes.Length} text='{raw}'");
 
             if (sb.Length > 0) sb.Append(' ');

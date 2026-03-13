@@ -17,10 +17,16 @@
 // along with RuneReaderVoice. If not, see <https://www.gnu.org/licenses/>.
 
 // RvPacket.cs
-// Parsed representation of a RuneReaderVoice QR payload header (protocol v04).
+// Parsed representation of a RuneReaderVoice QR payload header (protocol v05).
 //
-// Header layout (22 ASCII chars):
-//   MAGIC(2) VER(2) DIALOG(4) IDX(2) TOTAL(2) FLAGS(2) RACE(2) NPC(6)
+// Header layout (26 ASCII chars):
+//   MAGIC(2) VER(2) DIALOG(4) SEQ(2) SEQTOTAL(2) SUB(2) SUBTOTAL(2) FLAGS(2) RACE(2) NPC(6)
+//
+//   SEQ/SEQTOTAL  : segment index within the dialog (0-based). SEQ=0 is always
+//                   the NPC voice; subsequent segments are narrator splits etc.
+//                   SEQTOTAL is the total number of segments in this dialog.
+//   SUB/SUBTOTAL  : barcode chunk index within this segment (0-based).
+//                   SUBTOTAL chunks make up one complete segment of text.
 //
 // Magic bytes "RV" identify this as a TTS packet.
 // All multi-char fields are uppercase hex strings.
@@ -33,7 +39,7 @@ public sealed class RvPacket
 {
     // ── Header fields ────────────────────────────────────────────────────────
 
-    /// <summary>Protocol version (e.g. 4 for v04).</summary>
+    /// <summary>Protocol version (e.g. 5 for v05).</summary>
     public int Version { get; init; }
 
     /// <summary>
@@ -42,11 +48,17 @@ public sealed class RvPacket
     /// </summary>
     public int DialogId { get; init; }
 
-    /// <summary>0-based chunk index within this segment.</summary>
-    public int ChunkIndex { get; init; }
+    /// <summary>0-based segment index within this dialog.</summary>
+    public int SeqIndex { get; init; }
 
-    /// <summary>Total chunk count for this segment.</summary>
-    public int ChunkTotal { get; init; }
+    /// <summary>Total segment count for this dialog.</summary>
+    public int SeqTotal { get; init; }
+
+    /// <summary>0-based barcode chunk index within this segment.</summary>
+    public int SubIndex { get; init; }
+
+    /// <summary>Total barcode chunk count for this segment.</summary>
+    public int SubTotal { get; init; }
 
     /// <summary>Raw FLAGS bitmask. See RvFlags for named constants.</summary>
     public int Flags { get; init; }
@@ -70,16 +82,17 @@ public sealed class RvPacket
 
     // ── Derived convenience properties ───────────────────────────────────────
 
-    public bool IsNarrator => (Flags & RvFlags.FlagNarrator) != 0;
-    public bool IsPreview  => (Flags & RvFlags.FlagPreview)  != 0;
-    public bool IsMale     => (Flags & RvFlags.GenderMask)   == RvFlags.GenderMale;
-    public bool IsFemale   => (Flags & RvFlags.GenderMask)   == RvFlags.GenderFemale;
-    public bool IsLastChunk => ChunkIndex == ChunkTotal - 1;
+    public bool IsNarrator   => (Flags & RvFlags.FlagNarrator) != 0;
+    public bool IsPreview    => (Flags & RvFlags.FlagPreview)  != 0;
+    public bool IsMale       => (Flags & RvFlags.GenderMask)   == RvFlags.GenderMale;
+    public bool IsFemale     => (Flags & RvFlags.GenderMask)   == RvFlags.GenderFemale;
+    public bool IsLastSub    => SubIndex  == SubTotal  - 1;
+    public bool IsLastSeq    => SeqIndex  == SeqTotal  - 1;
 
     // ── Parser ───────────────────────────────────────────────────────────────
 
-    private const string Magic = "RV";
-    private const int HeaderLength = 22;
+    private const string Magic        = "RV";
+    private const int    HeaderLength = 26;
 
     /// <summary>
     /// Attempts to parse a raw QR string into an RvPacket.
@@ -92,23 +105,27 @@ public sealed class RvPacket
 
         try
         {
-            int ver     = ParseHex(raw, 2, 2);
-            int dialog  = ParseHex(raw, 4, 4);
-            int idx     = ParseHex(raw, 8, 2);
-            int total   = ParseHex(raw, 10, 2);
-            int flags   = ParseHex(raw, 12, 2);
-            int race    = ParseHex(raw, 14, 2);
-            int npcId   = ParseHex(raw, 16, 6);
-            string b64  = raw[HeaderLength..];
+            int ver      = ParseHex(raw,  2, 2);
+            int dialog   = ParseHex(raw,  4, 4);
+            int seq      = ParseHex(raw,  8, 2);
+            int seqTotal = ParseHex(raw, 10, 2);
+            int sub      = ParseHex(raw, 12, 2);
+            int subTotal = ParseHex(raw, 14, 2);
+            int flags    = ParseHex(raw, 16, 2);
+            int race     = ParseHex(raw, 18, 2);
+            int npcId    = ParseHex(raw, 20, 6);
+            string b64   = raw[HeaderLength..];
 
-            if (total == 0) return null; // malformed
+            if (seqTotal == 0 || subTotal == 0) return null; // malformed
 
             return new RvPacket
             {
                 Version      = ver,
                 DialogId     = dialog,
-                ChunkIndex   = idx,
-                ChunkTotal   = total,
+                SeqIndex     = seq,
+                SeqTotal     = seqTotal,
+                SubIndex     = sub,
+                SubTotal     = subTotal,
                 Flags        = flags,
                 Race         = race,
                 NpcId        = npcId,

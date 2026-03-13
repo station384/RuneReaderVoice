@@ -183,7 +183,6 @@ public sealed class RvBarcodeMonitor : IDisposable
         // For multi-decode, we use the LuminanceSource + HybridBinarizer approach.
         var results = DecodeMultiple(frame);
         if (results == null || results.Length == 0) return;
-
         foreach (var result in results)
         {
             if (result?.Text == null) continue;
@@ -226,7 +225,8 @@ public sealed class RvBarcodeMonitor : IDisposable
                 ZXing.RGBLuminanceSource.BitmapFormat.Gray8);
             // var binarizer  = new HybridBinarizer(luminance);
             // var bitmap     = new BinaryBitmap(binarizer);
-
+            
+            
             // ZXing.Net multi-decode via QRCodeMultiReader
             var multiReader = new ZXing.BarcodeReaderGeneric();
             multiReader.Options.Hints.Add(DecodeHintType.CHARACTER_SET, "ISO-8859-1");
@@ -278,7 +278,8 @@ public sealed class RvBarcodeMonitor : IDisposable
             catch (OperationCanceledException) { break; }
 
             bool needsScan;
-            lock (_gate) needsScan = !_rvQrFound;
+            //lock (_gate) 
+                needsScan = !_rvQrFound;
 
             if (needsScan)
             {
@@ -302,7 +303,7 @@ public sealed class RvBarcodeMonitor : IDisposable
             catch (OperationCanceledException) { break; }
 
             bool shouldSignal;
-            lock (_gate)
+           // lock (_gate)
             {
                 var elapsed = (DateTime.UtcNow - _lastRvDecodeTime).TotalMilliseconds;
                 shouldSignal = _rvQrFound
@@ -333,7 +334,8 @@ public sealed class RvBarcodeMonitor : IDisposable
         _disposed = true;
     
         CancellationTokenSource? cts;
-        lock (_gate) { cts = _cts; _cts = null; }
+        lock (_gate) 
+        { cts = _cts; _cts = null; }
         cts?.Cancel();
         cts?.Dispose();
     
