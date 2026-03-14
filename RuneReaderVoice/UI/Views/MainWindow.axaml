@@ -232,7 +232,7 @@ along with RuneReaderVoice. If not, see <https://www.gnu.org/licenses/>.
             <!-- Voice assignment tab -->
             <TabItem Header="Voices">
                 <ScrollViewer>
-                    <StackPanel x:Name="VoiceGrid" Margin="12" Spacing="6">
+                    <StackPanel Margin="12" Spacing="6">
                         <TextBlock Text="NPC Voice Profiles"
                                    FontWeight="SemiBold"
                                    FontSize="16"/>
@@ -240,6 +240,13 @@ along with RuneReaderVoice. If not, see <https://www.gnu.org/licenses/>.
                                    TextWrapping="Wrap"
                                    Foreground="#888"
                                    FontSize="11"/>
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <Button Content="Export Profiles"
+                                    Click="OnVoicesExportClicked"/>
+                            <Button Content="Import Profiles"
+                                    Click="OnVoicesImportClicked"/>
+                        </StackPanel>
+                        <StackPanel x:Name="VoiceGrid" Spacing="6"/>
                     </StackPanel>
                 </ScrollViewer>
             </TabItem>
@@ -601,12 +608,15 @@ along with RuneReaderVoice. If not, see <https://www.gnu.org/licenses/>.
                             <Button x:Name="PronSaveRuleButton"
                                     Content="Save Rule"
                                     Click="OnPronunciationSaveRuleClicked"/>
-                            <Button x:Name="PronOpenRulesFileButton"
-                                    Content="Open Rules File"
-                                    Click="OnPronunciationOpenRulesFileClicked"/>
                             <Button x:Name="PronReloadRulesButton"
                                     Content="Reload Rules"
                                     Click="OnPronunciationReloadRulesClicked"/>
+                            <Button x:Name="PronExportRulesButton"
+                                    Content="Export Rules"
+                                    Click="OnPronunciationExportRulesClicked"/>
+                            <Button x:Name="PronImportRulesButton"
+                                    Content="Import Rules"
+                                    Click="OnPronunciationImportRulesClicked"/>
                         </StackPanel>
 
                         <TextBlock x:Name="PronRuleStatus"
@@ -759,8 +769,9 @@ along with RuneReaderVoice. If not, see <https://www.gnu.org/licenses/>.
                                 <Button x:Name="TextSwapNewRuleButton"    Content="New Rule"       Click="OnTextSwapNewRuleClicked"/>
                                 <Button x:Name="TextSwapSaveRuleButton"   Content="Save Rule"      Click="OnTextSwapSaveRuleClicked"/>
                                 <Button x:Name="TextSwapDeleteRuleButton" Content="Delete Rule"    Click="OnTextSwapDeleteRuleClicked"/>
-                                <Button x:Name="TextSwapOpenRulesFileButton" Content="Open Rules File" Click="OnTextSwapOpenRulesFileClicked"/>
                                 <Button x:Name="TextSwapReloadRulesButton"   Content="Reload Rules"    Click="OnTextSwapReloadRulesClicked"/>
+                                <Button x:Name="TextSwapExportRulesButton"   Content="Export Rules"    Click="OnTextSwapExportRulesClicked"/>
+                                <Button x:Name="TextSwapImportRulesButton"   Content="Import Rules"    Click="OnTextSwapImportRulesClicked"/>
                             </WrapPanel>
 
                             <Border Background="#101A2B" CornerRadius="6" Padding="10">

@@ -1,11 +1,14 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
+using System.Text.Json;
 using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Interactivity;
+using Avalonia.Platform.Storage;
 using RuneReaderVoice.Protocol;
 using RuneReaderVoice.Session;
 using RuneReaderVoice.TTS.TextSwap;
@@ -203,16 +206,16 @@ public partial class MainWindow
     private TextSwapRuleEntry BuildTextSwapRuleEntry(bool includeReplaceTextWhenDisabled = true)
         => new()
         {
-            FindText       = TextSwapFindText.Text ?? string.Empty,
+            FindText        = TextSwapFindText.Text ?? string.Empty,
             ReplaceWithCrLf = TextSwapReplaceWithCrLf.IsChecked ?? false,
-            ReplaceText    = (TextSwapReplaceWithCrLf.IsChecked ?? false) && !includeReplaceTextWhenDisabled
+            ReplaceText     = (TextSwapReplaceWithCrLf.IsChecked ?? false) && !includeReplaceTextWhenDisabled
                 ? string.Empty
                 : (TextSwapReplaceText.Text ?? string.Empty),
-            WholeWord      = TextSwapWholeWord.IsChecked ?? false,
-            CaseSensitive  = TextSwapCaseSensitive.IsChecked ?? false,
-            Enabled        = TextSwapEnabled.IsChecked ?? true,
-            Priority       = (int)(TextSwapPriority.Value ?? 100),
-            Notes          = TextSwapRuleNotes.Text ?? string.Empty,
+            WholeWord       = TextSwapWholeWord.IsChecked ?? false,
+            CaseSensitive   = TextSwapCaseSensitive.IsChecked ?? false,
+            Enabled         = TextSwapEnabled.IsChecked ?? true,
+            Priority        = (int)(TextSwapPriority.Value ?? 100),
+            Notes           = TextSwapRuleNotes.Text ?? string.Empty,
         };
 
     private bool ValidateTextSwapRuleEntry(TextSwapRuleEntry entry)
@@ -306,10 +309,79 @@ public partial class MainWindow
         }
     }
 
-    private void OnTextSwapOpenRulesFileClicked(object? sender, RoutedEventArgs e)
+    // ── Import / Export ───────────────────────────────────────────────────────
+
+    private static readonly JsonSerializerOptions _jsonExportOptions = new() { WriteIndented = true };
+
+    private async void OnTextSwapExportRulesClicked(object? sender, RoutedEventArgs e)
     {
-        TextSwapRuleStatus.Text = "Text swap rules are now stored in runereader-voice.db.";
+        try
+        {
+            var entries = await AppServices.TextSwapRules.GetAllEntriesAsync();
+            var file = new TextSwapRuleFile { Rules = entries };
+            var json = JsonSerializer.Serialize(file, _jsonExportOptions);
+
+            var topLevel = TopLevel.GetTopLevel(this);
+            if (topLevel == null) return;
+
+            var path = await topLevel.StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions
+            {
+                Title               = "Export Text Swap Rules",
+                SuggestedFileName   = "text-swap-rules.json",
+                DefaultExtension    = "json",
+                FileTypeChoices     = new[] { new FilePickerFileType("JSON") { Patterns = new[] { "*.json" } } },
+            });
+
+            if (path == null) return;
+
+            await File.WriteAllTextAsync(path.Path.LocalPath, json);
+            TextSwapRuleStatus.Text = $"Exported {entries.Count} rules.";
+        }
+        catch (Exception ex)
+        {
+            TextSwapRuleStatus.Text = $"Export failed: {ex.Message}";
+        }
     }
+
+    private async void OnTextSwapImportRulesClicked(object? sender, RoutedEventArgs e)
+    {
+        try
+        {
+            var topLevel = TopLevel.GetTopLevel(this);
+            if (topLevel == null) return;
+
+            var files = await topLevel.StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions
+            {
+                Title           = "Import Text Swap Rules",
+                AllowMultiple   = false,
+                FileTypeFilter  = new[] { new FilePickerFileType("JSON") { Patterns = new[] { "*.json" } } },
+            });
+
+            if (files.Count == 0) return;
+
+            var json = await File.ReadAllTextAsync(files[0].Path.LocalPath);
+            var file = JsonSerializer.Deserialize<TextSwapRuleFile>(json);
+            if (file?.Rules == null || file.Rules.Count == 0)
+            {
+                TextSwapRuleStatus.Text = "No rules found in file.";
+                return;
+            }
+
+            foreach (var entry in file.Rules)
+                await AppServices.TextSwapRules.UpsertRuleAsync(entry);
+
+            await ReloadTextSwapProcessorAsync();
+            await ReloadTextSwapRuleListAsync();
+            UpdateTextSwapPreview();
+            TextSwapRuleStatus.Text = $"Imported {file.Rules.Count} rules.";
+        }
+        catch (Exception ex)
+        {
+            TextSwapRuleStatus.Text = $"Import failed: {ex.Message}";
+        }
+    }
+
+    // ── Removed: OnTextSwapOpenRulesFileClicked (rules now stored in DB) ──────
 
     private void OnTextSwapCopyPreviewClicked(object? sender, RoutedEventArgs e)
     {
@@ -358,17 +430,11 @@ public partial class MainWindow
     }
 
     private async void OnTextSwapSpeakOriginalClicked(object? sender, RoutedEventArgs e)
-    {
-        await SpeakTextSwapPreviewAsync(TextSwapOriginalPreview.Text ?? string.Empty, TextSwapSpeakOriginalButton);
-    }
+        => await SpeakTextSwapPreviewAsync(TextSwapOriginalPreview.Text ?? string.Empty, TextSwapSpeakOriginalButton);
 
     private async void OnTextSwapSpeakProcessedClicked(object? sender, RoutedEventArgs e)
-    {
-        await SpeakTextSwapPreviewAsync(TextSwapProcessedPreview.Text ?? string.Empty, TextSwapSpeakProcessedButton);
-    }
+        => await SpeakTextSwapPreviewAsync(TextSwapProcessedPreview.Text ?? string.Empty, TextSwapSpeakProcessedButton);
 
     private async void OnTextSwapSpeakFinalClicked(object? sender, RoutedEventArgs e)
-    {
-        await SpeakTextSwapPreviewAsync(TextSwapFinalPreview.Text ?? string.Empty, TextSwapSpeakFinalButton);
-    }
+        => await SpeakTextSwapPreviewAsync(TextSwapFinalPreview.Text ?? string.Empty, TextSwapSpeakFinalButton);
 }

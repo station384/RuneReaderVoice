@@ -1,8 +1,11 @@
 using System;
+using System.IO;
 using System.Linq;
+using System.Text.Json;
 using System.Threading.Tasks;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
+using Avalonia.Platform.Storage;
 using RuneReaderVoice.Protocol;
 using RuneReaderVoice.TTS.Pronunciation;
 
@@ -91,7 +94,7 @@ public partial class MainWindow
             await ReloadPronunciationProcessorAsync();
 
             PronRuleStatus.Text = "Saved pronunciation rule.";
-            SessionStatus.Text = "Pronunciation rule saved.";
+            SessionStatus.Text  = "Pronunciation rule saved.";
         }
         catch (Exception ex)
         {
@@ -121,9 +124,7 @@ public partial class MainWindow
     }
 
     private async void ReloadPronunciationProcessorAsync(object? sender, RoutedEventArgs e)
-    {
-        await ReloadPronunciationProcessorAsync();
-    }
+        => await ReloadPronunciationProcessorAsync();
 
     private async Task ReloadPronunciationProcessorAsync()
     {
@@ -133,11 +134,6 @@ public partial class MainWindow
                 WowPronunciationRules.CreateDefault()
                     .Concat(userRules)
                     .ToList()));
-    }
-
-    private void OnPronunciationOpenRulesFileClicked(object? sender, RoutedEventArgs e)
-    {
-        PronRuleStatus.Text = "Pronunciation rules are now stored in runereader-voice.db.";
     }
 
     private async void OnPronunciationReloadRulesClicked(object? sender, RoutedEventArgs e)
@@ -153,4 +149,77 @@ public partial class MainWindow
             PronRuleStatus.Text = $"Reload failed: {ex.Message}";
         }
     }
+
+    // ── Import / Export ───────────────────────────────────────────────────────
+
+    private static readonly JsonSerializerOptions _jsonPronExportOptions = new() { WriteIndented = true };
+
+    private async void OnPronunciationExportRulesClicked(object? sender, RoutedEventArgs e)
+    {
+        try
+        {
+            var entries = await AppServices.PronunciationRules.GetAllEntriesAsync();
+            var file = new PronunciationRuleFile { Rules = entries };
+            var json = JsonSerializer.Serialize(file, _jsonPronExportOptions);
+
+            var topLevel = TopLevel.GetTopLevel(this);
+            if (topLevel == null) return;
+
+            var path = await topLevel.StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions
+            {
+                Title             = "Export Pronunciation Rules",
+                SuggestedFileName = "pronunciation-rules.json",
+                DefaultExtension  = "json",
+                FileTypeChoices   = new[] { new FilePickerFileType("JSON") { Patterns = new[] { "*.json" } } },
+            });
+
+            if (path == null) return;
+
+            await File.WriteAllTextAsync(path.Path.LocalPath, json);
+            PronRuleStatus.Text = $"Exported {entries.Count} rules.";
+        }
+        catch (Exception ex)
+        {
+            PronRuleStatus.Text = $"Export failed: {ex.Message}";
+        }
+    }
+
+    private async void OnPronunciationImportRulesClicked(object? sender, RoutedEventArgs e)
+    {
+        try
+        {
+            var topLevel = TopLevel.GetTopLevel(this);
+            if (topLevel == null) return;
+
+            var files = await topLevel.StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions
+            {
+                Title          = "Import Pronunciation Rules",
+                AllowMultiple  = false,
+                FileTypeFilter = new[] { new FilePickerFileType("JSON") { Patterns = new[] { "*.json" } } },
+            });
+
+            if (files.Count == 0) return;
+
+            var json = await File.ReadAllTextAsync(files[0].Path.LocalPath);
+            var file = JsonSerializer.Deserialize<PronunciationRuleFile>(json);
+            if (file?.Rules == null || file.Rules.Count == 0)
+            {
+                PronRuleStatus.Text = "No rules found in file.";
+                return;
+            }
+
+            foreach (var entry in file.Rules)
+                await AppServices.PronunciationRules.UpsertRuleAsync(entry);
+
+            await ReloadPronunciationProcessorAsync();
+            UpdatePronunciationPreview();
+            PronRuleStatus.Text = $"Imported {file.Rules.Count} rules.";
+        }
+        catch (Exception ex)
+        {
+            PronRuleStatus.Text = $"Import failed: {ex.Message}";
+        }
+    }
+
+    // ── Removed: OnPronunciationOpenRulesFileClicked (rules now stored in DB) ─
 }
