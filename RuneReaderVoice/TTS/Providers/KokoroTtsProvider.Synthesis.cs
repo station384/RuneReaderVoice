@@ -117,6 +117,12 @@ public sealed partial class KokoroTtsProvider
                 nextExpected++;
             }
         }
+        // todo:
+        // The code below should be put on a time to unload the kortoko engine when it isn't needed.  put it on a 2 minute timer,  reset the timer every time this prc runs reset the timer.  
+        // this way it can free up some memory for a bit.
+        // _tts.Dispose();
+        // _tts = null;
+        // _initialized = false;
     }
 
     private float[] InferAllPhrases(string text, KokoroVoice voice, VoiceProfile profile)
@@ -176,6 +182,7 @@ public sealed partial class KokoroTtsProvider
 
         // Release individual chunk arrays immediately after concat.
         Array.Clear(chunks, 0, chunks.Length);
+        chunks = null; 
 
         return result;
     }

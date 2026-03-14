@@ -175,7 +175,7 @@ public sealed class RvBarcodeMonitor : IDisposable
     private int _frameCount = 0;
     private void CheckIfWeShouldGC()
     {
-        if (_frameCount++ > 100)
+        if (_frameCount++ > 10)
         {
             GC.Collect();
             _frameCount = 0;
@@ -216,10 +216,7 @@ public sealed class RvBarcodeMonitor : IDisposable
                     _capture.CaptureRegion = lockedRegion.Value;
                     _capture.CaptureOnce();
                 }
-                // else
-                // {
-                //     _capture.EnableFullScreen = true;
-                // }
+
 
 
             }
@@ -241,7 +238,7 @@ public sealed class RvBarcodeMonitor : IDisposable
         {
             if (frame.Empty()) return;
 
-           //OnFrameCaptured?.Invoke(frame);
+             OnFrameCaptured?.Invoke(frame);
 
             // DecodeMultiple: handle 1 or 2 QR codes on screen simultaneously
             // ZXing.Net BarcodeReaderGeneric can decode one at a time.
@@ -274,8 +271,8 @@ public sealed class RvBarcodeMonitor : IDisposable
         }
         finally
         {
-            
-            frame.Dispose();
+            if (!frame.IsDisposed)
+                frame.Dispose();
             CheckIfWeShouldGC();
         }
     }
@@ -286,7 +283,7 @@ public sealed class RvBarcodeMonitor : IDisposable
         {
             if (frame.Empty()) return;
 
-            //OnRegionCaptured?.Invoke(frame);
+            OnRegionCaptured?.Invoke(frame);
 
             // DecodeMultiple: handle 1 or 2 QR codes on screen simultaneously
             // ZXing.Net BarcodeReaderGeneric can decode one at a time.
@@ -319,13 +316,15 @@ public sealed class RvBarcodeMonitor : IDisposable
         }
         finally
         {
-            frame.Dispose();
+            if (!frame.IsDisposed)
+                frame.Dispose();
             CheckIfWeShouldGC();
             
         }
     }
     
-    
+    // reuseable mem buffer for capture.   better to update mem then buildup/teardown
+    private byte[] _fullScanBuffer = new byte[1];
     // May want to use OpenCv's QRDecodeer since its faster than ZXing's
     private Result[]? DecodeMultiple(Mat frame)
     {
@@ -333,18 +332,25 @@ public sealed class RvBarcodeMonitor : IDisposable
         {
             // Convert Mat to ZXing LuminanceSource
             // Using grayscale byte array approach
-            using var gray = frame.Channels() == 1
-                ? frame.Clone()
-                : frame.CvtColor(ColorConversionCodes.BGR2GRAY);
+            using var gray = frame.Channels() == 1 ? frame.Clone() : frame.CvtColor(ColorConversionCodes.BGR2GRAY);
 
-            var bytes  = new byte[gray.Rows * gray.Cols];
-            Marshal.Copy(gray.Data, bytes, 0, bytes.Length);
 
-            var luminance  = new ZXing.RGBLuminanceSource(bytes, gray.Cols, gray.Rows,
+            if (_fullScanBuffer.Length != gray.Rows * gray.Cols)
+            {
+                Array.Clear(_fullScanBuffer);
+                _fullScanBuffer  = new byte[gray.Rows * gray.Cols];
+                
+            }
+            //var bytes  = new byte[gray.Rows * gray.Cols];
+            Marshal.Copy(gray.Data, _fullScanBuffer, 0, _fullScanBuffer.Length);
+
+            var luminance  = new ZXing.RGBLuminanceSource(_fullScanBuffer, gray.Cols, gray.Rows,
                 ZXing.RGBLuminanceSource.BitmapFormat.Gray8);
-
+            //Array.Clear(bytes);
+            //bytes = null;
             // ZXing.Net multi-decode via QRCodeMultiReader
             var decResult = multiReader.DecodeMultiple(luminance);
+            gray.Dispose();
             return decResult;
         }
         catch
@@ -352,8 +358,9 @@ public sealed class RvBarcodeMonitor : IDisposable
             return null;
         }
     }
-
     
+    // reuseable mem buffer for capture.   better to update mem then buildup/teardown
+    private byte[] _singleScanBuffer = new byte[1];
     // this needs to be re done so it doesn't do MultiDecode.  
     // Maybe even use OpenCV's qr decoder since its faster than ZXing.  will need to try it out.
     private Result[]? DecodeSingle(Mat frame)
@@ -366,12 +373,19 @@ public sealed class RvBarcodeMonitor : IDisposable
                 ? frame.Clone()
                 : frame.CvtColor(ColorConversionCodes.BGR2GRAY);
 
-            var bytes  = new byte[gray.Rows * gray.Cols];
-            Marshal.Copy(gray.Data, bytes, 0, bytes.Length);
-
-            var luminance  = new ZXing.RGBLuminanceSource(bytes, gray.Cols, gray.Rows,
-                ZXing.RGBLuminanceSource.BitmapFormat.Gray8);
+            if (_singleScanBuffer.Length != gray.Rows * gray.Cols)
+            {
+                Array.Clear(_singleScanBuffer);
+                _singleScanBuffer  = new byte[gray.Rows * gray.Cols];
+                
+            }
             
+
+            Marshal.Copy(gray.Data, _singleScanBuffer, 0, _singleScanBuffer.Length);
+
+            var luminance  = new ZXing.RGBLuminanceSource(_singleScanBuffer, gray.Cols, gray.Rows,
+                ZXing.RGBLuminanceSource.BitmapFormat.Gray8);
+
 
             var result = singleReader.Decode(luminance);
             return result != null ? new[] { result } : null;

@@ -39,7 +39,7 @@ public sealed partial class KokoroTtsProvider
 
     private async Task EnsureInitializedAsync(CancellationToken ct)
     {
-        if (_initialized) return;
+        if (_initialized ) return;
 
         bool shouldInit;
         lock (_initLock)

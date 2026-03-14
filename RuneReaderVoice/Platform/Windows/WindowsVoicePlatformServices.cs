@@ -26,6 +26,7 @@
 
 using System;
 using System.Diagnostics;
+using System.DirectoryServices.ActiveDirectory;
 using System.Linq;
 using System.Runtime.InteropServices;
 using System.Runtime.Versioning;
@@ -78,6 +79,7 @@ public sealed class WindowsVoiceHotkeys : IVoiceHotkeys
     [DllImport("kernel32.dll")]
     private static extern nint GetModuleHandle(string? lpModuleName);
 
+    private bool _keyConsumed = false;
     private nint HookCallback(int nCode, nint wParam, nint lParam)
     {
         if (nCode >= 0 && wParam == WM_KEYDOWN)
@@ -86,8 +88,8 @@ public sealed class WindowsVoiceHotkeys : IVoiceHotkeys
             if (vkCode == VK_ESCAPE)
             {
                 // Ask coordinator whether to consume this keypress
-                bool consumed = EscPressed?.Invoke() ?? false;
-                if (consumed)
+                _keyConsumed = EscPressed?.Invoke() ?? false;
+                if (_keyConsumed)
                     return CallNextHookEx(0, nCode, wParam, lParam);
                     //return 1; // suppress — do not pass to game
                 // else fall through to CallNextHookEx
