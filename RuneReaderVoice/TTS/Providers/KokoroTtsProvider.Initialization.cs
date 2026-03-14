@@ -58,7 +58,7 @@ public sealed partial class KokoroTtsProvider
                 await Task.Run(() =>
                 {
                     var modelDir = VoiceSettingsManager.GetDefaultModelDirectory();
-                    var modelPath = Path.Combine(modelDir, "kokoro.onnx");
+                    var modelPath = Path.Combine(modelDir, "kokoro-quant.onnx");
                     Directory.CreateDirectory(modelDir);
 
                     using var opts = new SessionOptions();

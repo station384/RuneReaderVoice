@@ -73,13 +73,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <None Remove="Models\kokoro.onnx" />
-    <Content Include="Models\kokoro.onnx">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </Content>
-  </ItemGroup>
-
-  <ItemGroup>
     <Compile Update="UI\Views\MainWindow.Pronunciation.cs">
       <DependentUpon>MainWindow.axaml</DependentUpon>
     </Compile>
@@ -144,6 +137,13 @@
 
   <ItemGroup>
     <Folder Include="Data\" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Remove="Models\kokoro-quant.onnx" />
+    <Content Include="Models\kokoro-quant.onnx">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
   </ItemGroup>
 
 </Project>
