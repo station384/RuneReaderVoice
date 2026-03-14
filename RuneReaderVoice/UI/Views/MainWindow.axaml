@@ -166,66 +166,76 @@ along with RuneReaderVoice. If not, see <https://www.gnu.org/licenses/>.
             <!-- Basic settings tab -->
             <TabItem Header="Settings" >
                 <ScrollViewer>
-                    <StackPanel Margin="12" Spacing="6" HorizontalAlignment="Stretch">
+                    <Grid Margin="12" ColumnDefinitions="*,*" ColumnSpacing="12">
 
-                        <Expander x:Name="ExpanderProvider"
-                                  Header="TTS Provider"
-                                  HorizontalAlignment="Stretch"
-                                  IsExpanded="False">
-                            <StackPanel Margin="0,8,0,0" Spacing="6">
-                                <ComboBox x:Name="ProviderSelector"
-                                          HorizontalAlignment="Stretch"
-                                          SelectionChanged="OnProviderChanged"/>
-                            </StackPanel>
-                        </Expander>
+                        <!-- LEFT: TTS Provider, Playback -->
+                        <StackPanel Grid.Column="0" Spacing="6">
 
-                        <Expander x:Name="ExpanderPlayback"
-                                  Header="Playback"
-                                  HorizontalAlignment="Stretch"
-                                  IsExpanded="False">
-                            <StackPanel Margin="0,8,0,0" Spacing="6">
-                                <TextBlock Text="Speed" Foreground="#888" FontSize="11"/>
-                                <Slider x:Name="SpeedSlider"
-                                        Minimum="75" Maximum="150" Value="100"
-                                        ValueChanged="OnSpeedChanged"/>
-                                <TextBlock x:Name="SpeedLabel" Text="1.00×"
-                                           Foreground="#888" FontSize="11" HorizontalAlignment="Right"/>
+                            <Expander x:Name="ExpanderProvider"
+                                      Header="TTS Provider"
+                                      HorizontalAlignment="Stretch"
+                                      IsExpanded="False">
+                                <StackPanel Margin="0,8,0,0" Spacing="6">
+                                    <ComboBox x:Name="ProviderSelector"
+                                              HorizontalAlignment="Stretch"
+                                              SelectionChanged="OnProviderChanged"/>
+                                </StackPanel>
+                            </Expander>
 
-                                <TextBlock Text="Playback Mode" Foreground="#888" FontSize="11" Margin="0,6,0,0"/>
-                                <ComboBox x:Name="PlaybackModeSelector"
-                                          HorizontalAlignment="Stretch"
-                                          SelectionChanged="OnPlaybackModeChanged">
-                                    <ComboBoxItem Content="Wait for full text (default)" Tag="WaitForFullText"/>
-                                    <ComboBoxItem Content="Stream on first chunk"        Tag="StreamOnFirstChunk"/>
-                                </ComboBox>
+                            <Expander x:Name="ExpanderPlayback"
+                                      Header="Playback"
+                                      HorizontalAlignment="Stretch"
+                                      IsExpanded="False">
+                                <StackPanel Margin="0,8,0,0" Spacing="6">
+                                    <TextBlock Text="Speed" Foreground="#888" FontSize="11"/>
+                                    <Slider x:Name="SpeedSlider"
+                                            Minimum="75" Maximum="150" Value="100"
+                                            ValueChanged="OnSpeedChanged"/>
+                                    <TextBlock x:Name="SpeedLabel" Text="1.00×"
+                                               Foreground="#888" FontSize="11" HorizontalAlignment="Right"/>
 
-                                <CheckBox x:Name="PhraseChunking"
-                                          Content="Phrase chunking — split long text into sentences (Kokoro only)"
-                                          IsChecked="True"
-                                          Margin="0,4,0,0"
-                                          Click="OnPhraseChunkingChanged"/>
+                                    <TextBlock Text="Playback Mode" Foreground="#888" FontSize="11" Margin="0,6,0,0"/>
+                                    <ComboBox x:Name="PlaybackModeSelector"
+                                              HorizontalAlignment="Stretch"
+                                              SelectionChanged="OnPlaybackModeChanged">
+                                        <ComboBoxItem Content="Wait for full text (default)" Tag="WaitForFullText"/>
+                                        <ComboBoxItem Content="Stream on first chunk"        Tag="StreamOnFirstChunk"/>
+                                    </ComboBox>
 
-                                <TextBlock Text="Audio Output Device" Foreground="#888" FontSize="11" Margin="0,6,0,0"/>
-                                <ComboBox x:Name="AudioDeviceSelector"
-                                          HorizontalAlignment="Stretch"
-                                          SelectionChanged="OnAudioDeviceChanged"/>
-                            </StackPanel>
-                        </Expander>
+                                    <CheckBox x:Name="PhraseChunking"
+                                              Content="Phrase chunking — split long text into sentences (Kokoro only)"
+                                              IsChecked="True"
+                                              Margin="0,4,0,0"
+                                              Click="OnPhraseChunkingChanged"/>
 
-                        <Expander x:Name="ExpanderDialogSources"
-                                  Header="Dialog Sources"
-                                  HorizontalAlignment="Stretch"
-                                  IsExpanded="False">
-                            <StackPanel Margin="0,8,0,0" Spacing="6">
-                                <CheckBox x:Name="EnableGreeting"  Content="NPC Greeting / Gossip" IsChecked="True"/>
-                                <CheckBox x:Name="EnableDetail"    Content="Quest Description"     IsChecked="True"/>
-                                <CheckBox x:Name="EnableProgress"  Content="Quest Progress"        IsChecked="True"/>
-                                <CheckBox x:Name="EnableReward"    Content="Quest Reward"          IsChecked="True"/>
-                                <CheckBox x:Name="EnableBooks"     Content="In-game Books (experimental)" IsChecked="False"/>
-                            </StackPanel>
-                        </Expander>
+                                    <TextBlock Text="Audio Output Device" Foreground="#888" FontSize="11" Margin="0,6,0,0"/>
+                                    <ComboBox x:Name="AudioDeviceSelector"
+                                              HorizontalAlignment="Stretch"
+                                              SelectionChanged="OnAudioDeviceChanged"/>
+                                </StackPanel>
+                            </Expander>
 
-                    </StackPanel>
+                        </StackPanel>
+
+                        <!-- RIGHT: Dialog Sources -->
+                        <StackPanel Grid.Column="1" Spacing="6">
+
+                            <Expander x:Name="ExpanderDialogSources"
+                                      Header="Dialog Sources"
+                                      HorizontalAlignment="Stretch"
+                                      IsExpanded="False">
+                                <StackPanel Margin="0,8,0,0" Spacing="6">
+                                    <CheckBox x:Name="EnableGreeting"  Content="NPC Greeting / Gossip"       IsChecked="True"/>
+                                    <CheckBox x:Name="EnableDetail"    Content="Quest Description"            IsChecked="True"/>
+                                    <CheckBox x:Name="EnableProgress"  Content="Quest Progress"               IsChecked="True"/>
+                                    <CheckBox x:Name="EnableReward"    Content="Quest Reward"                 IsChecked="True"/>
+                                    <CheckBox x:Name="EnableBooks"     Content="In-game Books (experimental)" IsChecked="False"/>
+                                </StackPanel>
+                            </Expander>
+
+                        </StackPanel>
+
+                    </Grid>
                 </ScrollViewer>
             </TabItem>
 
@@ -283,134 +293,144 @@ along with RuneReaderVoice. If not, see <https://www.gnu.org/licenses/>.
             <!-- Advanced tab -->
             <TabItem Header="Advanced">
                 <ScrollViewer>
-                    <StackPanel Margin="12" Spacing="10" HorizontalAlignment="Stretch">
+                    <Grid Margin="12" ColumnDefinitions="*,*" ColumnSpacing="12">
 
-                        <Expander x:Name="ExpanderCapture" Header="Capture" HorizontalAlignment="Stretch" IsExpanded="False">
-                            <StackPanel Margin="0,8,0,0" Spacing="6" HorizontalAlignment="Stretch">
-                                <TextBlock Text="Capture Interval (ms)" Foreground="#888" FontSize="11"/>
-                                <NumericUpDown x:Name="CaptureInterval"
-                                               Minimum="1" Maximum="200" Value="5"
-                                               ValueChanged="OnCaptureIntervalChanged"/>
+                        <!-- LEFT: Capture, Playback, Cache -->
+                        <StackPanel Grid.Column="0" Spacing="10">
 
-                                <TextBlock Text="Rescan Interval (ms)" Foreground="#888" FontSize="11"/>
-                                <NumericUpDown x:Name="RescanInterval"
-                                               Minimum="1000" Maximum="30000" Value="5000"
-                                               ValueChanged="OnRescanIntervalChanged"/>
-                            </StackPanel>
-                        </Expander>
+                            <Expander x:Name="ExpanderCapture" Header="Capture" HorizontalAlignment="Stretch" IsExpanded="False">
+                                <StackPanel Margin="0,8,0,0" Spacing="6" HorizontalAlignment="Stretch">
+                                    <TextBlock Text="Capture Interval (ms)" Foreground="#888" FontSize="11"/>
+                                    <NumericUpDown x:Name="CaptureInterval"
+                                                   Minimum="1" Maximum="200" Value="5"
+                                                   ValueChanged="OnCaptureIntervalChanged"/>
 
-                        <Expander x:Name="ExpanderAdvPlayback" Header="Playback" HorizontalAlignment="Stretch" IsExpanded="False">
-                            <StackPanel Margin="0,8,0,0" Spacing="6" HorizontalAlignment="Stretch">
-                                <CheckBox x:Name="RepeatSuppressionEnabled"
-                                          Content="Suppress repeated speech"
-                                          IsChecked="True"
-                                          Click="OnRepeatSuppressionToggled"/>
-
-                                <TextBlock Text="Repeat suppression window (seconds)" Foreground="#888" FontSize="11"/>
-                                <NumericUpDown x:Name="RepeatSuppressionWindow"
-                                               Minimum="0" Maximum="60" Value="5"
-                                               ValueChanged="OnRepeatSuppressionWindowChanged"/>
-
-                                <TextBlock Text="If the same line is spoken again within this window, it is skipped. Set to 0 to disable timing while keeping the checkbox available."
-                                           Foreground="#666" FontSize="10" TextWrapping="Wrap"/>
-                            </StackPanel>
-                        </Expander>
-
-                        <Expander x:Name="ExpanderCache" Header="Cache" HorizontalAlignment="Stretch" IsExpanded="False">
-                            <StackPanel Margin="0,8,0,0" Spacing="6" HorizontalAlignment="Stretch">
-                                <CheckBox x:Name="CompressionEnabled"
-                                          Content="Enable OGG compression"
-                                          IsChecked="True"
-                                          Click="OnCompressionToggled"/>
-
-                                <TextBlock Text="OGG Quality (0–10)" Foreground="#888" FontSize="11"/>
-                                <Slider x:Name="OggQualitySlider"
-                                        Minimum="0" Maximum="10" Value="4"
-                                        IsEnabled="{Binding #CompressionEnabled.IsChecked}"
-                                        ValueChanged="OnOggQualityChanged"/>
-
-                                <TextBlock Text="Cache Size Limit (MB)" Foreground="#888" FontSize="11"/>
-                                <NumericUpDown x:Name="CacheSizeLimit"
-                                               Minimum="50" Maximum="10000" Value="500"
-                                               ValueChanged="OnCacheSizeLimitChanged"/>
-
-                                <CheckBox x:Name="SilenceTrim"
-                                          Content="Silence trimming"
-                                          IsChecked="True"
-                                          Click="OnSilenceTrimToggled"/>
-
-                                <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,4,0,0">
-                                    <TextBlock x:Name="CacheStatsLabel"
-                                               Text="Cache: 0 entries, 0 MB"
-                                               Foreground="#888" FontSize="11"
-                                               VerticalAlignment="Center"/>
-                                    <Button Content="Clear Cache"
-                                            FontSize="11"
-                                            Click="OnClearCacheClicked"/>
+                                    <TextBlock Text="Rescan Interval (ms)" Foreground="#888" FontSize="11"/>
+                                    <NumericUpDown x:Name="RescanInterval"
+                                                   Minimum="1000" Maximum="30000" Value="5000"
+                                                   ValueChanged="OnRescanIntervalChanged"/>
                                 </StackPanel>
-                            </StackPanel>
-                        </Expander>
+                            </Expander>
 
-                        <Expander x:Name="ExpanderAudio" Header="Audio" HorizontalAlignment="Stretch" IsExpanded="False">
-                            <StackPanel Margin="0,8,0,0" Spacing="6" HorizontalAlignment="Stretch">
-                                <TextBlock Text="Per-Accent-Group Volume Trim (dB)" Foreground="#888" FontSize="11"/>
-                                <StackPanel x:Name="VolumeTrimGrid" Spacing="4">
-                                    <!-- Populated in code-behind from AccentGroup enum -->
+                            <Expander x:Name="ExpanderAdvPlayback" Header="Playback" HorizontalAlignment="Stretch" IsExpanded="False">
+                                <StackPanel Margin="0,8,0,0" Spacing="6" HorizontalAlignment="Stretch">
+                                    <CheckBox x:Name="RepeatSuppressionEnabled"
+                                              Content="Suppress repeated speech"
+                                              IsChecked="True"
+                                              Click="OnRepeatSuppressionToggled"/>
+
+                                    <TextBlock Text="Repeat suppression window (seconds)" Foreground="#888" FontSize="11"/>
+                                    <NumericUpDown x:Name="RepeatSuppressionWindow"
+                                                   Minimum="0" Maximum="60" Value="5"
+                                                   ValueChanged="OnRepeatSuppressionWindowChanged"/>
+
+                                    <TextBlock Text="If the same line is spoken again within this window, it is skipped. Set to 0 to disable timing while keeping the checkbox available."
+                                               Foreground="#666" FontSize="10" TextWrapping="Wrap"/>
                                 </StackPanel>
-                            </StackPanel>
-                        </Expander>
+                            </Expander>
 
-                        <Expander Header="Piper (Linux)" HorizontalAlignment="Stretch" x:Name="PiperSettings" IsVisible="False" IsExpanded="False">
-                            <StackPanel Margin="0,8,0,0" Spacing="6" HorizontalAlignment="Stretch">
-                                <TextBlock Text="Piper Binary Path" Foreground="#888" FontSize="11"/>
-                                <TextBox x:Name="PiperBinaryPath"
-                                         Watermark="/usr/bin/piper"
-                                         TextChanged="OnPiperBinaryPathChanged"/>
+                            <Expander x:Name="ExpanderCache" Header="Cache" HorizontalAlignment="Stretch" IsExpanded="False">
+                                <StackPanel Margin="0,8,0,0" Spacing="6" HorizontalAlignment="Stretch">
+                                    <CheckBox x:Name="CompressionEnabled"
+                                              Content="Enable OGG compression"
+                                              IsChecked="True"
+                                              Click="OnCompressionToggled"/>
 
-                                <TextBlock Text="Model Directory" Foreground="#888" FontSize="11" Margin="0,6,0,0"/>
-                                <TextBox x:Name="PiperModelDir"
-                                         Watermark="~/.local/share/piper/models"
-                                         TextChanged="OnPiperModelDirChanged"/>
+                                    <TextBlock Text="OGG Quality (0–10)" Foreground="#888" FontSize="11"/>
+                                    <Slider x:Name="OggQualitySlider"
+                                            Minimum="0" Maximum="10" Value="4"
+                                            IsEnabled="{Binding #CompressionEnabled.IsChecked}"
+                                            ValueChanged="OnOggQualityChanged"/>
 
-                                <TextBlock Text="Installed Models" Foreground="#888" FontSize="11" Margin="0,6,0,0"/>
-                                <ListBox x:Name="PiperModelList" Height="80"/>
-                                <TextBlock Text="Download models at github.com/rhasspy/piper"
-                                           Foreground="#555" FontSize="10"/>
-                            </StackPanel>
-                        </Expander>
+                                    <TextBlock Text="Cache Size Limit (MB)" Foreground="#888" FontSize="11"/>
+                                    <NumericUpDown x:Name="CacheSizeLimit"
+                                                   Minimum="50" Maximum="10000" Value="500"
+                                                   ValueChanged="OnCacheSizeLimitChanged"/>
 
-                        <Expander x:Name="ExpanderDiagnostics" Header="Diagnostics" HorizontalAlignment="Stretch" IsExpanded="False">
-                            <StackPanel Margin="0,8,0,0" Spacing="6" HorizontalAlignment="Stretch">
-                                <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto">
-                                    <TextBlock Grid.Row="0" Grid.Column="0" Text="Last packet DIALOG" Foreground="#888" FontSize="10" Margin="0,0,12,0"/>
-                                    <TextBlock x:Name="DiagDialog" Grid.Row="0" Grid.Column="1" Text="—" Foreground="#E0E0FF" FontSize="10"/>
+                                    <CheckBox x:Name="SilenceTrim"
+                                              Content="Silence trimming"
+                                              IsChecked="True"
+                                              Click="OnSilenceTrimToggled"/>
 
-                                    <TextBlock Grid.Row="1" Grid.Column="0" Text="Last synthesis latency" Foreground="#888" FontSize="10" Margin="0,3,12,0"/>
-                                    <TextBlock x:Name="DiagLatency" Grid.Row="1" Grid.Column="1" Text="—" Foreground="#E0E0FF" FontSize="10" Margin="0,3,0,0"/>
+                                    <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,4,0,0">
+                                        <TextBlock x:Name="CacheStatsLabel"
+                                                   Text="Cache: 0 entries, 0 MB"
+                                                   Foreground="#888" FontSize="11"
+                                                   VerticalAlignment="Center"/>
+                                        <Button Content="Clear Cache"
+                                                FontSize="11"
+                                                Click="OnClearCacheClicked"/>
+                                    </StackPanel>
+                                </StackPanel>
+                            </Expander>
 
-                                    <TextBlock Grid.Row="2" Grid.Column="0" Text="Cache hit rate" Foreground="#888" FontSize="10" Margin="0,3,12,0"/>
-                                    <TextBlock x:Name="DiagHitRate" Grid.Row="2" Grid.Column="1" Text="—" Foreground="#E0E0FF" FontSize="10" Margin="0,3,0,0"/>
+                        </StackPanel>
 
-                                    <TextBlock Grid.Row="3" Grid.Column="0" Text="Last decoded text" Foreground="#888" FontSize="10" Margin="0,3,12,0" VerticalAlignment="Top"/>
-                                    <TextBlock x:Name="DiagLastDecodedText" Grid.Row="3" Grid.Column="1" Text="—" Foreground="#FFD166" FontSize="10" Margin="0,3,0,0" TextWrapping="Wrap"/>
+                        <!-- RIGHT: Audio, Piper, Diagnostics, Hotkey -->
+                        <StackPanel Grid.Column="1" Spacing="10">
 
-                                    <TextBlock Grid.Row="4" Grid.Column="0" Text="Processed text" Foreground="#888" FontSize="10" Margin="0,3,12,0" VerticalAlignment="Top"/>
-                                    <TextBlock x:Name="DiagProcessedText" Grid.Row="4" Grid.Column="1" Text="—" Foreground="#B8E986" FontSize="10" Margin="0,3,0,0" TextWrapping="Wrap"/>
+                            <Expander x:Name="ExpanderAudio" Header="Audio" HorizontalAlignment="Stretch" IsExpanded="False">
+                                <StackPanel Margin="0,8,0,0" Spacing="6" HorizontalAlignment="Stretch">
+                                    <TextBlock Text="Per-Accent-Group Volume Trim (dB)" Foreground="#888" FontSize="11"/>
+                                    <StackPanel x:Name="VolumeTrimGrid" Spacing="4">
+                                        <!-- Populated in code-behind from AccentGroup enum -->
+                                    </StackPanel>
+                                </StackPanel>
+                            </Expander>
 
-                                    <TextBlock Grid.Row="5" Grid.Column="0" Text="Text spoken" Foreground="#888" FontSize="10" Margin="0,3,12,0" VerticalAlignment="Top"/>
-                                    <TextBlock x:Name="DiagTextSpoken" Grid.Row="5" Grid.Column="1" Text="—" Foreground="#88C0FF" FontSize="10" Margin="0,3,0,0" TextWrapping="Wrap"/>
-                                </Grid>
-                            </StackPanel>
-                        </Expander>
+                            <Expander Header="Piper (Linux)" HorizontalAlignment="Stretch" x:Name="PiperSettings" IsVisible="False" IsExpanded="False">
+                                <StackPanel Margin="0,8,0,0" Spacing="6" HorizontalAlignment="Stretch">
+                                    <TextBlock Text="Piper Binary Path" Foreground="#888" FontSize="11"/>
+                                    <TextBox x:Name="PiperBinaryPath"
+                                             Watermark="/usr/bin/piper"
+                                             TextChanged="OnPiperBinaryPathChanged"/>
 
-                        <Expander x:Name="ExpanderHotkey" Header="Hotkey" HorizontalAlignment="Stretch" IsExpanded="False">
-                            <StackPanel Margin="0,8,0,0" Spacing="6" HorizontalAlignment="Stretch">
-                                <TextBlock Text="Abort: ESC  (fixed — user-configurable in a future update)"
-                                           Foreground="#888" FontSize="11" TextWrapping="Wrap"/>
-                            </StackPanel>
-                        </Expander>
+                                    <TextBlock Text="Model Directory" Foreground="#888" FontSize="11" Margin="0,6,0,0"/>
+                                    <TextBox x:Name="PiperModelDir"
+                                             Watermark="~/.local/share/piper/models"
+                                             TextChanged="OnPiperModelDirChanged"/>
 
-                    </StackPanel>
+                                    <TextBlock Text="Installed Models" Foreground="#888" FontSize="11" Margin="0,6,0,0"/>
+                                    <ListBox x:Name="PiperModelList" Height="80"/>
+                                    <TextBlock Text="Download models at github.com/rhasspy/piper"
+                                               Foreground="#555" FontSize="10"/>
+                                </StackPanel>
+                            </Expander>
+
+                            <Expander x:Name="ExpanderDiagnostics" Header="Diagnostics" HorizontalAlignment="Stretch" IsExpanded="False">
+                                <StackPanel Margin="0,8,0,0" Spacing="6" HorizontalAlignment="Stretch">
+                                    <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto">
+                                        <TextBlock Grid.Row="0" Grid.Column="0" Text="Last packet DIALOG"    Foreground="#888" FontSize="10" Margin="0,0,12,0"/>
+                                        <TextBlock x:Name="DiagDialog"          Grid.Row="0" Grid.Column="1" Text="—" Foreground="#E0E0FF" FontSize="10"/>
+
+                                        <TextBlock Grid.Row="1" Grid.Column="0" Text="Last synthesis latency" Foreground="#888" FontSize="10" Margin="0,3,12,0"/>
+                                        <TextBlock x:Name="DiagLatency"         Grid.Row="1" Grid.Column="1" Text="—" Foreground="#E0E0FF" FontSize="10" Margin="0,3,0,0"/>
+
+                                        <TextBlock Grid.Row="2" Grid.Column="0" Text="Cache hit rate"         Foreground="#888" FontSize="10" Margin="0,3,12,0"/>
+                                        <TextBlock x:Name="DiagHitRate"         Grid.Row="2" Grid.Column="1" Text="—" Foreground="#E0E0FF" FontSize="10" Margin="0,3,0,0"/>
+
+                                        <TextBlock Grid.Row="3" Grid.Column="0" Text="Last decoded text"      Foreground="#888" FontSize="10" Margin="0,3,12,0" VerticalAlignment="Top"/>
+                                        <TextBlock x:Name="DiagLastDecodedText" Grid.Row="3" Grid.Column="1" Text="—" Foreground="#FFD166" FontSize="10" Margin="0,3,0,0" TextWrapping="Wrap"/>
+
+                                        <TextBlock Grid.Row="4" Grid.Column="0" Text="Processed text"         Foreground="#888" FontSize="10" Margin="0,3,12,0" VerticalAlignment="Top"/>
+                                        <TextBlock x:Name="DiagProcessedText"   Grid.Row="4" Grid.Column="1" Text="—" Foreground="#B8E986" FontSize="10" Margin="0,3,0,0" TextWrapping="Wrap"/>
+
+                                        <TextBlock Grid.Row="5" Grid.Column="0" Text="Text spoken"            Foreground="#888" FontSize="10" Margin="0,3,12,0" VerticalAlignment="Top"/>
+                                        <TextBlock x:Name="DiagTextSpoken"      Grid.Row="5" Grid.Column="1" Text="—" Foreground="#88C0FF" FontSize="10" Margin="0,3,0,0" TextWrapping="Wrap"/>
+                                    </Grid>
+                                </StackPanel>
+                            </Expander>
+
+                            <Expander x:Name="ExpanderHotkey" Header="Hotkey" HorizontalAlignment="Stretch" IsExpanded="False">
+                                <StackPanel Margin="0,8,0,0" Spacing="6" HorizontalAlignment="Stretch">
+                                    <TextBlock Text="Abort: ESC  (fixed — user-configurable in a future update)"
+                                               Foreground="#888" FontSize="11" TextWrapping="Wrap"/>
+                                </StackPanel>
+                            </Expander>
+
+                        </StackPanel>
+
+                    </Grid>
                 </ScrollViewer>
             </TabItem>
 
