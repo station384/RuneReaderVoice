@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Linq;
 using System.Threading.Tasks;
 using Avalonia;
@@ -33,7 +32,7 @@ public partial class MainWindow
         TextSwapPriority.Value = 100;
         TextSwapReplaceText.IsEnabled = !(TextSwapReplaceWithCrLf.IsChecked ?? false);
 
-        ReloadTextSwapRuleList();
+        _ = ReloadTextSwapRuleListAsync();
 
         _textSwapUiInitializing = false;
         UpdateTextSwapPreview();
@@ -52,21 +51,22 @@ public partial class MainWindow
         VoiceSettingsManager.SaveSettings(s);
     }
 
-    private void ReloadTextSwapProcessor()
+    private async Task ReloadTextSwapProcessorAsync()
     {
+        var userRules = await AppServices.TextSwapRules.LoadUserRulesAsync();
         AppServices.SetTextSwapProcessor(
             new DialogueTextSwapProcessor(
                 DefaultTextSwapRules.CreateDefault()
-                    .Concat(TextSwapRuleStore.LoadUserRules())
+                    .Concat(userRules)
                     .ToList()));
     }
 
-    private void ReloadTextSwapRuleList()
+    private async Task ReloadTextSwapRuleListAsync()
     {
         TextSwapRuleList.Items.Clear();
 
-        var file = TextSwapRuleStore.LoadRuleFile();
-        foreach (var rule in file.Rules.OrderByDescending(r => r.Priority).ThenBy(r => r.FindText))
+        var entries = await AppServices.TextSwapRules.GetAllEntriesAsync();
+        foreach (var rule in entries.OrderByDescending(r => r.Priority).ThenBy(r => r.FindText))
         {
             TextSwapRuleList.Items.Add(new ListBoxItem
             {
@@ -90,26 +90,26 @@ public partial class MainWindow
         return $"{rule.FindText} → {replaceDisplay}  [{flags}]";
     }
 
-    private DialogueTextSwapProcessor BuildEffectiveTextSwapProcessor()
+    private async Task<DialogueTextSwapProcessor> BuildEffectiveTextSwapProcessorAsync()
     {
-        var file = TextSwapRuleStore.LoadRuleFile();
+        var entries = await AppServices.TextSwapRules.GetAllEntriesAsync();
         var workingEntry = BuildTextSwapRuleEntry(includeReplaceTextWhenDisabled: false);
 
         var workingHasFindText = !string.IsNullOrEmpty(workingEntry.FindText);
 
         if (workingHasFindText)
         {
-            file.Rules.RemoveAll(r =>
+            entries.RemoveAll(r =>
                 string.Equals(r.FindText, workingEntry.FindText, StringComparison.OrdinalIgnoreCase) &&
                 r.WholeWord == workingEntry.WholeWord &&
                 r.CaseSensitive == workingEntry.CaseSensitive);
 
             if (workingEntry.Enabled)
-                file.Rules.Add(workingEntry);
+                entries.Add(workingEntry);
         }
 
         var effectiveRules = DefaultTextSwapRules.CreateDefault()
-            .Concat(file.Rules
+            .Concat(entries
                 .Where(r => r.Enabled && !string.IsNullOrEmpty(r.FindText))
                 .Select(r => r.ToRule()))
             .ToList();
@@ -134,8 +134,13 @@ public partial class MainWindow
 
     private void UpdateTextSwapPreview()
     {
+        _ = UpdateTextSwapPreviewAsync();
+    }
+
+    private async Task UpdateTextSwapPreviewAsync()
+    {
         var original = TextSwapOriginalText.Text ?? string.Empty;
-        var effectiveProcessor = BuildEffectiveTextSwapProcessor();
+        var effectiveProcessor = await BuildEffectiveTextSwapProcessorAsync();
         var processed = effectiveProcessor.Process(original);
         var finalText = BuildFinalTtsPreviewText(processed);
 
@@ -198,14 +203,16 @@ public partial class MainWindow
     private TextSwapRuleEntry BuildTextSwapRuleEntry(bool includeReplaceTextWhenDisabled = true)
         => new()
         {
-            FindText = TextSwapFindText.Text ?? string.Empty,
+            FindText       = TextSwapFindText.Text ?? string.Empty,
             ReplaceWithCrLf = TextSwapReplaceWithCrLf.IsChecked ?? false,
-            ReplaceText = (TextSwapReplaceWithCrLf.IsChecked ?? false) && !includeReplaceTextWhenDisabled ? string.Empty : (TextSwapReplaceText.Text ?? string.Empty),
-            WholeWord = TextSwapWholeWord.IsChecked ?? false,
-            CaseSensitive = TextSwapCaseSensitive.IsChecked ?? false,
-            Enabled = TextSwapEnabled.IsChecked ?? true,
-            Priority = (int)(TextSwapPriority.Value ?? 100),
-            Notes = TextSwapRuleNotes.Text ?? string.Empty,
+            ReplaceText    = (TextSwapReplaceWithCrLf.IsChecked ?? false) && !includeReplaceTextWhenDisabled
+                ? string.Empty
+                : (TextSwapReplaceText.Text ?? string.Empty),
+            WholeWord      = TextSwapWholeWord.IsChecked ?? false,
+            CaseSensitive  = TextSwapCaseSensitive.IsChecked ?? false,
+            Enabled        = TextSwapEnabled.IsChecked ?? true,
+            Priority       = (int)(TextSwapPriority.Value ?? 100),
+            Notes          = TextSwapRuleNotes.Text ?? string.Empty,
         };
 
     private bool ValidateTextSwapRuleEntry(TextSwapRuleEntry entry)
@@ -228,12 +235,11 @@ public partial class MainWindow
                 return;
 
             TextSwapSaveRuleButton.IsEnabled = false;
-            TextSwapRuleStore.UpsertRule(entry);
-            ReloadTextSwapProcessor();
-            ReloadTextSwapRuleList();
+            await AppServices.TextSwapRules.UpsertRuleAsync(entry);
+            await ReloadTextSwapProcessorAsync();
+            await ReloadTextSwapRuleListAsync();
             UpdateTextSwapPreview();
-            TextSwapRuleStatus.Text = $"Saved rule to {TextSwapRuleStore.GetRulesFilePath()}";
-            await Task.CompletedTask;
+            TextSwapRuleStatus.Text = "Saved text swap rule.";
         }
         catch (Exception ex)
         {
@@ -265,7 +271,7 @@ public partial class MainWindow
         TextSwapRuleStatus.Text = "Started a new text swap rule.";
     }
 
-    private void OnTextSwapDeleteRuleClicked(object? sender, RoutedEventArgs e)
+    private async void OnTextSwapDeleteRuleClicked(object? sender, RoutedEventArgs e)
     {
         try
         {
@@ -273,9 +279,9 @@ public partial class MainWindow
             if (!ValidateTextSwapRuleEntry(entry))
                 return;
 
-            TextSwapRuleStore.DeleteRule(entry);
-            ReloadTextSwapProcessor();
-            ReloadTextSwapRuleList();
+            await AppServices.TextSwapRules.DeleteRuleAsync(entry);
+            await ReloadTextSwapProcessorAsync();
+            await ReloadTextSwapRuleListAsync();
             UpdateTextSwapPreview();
             TextSwapRuleStatus.Text = "Deleted matching text swap rule.";
         }
@@ -285,14 +291,14 @@ public partial class MainWindow
         }
     }
 
-    private void OnTextSwapReloadRulesClicked(object? sender, RoutedEventArgs e)
+    private async void OnTextSwapReloadRulesClicked(object? sender, RoutedEventArgs e)
     {
         try
         {
-            ReloadTextSwapProcessor();
-            ReloadTextSwapRuleList();
+            await ReloadTextSwapProcessorAsync();
+            await ReloadTextSwapRuleListAsync();
             UpdateTextSwapPreview();
-            TextSwapRuleStatus.Text = "Reloaded rules from config/text-swap-rules.json.";
+            TextSwapRuleStatus.Text = "Reloaded text swap rules from database.";
         }
         catch (Exception ex)
         {
@@ -302,28 +308,7 @@ public partial class MainWindow
 
     private void OnTextSwapOpenRulesFileClicked(object? sender, RoutedEventArgs e)
     {
-        try
-        {
-            var path = TextSwapRuleStore.GetRulesFilePath();
-            var dir = System.IO.Path.GetDirectoryName(path);
-            if (!string.IsNullOrWhiteSpace(dir))
-                System.IO.Directory.CreateDirectory(dir);
-
-            if (!System.IO.File.Exists(path))
-                TextSwapRuleStore.SaveRuleFile(TextSwapRuleStore.LoadRuleFile());
-
-            Process.Start(new ProcessStartInfo
-            {
-                FileName = path,
-                UseShellExecute = true,
-            });
-
-            TextSwapRuleStatus.Text = $"Opened {path}";
-        }
-        catch (Exception ex)
-        {
-            TextSwapRuleStatus.Text = $"Open failed: {ex.Message}";
-        }
+        TextSwapRuleStatus.Text = "Text swap rules are now stored in runereader-voice.db.";
     }
 
     private void OnTextSwapCopyPreviewClicked(object? sender, RoutedEventArgs e)

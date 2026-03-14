@@ -1,6 +1,6 @@
 using System;
-using System.Diagnostics;
 using System.Linq;
+using System.Threading.Tasks;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
 using RuneReaderVoice.Protocol;
@@ -65,15 +65,15 @@ public partial class MainWindow
 
         return new PronunciationRuleEntry
         {
-            MatchText = (PronTargetText.Text ?? string.Empty).Trim(),
-            PhonemeText = (PronPhonemeText.Text ?? string.Empty).Trim(),
-            Scope = scope,
-            AccentGroup = accentGroup,
-            WholeWord = PronRuleWholeWord.IsChecked ?? true,
+            MatchText     = (PronTargetText.Text ?? string.Empty).Trim(),
+            PhonemeText   = (PronPhonemeText.Text ?? string.Empty).Trim(),
+            Scope         = scope,
+            AccentGroup   = accentGroup,
+            WholeWord     = PronRuleWholeWord.IsChecked ?? true,
             CaseSensitive = PronRuleCaseSensitive.IsChecked ?? false,
-            Enabled = PronRuleEnabled.IsChecked ?? true,
-            Priority = 100,
-            Notes = PronRuleNotes.Text ?? string.Empty
+            Enabled       = PronRuleEnabled.IsChecked ?? true,
+            Priority      = 100,
+            Notes         = PronRuleNotes.Text ?? string.Empty
         };
     }
 
@@ -87,13 +87,11 @@ public partial class MainWindow
 
             PronSaveRuleButton.IsEnabled = false;
 
-            PronunciationRuleStore.UpsertRule(entry);
-            ReloadPronunciationProcessor();
+            await AppServices.PronunciationRules.UpsertRuleAsync(entry);
+            await ReloadPronunciationProcessorAsync();
 
-            PronRuleStatus.Text = $"Saved rule to {PronunciationRuleStore.GetRulesFilePath()}";
+            PronRuleStatus.Text = "Saved pronunciation rule.";
             SessionStatus.Text = "Pronunciation rule saved.";
-
-            await System.Threading.Tasks.Task.CompletedTask;
         }
         catch (Exception ex)
         {
@@ -122,49 +120,33 @@ public partial class MainWindow
         return true;
     }
 
-    private void ReloadPronunciationProcessor()
+    private async void ReloadPronunciationProcessorAsync(object? sender, RoutedEventArgs e)
     {
+        await ReloadPronunciationProcessorAsync();
+    }
+
+    private async Task ReloadPronunciationProcessorAsync()
+    {
+        var userRules = await AppServices.PronunciationRules.LoadUserRulesAsync();
         AppServices.SetPronunciationProcessor(
             new DialoguePronunciationProcessor(
                 WowPronunciationRules.CreateDefault()
-                    .Concat(PronunciationRuleStore.LoadUserRules())
+                    .Concat(userRules)
                     .ToList()));
     }
 
     private void OnPronunciationOpenRulesFileClicked(object? sender, RoutedEventArgs e)
     {
-        try
-        {
-            var path = PronunciationRuleStore.GetRulesFilePath();
-            var dir = System.IO.Path.GetDirectoryName(path);
-
-            if (!string.IsNullOrWhiteSpace(dir))
-                System.IO.Directory.CreateDirectory(dir);
-
-            if (!System.IO.File.Exists(path))
-                PronunciationRuleStore.SaveRuleFile(PronunciationRuleStore.LoadRuleFile());
-
-            Process.Start(new ProcessStartInfo
-            {
-                FileName = path,
-                UseShellExecute = true
-            });
-
-            PronRuleStatus.Text = $"Opened {path}";
-        }
-        catch (Exception ex)
-        {
-            PronRuleStatus.Text = $"Open failed: {ex.Message}";
-        }
+        PronRuleStatus.Text = "Pronunciation rules are now stored in runereader-voice.db.";
     }
 
-    private void OnPronunciationReloadRulesClicked(object? sender, RoutedEventArgs e)
+    private async void OnPronunciationReloadRulesClicked(object? sender, RoutedEventArgs e)
     {
         try
         {
-            ReloadPronunciationProcessor();
+            await ReloadPronunciationProcessorAsync();
             UpdatePronunciationPreview();
-            PronRuleStatus.Text = "Reloaded rules from config/pronunciation-rules.json.";
+            PronRuleStatus.Text = "Reloaded pronunciation rules from database.";
         }
         catch (Exception ex)
         {

@@ -68,12 +68,22 @@ internal static class Program
             kokoroProvider.EnablePhraseChunking = settings.EnablePhraseChunking;
         }
 
+        // ── Unified SQLite DB ─────────────────────────────────────────────────
+        var dbPath = Path.Combine(VoiceSettingsManager.GetConfigDirectory(), "runereader-voice.db");
+        var db = new RvrDb(dbPath);
+        await db.InitializeAsync();
+
+        var pronunciationRules = new PronunciationRuleStore(db);
+        var textSwapRules      = new TextSwapRuleStore(db);
+
+        // ── Audio cache ───────────────────────────────────────────────────────
         var cacheDir = !string.IsNullOrWhiteSpace(settings.CacheDirectoryOverride)
             ? settings.CacheDirectoryOverride
             : VoiceSettingsManager.GetDefaultCacheDirectory();
 
         var cache = new TtsAudioCache(
             cacheDir,
+            db,
             maxSizeBytes:       settings.CacheSizeLimitBytes,
             compressionEnabled: settings.CompressionEnabled,
             oggQuality:         settings.OggQuality,
@@ -86,15 +96,13 @@ internal static class Program
             player.SetOutputDevice(settings.AudioDeviceId);
 
         // ── NPC race override DB ──────────────────────────────────────────────
-        var dbPath = Path.Combine(VoiceSettingsManager.GetConfigDirectory(), "npc-overrides.db");
-
-        var npcOverrides = new NpcRaceOverrideDb(dbPath);
+        var npcOverrides = new NpcRaceOverrideDb(db);
         await npcOverrides.InitializeAsync();
         var assembler = new TtsSessionAssembler(npcOverrides);
         await assembler.LoadOverridesAsync();
 
-        var textSwapProcessor      = BuildTextSwapProcessor();
-        var pronunciationProcessor = BuildPronunciationProcessor();
+        var textSwapProcessor      = await BuildTextSwapProcessorAsync(textSwapRules);
+        var pronunciationProcessor = await BuildPronunciationProcessorAsync(pronunciationRules);
 
         var tempDir = Path.Combine(Path.GetTempPath(), "RuneReaderVoice");
         var playbackMode = settings.PlaybackMode == "StreamOnFirstChunk"
@@ -173,7 +181,7 @@ internal static class Program
         AppServices.Initialize(
             settings, platform, provider, cache, player,
             assembler, coordinator, monitor, pronunciationProcessor, textSwapProcessor,
-            npcOverrides);
+            npcOverrides, db, pronunciationRules, textSwapRules);
 
         return AppBuilder
             .Configure<App>()
@@ -185,19 +193,21 @@ internal static class Program
                 Avalonia.Controls.ShutdownMode.OnMainWindowClose);
     }
 
-    private static DialogueTextSwapProcessor BuildTextSwapProcessor()
+    private static async Task<DialogueTextSwapProcessor> BuildTextSwapProcessorAsync(TextSwapRuleStore store)
     {
+        var userRules = await store.LoadUserRulesAsync();
         var rules = DefaultTextSwapRules.CreateDefault()
-            .Concat(TextSwapRuleStore.LoadUserRules())
+            .Concat(userRules)
             .ToList();
 
         return new DialogueTextSwapProcessor(rules);
     }
 
-    private static DialoguePronunciationProcessor BuildPronunciationProcessor()
+    private static async Task<DialoguePronunciationProcessor> BuildPronunciationProcessorAsync(PronunciationRuleStore store)
     {
+        var userRules = await store.LoadUserRulesAsync();
         var rules = WowPronunciationRules.CreateDefault()
-            .Concat(PronunciationRuleStore.LoadUserRules())
+            .Concat(userRules)
             .ToList();
 
         return new DialoguePronunciationProcessor(rules);

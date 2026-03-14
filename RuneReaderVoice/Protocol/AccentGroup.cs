@@ -214,6 +214,17 @@ public static class RaceAccentMapping
         return new VoiceSlot(group, gender);
     }
 
+    /// <summary>
+    /// Returns the AccentGroup for a given race/creature-type byte, or null if the
+    /// byte maps to Narrator (i.e. unknown / non-voiced).
+    /// Used by NpcRaceOverrideDb to build display labels.
+    /// </summary>
+    public static AccentGroup? ResolveAccentGroup(int raceByte)
+    {
+        var group = ResolveGroup(raceByte);
+        return group == AccentGroup.Narrator ? null : group;
+    }
+
     private static AccentGroup ResolveGroup(int raceByte)
     {
         if (raceByte == 0) return AccentGroup.Narrator;

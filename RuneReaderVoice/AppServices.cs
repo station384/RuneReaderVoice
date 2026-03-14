@@ -3,20 +3,6 @@
 // This file is part of RuneReaderVoice.
 // Copyright (C) 2026 Michael Sutton
 //
-// RuneReaderVoice is free software: you can redistribute it and/or modify
-// it under the terms of the GNU General Public License as published by
-// the Free Software Foundation, either version 3 of the License, or
-// (at your option) any later version.
-//
-// RuneReaderVoice is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-// GNU General Public License for more details.
-//
-// You should have received a copy of the GNU General Public License
-// along with RuneReaderVoice. If not, see <https://www.gnu.org/licenses/>.
-
-
 // AppServices.cs
 // Simple service locator that holds references to all live components.
 // Used by the Avalonia UI to bind to live state without constructor injection
@@ -49,6 +35,11 @@ public static class AppServices
     public static DialogueTextSwapProcessor      TextSwapProcessor      { get; private set; } = null!;
     public static NpcRaceOverrideDb              NpcOverrides           { get; private set; } = null!;
 
+    // ── SQLite back-end (single shared DB) ───────────────────────────────────
+    public static RvrDb                Db                 { get; private set; } = null!;
+    public static PronunciationRuleStore PronunciationRules { get; private set; } = null!;
+    public static TextSwapRuleStore      TextSwapRules      { get; private set; } = null!;
+
     public static string    LastDecodedText   { get; set; } = string.Empty;
     public static string    LastProcessedText { get; set; } = string.Empty;
     public static string    LastTextSpoken    { get; set; } = string.Empty;
@@ -71,7 +62,10 @@ public static class AppServices
         RvBarcodeMonitor monitor,
         DialoguePronunciationProcessor pronunciationProcessor,
         DialogueTextSwapProcessor textSwapProcessor,
-        NpcRaceOverrideDb npcOverrides)
+        NpcRaceOverrideDb npcOverrides,
+        RvrDb db,
+        PronunciationRuleStore pronunciationRules,
+        TextSwapRuleStore textSwapRules)
     {
         Settings               = settings;
         Platform               = platform;
@@ -84,6 +78,9 @@ public static class AppServices
         PronunciationProcessor = pronunciationProcessor;
         TextSwapProcessor      = textSwapProcessor;
         NpcOverrides           = npcOverrides;
+        Db                     = db;
+        PronunciationRules     = pronunciationRules;
+        TextSwapRules          = textSwapRules;
     }
 
     /// <summary>
