@@ -13,27 +13,101 @@ namespace RuneReaderVoice.UI.Views;
 
 public partial class MainWindow
 {
-    private void OnPronunciationRuleSelectionChanged(object? sender, SelectionChangedEventArgs e)
+    // ── Rule list ─────────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Called from PopulatePronunciationWorkbench (Init.cs) and after any save/delete/import.
+    /// </summary>
+    internal async Task ReloadPronunciationRuleListAsync()
+    {
+        PronRuleList.Items.Clear();
+
+        var entries = await AppServices.PronunciationRules.GetAllEntriesAsync();
+        foreach (var entry in entries.OrderByDescending(r => r.Priority).ThenBy(r => r.MatchText))
+        {
+            PronRuleList.Items.Add(new ListBoxItem
+            {
+                Content = BuildPronunciationRuleSummary(entry),
+                Tag     = entry,
+            });
+        }
+    }
+
+    private static string BuildPronunciationRuleSummary(PronunciationRuleEntry entry)
+    {
+        var scope = string.Equals(entry.Scope, "AccentGroup", StringComparison.OrdinalIgnoreCase)
+            ? $"AccentGroup:{entry.AccentGroup}"
+            : "Global";
+        var flags = entry.WholeWord ? "Whole word" : "Phrase";
+        return $"{entry.MatchText} → {entry.PhonemeText}  [{scope}, {flags}]";
+    }
+
+    /// <summary>
+    /// Selecting a rule in the list loads it into the workbench fields.
+    /// </summary>
+    private void OnPronunciationRuleListSelectionChanged(object? sender, SelectionChangedEventArgs e)
     {
         if (_pronunciationUiInitializing)
             return;
 
+        if (PronRuleList.SelectedItem is not ListBoxItem { Tag: PronunciationRuleEntry entry })
+            return;
+
+        _pronunciationUiInitializing = true;
+
+        PronTargetText.Text  = entry.MatchText;
+        PronPhonemeText.Text = entry.PhonemeText;
+        PronRuleNotes.Text   = entry.Notes;
+        PronRuleWholeWord.IsChecked    = entry.WholeWord;
+        PronRuleCaseSensitive.IsChecked = entry.CaseSensitive;
+        PronRuleEnabled.IsChecked      = entry.Enabled;
+
+        // Scope selector
+        foreach (var item in PronRuleScopeSelector.Items.OfType<ComboBoxItem>())
+        {
+            if (string.Equals(item.Tag?.ToString(), entry.Scope, StringComparison.OrdinalIgnoreCase))
+            {
+                PronRuleScopeSelector.SelectedItem = item;
+                break;
+            }
+        }
+
+        // Accent group selector
+        if (!string.IsNullOrEmpty(entry.AccentGroup))
+        {
+            foreach (var item in PronRuleAccentGroupSelector.Items.OfType<ComboBoxItem>())
+            {
+                if (string.Equals(item.Tag?.ToString(), entry.AccentGroup, StringComparison.OrdinalIgnoreCase))
+                {
+                    PronRuleAccentGroupSelector.SelectedItem = item;
+                    break;
+                }
+            }
+        }
+
+        _pronunciationUiInitializing = false;
+
+        UpdatePronunciationRuleUi();
+        UpdatePronunciationPreview();
+    }
+
+    // ── Rule UI state ─────────────────────────────────────────────────────────
+
+    private void OnPronunciationRuleSelectionChanged(object? sender, SelectionChangedEventArgs e)
+    {
+        if (_pronunciationUiInitializing) return;
         UpdatePronunciationRuleUi();
     }
 
     private void OnPronunciationRuleTextChanged(object? sender, TextChangedEventArgs e)
     {
-        if (_pronunciationUiInitializing)
-            return;
-
+        if (_pronunciationUiInitializing) return;
         UpdatePronunciationRuleUi();
     }
 
     private void OnPronunciationRuleClickChanged(object? sender, RoutedEventArgs e)
     {
-        if (_pronunciationUiInitializing)
-            return;
-
+        if (_pronunciationUiInitializing) return;
         UpdatePronunciationRuleUi();
     }
 
@@ -45,17 +119,14 @@ public partial class MainWindow
     }
 
     private string ResolveRuleScopeTag()
-    {
-        return PronRuleScopeSelector.SelectedItem is ComboBoxItem item
+        => PronRuleScopeSelector.SelectedItem is ComboBoxItem item
             ? item.Tag?.ToString() ?? "Global"
             : "Global";
-    }
 
     private AccentGroup ResolveRuleAccentGroup()
     {
         if (PronRuleAccentGroupSelector.SelectedItem is ComboBoxItem { Tag: AccentGroup group })
             return group;
-
         return ResolveWorkbenchGroup();
     }
 
@@ -80,18 +151,19 @@ public partial class MainWindow
         };
     }
 
+    // ── CRUD ──────────────────────────────────────────────────────────────────
+
     private async void OnPronunciationSaveRuleClicked(object? sender, RoutedEventArgs e)
     {
         try
         {
             var entry = BuildWorkbenchRuleEntry();
-            if (!ValidateRuleEntry(entry))
-                return;
+            if (!ValidateRuleEntry(entry)) return;
 
             PronSaveRuleButton.IsEnabled = false;
-
             await AppServices.PronunciationRules.UpsertRuleAsync(entry);
             await ReloadPronunciationProcessorAsync();
+            await ReloadPronunciationRuleListAsync();
 
             PronRuleStatus.Text = "Saved pronunciation rule.";
             SessionStatus.Text  = "Pronunciation rule saved.";
@@ -106,6 +178,25 @@ public partial class MainWindow
         }
     }
 
+    private async void OnPronunciationDeleteRuleClicked(object? sender, RoutedEventArgs e)
+    {
+        try
+        {
+            var entry = BuildWorkbenchRuleEntry();
+            if (!ValidateRuleEntry(entry)) return;
+
+            await AppServices.PronunciationRules.DeleteRuleAsync(entry);
+            await ReloadPronunciationProcessorAsync();
+            await ReloadPronunciationRuleListAsync();
+            UpdatePronunciationPreview();
+            PronRuleStatus.Text = "Deleted pronunciation rule.";
+        }
+        catch (Exception ex)
+        {
+            PronRuleStatus.Text = $"Delete failed: {ex.Message}";
+        }
+    }
+
     private bool ValidateRuleEntry(PronunciationRuleEntry entry)
     {
         if (string.IsNullOrWhiteSpace(entry.MatchText))
@@ -113,18 +204,28 @@ public partial class MainWindow
             PronRuleStatus.Text = "Enter a word or phrase to replace before saving.";
             return false;
         }
-
         if (string.IsNullOrWhiteSpace(entry.PhonemeText))
         {
             PronRuleStatus.Text = "Enter phoneme sounds before saving.";
             return false;
         }
-
         return true;
     }
 
-    private async void ReloadPronunciationProcessorAsync(object? sender, RoutedEventArgs e)
-        => await ReloadPronunciationProcessorAsync();
+    private async void OnPronunciationReloadRulesClicked(object? sender, RoutedEventArgs e)
+    {
+        try
+        {
+            await ReloadPronunciationProcessorAsync();
+            await ReloadPronunciationRuleListAsync();
+            UpdatePronunciationPreview();
+            PronRuleStatus.Text = "Reloaded pronunciation rules from database.";
+        }
+        catch (Exception ex)
+        {
+            PronRuleStatus.Text = $"Reload failed: {ex.Message}";
+        }
+    }
 
     private async Task ReloadPronunciationProcessorAsync()
     {
@@ -136,20 +237,6 @@ public partial class MainWindow
                     .ToList()));
     }
 
-    private async void OnPronunciationReloadRulesClicked(object? sender, RoutedEventArgs e)
-    {
-        try
-        {
-            await ReloadPronunciationProcessorAsync();
-            UpdatePronunciationPreview();
-            PronRuleStatus.Text = "Reloaded pronunciation rules from database.";
-        }
-        catch (Exception ex)
-        {
-            PronRuleStatus.Text = $"Reload failed: {ex.Message}";
-        }
-    }
-
     // ── Import / Export ───────────────────────────────────────────────────────
 
     private static readonly JsonSerializerOptions _jsonPronExportOptions = new() { WriteIndented = true };
@@ -159,8 +246,8 @@ public partial class MainWindow
         try
         {
             var entries = await AppServices.PronunciationRules.GetAllEntriesAsync();
-            var file = new PronunciationRuleFile { Rules = entries };
-            var json = JsonSerializer.Serialize(file, _jsonPronExportOptions);
+            var file    = new PronunciationRuleFile { Rules = entries };
+            var json    = JsonSerializer.Serialize(file, _jsonPronExportOptions);
 
             var topLevel = TopLevel.GetTopLevel(this);
             if (topLevel == null) return;
@@ -212,6 +299,7 @@ public partial class MainWindow
                 await AppServices.PronunciationRules.UpsertRuleAsync(entry);
 
             await ReloadPronunciationProcessorAsync();
+            await ReloadPronunciationRuleListAsync();
             UpdatePronunciationPreview();
             PronRuleStatus.Text = $"Imported {file.Rules.Count} rules.";
         }
@@ -220,6 +308,4 @@ public partial class MainWindow
             PronRuleStatus.Text = $"Import failed: {ex.Message}";
         }
     }
-
-    // ── Removed: OnPronunciationOpenRulesFileClicked (rules now stored in DB) ─
 }

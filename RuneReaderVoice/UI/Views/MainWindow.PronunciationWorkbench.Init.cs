@@ -21,6 +21,7 @@ public partial class MainWindow
         _pronunciationUiInitializing = false;
         UpdatePronunciationPreview();
         UpdatePronunciationRuleUi();
+        _ = ReloadPronunciationRuleListAsync();
     }
 
     private void PopulateWorkbenchAccentGroups()
