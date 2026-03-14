@@ -27,15 +27,16 @@ along with RuneReaderVoice. If not, see <https://www.gnu.org/licenses/>.
         Title="RuneReader Voice"
         Width="600" 
         MinWidth="480" MinHeight="160"
+        MaxHeight="900"
         SizeToContent="Height"
         Background="#1A1A2E">
 
-    <Grid RowDefinitions="Auto,Auto,Auto,Auto,*">
+    <Grid RowDefinitions="Auto,Auto,Auto,Auto,*" >
 
         <!-- ── Title bar ──────────────────────────────────────────────── -->
-        <Border Grid.Row="0"
+        <Border Grid.Row="0" 
                 Background="#16213E" Padding="12,8">
-            <StackPanel Orientation="Horizontal" Spacing="8">
+            <StackPanel Orientation="Horizontal" Spacing="8" >
                 <TextBlock Text="RuneReader Voice"
                            FontSize="16" FontWeight="Bold"
                            Foreground="#E0E0FF" VerticalAlignment="Center"/>
@@ -47,7 +48,7 @@ along with RuneReaderVoice. If not, see <https://www.gnu.org/licenses/>.
         </Border>
 
         <!-- ── Live status panel ──────────────────────────────────────── -->
-        <Border Grid.Row="1"
+        <Border Grid.Row="1" 
                 Background="#0F3460" Margin="8,8,8,0"
                 CornerRadius="6" Padding="12,10">
             <Grid ColumnDefinitions="*,*" RowDefinitions="Auto,Auto,Auto,Auto">
@@ -155,15 +156,15 @@ along with RuneReaderVoice. If not, see <https://www.gnu.org/licenses/>.
                   Grid.Row="4"
                   IsExpanded="False"
                   HorizontalAlignment="Stretch"
-                  VerticalAlignment="Top"
+                  VerticalAlignment="Top" 
                   Margin="8,4,8,8">
             <TabControl
                         x:Name="SettingsTabControl"
-                        Margin="0"
+                        Margin="0" 
                         Background="#16213E">
 
             <!-- Basic settings tab -->
-            <TabItem Header="Settings">
+            <TabItem Header="Settings" >
                 <ScrollViewer>
                     <StackPanel Margin="12" Spacing="6" HorizontalAlignment="Stretch">
 
