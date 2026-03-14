@@ -161,6 +161,7 @@ public sealed class PlaybackCoordinator : IDisposable
     public void StartSession()
     {
         if (_playbackTask is { IsCompleted: false }) return;
+        _sessionCts?.Dispose();
         _sessionCts   = new CancellationTokenSource();
         _playbackTask = RunPlaybackLoopAsync(_sessionCts.Token);
     }
@@ -182,11 +183,12 @@ public sealed class PlaybackCoordinator : IDisposable
         while (_queueSignal.CurrentCount > 0)
             _queueSignal.Wait(0);
 
-        // Restart the playback loop so it is ready for the next EnqueueSegment.
-        // Without this, OnSessionReset cancels the loop and the segment that
-        // immediately follows from OnSegmentComplete lands in a dead queue.
+        // Dispose the old CTS before replacing it — failing to do this leaks
+        // the linked token registrations on every session reset (every new dialog).
+        var oldCts = _sessionCts;
         _sessionCts = new CancellationTokenSource();
         _playbackTask = RunPlaybackLoopAsync(_sessionCts.Token);
+        oldCts?.Dispose();
     }
     public PlaybackMode Mode
     {

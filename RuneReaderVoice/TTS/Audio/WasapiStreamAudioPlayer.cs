@@ -43,6 +43,7 @@ public sealed class WasapiStreamAudioPlayer : IAudioPlayer
 
     private WasapiOut? _output;
     private BufferedWaveProvider? _buffer;
+    private MMDevice? _outputDevice;        // device handle owned alongside _output
     private CancellationTokenSource? _playbackCts;
     private Task? _feedTask;
     private TaskCompletionSource<bool>? _playbackTcs;
@@ -202,17 +203,20 @@ public sealed class WasapiStreamAudioPlayer : IAudioPlayer
     public IReadOnlyList<AudioDeviceInfo> GetOutputDevices()
     {
         var result = new List<AudioDeviceInfo>();
-        var enumerator = new MMDeviceEnumerator();
-        var defaultDevice = enumerator.GetDefaultAudioEndpoint(DataFlow.Render, Role.Multimedia);
+        using var enumerator = new MMDeviceEnumerator();
+        using var defaultDevice = enumerator.GetDefaultAudioEndpoint(DataFlow.Render, Role.Multimedia);
 
         foreach (var device in enumerator.EnumerateAudioEndPoints(DataFlow.Render, DeviceState.Active))
         {
-            result.Add(new AudioDeviceInfo
+            using (device)
             {
-                DeviceId = device.ID,
-                DeviceName = device.FriendlyName,
-                IsDefault = string.Equals(device.ID, defaultDevice.ID, StringComparison.OrdinalIgnoreCase),
-            });
+                result.Add(new AudioDeviceInfo
+                {
+                    DeviceId   = device.ID,
+                    DeviceName = device.FriendlyName,
+                    IsDefault  = string.Equals(device.ID, defaultDevice.ID, StringComparison.OrdinalIgnoreCase),
+                });
+            }
         }
 
         return result;
@@ -247,11 +251,14 @@ public sealed class WasapiStreamAudioPlayer : IAudioPlayer
     private WasapiOut CreateOutput(string? deviceId)
     {
         if (string.IsNullOrWhiteSpace(deviceId))
+        {
+            _outputDevice = null;
             return new WasapiOut(AudioClientShareMode.Shared, true, 20);
+        }
 
-        var enumerator = new MMDeviceEnumerator();
-        var device = enumerator.GetDevice(deviceId);
-        return new WasapiOut(device, AudioClientShareMode.Shared, true, 20);
+        using var enumerator = new MMDeviceEnumerator();
+        _outputDevice = enumerator.GetDevice(deviceId);
+        return new WasapiOut(_outputDevice, AudioClientShareMode.Shared, true, 20);
     }
 
     private async Task FeedStreamAsync(
@@ -405,6 +412,20 @@ public sealed class WasapiStreamAudioPlayer : IAudioPlayer
 
         try { output?.Stop(); } catch { }
         try { output?.Dispose(); } catch { }
+        try
+        {
+            // Dispose the MMDevice handle that was created alongside this output.
+            // Must be disposed AFTER WasapiOut since WasapiOut uses it internally.
+            lock (_sync)
+            {
+                if (_outputDevice != null && output != null && ReferenceEquals(_output, null))
+                {
+                    _outputDevice.Dispose();
+                    _outputDevice = null;
+                }
+            }
+        }
+        catch { }
         try { cts?.Dispose(); } catch { }
     }
 
