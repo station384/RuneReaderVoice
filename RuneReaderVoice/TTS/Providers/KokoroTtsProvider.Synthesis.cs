@@ -89,6 +89,11 @@ public sealed partial class KokoroTtsProvider
                             off += c.Length;
                         }
 
+                        // Null out the individual sub-chunk arrays immediately after
+                        // concatenation so the GC can reclaim them without waiting for
+                        // the closure to go out of scope.
+                        Array.Clear(subChunks, 0, subChunks.Length);
+
                         channel.Writer.TryWrite((phraseIndex, pcm));
 
                         if (Interlocked.Decrement(ref remaining) == 0)
@@ -168,6 +173,9 @@ public sealed partial class KokoroTtsProvider
             c.CopyTo(result, offset);
             offset += c.Length;
         }
+
+        // Release individual chunk arrays immediately after concat.
+        Array.Clear(chunks, 0, chunks.Length);
 
         return result;
     }

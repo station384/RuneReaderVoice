@@ -138,6 +138,12 @@ public sealed partial class KokoroTtsProvider
         };
     }
 
+    // Max number of KokoroVoice objects to keep cached. Each voice holds a voice
+    // embedding tensor (~100-300 KB). 80 covers all 63 accent slots with room for
+    // mix variants. When the cap is reached the oldest entry is evicted.
+    private const int VoiceCacheMaxSize = 80;
+    private readonly List<string> _voiceCacheOrder = new();   // insertion-order tracker
+
     private KokoroVoice GetVoiceForSlot(VoiceSlot slot)
     {
         var profile = ResolveVoiceProfile(slot);
@@ -149,7 +155,16 @@ public sealed partial class KokoroTtsProvider
                 ? ResolveMix(id[MixPrefix.Length..])
                 : KokoroVoiceManager.GetVoice(id);
 
+            // Evict oldest entry if at capacity
+            if (_voiceCache.Count >= VoiceCacheMaxSize && _voiceCacheOrder.Count > 0)
+            {
+                var oldest = _voiceCacheOrder[0];
+                _voiceCacheOrder.RemoveAt(0);
+                _voiceCache.Remove(oldest);
+            }
+
             _voiceCache[id] = voice;
+            _voiceCacheOrder.Add(id);
         }
 
         return voice;

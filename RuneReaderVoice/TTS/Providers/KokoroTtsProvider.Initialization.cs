@@ -61,7 +61,7 @@ public sealed partial class KokoroTtsProvider
                     var modelPath = Path.Combine(modelDir, "kokoro.onnx");
                     Directory.CreateDirectory(modelDir);
 
-                    var opts = new SessionOptions();
+                    using var opts = new SessionOptions();
                     opts.AppendExecutionProvider_CPU();
                     opts.EnableCpuMemArena = true;
                     opts.GraphOptimizationLevel = GraphOptimizationLevel.ORT_ENABLE_ALL;
