@@ -1,0 +1,264 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# server/main.py
+#
+# FastAPI application entry point.
+#
+# Startup sequence:
+#   1. Parse CLI args and apply overrides to settings
+#   2. Configure logging
+#   3. Ensure directories exist
+#   4. Detect GPU execution provider
+#   5. Initialize audio cache (DB + startup integrity check)
+#   6. Load TTS backends
+#   7. Start transcription service (if voice-matching backends loaded)
+#   8. Start serving
+
+from __future__ import annotations
+
+import argparse
+import asyncio
+import logging
+import sys
+from contextlib import asynccontextmanager
+
+import uvicorn
+from fastapi import FastAPI, HTTPException, Request
+from fastapi.responses import JSONResponse
+
+from .config import settings
+from .gpu_detect import detect as detect_gpu
+from .cache import AudioCache
+from .backends import load_backends
+from .transcriber import TranscriptionService
+
+log = logging.getLogger(__name__)
+
+
+# ── Lifespan ──────────────────────────────────────────────────────────────────
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Startup and shutdown logic."""
+
+    # Ensure all required directories exist
+    settings.ensure_directories()
+
+    # GPU detection
+    gpu = detect_gpu(settings.gpu)
+    app.state.gpu      = gpu
+    app.state.settings = settings
+
+    # Audio cache
+    cache = AudioCache(
+        cache_dir=settings.cache_dir,
+        db_path=settings.db_path,
+        max_bytes=settings.cache_max_bytes,
+    )
+    await cache.initialize()
+    app.state.cache = cache
+
+    # TTS backends
+    registry = await load_backends(
+        backend_names=settings.backends,
+        models_dir=settings.models_dir,
+        gpu=gpu,
+    )
+    app.state.registry = registry
+
+    # Transcription service — only started when a voice-matching backend is loaded.
+    # Handles both ffmpeg audio/video conversion AND Whisper transcription.
+    # ffmpeg conversion runs regardless of Whisper availability — a file can be
+    # converted to WAV even if auto-transcription is disabled.
+    poll_task = None
+    has_voice_matching = any(b.supports_voice_matching for b in registry.all())
+
+    if has_voice_matching:
+        transcriber = TranscriptionService(
+            whisper_model_dir=settings.whisper_model_dir,
+            samples_dir=settings.samples_dir,
+        )
+        transcriber.check_availability()   # checks both ffmpeg and Whisper, logs results
+
+        # Initial scan at startup — convert + transcribe any pending files
+        await transcriber.scan_and_transcribe()
+
+        # Background polling loop — always start if voice-matching backends loaded
+        poll_task = asyncio.create_task(
+            _sample_poll_loop(transcriber, settings.sample_scan_interval)
+        )
+        log.info(
+            "Sample watcher started — polling every %ds",
+            settings.sample_scan_interval,
+        )
+    else:
+        log.debug("No voice-matching backends loaded — transcription service not started")
+
+    log.info(
+        "RuneReader Voice Server ready — %s:%d | backends: %s | gpu: %s",
+        settings.host, settings.port,
+        ", ".join(registry.provider_ids()) or "none",
+        gpu.provider,
+    )
+
+    yield
+
+    # Shutdown
+    if poll_task is not None:
+        poll_task.cancel()
+        try:
+            await poll_task
+        except asyncio.CancelledError:
+            pass
+
+    await cache.close()
+    log.info("Server shut down cleanly")
+
+
+# ── Background polling loop ───────────────────────────────────────────────────
+
+async def _sample_poll_loop(transcriber: TranscriptionService, interval: int) -> None:
+    """
+    Polls the samples directory every `interval` seconds.
+    Transcribes any audio files that have appeared since the last scan.
+    Runs as a background asyncio task for the lifetime of the server.
+    """
+    while True:
+        try:
+            await asyncio.sleep(interval)
+            count = await transcriber.scan_and_transcribe()
+            if count:
+                log.info("Sample watcher: transcribed %d new file(s)", count)
+        except asyncio.CancelledError:
+            break
+        except Exception as e:
+            log.error("Sample watcher error: %s", e)
+
+
+# ── App ───────────────────────────────────────────────────────────────────────
+
+app = FastAPI(
+    title="RuneReader Voice Server",
+    version="0.1.0",
+    description="Shared L2 TTS render cache for RuneReader Voice clients.",
+    lifespan=lifespan,
+    docs_url="/docs",       # Swagger UI — useful for testing without the client
+    redoc_url="/redoc",
+)
+
+
+# ── Auth middleware ───────────────────────────────────────────────────────────
+
+@app.middleware("http")
+async def auth_middleware(request: Request, call_next):
+    """
+    Optional API key authentication.
+    Enabled only when RRV_API_KEY is non-empty.
+    Passes all requests through when auth is disabled (default LAN mode).
+    /api/v1/health is always allowed regardless of auth state.
+    """
+    if not settings.auth_enabled:
+        return await call_next(request)
+
+    if request.url.path == "/api/v1/health":
+        return await call_next(request)
+
+    auth_header = request.headers.get("Authorization", "")
+    if not auth_header.startswith("Bearer "):
+        return JSONResponse(
+            status_code=401,
+            content={"detail": "Authorization header required: Bearer <api_key>"},
+        )
+
+    token = auth_header[len("Bearer "):]
+    if token != settings.api_key:
+        return JSONResponse(
+            status_code=401,
+            content={"detail": "Invalid API key"},
+        )
+
+    return await call_next(request)
+
+
+# ── Routes ────────────────────────────────────────────────────────────────────
+
+from .routes.health       import router as health_router
+from .routes.capabilities import router as capabilities_router
+from .routes.providers    import router as providers_router
+from .routes.synthesize   import router as synthesize_router
+
+app.include_router(health_router)
+app.include_router(capabilities_router)
+app.include_router(providers_router)
+app.include_router(synthesize_router)
+
+
+# ── CLI entry point ───────────────────────────────────────────────────────────
+
+def _parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(
+        prog="rrv-server",
+        description="RuneReader Voice TTS Server",
+    )
+    parser.add_argument("--host",        help="Bind address (default: 0.0.0.0)")
+    parser.add_argument("--port",        type=int, help="Port (default: 8765)")
+    parser.add_argument("--cache-dir",   dest="cache_dir",   help="OGG cache directory")
+    parser.add_argument("--db-path",     dest="db_path",     help="SQLite manifest path")
+    parser.add_argument("--models-dir",  dest="models_dir",  help="Model files directory")
+    parser.add_argument("--samples-dir",       dest="samples_dir",       help="Reference samples directory")
+    parser.add_argument("--whisper-model-dir", dest="whisper_model_dir", help="Whisper model directory for auto-transcription")
+    parser.add_argument("--sample-scan-interval", dest="sample_scan_interval", type=int,
+                        help="Seconds between sample directory scans (default: 30)")
+    parser.add_argument("--backends",    help="Comma-separated backend list: kokoro,f5tts,chatterbox,chatterbox_full")
+    parser.add_argument("--gpu",         choices=["auto", "cuda", "rocm", "cpu"],
+                        help="GPU execution provider (default: auto)")
+    parser.add_argument("--cache-max-mb", dest="cache_max_mb", type=int,
+                        help="Max cache size in MB (default: 2048)")
+    parser.add_argument("--api-key",     dest="api_key",     help="API key (disables auth if empty)")
+    parser.add_argument("--log-level",   dest="log_level",
+                        choices=["debug", "info", "warning", "error"],
+                        help="Log level (default: info)")
+    return parser.parse_args()
+
+
+def run() -> None:
+    """Entry point for the rrv-server console script."""
+    args = _parse_args()
+
+    # Apply CLI overrides to the module-level settings singleton
+    settings.override(
+        host=args.host,
+        port=args.port,
+        cache_dir=args.cache_dir,
+        db_path=args.db_path,
+        models_dir=args.models_dir,
+        samples_dir=args.samples_dir,
+        whisper_model_dir=args.whisper_model_dir,
+        sample_scan_interval=args.sample_scan_interval,
+        backends=args.backends,
+        gpu=args.gpu,
+        cache_max_mb=args.cache_max_mb,
+        api_key=args.api_key,
+        log_level=args.log_level,
+    )
+
+    # Configure logging
+    logging.basicConfig(
+        level=settings.log_level.upper(),
+        format="%(asctime)s %(levelname)-8s %(name)s — %(message)s",
+        datefmt="%Y-%m-%d %H:%M:%S",
+    )
+
+    log.info("Starting RuneReader Voice Server — %s", settings)
+
+    uvicorn.run(
+        "server.main:app",
+        host=settings.host,
+        port=settings.port,
+        log_level=settings.log_level,
+        reload=False,
+    )
+
+
+if __name__ == "__main__":
+    run()
+    

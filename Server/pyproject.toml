@@ -1,0 +1,85 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "rrv-server"
+version = "0.1.0"
+description = "RuneReader Voice TTS HTTP Server"
+requires-python = ">=3.10"
+license = { text = "GPL-3.0-or-later" }
+
+# Core dependencies — always installed
+dependencies = [
+    "fastapi>=0.111.0",
+    "uvicorn[standard]>=0.30.0",
+    "pydantic>=2.7.0",
+    "aiosqlite>=0.20.0",
+    "soundfile>=0.12.1",
+    "numpy>=1.26.0",
+]
+
+[project.optional-dependencies]
+
+# Kokoro — CPU. Primary backend. Python 3.10-3.12 compatible.
+kokoro = [
+    "kokoro-onnx>=0.4.0",
+    "onnxruntime>=1.18.0",
+]
+
+# Development extras (testing only)
+dev = [
+    "kokoro-onnx>=0.4.0",
+    "onnxruntime>=1.18.0",
+    "pytest>=8.0.0",
+    "httpx>=0.27.0",
+    "pytest-asyncio>=0.23.0",
+]
+
+# ── Phase 5b — deferred until Python 3.12 compatible versions are available ──
+# xtts, f5tts, gpu-cuda, gpu-rocm groups added here when ready
+
+f5tts = [
+    "f5-tts>=0.3.0",
+    "transformers>=4.45.0",
+    "torch>=2.0.0",
+    "torchaudio>=2.0.0",
+]
+
+# Chatterbox Turbo — install with care due to numpy pin conflict.
+# Use: pip install chatterbox-tts --no-deps
+# Then: pip install conformer diffusers pykakasi pyloudnorm resemble-perth
+#                   s3tokenizer spacy-pkuseg onnx ml_dtypes --no-deps
+# The package pins numpy<1.26.0 which conflicts with kokoro-onnx>=2.0.
+# Installing --no-deps bypasses this; the package runs fine on numpy 2.x.
+chatterbox = [
+    "chatterbox-tts",
+    "conformer",
+    "diffusers",
+    "pykakasi",
+    "pyloudnorm",
+    "resemble-perth",
+    "s3tokenizer",
+    "spacy-pkuseg",
+    "onnx",
+    "ml_dtypes",
+]
+
+gpu-cuda = [
+    "onnxruntime-gpu>=1.18.0",
+]
+
+gpu-rocm = [
+    "onnxruntime-rocm>=1.18.0",
+]
+
+[project.scripts]
+rrv-server = "server.main:run"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["server*"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]

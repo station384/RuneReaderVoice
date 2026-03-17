@@ -1,0 +1,181 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# server/config.py
+#
+# Single source of truth for all server configuration.
+# Reads environment variables (with .env file support via python-dotenv if present)
+# and exposes a frozen Settings object. CLI arguments are merged in main.py
+# after this module loads — CLI takes precedence over env vars.
+
+from __future__ import annotations
+
+import os
+from pathlib import Path
+from typing import FrozenSet, Optional
+
+# Optional dotenv support — load .env if present, ignore if not installed
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    pass
+
+
+def _env_str(key: str, default: str) -> str:
+    return os.environ.get(key, default).strip()
+
+
+def _env_int(key: str, default: int) -> int:
+    raw = os.environ.get(key, "").strip()
+    if not raw:
+        return default
+    try:
+        return int(raw)
+    except ValueError:
+        raise ValueError(f"Environment variable {key} must be an integer, got: {raw!r}")
+
+
+def _env_set(key: str, default: str) -> FrozenSet[str]:
+    raw = os.environ.get(key, default).strip()
+    return frozenset(v.strip().lower() for v in raw.split(",") if v.strip())
+
+
+# ── Valid values ──────────────────────────────────────────────────────────────
+
+VALID_BACKENDS: FrozenSet[str] = frozenset({"kokoro", "f5tts", "chatterbox", "chatterbox_full"})
+VALID_GPU_MODES: FrozenSet[str] = frozenset({"auto", "cuda", "rocm", "cpu"})
+VALID_LOG_LEVELS: FrozenSet[str] = frozenset({"debug", "info", "warning", "error"})
+
+
+# ── Settings ──────────────────────────────────────────────────────────────────
+
+class Settings:
+    """
+    Immutable server configuration resolved from environment variables.
+    CLI overrides are applied in main.py by calling Settings.override().
+    """
+
+    def __init__(self) -> None:
+        # Network
+        self.host: str = _env_str("RRV_HOST", "0.0.0.0")
+        self.port: int = _env_int("RRV_PORT", 8765)
+
+        # Paths
+        self.cache_dir:   Path = Path(_env_str("RRV_CACHE_DIR",   "./data/cache"))
+        self.db_path:     Path = Path(_env_str("RRV_DB_PATH",     "./data/server-cache.db"))
+        self.models_dir:  Path = Path(_env_str("RRV_MODELS_DIR",  "./data/models"))
+        self.samples_dir:          Path = Path(_env_str("RRV_SAMPLES_DIR",          "./data/samples"))
+        self.whisper_model_dir:    Path = Path(_env_str("RRV_WHISPER_MODEL_DIR",    "./data/models/whisper"))
+        self.sample_scan_interval: int  = _env_int("RRV_SAMPLE_SCAN_INTERVAL", 30)
+
+        # Backends
+        raw_backends = _env_set("RRV_BACKENDS", "kokoro")
+        invalid = raw_backends - VALID_BACKENDS
+        if invalid:
+            raise ValueError(
+                f"Unknown backend(s) in RRV_BACKENDS: {sorted(invalid)}. "
+                f"Valid values: {sorted(VALID_BACKENDS)}"
+            )
+        self.backends: FrozenSet[str] = raw_backends
+
+        # GPU
+        gpu = _env_str("RRV_GPU", "auto").lower()
+        if gpu not in VALID_GPU_MODES:
+            raise ValueError(
+                f"Unknown GPU mode in RRV_GPU: {gpu!r}. "
+                f"Valid values: {sorted(VALID_GPU_MODES)}"
+            )
+        self.gpu: str = gpu
+
+        # Cache
+        self.cache_max_mb: int = _env_int("RRV_CACHE_MAX_MB", 2048)
+
+        # Security
+        self.api_key: str = _env_str("RRV_API_KEY", "")
+
+        # Logging
+        log_level = _env_str("RRV_LOG_LEVEL", "info").lower()
+        if log_level not in VALID_LOG_LEVELS:
+            raise ValueError(
+                f"Unknown log level in RRV_LOG_LEVEL: {log_level!r}. "
+                f"Valid values: {sorted(VALID_LOG_LEVELS)}"
+            )
+        self.log_level: str = log_level
+
+    def override(self, **kwargs) -> None:
+        """
+        Apply CLI argument overrides. Called from main.py after argparse.
+        Only overrides fields that were explicitly provided (not None).
+        Validates the same constraints as __init__.
+        """
+        for key, value in kwargs.items():
+            if value is None:
+                continue
+
+            if key == "backends":
+                # CLI passes comma-separated string or list
+                if isinstance(value, str):
+                    value = frozenset(v.strip().lower() for v in value.split(",") if v.strip())
+                else:
+                    value = frozenset(str(v).lower() for v in value)
+                invalid = value - VALID_BACKENDS
+                if invalid:
+                    raise ValueError(
+                        f"Unknown backend(s): {sorted(invalid)}. "
+                        f"Valid values: {sorted(VALID_BACKENDS)}"
+                    )
+
+            elif key == "gpu":
+                value = str(value).lower()
+                if value not in VALID_GPU_MODES:
+                    raise ValueError(
+                        f"Unknown GPU mode: {value!r}. "
+                        f"Valid values: {sorted(VALID_GPU_MODES)}"
+                    )
+
+            elif key == "log_level":
+                value = str(value).lower()
+                if value not in VALID_LOG_LEVELS:
+                    raise ValueError(
+                        f"Unknown log level: {value!r}. "
+                        f"Valid values: {sorted(VALID_LOG_LEVELS)}"
+                    )
+
+            elif key in ("cache_dir", "db_path", "models_dir", "samples_dir",
+                         "whisper_model_dir"):
+                value = Path(value)
+
+            elif key in ("port", "cache_max_mb", "sample_scan_interval"):
+                value = int(value)
+
+            setattr(self, key, value)
+
+    @property
+    def cache_max_bytes(self) -> int:
+        return self.cache_max_mb * 1024 * 1024
+
+    @property
+    def auth_enabled(self) -> bool:
+        return bool(self.api_key)
+
+    def ensure_directories(self) -> None:
+        """Create required directories if they do not exist."""
+        self.cache_dir.mkdir(parents=True, exist_ok=True)
+        self.db_path.parent.mkdir(parents=True, exist_ok=True)
+        self.models_dir.mkdir(parents=True, exist_ok=True)
+        self.samples_dir.mkdir(parents=True, exist_ok=True)
+
+    def __repr__(self) -> str:
+        return (
+            f"Settings("
+            f"host={self.host!r}, port={self.port}, "
+            f"backends={sorted(self.backends)}, gpu={self.gpu!r}, "
+            f"cache_dir={self.cache_dir}, models_dir={self.models_dir}, "
+            f"samples_dir={self.samples_dir}, "
+            f"cache_max_mb={self.cache_max_mb}, "
+            f"auth_enabled={self.auth_enabled}, log_level={self.log_level!r}"
+            f")"
+        )
+
+
+# Module-level singleton — imported by all other modules
+settings = Settings()

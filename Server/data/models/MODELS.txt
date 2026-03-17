@@ -1,0 +1,68 @@
+This directory holds TTS model files.
+
+Do not commit model files to source control — they are large binary files.
+In a container deployment, mount this directory as a read-only volume.
+The server NEVER downloads from HuggingFace at runtime — all files must be
+pre-placed by the admin before the server starts.
+
+── Kokoro ────────────────────────────────────────────────────────────────────
+Required files:
+  kokoro-v1.0.onnx        (~310 MB)
+  voices-v1.0.bin         (~10 MB)
+
+Download from: https://github.com/thewh1teagle/kokoro-onnx/releases
+
+These files are shared with the RuneReader Voice C# desktop client.
+If both run on the same machine, point RRV_MODELS_DIR at the same directory.
+
+── F5-TTS ────────────────────────────────────────────────────────────────────
+Place files under: models/f5tts/F5TTS_v1_Base/
+  model_1250000.safetensors   (~1.2 GB)
+
+Download from: https://huggingface.co/SWivid/F5-TTS
+  File path in repo: ckpts/F5TTS_v1_Base/model_1250000.safetensors
+
+── Chatterbox Turbo ──────────────────────────────────────────────────────────
+Place files under: models/chatterbox/
+  (model files downloaded by from_pretrained() on first use)
+
+For air-gapped deployments, pre-download using:
+  python3 -c "
+  from chatterbox.tts_turbo import ChatterboxTurboTTS
+  model = ChatterboxTurboTTS.from_pretrained(device='cpu')
+  model.save_pretrained('data/models/chatterbox/')
+  "
+  (run this once on an internet-connected machine, then copy the directory)
+
+Download from: https://huggingface.co/ResembleAI/chatterbox-turbo
+
+Note: Chatterbox audio output includes an imperceptible PerTh watermark
+embedded by Resemble AI. This is a feature of the MIT-licensed model and
+cannot be disabled. The watermark does not affect audio quality.
+
+── Whisper (Auto-transcription for reference samples) ───────────────────────
+Used to automatically generate .ref.txt transcript sidecars for new reference
+audio samples. Only loaded when a voice-matching backend (f5tts, chatterbox)
+is active. Loaded lazily on demand and unloaded after transcription.
+
+Two variants supported:
+  data/models/whisper/v3-turbo/    (~1.6 GB, recommended — best accuracy)
+  data/models/whisper/tiny/        (~150 MB, fastest)
+
+Set RRV_WHISPER_MODEL_DIR in .env to select which variant to use.
+
+Download v3-turbo from: https://huggingface.co/openai/whisper-large-v3-turbo
+Download tiny from:     https://huggingface.co/openai/whisper-tiny
+
+Files required (same list for both):
+  model.safetensors
+  config.json
+  generation_config.json
+  tokenizer.json
+  tokenizer_config.json
+  vocab.json
+  merges.txt
+  normalizer.json
+  added_tokens.json
+  special_tokens_map.json
+  preprocessor_config.json
