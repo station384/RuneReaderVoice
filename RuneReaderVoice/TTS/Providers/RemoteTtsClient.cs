@@ -76,9 +76,9 @@ public sealed class RemoteTtsClient
         IEnumerable<RemoteSampleDto> filtered = samples;
 
         if (providerId.Contains("f5", StringComparison.OrdinalIgnoreCase))
-            filtered = filtered.Where(s => (s.DurationSeconds ?? 0f) > 0f && (s.DurationSeconds ?? 0f) <= 10.0f);
+            filtered = filtered.Where(s => (s.DurationSeconds ?? 0f) > 0f && (s.DurationSeconds ?? 0f) <= 11.0f);
         else if (providerId.Contains("chatterbox", StringComparison.OrdinalIgnoreCase))
-            filtered = filtered.Where(s => (s.DurationSeconds ?? 0f) <= 0f || (s.DurationSeconds ?? 0f) <= 40.0f);
+            filtered = filtered.Where(s => (s.DurationSeconds ?? 0f) <= 0f || (s.DurationSeconds ?? 0f) <= 41.0f);
 
         return filtered.Select(s => new VoiceInfo
         {
