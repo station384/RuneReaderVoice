@@ -617,7 +617,15 @@ public sealed class VoiceProfileEditorDialog : Window
 
         // ── Preview / Summary ─────────────────────────────────────────────────
 
-        _previewText = new TextBox { AcceptsReturn = true, TextWrapping = TextWrapping.Wrap, MinHeight = 52, Text = "Champion, the road ahead is dangerous. Stay alert, and trust your instincts." };
+        _previewText = new TextBox { AcceptsReturn = true, TextWrapping = TextWrapping.Wrap, MinHeight = 52, Text = @"Ehh? You there—yes, you. Come closer. I have a task, and before you ask, no, I cannot do it myself, because the last time I walked that road my knees argued with me for three full days. Listen carefully, because this matters.
+
+Take this satchel to Bramblewatch Hollow, speak to Warden Elira, and make certain she receives it before sunset. On the way, keep to the old stone path, avoid the shallow marsh to the east, and do not, under any circumstances, answer if something in the fog calls your name. It may sound like a friend. It will not be a friend.
+
+Now then, there are three things you must remember. First, the bridge near the hollow looks sturdy, but the center planks are rotten. Second, the crows nesting in the watchtower startle easily, and when they scatter, the bandits nearby take it as a warning. Third—and this is the part people forget—if you find a silver lantern hanging from a branch, leave it where it is and walk the other way.
+
+Years ago, before the road fell quiet, caravans used to pass through Bramblewatch every week. Traders, pilgrims, mercenaries, storytellers—always too loud, always in a hurry, always certain the woods were only woods. Then the disappearances began, and the village learned to keep its fires low and its doors barred after dusk. Some say the land remembers old grief. Some say it is only smugglers and superstition. Me? I say a wise traveler respects both.
+
+So go quickly, keep your wits about you, and return by the main road if you value your skin. And if Warden Elira offers you tea, be polite and decline. Her tea is strong enough to wake the dead, and we have enough restless things wandering about already." };
         _previewButton = Btn("Preview", 90); _previewButton.Click += PreviewButton_Click;
         _stopPreviewButton = Btn("Stop", 80); _stopPreviewButton.Click += StopPreviewButton_Click; _stopPreviewButton.IsEnabled = false;
         var saveBtn    = Btn("Save & Close", 120); saveBtn.Click += (_, _) => { _saved = true; Close(_workingProfile.Clone()); };

@@ -7,40 +7,19 @@
 // it under the terms of the GNU General Public License as published by
 // the Free Software Foundation, either version 3 of the License, or
 // (at your option) any later version.
-//
-// RuneReaderVoice is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-// GNU General Public License for more details.
-//
-// You should have received a copy of the GNU General Public License
-// along with RuneReaderVoice. If not, see <https://www.gnu.org/licenses/>.
-
-// TextSplitter.cs
-// Splits NPC dialog text into natural speech segments for Kokoro TTS.
-//
-// Split strategy:
-//   Hard line breaks (\r, \n, \r\n): split boundary.
-//   Paragraph breaks (blank lines):   split boundary.
-//   Colons (:):                       punctuation stays with LEFT chunk.
-//
-// Example:
-//   "Commander\r\nAnduin Lothar: A man who would flop like a fish."
-//   → ["Commander", "Anduin Lothar:", "A man who would flop like a fish."]
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
+using System.Text;
 using System.Text.RegularExpressions;
 
 namespace RuneReaderVoice.TTS.Providers;
 
 public static class TextSplitter
 {
-    // Minimum word count for a standalone fragment.
-    // Fragments shorter than this are merged forward into the next chunk.
     public const int MinFragmentWords = 3;
 
-    // Abbreviations whose trailing period must NOT trigger a sentence split.
     private static readonly HashSet<string> Abbreviations = new(StringComparer.OrdinalIgnoreCase)
     {
         "mr", "mrs", "ms", "dr", "prof", "sr", "jr", "rev", "gen", "sgt",
@@ -49,104 +28,146 @@ public static class TextSplitter
         "est", "govt", "inc", "corp", "ltd", "vol", "no", "fig",
     };
 
-    /// <summary>
-    /// Splits <paramref name="text"/> into speech segments suitable for
-    /// individual Kokoro inference jobs.
-    ///
-    /// Returns at least one element. If no split points are found the
-    /// original text is returned as a single-element list.
-    /// </summary>
     public static List<string> Split(string text)
     {
         if (string.IsNullOrWhiteSpace(text))
             return new List<string> { text };
 
-        text = text.Trim();
-        var raw = SplitRaw(text);
-        var merged = MergeShortFragments(raw);
-        return merged;
+        return TextChunkingPolicy.BuildChunks(text, "generic", null, true).Select(c => c.Text).ToList();
     }
 
-    // ── Raw split ─────────────────────────────────────────────────────────────
+    public static string NormalizeLineEndings(string text)
+        => string.IsNullOrEmpty(text) ? text : text.Replace("\r\n", "\n").Replace('\r', '\n');
 
-    private static List<string> SplitRaw(string text)
+    public static List<string> SplitParagraphs(string text)
     {
-        var segments = new List<string>();
-        var current  = new System.Text.StringBuilder();
+        var normalized = NormalizeLineEndings(text);
+        return Regex.Split(normalized, @"\n\s*\n+")
+            .Select(s => s.Trim())
+            .Where(s => s.Length > 0)
+            .ToList();
+    }
 
-        int i = 0;
-        while (i < text.Length)
+    public static List<string> SplitSingleLines(string text)
+    {
+        var normalized = NormalizeLineEndings(text);
+        return normalized.Split('\n', StringSplitOptions.TrimEntries)
+            .Select(s => s.Trim())
+            .Where(s => s.Length > 0)
+            .ToList();
+    }
+
+    public static List<string> SplitSentences(string text)
+    {
+        var input = text.Trim();
+        if (input.Length == 0) return new List<string>();
+
+        var parts = new List<string>();
+        var current = new StringBuilder();
+        for (int i = 0; i < input.Length; i++)
         {
-            char c = text[i];
-
-            // ── Hard line breaks (\r, \n, \r\n) ──────────────────────────
-            if (c == '\r')
-            {
-                FlushIfNonEmpty(current, segments);
-                i++;
-                if (i < text.Length && text[i] == '\n')
-                    i++;
-                continue;
-            }
-
-            if (c == '\n')
-            {
-                FlushIfNonEmpty(current, segments);
-                i++;
-                continue;
-            }
-
-            // ── Colon boundary — punctuation stays with LEFT segment ─────
-            if (c == ':')
-            {
-                current.Append(c);
-                FlushIfNonEmpty(current, segments);
-                i++;
-                while (i < text.Length && text[i] == ' ')
-                    i++;
-                continue;
-            }
-
+            char c = input[i];
             current.Append(c);
-            i++;
+
+            if (c is '.' or '!' or '?' || c == '…')
+            {
+                var token = GetTokenBeforeBoundary(current.ToString());
+                if (c == '.' && IsAbbreviation(token))
+                    continue;
+
+                int j = i + 1;
+                while (j < input.Length && char.IsWhiteSpace(input[j]))
+                    j++;
+                while (j < input.Length && (input[j] == '"' || input[j] == '\'' || input[j] == ')' || input[j] == ']'))
+                {
+                    current.Append(input[j]);
+                    j++;
+                }
+
+                var piece = current.ToString().Trim();
+                if (piece.Length > 0) parts.Add(piece);
+                current.Clear();
+                i = j - 1;
+            }
         }
 
-        // Flush any trailing text
-        FlushIfNonEmpty(current, segments);
-
-        return segments.Count > 0 ? segments : new List<string> { text };
+        var tail = current.ToString().Trim();
+        if (tail.Length > 0) parts.Add(tail);
+        return parts.Count > 0 ? parts : new List<string> { input };
     }
 
-    // ── Merge short fragments ─────────────────────────────────────────────────
-
-    /// <summary>
-    /// Any fragment with fewer than <see cref="MinFragmentWords"/> words is
-    /// merged into its neighbour. Prefer merging forward (into the next
-    /// segment); if it's the last segment, merge backward.
-    /// </summary>
-    private static List<string> MergeShortFragments(List<string> segments)
+    public static List<string> SplitClauses(string text)
     {
-        return segments;
+        return SplitOnPunctuation(text, new[] { ';', ':' });
     }
 
-    // ── Helpers ───────────────────────────────────────────────────────────────
-
-    private static void FlushIfNonEmpty(System.Text.StringBuilder sb, List<string> dest)
+    public static List<string> SplitCommas(string text)
     {
-        var s = sb.ToString().Trim();
-        if (s.Length > 0) dest.Add(s);
-        sb.Clear();
+        return SplitOnPunctuation(text, new[] { ',' });
     }
 
-    private static int WordCount(string s)
+    public static List<string> SplitByLength(string text, int targetChars, int hardCapChars)
+    {
+        var result = new List<string>();
+        var remaining = text.Trim();
+        while (remaining.Length > hardCapChars)
+        {
+            int cut = FindWhitespaceCut(remaining, targetChars, hardCapChars);
+            result.Add(remaining[..cut].Trim());
+            remaining = remaining[cut..].Trim();
+        }
+        if (remaining.Length > 0)
+            result.Add(remaining);
+        return result;
+    }
+
+    public static int WordCount(string s)
     {
         bool inWord = false;
-        int count   = 0;
+        int count = 0;
         foreach (char c in s)
         {
-            if (char.IsWhiteSpace(c)) { inWord = false; }
-            else if (!inWord)         { inWord = true; count++; }
+            if (char.IsWhiteSpace(c)) inWord = false;
+            else if (!inWord) { inWord = true; count++; }
         }
         return count;
+    }
+
+    private static List<string> SplitOnPunctuation(string text, char[] separators)
+    {
+        var parts = new List<string>();
+        var current = new StringBuilder();
+        foreach (char c in text)
+        {
+            current.Append(c);
+            if (separators.Contains(c))
+            {
+                var piece = current.ToString().Trim();
+                if (piece.Length > 0) parts.Add(piece);
+                current.Clear();
+            }
+        }
+        var tail = current.ToString().Trim();
+        if (tail.Length > 0) parts.Add(tail);
+        return parts.Count > 1 ? parts : new List<string> { text.Trim() };
+    }
+
+    private static string GetTokenBeforeBoundary(string text)
+    {
+        var token = Regex.Match(text, @"([A-Za-z\.]+)[\.!\?…]+\s*$");
+        return token.Success ? token.Groups[1].Value.Trim('.').ToLowerInvariant() : string.Empty;
+    }
+
+    private static bool IsAbbreviation(string token)
+        => !string.IsNullOrWhiteSpace(token) && Abbreviations.Contains(token);
+
+    private static int FindWhitespaceCut(string text, int targetChars, int hardCapChars)
+    {
+        int start = Math.Min(targetChars, text.Length - 1);
+        for (int i = start; i < Math.Min(hardCapChars, text.Length); i++)
+            if (char.IsWhiteSpace(text[i])) return i;
+        for (int i = start; i >= Math.Max(1, targetChars / 2); i--)
+            if (char.IsWhiteSpace(text[i])) return i;
+        return Math.Min(hardCapChars, text.Length);
     }
 }

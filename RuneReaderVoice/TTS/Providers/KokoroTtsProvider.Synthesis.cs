@@ -48,8 +48,7 @@ public sealed partial class KokoroTtsProvider
         // DisableChunking on the VoiceProfile takes per-slot precedence.
         // The provider-level EnablePhraseChunking is a global fallback for providers
         // that don't have per-slot profiles yet (e.g. WinRt).
-        bool doChunk = EnablePhraseChunking && !profile.DisableChunking;
-        var phrases = doChunk ? TextSplitter.Split(text) : new List<string> { text };
+        var phrases = TextChunkingPolicy.GetChunkTexts(text, ProviderId, profile, EnablePhraseChunking && !profile.DisableChunking);
         int count = phrases.Count;
         var channel = Channel.CreateBounded<(int index, float[] pcm)>(count);
 
@@ -127,7 +126,7 @@ public sealed partial class KokoroTtsProvider
 
     private float[] InferAllPhrases(string text, KokoroVoice voice, VoiceProfile profile)
     {
-        var phrases = TextSplitter.Split(text);
+        var phrases = TextChunkingPolicy.GetChunkTexts(text, ProviderId, profile, EnablePhraseChunking && !profile.DisableChunking);
         var allSegments = new List<int[]>();
 
         foreach (var phrase in phrases)

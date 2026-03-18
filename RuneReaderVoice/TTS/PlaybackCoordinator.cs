@@ -296,12 +296,13 @@ public sealed class PlaybackCoordinator : IDisposable
         System.Diagnostics.Stopwatch sw,
         [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken ct)
     {
+        var chunkTexts = TextChunkingPolicy.GetChunkTexts(segment.Text, _provider, profile, AppServices.Settings);
         await foreach (var (audio, phraseIndex, phraseCount) in
             _provider.SynthesizePhraseStreamAsync(segment.Text, segment.Slot, _tempDirectory, ct))
         {
             if (phraseIndex == 0) { sw.Stop(); LastSynthesisLatency = sw.Elapsed; }
 
-            var phraseText = GetPhraseText(segment.Text, phraseIndex, phraseCount);
+            var phraseText = GetPhraseText(segment.Text, phraseIndex, phraseCount, chunkTexts);
             await _cache.StoreAsync(
                 audio, phraseText, voiceId, _provider.ProviderId, "", ct);
 
@@ -315,10 +316,9 @@ public sealed class PlaybackCoordinator : IDisposable
     /// Falls back to the full text if splitting produces a different count than expected
     /// (e.g. provider stub returned phraseCount=1).
     /// </summary>
-    private static string GetPhraseText(string fullText, int index, int phraseCount)
+    private static string GetPhraseText(string fullText, int index, int phraseCount, IReadOnlyList<string> phrases)
     {
         if (phraseCount == 1) return fullText;
-        var phrases = TextSplitter.Split(fullText);
         return index < phrases.Count ? phrases[index] : fullText;
     }
 

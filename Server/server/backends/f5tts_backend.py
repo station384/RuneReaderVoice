@@ -44,6 +44,7 @@ class F5TtsBackend(AbstractTtsBackend):
         self._torch_device  = torch_device
         self._model         = None
         self._model_version = ""
+        self._infer_lock    = asyncio.Lock()
 
     # ── Identity ──────────────────────────────────────────────────────────────
 
@@ -155,7 +156,8 @@ class F5TtsBackend(AbstractTtsBackend):
             raise ValueError("F5-TTS does not support voice blending.")
 
         loop = asyncio.get_event_loop()
-        ogg_bytes = await loop.run_in_executor(None, self._synthesize_sync, request)
+        async with self._infer_lock:
+            ogg_bytes = await loop.run_in_executor(None, self._synthesize_sync, request)
         duration = _estimate_duration(ogg_bytes)
         return SynthesisResult(ogg_bytes=ogg_bytes, duration_sec=duration)
 

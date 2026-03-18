@@ -5,6 +5,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using NVorbis;
+using OggVorbisEncoder;
 using RuneReaderVoice.Protocol;
 
 namespace RuneReaderVoice.TTS.Providers;
@@ -35,7 +36,23 @@ public sealed class RemoteTtsProvider : ITtsProvider
         string tempDirectory,
         [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken ct)
     {
-        yield return (await SynthesizeAsync(text, slot, ct), 0, 1);
+        var profile = ResolveProfile(slot) ?? VoiceProfileDefaults.Create(string.Empty);
+        var phrases = TextChunkingPolicy.GetChunkTexts(text, ProviderId, profile, _settings.EnablePhraseChunking && !profile.DisableChunking);
+        int count = phrases.Count;
+        if (count <= 1)
+        {
+            yield return (await SynthesizeAsync(text, slot, ct), 0, 1);
+            yield break;
+        }
+
+        var results = await RunLimitedAsync(
+            phrases.Select((phrase, index) => (phrase, index)),
+            2,
+            item => SynthesizeChunkAsync(item.phrase, slot, item.index, ct),
+            ct);
+
+        foreach (var result in results.OrderBy(r => r.index))
+            yield return (result.audio, result.index, count);
     }
 
     public async Task<PcmAudio> SynthesizeAsync(string text, VoiceSlot slot, CancellationToken ct)
@@ -50,10 +67,28 @@ public sealed class RemoteTtsProvider : ITtsProvider
             throw new InvalidOperationException("Remote provider id is missing.");
 
         var profile = ResolveProfile(slot) ?? VoiceProfileDefaults.Create(string.Empty);
+        var chunkingEnabled = _settings.EnablePhraseChunking && !profile.DisableChunking;
+        var phrases = TextChunkingPolicy.GetChunkTexts(text, ProviderId, profile, chunkingEnabled);
+
+        if (phrases.Count <= 1)
+            return await SynthesizeOggCoreAsync(text, slot, profile, ct);
+
+        var oggChunks = await RunLimitedAsync(phrases, 2, phrase => SynthesizeOggCoreAsync(phrase, slot, profile, ct), ct);
+
+        var pcmChunks = new List<PcmAudio>(oggChunks.Length);
+        foreach (var ogg in oggChunks)
+            pcmChunks.Add(await DecodeOggAsync(ogg, ct));
+
+        var combined = ConcatenatePcm(pcmChunks);
+        return await EncodeOggAsync(combined, ct);
+    }
+
+    private async Task<byte[]> SynthesizeOggCoreAsync(string text, VoiceSlot slot, VoiceProfile profile, CancellationToken ct)
+    {
         var voiceSpec = BuildVoiceSpec(profile);
         var request = new RemoteSynthesizeRequest
         {
-            ProviderId = _descriptor.RemoteProviderId,
+            ProviderId = _descriptor.RemoteProviderId!,
             Text = text,
             Voice = voiceSpec,
             LangCode = string.IsNullOrWhiteSpace(profile.LangCode) ? "en" : profile.LangCode,
@@ -63,6 +98,13 @@ public sealed class RemoteTtsProvider : ITtsProvider
         };
 
         return await _client.SynthesizeAsync(request, ct);
+    }
+
+    private async Task<(PcmAudio audio, int index)> SynthesizeChunkAsync(string text, VoiceSlot slot, int index, CancellationToken ct)
+    {
+        var oggBytes = await SynthesizeOggAsync(text, slot, ct);
+        var audio = await DecodeOggAsync(oggBytes, ct);
+        return (audio, index);
     }
 
     public string ResolveVoiceId(VoiceSlot slot)
@@ -101,6 +143,29 @@ public sealed class RemoteTtsProvider : ITtsProvider
 
     public void Dispose()
     {
+    }
+
+    private static async Task<T[]> RunLimitedAsync<TIn, T>(
+        IEnumerable<TIn> items,
+        int maxConcurrency,
+        Func<TIn, Task<T>> work,
+        CancellationToken ct)
+    {
+        using var semaphore = new SemaphoreSlim(Math.Max(1, maxConcurrency));
+        var tasks = items.Select(async item =>
+        {
+            await semaphore.WaitAsync(ct).ConfigureAwait(false);
+            try
+            {
+                return await work(item).ConfigureAwait(false);
+            }
+            finally
+            {
+                semaphore.Release();
+            }
+        }).ToArray();
+
+        return await Task.WhenAll(tasks).ConfigureAwait(false);
     }
 
 
@@ -307,6 +372,124 @@ public sealed class RemoteTtsProvider : ITtsProvider
         }
 
         return result;
+    }
+
+    private static PcmAudio ConcatenatePcm(IReadOnlyList<PcmAudio> chunks)
+    {
+        if (chunks.Count == 0)
+            return new PcmAudio(Array.Empty<float>(), 24000, 1);
+
+        var first = chunks[0];
+        int sampleRate = first.SampleRate;
+        int channels = first.Channels;
+
+        if (chunks.Any(c => c.SampleRate != sampleRate || c.Channels != channels))
+            throw new InvalidOperationException("Remote chunk synthesis returned incompatible audio formats.");
+
+        int totalSamples = chunks.Sum(c => c.Samples.Length);
+        var merged = new float[totalSamples];
+        int offset = 0;
+        foreach (var chunk in chunks)
+        {
+            Array.Copy(chunk.Samples, 0, merged, offset, chunk.Samples.Length);
+            offset += chunk.Samples.Length;
+        }
+
+        return new PcmAudio(merged, sampleRate, channels);
+    }
+
+    private static async Task<byte[]> EncodeOggAsync(PcmAudio audio, CancellationToken ct)
+    {
+        return await Task.Run(() =>
+        {
+            int channels = Math.Max(1, audio.Channels);
+            int sampleRate = audio.SampleRate;
+            float quality = 0.8f;
+
+            var info = VorbisInfo.InitVariableBitRate(channels, sampleRate, quality);
+            var comments = new Comments();
+            comments.AddTag("ENCODER", "RuneReaderVoice");
+
+            var oggStream = new OggStream(new Random().Next());
+            oggStream.PacketIn(HeaderPacketBuilder.BuildInfoPacket(info));
+            oggStream.PacketIn(HeaderPacketBuilder.BuildCommentsPacket(comments));
+            oggStream.PacketIn(HeaderPacketBuilder.BuildBooksPacket(info));
+
+            using var ms = new MemoryStream();
+            var processingState = ProcessingState.Create(info);
+
+            while (oggStream.PageOut(out OggPage page, true))
+            {
+                ms.Write(page.Header, 0, page.Header.Length);
+                ms.Write(page.Body, 0, page.Body.Length);
+            }
+
+            var pcmChannels = Deinterleave(audio);
+            const int chunkSize = 1024;
+            int total = pcmChannels[0].Length;
+            int offset = 0;
+            while (offset < total)
+            {
+                ct.ThrowIfCancellationRequested();
+                int count = Math.Min(chunkSize, total - offset);
+                var chunk = new float[channels][];
+                for (int c = 0; c < channels; c++)
+                {
+                    chunk[c] = new float[count];
+                    Array.Copy(pcmChannels[c], offset, chunk[c], 0, count);
+                }
+
+                processingState.WriteData(chunk, count);
+                offset += count;
+
+                while (processingState.PacketOut(out OggPacket packet))
+                {
+                    oggStream.PacketIn(packet);
+                    while (oggStream.PageOut(out OggPage page, false))
+                    {
+                        ms.Write(page.Header, 0, page.Header.Length);
+                        ms.Write(page.Body, 0, page.Body.Length);
+                    }
+                }
+            }
+
+            processingState.WriteEndOfStream();
+            while (processingState.PacketOut(out OggPacket packet))
+            {
+                oggStream.PacketIn(packet);
+                while (oggStream.PageOut(out OggPage page, true))
+                {
+                    ms.Write(page.Header, 0, page.Header.Length);
+                    ms.Write(page.Body, 0, page.Body.Length);
+                }
+            }
+
+            return ms.ToArray();
+        }, ct);
+    }
+
+    private static float[][] Deinterleave(PcmAudio audio)
+    {
+        int channels = Math.Max(1, audio.Channels);
+        if (audio.Samples.Length == 0)
+        {
+            var empty = new float[channels][];
+            for (int c = 0; c < channels; c++) empty[c] = Array.Empty<float>();
+            return empty;
+        }
+
+        int sampleCount = audio.Samples.Length / channels;
+        var channelArrays = new float[channels][];
+        for (int c = 0; c < channels; c++)
+            channelArrays[c] = new float[sampleCount];
+
+        for (int i = 0; i < sampleCount; i++)
+        {
+            for (int c = 0; c < channels; c++)
+                channelArrays[c][i] = audio.Samples[(i * channels) + c];
+        }
+
+        return channelArrays;
     }
 
     private static async Task<PcmAudio> DecodeOggAsync(byte[] oggBytes, CancellationToken ct)

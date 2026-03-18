@@ -23,7 +23,7 @@ public sealed class RemoteTtsClient
         _baseUrl = (baseUrl ?? string.Empty).Trim().TrimEnd('/');
         _apiKey = apiKey ?? string.Empty;
         _httpClient = new HttpClient();
-        _httpClient.Timeout = TimeSpan.FromSeconds(120);
+        _httpClient.Timeout = TimeSpan.FromSeconds(300);
         if (!string.IsNullOrWhiteSpace(_apiKey))
             _httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", _apiKey);
     }

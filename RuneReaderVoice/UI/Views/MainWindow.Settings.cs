@@ -99,10 +99,6 @@ public partial class MainWindow
     {
         var enabled = PhraseChunking.IsChecked == true;
         AppServices.Settings.EnablePhraseChunking = enabled;
-
-        if (AppServices.Provider is KokoroTtsProvider kokoro)
-            kokoro.EnablePhraseChunking = enabled;
-
         VoiceSettingsManager.SaveSettings(AppServices.Settings);
     }
 
