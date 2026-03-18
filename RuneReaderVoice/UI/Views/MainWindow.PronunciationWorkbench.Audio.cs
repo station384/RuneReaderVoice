@@ -13,31 +13,51 @@ public partial class MainWindow
     {
         var voiceId = AppServices.Provider.ResolveVoiceId(slot);
         var profile = AppServices.Provider.ResolveProfile(slot);
-        var dspKey  = profile?.Dsp?.BuildCacheKey() ?? "";
-
-        // Cache stores DSP-processed audio — play directly on hit, no second pass.
         var cachedAudio = await AppServices.Cache.TryGetDecodedAsync(
             text,
             voiceId,
             AppServices.Provider.ProviderId,
-            dspKey,
+            "",
             default);
 
         if (cachedAudio != null)
-            return cachedAudio;
+            return DspFilterChain.Apply(cachedAudio, profile?.Dsp);
+
+        if (AppServices.Provider is RemoteTtsProvider remote)
+        {
+            var oggBytes = await remote.SynthesizeOggAsync(text, slot, default);
+            await AppServices.Cache.StoreOggAsync(
+                oggBytes,
+                text,
+                voiceId,
+                AppServices.Provider.ProviderId,
+                "",
+                default);
+
+            var decoded = await AppServices.Cache.TryGetDecodedAsync(
+                text,
+                voiceId,
+                AppServices.Provider.ProviderId,
+                "",
+                default);
+
+            if (decoded == null)
+                throw new InvalidOperationException("Remote audio was cached but could not be decoded.");
+
+            return DspFilterChain.Apply(decoded, profile?.Dsp);
+        }
 
         var rawAudio = await AppServices.Provider.SynthesizeAsync(text, slot, default);
-        var audio    = DspFilterChain.Apply(rawAudio, profile?.Dsp);
 
         await AppServices.Cache.StoreAsync(
-            audio,
+            rawAudio,
             text,
             voiceId,
             AppServices.Provider.ProviderId,
-            dspKey,
+            "",
             default);
 
-        return audio;
+        return DspFilterChain.Apply(rawAudio, profile?.Dsp);
     }
 
     private async Task SpeakWorkbenchTextAsync(string text)

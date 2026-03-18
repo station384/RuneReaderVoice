@@ -82,22 +82,8 @@ public partial class MainWindow : Window
             DiagDialog.Text    = $"0x{seg.DialogId:X4}";
         });
 
-        // Wire Kokoro model download feedback if that provider is active
-        if (AppServices.Provider is KokoroTtsProvider kokoro)
-        {
-            kokoro.OnModelDownloading += msg => Dispatcher.UIThread.Post(() =>
-            {
-                StatusBadge.Text       = "●  Kokoro: downloading model…";
-                StatusBadge.Foreground = Avalonia.Media.Brushes.Orange;
-                SessionStatus.Text     = msg;
-            });
-            kokoro.OnModelReady += () => Dispatcher.UIThread.Post(() =>
-            {
-                StatusBadge.Text       = "●  Kokoro: ready";
-                StatusBadge.Foreground = Avalonia.Media.Brushes.LightGreen;
-                SessionStatus.Text     = "Model loaded — ready to speak";
-            });
-        }
+        HookProviderStatusCallbacks(AppServices.Provider);
+        AppServices.OperationStatusChanged += OnOperationStatusChanged;
 
         // Restore saved window position
         var s = AppServices.Settings;
@@ -131,10 +117,11 @@ public partial class MainWindow : Window
 
         // Playback state
         bool playing = AppServices.Player.IsPlaying;
-        PlaybackStatus.Text       = playing ? "Playing" : "Idle";
-        PlaybackStatus.Foreground = playing
-            ? Avalonia.Media.Brushes.LightSkyBlue
-            : Avalonia.Media.SolidColorBrush.Parse("#4ECDC4");
+        var op = AppServices.OperationStatus;
+        PlaybackStatus.Text       = !string.IsNullOrWhiteSpace(op) ? op : (playing ? "Playing" : "Idle");
+        PlaybackStatus.Foreground = !string.IsNullOrWhiteSpace(op)
+            ? Avalonia.Media.Brushes.Gold
+            : (playing ? Avalonia.Media.Brushes.LightSkyBlue : Avalonia.Media.SolidColorBrush.Parse("#4ECDC4"));
 
         // Cache stats
         var cache = AppServices.Cache;
@@ -155,6 +142,20 @@ public partial class MainWindow : Window
 
         CacheStatsLabel.Text =
             $"Cache: {cache.EntryCount} entries, {cache.TotalSizeBytes / 1024 / 1024} MB";
+    }
+
+
+    private void OnOperationStatusChanged(string status)
+    {
+        Dispatcher.UIThread.Post(() =>
+        {
+            PlaybackStatus.Text = string.IsNullOrWhiteSpace(status)
+                ? (AppServices.Player.IsPlaying ? "Playing" : "Idle")
+                : status;
+            PlaybackStatus.Foreground = string.IsNullOrWhiteSpace(status)
+                ? (AppServices.Player.IsPlaying ? Avalonia.Media.Brushes.LightSkyBlue : Avalonia.Media.SolidColorBrush.Parse("#4ECDC4"))
+                : Avalonia.Media.Brushes.Gold;
+        });
     }
 
     // ── Start / Stop ──────────────────────────────────────────────────────────
@@ -208,6 +209,9 @@ public partial class MainWindow : Window
         PhraseChunking.IsChecked = s.EnablePhraseChunking;
         PiperBinaryPath.Text     = s.PiperBinaryPath;
         PiperModelDir.Text       = s.PiperModelDirectory;
+        RemoteServerUrl.Text     = s.RemoteServerUrl;
+        RemoteApiKey.Text        = s.RemoteApiKey;
+        UpdateRemoteProvidersStatus();
 
         var playbackMatch = PlaybackModeSelector.Items
             .OfType<ComboBoxItem>()
@@ -299,23 +303,31 @@ public partial class MainWindow : Window
     {
         ProviderSelector.Items.Clear();
 
-#if WINDOWS
-        ProviderSelector.Items.Add(new ComboBoxItem { Content = "Windows Speech (WinRT)", Tag = "winrt" });
-#elif LINUX
-        ProviderSelector.Items.Add(new ComboBoxItem { Content = "Piper (Local ONNX)", Tag = "piper" });
-#endif
-        ProviderSelector.Items.Add(new ComboBoxItem { Content = "Kokoro (Local ONNX)", Tag = "kokoro" });
-        ProviderSelector.Items.Add(new ComboBoxItem { Content = "Cloud TTS — coming soon", Tag = "cloud" });
+        foreach (var descriptor in AppServices.ProviderRegistry.All())
+        {
+            ProviderSelector.Items.Add(new ComboBoxItem
+            {
+                Content = descriptor.DisplayName,
+                Tag = descriptor.ClientProviderId,
+            });
+        }
 
-        // Restore saved selection
         var saved = AppServices.Settings.ActiveProvider;
         var match = ProviderSelector.Items
             .OfType<ComboBoxItem>()
             .FirstOrDefault(i => i.Tag?.ToString() == saved);
         if (match != null)
             ProviderSelector.SelectedItem = match;
-        else
+        else if (ProviderSelector.Items.Count > 0)
             ProviderSelector.SelectedIndex = 0;
+    }
+
+    private void UpdateRemoteProvidersStatus()
+    {
+        var remoteCount = AppServices.ProviderRegistry.All().Count(p => p.TransportKind == ProviderTransportKind.Remote);
+        RemoteProvidersStatus.Text = remoteCount > 0
+            ? $"Loaded {remoteCount} remote provider(s)."
+            : "Remote providers not loaded.";
     }
 
     private void PopulateVolumeTrimGrid()

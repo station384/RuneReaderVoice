@@ -142,6 +142,51 @@ public sealed partial class TtsAudioCache
         }
     }
 
+
+    /// <summary>
+    /// Stores already-encoded OGG bytes in the cache without re-encoding.
+    /// Used by remote providers so the exact server artifact is preserved.
+    /// </summary>
+    public async Task<string> StoreOggAsync(
+        byte[] oggBytes, string text, string voiceId, string providerId, string dspKey,
+        CancellationToken ct)
+    {
+        var key     = ComputeKey(text, voiceId, providerId, dspKey);
+        var keyLock = GetKeyLock(key);
+
+        await keyLock.WaitAsync(ct);
+        try
+        {
+            var existing = await TryGetAsync(text, voiceId, providerId, dspKey);
+            if (existing != null && existing.EndsWith(".ogg", StringComparison.OrdinalIgnoreCase))
+                return existing;
+
+            var cachedOggPath = Path.Combine(_cacheDirectory, key + ".ogg");
+            await File.WriteAllBytesAsync(cachedOggPath, oggBytes, ct);
+
+            var fi = new FileInfo(cachedOggPath);
+            var row = new AudioCacheManifestRow
+            {
+                Key                  = key,
+                FileName             = Path.GetFileName(cachedOggPath),
+                FileSizeBytes        = fi.Length,
+                LastAccessedUtcTicks = DateTime.UtcNow.Ticks,
+                IsCompressed         = true,
+            };
+
+            await _db.Connection.InsertOrReplaceAsync(row);
+            TotalSizeBytes += fi.Length;
+            EntryCount++;
+
+            _ = EvictToSizeLimitAsync();
+            return cachedOggPath;
+        }
+        finally
+        {
+            keyLock.Release();
+        }
+    }
+
     /// <summary>Deletes all cache files and clears the DB manifest table.</summary>
     public async Task ClearAsync(CancellationToken ct = default)
     {

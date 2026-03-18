@@ -1,3 +1,4 @@
+using System;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Interactivity;
@@ -26,6 +27,43 @@ public partial class MainWindow
         SwapActiveProvider();
     }
 
+
+    private void OnRemoteServerUrlChanged(object? sender, TextChangedEventArgs e)
+    {
+        AppServices.Settings.RemoteServerUrl = RemoteServerUrl.Text ?? string.Empty;
+        VoiceSettingsManager.SaveSettings(AppServices.Settings);
+    }
+
+    private void OnRemoteApiKeyChanged(object? sender, TextChangedEventArgs e)
+    {
+        AppServices.Settings.RemoteApiKey = RemoteApiKey.Text ?? string.Empty;
+        VoiceSettingsManager.SaveSettings(AppServices.Settings);
+    }
+
+    private async void OnRefreshRemoteProvidersClicked(object? sender, RoutedEventArgs e)
+    {
+        RemoteRefreshProvidersButton.IsEnabled = false;
+        try
+        {
+            var client = new RemoteTtsClient(AppServices.Settings.RemoteServerUrl, AppServices.Settings.RemoteApiKey);
+            var providers = await client.GetProvidersAsync(default);
+            AppServices.Settings.RemoteProviderCatalogJson = RemoteProviderCatalog.Serialize(providers);
+            VoiceSettingsManager.SaveSettings(AppServices.Settings);
+            AppServices.ProviderRegistry = TtsProviderFactory.BuildRegistry(AppServices.Settings);
+            PopulateProviderSelector();
+            UpdateRemoteProvidersStatus();
+            SessionStatus.Text = $"Loaded {providers.Count} remote provider(s).";
+        }
+        catch (Exception ex)
+        {
+            RemoteProvidersStatus.Text = "Remote refresh failed.";
+            SessionStatus.Text = $"Remote provider refresh failed: {ex.Message}";
+        }
+        finally
+        {
+            RemoteRefreshProvidersButton.IsEnabled = true;
+        }
+    }
     private void OnVolumeChanged(object? sender, RangeBaseValueChangedEventArgs e)
     {
         var volume = (float)(e.NewValue / 100.0);
@@ -171,44 +209,25 @@ public partial class MainWindow
         if (oldProvider is System.IDisposable disposable)
             disposable.Dispose();
 
-        ITtsProvider newProvider = AppServices.Settings.ActiveProvider switch
+        var descriptor = AppServices.ProviderRegistry.Get(AppServices.Settings.ActiveProvider);
+        if (descriptor == null)
         {
-#if WINDOWS
-            "winrt" => new WinRtTtsProvider(),
-#elif LINUX
-            "piper" => new LinuxPiperTtsProvider(
-                AppServices.Settings.PiperBinaryPath,
-                AppServices.Settings.PiperModelDirectory),
-#endif
-            "kokoro" => new KokoroTtsProvider(),
-            "cloud" => new NotImplementedTtsProvider("cloud", "Cloud TTS"),
-            _ => AppServices.Provider
-        };
-
-#if WINDOWS
-        if (newProvider is WinRtTtsProvider winRt)
-        {
-            foreach (var (key, profile) in AppServices.Settings.VoiceProfiles)
-                if (VoiceSlot.TryParse(key, out var slot))
-                    winRt.SetVoice(slot, profile.VoiceId);
+            SessionStatus.Text = $"Provider '{AppServices.Settings.ActiveProvider}' is not registered.";
+            return;
         }
-#elif LINUX
-        if (newProvider is LinuxPiperTtsProvider piper)
+
+        var newProvider = TtsProviderFactory.CreateProvider(AppServices.Settings, descriptor);
+        TtsProviderFactory.ApplyStoredProfiles(AppServices.Settings, newProvider);
+        HookProviderStatusCallbacks(newProvider);
+
+        AppServices.SwapProvider(newProvider);
+        PopulateVoiceGrid();
+    }
+
+    private void HookProviderStatusCallbacks(ITtsProvider provider)
+    {
+        if (provider is KokoroTtsProvider kokoro)
         {
-            foreach (var (key, profile) in AppServices.Settings.VoiceProfiles)
-                if (VoiceSlot.TryParse(key, out var slot))
-                    piper.SetModel(slot, profile.VoiceId);
-        }
-#endif
-
-        if (newProvider is KokoroTtsProvider kokoro)
-        {
-            foreach (var (key, profile) in AppServices.Settings.VoiceProfiles)
-                if (VoiceSlot.TryParse(key, out var slot))
-                    kokoro.SetVoiceProfile(slot, profile);
-
-            kokoro.EnablePhraseChunking = AppServices.Settings.EnablePhraseChunking;
-
             kokoro.OnModelDownloading += msg => Dispatcher.UIThread.Post(() =>
             {
                 StatusBadge.Text = "●  Kokoro: downloading model…";
@@ -222,9 +241,13 @@ public partial class MainWindow
                 StatusBadge.Foreground = Avalonia.Media.Brushes.LightGreen;
                 SessionStatus.Text = "Model loaded — ready to speak";
             });
+            return;
         }
 
-        AppServices.SwapProvider(newProvider);
-        PopulateVoiceGrid();
+        if (provider is RemoteTtsProvider)
+        {
+            StatusBadge.Text = "●  Remote provider";
+            StatusBadge.Foreground = Avalonia.Media.Brushes.LightSkyBlue;
+        }
     }
 }

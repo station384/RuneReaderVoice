@@ -20,6 +20,17 @@ namespace RuneReaderVoice;
 
 internal static class Program
 {
+    
+    private static IAudioPlayer CreateAudioPlayer()
+    {
+#if WINDOWS
+        return new WasapiStreamAudioPlayer();
+#elif LINUX
+    return new GstAudioPlayer();
+#else
+    throw new PlatformNotSupportedException("No audio player for this platform.");
+#endif
+    }
     [STAThread]
     public static async Task<int> Main(string[] args)
     {
@@ -29,44 +40,17 @@ internal static class Program
         // ── Platform services ────────────────────────────────────────────────
         var platform = VoicePlatformFactory.Create();
 
-        // ── TTS Provider ─────────────────────────────────────────────────────
-        ITtsProvider provider = settings.ActiveProvider switch
-        {
-    #if WINDOWS
-            "winrt"   => new WinRtTtsProvider(),
-    #elif LINUX
-            "piper"   => new LinuxPiperTtsProvider(
-                             settings.PiperBinaryPath,
-                             settings.PiperModelDirectory),
-    #endif
-            "kokoro"  => new KokoroTtsProvider(),
-            "cloud"   => new NotImplementedTtsProvider("cloud", "Cloud TTS"),
-            _         => CreateDefaultProvider(settings),
-        };
+        // ── Provider registry / TTS Provider ────────────────────────────────
+        var providerRegistry = TtsProviderFactory.BuildRegistry(settings);
+        var activeDescriptor = providerRegistry.Get(settings.ActiveProvider)
+                              ?? providerRegistry.All().FirstOrDefault()
+                              ?? throw new InvalidOperationException("No TTS providers are registered.");
 
-    #if WINDOWS
-        if (provider is WinRtTtsProvider winRtProvider)
-        {
-            foreach (var (key, profile) in settings.VoiceProfiles)
-                if (VoiceSlot.TryParse(key, out var slot))
-                    winRtProvider.SetVoice(slot, profile.VoiceId);
-        }
-    #elif LINUX
-        if (provider is LinuxPiperTtsProvider piperProvider)
-        {
-            foreach (var (key, profile) in settings.VoiceProfiles)
-                if (VoiceSlot.TryParse(key, out var slot))
-                    piperProvider.SetModel(slot, profile.VoiceId);
-        }
-    #endif
+        if (!providerRegistry.Contains(settings.ActiveProvider))
+            settings.ActiveProvider = activeDescriptor.ClientProviderId;
 
-        if (provider is KokoroTtsProvider kokoroProvider)
-        {
-            foreach (var (key, profile) in settings.VoiceProfiles)
-                if (VoiceSlot.TryParse(key, out var slot))
-                    kokoroProvider.SetVoiceProfile(slot, profile);
-            kokoroProvider.EnablePhraseChunking = settings.EnablePhraseChunking;
-        }
+        ITtsProvider provider = TtsProviderFactory.CreateProvider(settings, activeDescriptor);
+        TtsProviderFactory.ApplyStoredProfiles(settings, provider);
 
         // ── Unified SQLite DB ─────────────────────────────────────────────────
         var dbPath = Path.Combine(VoiceSettingsManager.GetConfigDirectory(), "runereader-voice.db");
@@ -181,7 +165,7 @@ internal static class Program
         AppServices.Initialize(
             settings, platform, provider, cache, player,
             assembler, coordinator, monitor, pronunciationProcessor, textSwapProcessor,
-            npcOverrides, db, pronunciationRules, textSwapRules);
+            npcOverrides, db, pronunciationRules, textSwapRules, providerRegistry);
 
         return AppBuilder
             .Configure<App>()
@@ -213,25 +197,4 @@ internal static class Program
         return new DialoguePronunciationProcessor(rules);
     }
 
-    private static ITtsProvider CreateDefaultProvider(VoiceUserSettings settings)
-    {
-    #if WINDOWS
-        return new WinRtTtsProvider();
-    #elif LINUX
-        return new LinuxPiperTtsProvider(settings.PiperBinaryPath, settings.PiperModelDirectory);
-    #else
-        return new NotImplementedTtsProvider("none", "No provider available");
-    #endif
-    }
-
-    private static IAudioPlayer CreateAudioPlayer()
-    {
-    #if WINDOWS
-        return new WasapiStreamAudioPlayer();
-    #elif LINUX
-        return new GstAudioPlayer();
-    #else
-        throw new PlatformNotSupportedException("No audio player for this platform.");
-    #endif
-    }
 }

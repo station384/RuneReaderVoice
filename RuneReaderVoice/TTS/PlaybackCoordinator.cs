@@ -221,9 +221,10 @@ public sealed class PlaybackCoordinator : IDisposable
             {
                 await SynthesizeAndPlayAsync(segment, ct);
             }
-            catch (OperationCanceledException) { break; }
+            catch (OperationCanceledException) { AppServices.ClearOperationStatus(); break; }
             catch (Exception ex)
             {
+                AppServices.ClearOperationStatus();
                 System.Diagnostics.Debug.WriteLine(
                     $"[PlaybackCoordinator] Error playing segment: {ex.Message}");
             }
@@ -240,15 +241,33 @@ public sealed class PlaybackCoordinator : IDisposable
 
         var voiceId = _provider.ResolveVoiceId(segment.Slot);
         var profile = _provider.ResolveProfile(segment.Slot);
-        var dspKey  = profile?.Dsp?.BuildCacheKey() ?? "";
-
-        // ── Cache hit: entire segment is already encoded ──────────────────────
-        // Cache stores DSP-processed audio — play directly, no second DSP pass.
-        var cachedAudio = await _cache.TryGetDecodedAsync(segment.Text, voiceId, _provider.ProviderId, dspKey, ct);
+        // Cache stores raw synthesized audio only. DSP is always applied live after decode.
+        var cachedAudio = await _cache.TryGetDecodedAsync(segment.Text, voiceId, _provider.ProviderId, "", ct);
         if (cachedAudio != null)
         {
             ct.ThrowIfCancellationRequested();
-            await _player.PlayAsync(cachedAudio, ct);
+            AppServices.SetOperationStatus("Playing cached audio…");
+            var processedCached = DspFilterChain.Apply(cachedAudio, profile?.Dsp);
+            await _player.PlayAsync(processedCached, ct);
+            AppServices.ClearOperationStatus();
+            return;
+        }
+
+        if (_provider is RemoteTtsProvider remoteProvider)
+        {
+            AppServices.SetOperationStatus("Requesting audio from server…");
+            var oggBytes = await remoteProvider.SynthesizeOggAsync(segment.Text, segment.Slot, ct);
+            AppServices.SetOperationStatus("Caching remote audio…");
+            await _cache.StoreOggAsync(oggBytes, segment.Text, voiceId, _provider.ProviderId, "", ct);
+            var cachedRemoteAudio = await _cache.TryGetDecodedAsync(segment.Text, voiceId, _provider.ProviderId, "", ct);
+            if (cachedRemoteAudio == null)
+                throw new InvalidOperationException("Remote audio was cached but could not be decoded.");
+
+            AppServices.SetOperationStatus("Decoding remote audio…");
+            var processedRemote = DspFilterChain.Apply(cachedRemoteAudio, profile?.Dsp);
+            AppServices.SetOperationStatus("Playing remote audio…");
+            await _player.PlayAsync(processedRemote, ct);
+            AppServices.ClearOperationStatus();
             return;
         }
 
@@ -258,9 +277,11 @@ public sealed class PlaybackCoordinator : IDisposable
         // the player starts phrase 0 immediately and pre-buffers phrase 1 while
         // phrase 0 is playing, giving seamless gapless playback.
         var sw = System.Diagnostics.Stopwatch.StartNew();
+        AppServices.SetOperationStatus("Generating audio…");
 
         await _player.PlaylistPlayAsync(
-            PhraseAudioStream(segment, voiceId, profile, dspKey, sw, ct), ct);
+            PhraseAudioStream(segment, voiceId, profile, sw, ct), ct);
+        AppServices.ClearOperationStatus();
     }
 
     /// <summary>
@@ -272,7 +293,6 @@ public sealed class PlaybackCoordinator : IDisposable
         AssembledSegment segment,
         string voiceId,
         VoiceProfile? profile,
-        string dspKey,
         System.Diagnostics.Stopwatch sw,
         [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken ct)
     {
@@ -281,15 +301,11 @@ public sealed class PlaybackCoordinator : IDisposable
         {
             if (phraseIndex == 0) { sw.Stop(); LastSynthesisLatency = sw.Elapsed; }
 
-            // Apply DSP post-synthesis. Cache stores DSP-processed audio so
-            // cache hits play directly without re-applying DSP.
-            var processedAudio = DspFilterChain.Apply(audio, profile?.Dsp);
-
             var phraseText = GetPhraseText(segment.Text, phraseIndex, phraseCount);
             await _cache.StoreAsync(
-                processedAudio, phraseText, voiceId, _provider.ProviderId, dspKey, ct);
+                audio, phraseText, voiceId, _provider.ProviderId, "", ct);
 
-            yield return processedAudio;
+            yield return DspFilterChain.Apply(audio, profile?.Dsp);
         }
     }
 

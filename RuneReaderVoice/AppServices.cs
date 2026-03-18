@@ -8,6 +8,7 @@
 // Used by the Avalonia UI to bind to live state without constructor injection
 // through the Avalonia application lifecycle.
 
+using System;
 using RuneReaderVoice.Data;
 using RuneReaderVoice.Platform;
 using RuneReaderVoice.Protocol;
@@ -26,6 +27,7 @@ public static class AppServices
     public static VoiceUserSettings              Settings               { get; private set; } = new();
     public static IVoicePlatformServices         Platform               { get; private set; } = null!;
     public static ITtsProvider                   Provider               { get; private set; } = null!;
+    public static ProviderRegistry               ProviderRegistry       { get; set; } = null!;
     public static TtsAudioCache                  Cache                  { get; private set; } = null!;
     public static IAudioPlayer                   Player                 { get; private set; } = null!;
     public static TtsSessionAssembler            Assembler              { get; private set; } = null!;
@@ -44,6 +46,17 @@ public static class AppServices
     public static string    LastProcessedText { get; set; } = string.Empty;
     public static string    LastTextSpoken    { get; set; } = string.Empty;
     public static VoiceSlot LastRuntimeSlot   { get; set; } = VoiceSlot.Narrator;
+
+    public static string OperationStatus { get; private set; } = string.Empty;
+    public static event Action<string>? OperationStatusChanged;
+
+    public static void SetOperationStatus(string status)
+    {
+        OperationStatus = status ?? string.Empty;
+        OperationStatusChanged?.Invoke(OperationStatus);
+    }
+
+    public static void ClearOperationStatus() => SetOperationStatus(string.Empty);
 
     /// <summary>
     /// The most recently completed segment. Updated by TtsSessionAssembler
@@ -65,7 +78,8 @@ public static class AppServices
         NpcRaceOverrideDb npcOverrides,
         RvrDb db,
         PronunciationRuleStore pronunciationRules,
-        TextSwapRuleStore textSwapRules)
+        TextSwapRuleStore textSwapRules,
+        ProviderRegistry providerRegistry)
     {
         Settings               = settings;
         Platform               = platform;
@@ -81,6 +95,7 @@ public static class AppServices
         Db                     = db;
         PronunciationRules     = pronunciationRules;
         TextSwapRules          = textSwapRules;
+        ProviderRegistry       = providerRegistry;
     }
 
     /// <summary>

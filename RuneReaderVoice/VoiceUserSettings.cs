@@ -84,6 +84,10 @@ public sealed class VoiceUserSettings
     public string PiperBinaryPath { get; set; } = "";
     public string PiperModelDirectory { get; set; } = "";
 
+    public string RemoteServerUrl { get; set; } = "";
+    public string RemoteApiKey { get; set; } = "";
+    public string RemoteProviderCatalogJson { get; set; } = "";
+
     public double AppStartX { get; set; } = 150;
     public double AppStartY { get; set; } = 150;
 

@@ -34,10 +34,11 @@ namespace RuneReaderVoice.TTS.Providers;
 
 public sealed class VoiceInfo
 {
-    public string VoiceId   { get; init; } = string.Empty;
-    public string Name      { get; init; } = string.Empty;
-    public string Language  { get; init; } = string.Empty;
-    public Gender Gender    { get; init; }
+    public string VoiceId      { get; init; } = string.Empty;
+    public string Name         { get; init; } = string.Empty;
+    public string Description  { get; init; } = string.Empty;
+    public string Language     { get; init; } = string.Empty;
+    public Gender Gender       { get; init; }
 }
 
 public sealed class PcmAudio

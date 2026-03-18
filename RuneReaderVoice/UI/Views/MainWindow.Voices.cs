@@ -17,6 +17,38 @@ public partial class MainWindow
 {
     private readonly Dictionary<string, TextBlock> _voiceSummaryBlocks = new(StringComparer.OrdinalIgnoreCase);
 
+    private static bool ProviderRequiresExplicitVoiceSelection(ProviderDescriptor? descriptor)
+        => descriptor != null && descriptor.TransportKind == ProviderTransportKind.Remote && descriptor.VoiceSourceKind == RemoteVoiceSourceKind.Samples;
+
+    private async Task<IReadOnlyList<VoiceInfo>> GetActiveProviderVoicesForUiAsync()
+    {
+        try
+        {
+            if (AppServices.Provider is RemoteTtsProvider remote)
+                return await remote.RefreshVoiceSourcesAsync(CancellationToken.None);
+
+            return AppServices.Provider.GetAvailableVoices();
+        }
+        catch (Exception ex)
+        {
+            SessionStatus.Text = $"Voice source lookup failed: {ex.Message}";
+            return Array.Empty<VoiceInfo>();
+        }
+    }
+
+    private bool HasValidVoiceSelection(VoiceSlot slot)
+    {
+        var provider = AppServices.Provider;
+        var descriptor = AppServices.ProviderRegistry.Get(provider.ProviderId);
+        var profile = provider.ResolveProfile(slot);
+
+        if (ProviderRequiresExplicitVoiceSelection(descriptor))
+            return profile != null && !string.IsNullOrWhiteSpace(profile.VoiceId);
+
+        return true;
+    }
+
+
     private void PopulateVoiceGrid()
     {
         VoiceGrid.Children.Clear();
@@ -92,16 +124,22 @@ public partial class MainWindow
         {
             profile = kokoro.ResolveVoiceProfile(slot);
         }
+        else
+        {
+            profile = provider.ResolveProfile(slot);
+        }
+
+        var descriptor = AppServices.ProviderRegistry.Get(providerId);
 
         if (profile == null)
-            return "(default)";
+            return ProviderRequiresExplicitVoiceSelection(descriptor) ? "(sample required)" : "(default)";
 
         var lang = EspeakLanguageCatalog.All.FirstOrDefault(x =>
             string.Equals(x.Code, profile.LangCode, StringComparison.OrdinalIgnoreCase))?.DisplayName ?? profile.LangCode;
 
         var voiceText = profile.VoiceId.StartsWith(KokoroTtsProvider.MixPrefix, StringComparison.OrdinalIgnoreCase)
             ? "Blend"
-            : profile.VoiceId;
+            : ResolveVoiceDisplayName(provider, profile.VoiceId);
 
         var accentText = NpcVoiceSlotCatalog.All.FirstOrDefault(x => x.Slot.Equals(slot))?.AccentLabel ?? slot.Group.ToString();
         var preset     = SpeakerPresetCatalog.GetRecommendedForSlot(slot);
@@ -117,12 +155,35 @@ public partial class MainWindow
         return $"{voiceText} · {lang} · {profile.SpeechRate:0.00}x · {accentText}";
     }
 
+
+    private static string ResolveVoiceDisplayName(ITtsProvider provider, string voiceId)
+    {
+        if (string.IsNullOrWhiteSpace(voiceId))
+            return "(not selected)";
+
+        // Remote providers may not have loaded their voice/sample catalog yet during startup.
+        // Do not trigger network I/O here just to render summary text.
+        var available = provider.GetAvailableVoices();
+        if (available.Count == 0)
+            return voiceId;
+
+        var match = available.FirstOrDefault(v =>
+            string.Equals(v.VoiceId, voiceId, StringComparison.OrdinalIgnoreCase));
+        return match?.Name ?? voiceId;
+    }
+
     private async void VoiceProfilePreview_Click(object? sender, RoutedEventArgs e)
     {
         if (sender is not Button btn || btn.Tag is not VoiceSlot slot)
             return;
 
         const string previewText = "The tides of fate are shifting.";
+
+        if (!HasValidVoiceSelection(slot))
+        {
+            SessionStatus.Text = "Select a remote sample before previewing this slot.";
+            return;
+        }
 
         btn.IsEnabled = false;
         try
@@ -149,31 +210,45 @@ public partial class MainWindow
             AppServices.Settings.PerProviderVoiceProfiles[providerId] = dict;
         }
 
-        VoiceProfile profile;
-        if (!dict.TryGetValue(slot.ToString(), out var existing) || existing == null)
+        btn.IsEnabled = false;
+        try
         {
-            profile = AppServices.Provider switch
+            var descriptor = AppServices.ProviderRegistry.Get(providerId);
+            var availableVoices = await GetActiveProviderVoicesForUiAsync();
+
+            VoiceProfile profile;
+            if (!dict.TryGetValue(slot.ToString(), out var existing) || existing == null)
             {
-                KokoroTtsProvider kokoro => kokoro.ResolveVoiceProfile(slot).Clone(),
-                _ => VoiceProfileDefaults.Create("")
-            };
+                profile = AppServices.Provider.ResolveProfile(slot)?.Clone()
+                          ?? VoiceProfileDefaults.Create(string.Empty);
+
+                if (string.IsNullOrWhiteSpace(profile.VoiceId) && !ProviderRequiresExplicitVoiceSelection(descriptor))
+                    profile.VoiceId = availableVoices.FirstOrDefault()?.VoiceId ?? string.Empty;
+            }
+            else
+            {
+                profile = existing.Clone();
+            }
+
+            var catalog = NpcVoiceSlotCatalog.All.First(x => x.Slot.Equals(slot));
+            var voiceSourceLabel = descriptor?.VoiceSourceKind == RemoteVoiceSourceKind.Samples ? "sample" : "voice";
+            var supportsPresets = AppServices.Provider is KokoroTtsProvider;
+            var supportsBlend = descriptor?.SupportsVoiceBlending ?? (AppServices.Provider is KokoroTtsProvider);
+            var dlg = new VoiceProfileEditorDialog(slot, catalog.NpcLabel, catalog.AccentLabel, profile, availableVoices, supportsPresets, supportsBlend, voiceSourceLabel, descriptor?.Controls);
+            var updated = await dlg.ShowDialog<VoiceProfile?>(this);
+            if (updated == null)
+                return;
+
+            ApplyVoiceProfile(slot, updated, providerId, dict);
+            VoiceSettingsManager.SaveSettings(AppServices.Settings);
+
+            if (_voiceSummaryBlocks.TryGetValue(slot.ToString(), out var summary))
+                summary.Text = DescribeVoiceProfile(slot);
         }
-        else
+        finally
         {
-            profile = existing.Clone();
+            btn.IsEnabled = true;
         }
-
-        var catalog = NpcVoiceSlotCatalog.All.First(x => x.Slot.Equals(slot));
-        var dlg     = new VoiceProfileEditorDialog(slot, catalog.NpcLabel, catalog.AccentLabel, profile);
-        var updated = await dlg.ShowDialog<VoiceProfile?>(this);
-        if (updated == null)
-            return;
-
-        ApplyVoiceProfile(slot, updated, providerId, dict);
-        VoiceSettingsManager.SaveSettings(AppServices.Settings);
-
-        if (_voiceSummaryBlocks.TryGetValue(slot.ToString(), out var summary))
-            summary.Text = DescribeVoiceProfile(slot);
     }
 
     // ── Import / Export ───────────────────────────────────────────────────────

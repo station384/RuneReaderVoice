@@ -455,6 +455,8 @@ public sealed class VoiceProfile
     public string VoiceId    { get; set; } = string.Empty;
     public string LangCode   { get; set; } = string.Empty;
     public float  SpeechRate { get; set; } = 1.0f;
+    public float? CfgWeight  { get; set; } = null;
+    public float? Exaggeration { get; set; } = null;
 
     /// <summary>
     /// When true the TextSplitter is skipped for this slot and the full assembled
@@ -475,6 +477,8 @@ public sealed class VoiceProfile
         VoiceId         = VoiceId,
         LangCode        = LangCode,
         SpeechRate      = SpeechRate,
+        CfgWeight       = CfgWeight,
+        Exaggeration    = Exaggeration,
         DisableChunking = DisableChunking,
         Dsp             = Dsp?.Clone(),
     };
@@ -484,7 +488,12 @@ public sealed class VoiceProfile
     /// DSP is intentionally excluded — DSP is post-synthesis.
     /// DisableChunking is intentionally excluded — it affects routing, not synthesis output.
     /// </summary>
-    public string BuildIdentityKey() => $"{VoiceId}|{LangCode}|{SpeechRate:0.00}";
+    public string BuildIdentityKey()
+    {
+        var cfg = CfgWeight.HasValue ? CfgWeight.Value.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture) : "-";
+        var exg = Exaggeration.HasValue ? Exaggeration.Value.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture) : "-";
+        return $"{VoiceId}|{LangCode}|{SpeechRate:0.00}|cfg:{cfg}|ex:{exg}";
+    }
 }
 
 // ── EspeakLanguageOption ──────────────────────────────────────────────────────
@@ -506,6 +515,12 @@ public static class VoiceProfileDefaults
     {
         if (string.IsNullOrWhiteSpace(voiceId))
             return "en-us";
+
+        if (voiceId.Contains("-en-us", StringComparison.OrdinalIgnoreCase))
+            return "en-us";
+
+        if (voiceId.Contains("-en-gb", StringComparison.OrdinalIgnoreCase))
+            return "en-gb";
 
         if (voiceId.StartsWith(KokoroTtsProvider.MixPrefix, StringComparison.OrdinalIgnoreCase))
         {

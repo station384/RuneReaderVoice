@@ -4,6 +4,7 @@
 // Copyright (C) 2026 Michael Sutton
 
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using Avalonia.Controls;
@@ -27,6 +28,7 @@ public sealed class VoiceProfileEditorDialog : Window
     {
         public string VoiceId { get; init; } = string.Empty;
         public string Display { get; init; } = string.Empty;
+        public string Summary { get; init; } = string.Empty;
         public override string ToString() => Display;
     }
 
@@ -52,12 +54,20 @@ public sealed class VoiceProfileEditorDialog : Window
     private readonly Border      _blendVoiceSection;
     private readonly ComboBox    _voiceCombo;
     private readonly TextBlock   _voiceSummaryText;
+    private readonly string      _voiceSourceLabel;
     private readonly TextBlock   _blendSummaryText;
     private readonly TextBlock   _languageNameText;
     private readonly Slider      _speechRateSlider;
     private readonly TextBox     _speechRateText;
     private readonly TextBox     _previewText;
     private readonly TextBlock   _summaryText;
+    private readonly Slider?     _cfgWeightSlider;
+    private readonly TextBox?    _cfgWeightText;
+    private readonly Slider?     _exaggerationSlider;
+    private readonly TextBox?    _exaggerationText;
+    private readonly Button      _previewButton;
+    private readonly Button      _stopPreviewButton;
+    private CancellationTokenSource? _previewCts;
 
     // ─────────────────────────────────────────────────────────────────────────
     // DSP outer section
@@ -83,7 +93,12 @@ public sealed class VoiceProfileEditorDialog : Window
         VoiceSlot slot,
         string npcLabel,
         string accentLabel,
-        VoiceProfile initialProfile)
+        VoiceProfile initialProfile,
+        IReadOnlyList<VoiceInfo> availableVoices,
+        bool supportsPresets,
+        bool supportsBlend,
+        string voiceSourceLabel,
+        IReadOnlyDictionary<string, RemoteControlDescriptor>? controls = null)
     {
         _slot           = slot;
         _workingProfile = initialProfile.Clone();
@@ -105,32 +120,48 @@ public sealed class VoiceProfileEditorDialog : Window
         // ── Presets ───────────────────────────────────────────────────────────
 
         var presetItems = SpeakerPresetCatalog.GetForSlot(slot).ToArray();
+        var isKokoroProvider = supportsPresets;
+        _voiceSourceLabel = string.IsNullOrWhiteSpace(voiceSourceLabel) ? "voice" : voiceSourceLabel;
         _presetCombo = new ComboBox { HorizontalAlignment = HorizontalAlignment.Stretch, ItemsSource = presetItems };
         _presetCombo.SelectionChanged += PresetCombo_SelectionChanged;
         _presetDescriptionText = new TextBlock { Foreground = Brushes.Gray, FontSize = 11, TextWrapping = TextWrapping.Wrap };
 
-        var useRecommendedBtn = Btn("Use Recommended", 130); useRecommendedBtn.Click += UseRecommendedButton_Click;
-        var applyPresetBtn    = Btn("Apply Preset",    110); applyPresetBtn.Click    += ApplyPresetButton_Click;
+        var useRecommendedBtn = Btn("Use Recommended", 130); useRecommendedBtn.Click += UseRecommendedButton_Click; useRecommendedBtn.IsEnabled = isKokoroProvider;
+        var applyPresetBtn    = Btn("Apply Preset",    110); applyPresetBtn.Click    += ApplyPresetButton_Click; applyPresetBtn.IsEnabled = isKokoroProvider;
 
         // ── Voice mode ────────────────────────────────────────────────────────
 
         _singleVoiceRadio = new RadioButton { Content = "Single Voice", IsChecked = !_workingProfile.VoiceId.StartsWith(KokoroTtsProvider.MixPrefix, StringComparison.OrdinalIgnoreCase), GroupName = "voiceMode" };
-        _blendVoiceRadio  = new RadioButton { Content = "Blend Voices", IsChecked  = _workingProfile.VoiceId.StartsWith(KokoroTtsProvider.MixPrefix, StringComparison.OrdinalIgnoreCase), GroupName = "voiceMode" };
+        _blendVoiceRadio  = new RadioButton { Content = "Blend Voices", IsChecked  = _workingProfile.VoiceId.StartsWith(KokoroTtsProvider.MixPrefix, StringComparison.OrdinalIgnoreCase), GroupName = "voiceMode", IsEnabled = supportsBlend };
         _singleVoiceRadio.Checked += VoiceModeChanged;
         _blendVoiceRadio.Checked  += VoiceModeChanged;
 
         _voiceCombo = new ComboBox
         {
             HorizontalAlignment = HorizontalAlignment.Stretch,
-            ItemsSource = KokoroTtsProvider.KnownVoices.OrderBy(v => v.Name)
-                .Select(v => new VoiceChoice { VoiceId = v.VoiceId, Display = $"{v.Name} · {v.Language}" }).ToArray()
+            ItemsSource = availableVoices
+                .OrderBy(v => string.IsNullOrWhiteSpace(v.VoiceId) ? v.Name : v.VoiceId, StringComparer.OrdinalIgnoreCase)
+                .Select(v =>
+                {
+                    var primary = string.IsNullOrWhiteSpace(v.VoiceId) ? v.Name : v.VoiceId;
+                    var summary = string.IsNullOrWhiteSpace(v.Description)
+                        ? primary
+                        : v.Description;
+                    return new VoiceChoice
+                    {
+                        VoiceId = v.VoiceId,
+                        Display = string.IsNullOrWhiteSpace(v.Language) ? primary : $"{primary} · {v.Language}",
+                        Summary = summary
+                    };
+                })
+                .ToArray()
         };
         _voiceCombo.SelectionChanged += VoiceCombo_SelectionChanged;
 
         _voiceSummaryText = new TextBlock { Foreground = Brushes.Gray, FontSize = 11, TextWrapping = TextWrapping.Wrap };
         _blendSummaryText = new TextBlock { TextWrapping = TextWrapping.Wrap, FontWeight = FontWeight.SemiBold };
 
-        var editBlendBtn = Btn("Edit Blend…", 110); editBlendBtn.Click += EditBlendButton_Click;
+        var editBlendBtn = Btn("Edit Blend…", 110); editBlendBtn.Click += EditBlendButton_Click; editBlendBtn.IsEnabled = supportsBlend;
 
         // ── Language ──────────────────────────────────────────────────────────
 
@@ -158,6 +189,122 @@ public sealed class VoiceProfileEditorDialog : Window
             if (Math.Abs(_speechRateSlider.Value - v) > 0.001) _speechRateSlider.Value = v;
             RefreshSummary();
         };
+
+
+        // ── Provider-specific render controls ───────────────────────────────
+
+        controls ??= new Dictionary<string, RemoteControlDescriptor>(StringComparer.OrdinalIgnoreCase);
+        controls.TryGetValue("cfg_weight", out var cfgControl);
+        controls.TryGetValue("exaggeration", out var exagControl);
+
+        Border? chatterboxControlsCard = null;
+        _cfgWeightSlider = null;
+        _cfgWeightText = null;
+        _exaggerationSlider = null;
+        _exaggerationText = null;
+
+        if (cfgControl != null || exagControl != null)
+        {
+            float cfgMin = cfgControl?.Min ?? 0f;
+            float cfgMax = cfgControl?.Max ?? 3f;
+            float cfgDefault = cfgControl?.Default ?? 0f;
+            float exMin = exagControl?.Min ?? 0f;
+            float exMax = exagControl?.Max ?? 3f;
+            float exDefault = exagControl?.Default ?? 0f;
+
+            if (!_workingProfile.CfgWeight.HasValue)
+                _workingProfile.CfgWeight = cfgDefault;
+            if (!_workingProfile.Exaggeration.HasValue)
+                _workingProfile.Exaggeration = exDefault;
+
+            var controlRows = new StackPanel { Spacing = 8 };
+
+            if (cfgControl != null)
+            {
+                _cfgWeightSlider = new Slider { Minimum = cfgMin, Maximum = cfgMax, Value = _workingProfile.CfgWeight ?? cfgDefault, TickFrequency = 0.1, HorizontalAlignment = HorizontalAlignment.Stretch };
+                _cfgWeightText = new TextBox { Width = 80, Text = (_workingProfile.CfgWeight ?? cfgDefault).ToString("0.00", Inv), HorizontalContentAlignment = HorizontalAlignment.Center };
+                _cfgWeightSlider.PropertyChanged += (_, e) =>
+                {
+                    if (e.Property != Slider.ValueProperty) return;
+                    _workingProfile.CfgWeight = (float)_cfgWeightSlider.Value;
+                    var t = _workingProfile.CfgWeight.Value.ToString("0.00", Inv);
+                    if (_cfgWeightText.Text != t) _cfgWeightText.Text = t;
+                    RefreshSummary();
+                };
+                _cfgWeightText.TextChanged += (_, _) =>
+                {
+                    if (!float.TryParse(_cfgWeightText.Text, System.Globalization.NumberStyles.Float, Inv, out var v)) return;
+                    v = Math.Clamp(v, cfgMin, cfgMax);
+                    _workingProfile.CfgWeight = v;
+                    if (Math.Abs(_cfgWeightSlider.Value - v) > 0.001) _cfgWeightSlider.Value = v;
+                    RefreshSummary();
+                };
+
+                var cfgGrid = new Grid { ColumnDefinitions = new ColumnDefinitions("110,*,70,70"), ColumnSpacing = 8 };
+                cfgGrid.Children.Add(new TextBlock { Text = "CFG Weight", VerticalAlignment = VerticalAlignment.Center, FontWeight = FontWeight.SemiBold });
+                Grid.SetColumn(_cfgWeightSlider, 1);
+                cfgGrid.Children.Add(_cfgWeightSlider);
+                Grid.SetColumn(_cfgWeightText, 2);
+                cfgGrid.Children.Add(_cfgWeightText);
+                var cfgResetBtn = Btn("Default", 70);
+                cfgResetBtn.Click += (_, _) =>
+                {
+                    _workingProfile.CfgWeight = cfgDefault;
+                    _cfgWeightSlider.Value = cfgDefault;
+                    _cfgWeightText.Text = cfgDefault.ToString("0.00", Inv);
+                    RefreshSummary();
+                };
+                Grid.SetColumn(cfgResetBtn, 3);
+                cfgGrid.Children.Add(cfgResetBtn);
+                controlRows.Children.Add(cfgGrid);
+                if (!string.IsNullOrWhiteSpace(cfgControl.Description))
+                    controlRows.Children.Add(new TextBlock { Text = cfgControl.Description, Opacity = 0.8, TextWrapping = TextWrapping.Wrap, Margin = new Avalonia.Thickness(0, 0, 0, 4) });
+            }
+
+            if (exagControl != null)
+            {
+                _exaggerationSlider = new Slider { Minimum = exMin, Maximum = exMax, Value = _workingProfile.Exaggeration ?? exDefault, TickFrequency = 0.1, HorizontalAlignment = HorizontalAlignment.Stretch };
+                _exaggerationText = new TextBox { Width = 80, Text = (_workingProfile.Exaggeration ?? exDefault).ToString("0.00", Inv), HorizontalContentAlignment = HorizontalAlignment.Center };
+                _exaggerationSlider.PropertyChanged += (_, e) =>
+                {
+                    if (e.Property != Slider.ValueProperty) return;
+                    _workingProfile.Exaggeration = (float)_exaggerationSlider.Value;
+                    var t = _workingProfile.Exaggeration.Value.ToString("0.00", Inv);
+                    if (_exaggerationText.Text != t) _exaggerationText.Text = t;
+                    RefreshSummary();
+                };
+                _exaggerationText.TextChanged += (_, _) =>
+                {
+                    if (!float.TryParse(_exaggerationText.Text, System.Globalization.NumberStyles.Float, Inv, out var v)) return;
+                    v = Math.Clamp(v, exMin, exMax);
+                    _workingProfile.Exaggeration = v;
+                    if (Math.Abs(_exaggerationSlider.Value - v) > 0.001) _exaggerationSlider.Value = v;
+                    RefreshSummary();
+                };
+
+                var exGrid = new Grid { ColumnDefinitions = new ColumnDefinitions("110,*,70,70"), ColumnSpacing = 8 };
+                exGrid.Children.Add(new TextBlock { Text = "Exaggeration", VerticalAlignment = VerticalAlignment.Center, FontWeight = FontWeight.SemiBold });
+                Grid.SetColumn(_exaggerationSlider, 1);
+                exGrid.Children.Add(_exaggerationSlider);
+                Grid.SetColumn(_exaggerationText, 2);
+                exGrid.Children.Add(_exaggerationText);
+                var exResetBtn = Btn("Default", 70);
+                exResetBtn.Click += (_, _) =>
+                {
+                    _workingProfile.Exaggeration = exDefault;
+                    _exaggerationSlider.Value = exDefault;
+                    _exaggerationText.Text = exDefault.ToString("0.00", Inv);
+                    RefreshSummary();
+                };
+                Grid.SetColumn(exResetBtn, 3);
+                exGrid.Children.Add(exResetBtn);
+                controlRows.Children.Add(exGrid);
+                if (!string.IsNullOrWhiteSpace(exagControl.Description))
+                    controlRows.Children.Add(new TextBlock { Text = exagControl.Description, Opacity = 0.8, TextWrapping = TextWrapping.Wrap, Margin = new Avalonia.Thickness(0, 0, 0, 4) });
+            }
+
+            chatterboxControlsCard = Card("Voice Render Controls", controlRows);
+        }
 
         // ── DSP groups ────────────────────────────────────────────────────────
 
@@ -470,9 +617,11 @@ public sealed class VoiceProfileEditorDialog : Window
 
         // ── Preview / Summary ─────────────────────────────────────────────────
 
-        _previewText = new TextBox { AcceptsReturn = true, TextWrapping = TextWrapping.Wrap, MinHeight = 52, Text = "The tides of fate are shifting." };
-        var previewBtn = Btn("Preview", 90); previewBtn.Click += PreviewButton_Click;
+        _previewText = new TextBox { AcceptsReturn = true, TextWrapping = TextWrapping.Wrap, MinHeight = 52, Text = "Champion, the road ahead is dangerous. Stay alert, and trust your instincts." };
+        _previewButton = Btn("Preview", 90); _previewButton.Click += PreviewButton_Click;
+        _stopPreviewButton = Btn("Stop", 80); _stopPreviewButton.Click += StopPreviewButton_Click; _stopPreviewButton.IsEnabled = false;
         var saveBtn    = Btn("Save & Close", 120); saveBtn.Click += (_, _) => { _saved = true; Close(_workingProfile.Clone()); };
+        saveBtn.IsEnabled = true;
         var cancelBtn  = Btn("Cancel", 90);        cancelBtn.Click += (_, _) => Close(null);
         _summaryText   = new TextBlock { TextWrapping = TextWrapping.Wrap };
 
@@ -499,27 +648,32 @@ public sealed class VoiceProfileEditorDialog : Window
         AddToGrid(topGrid, _singleVoiceSection, 2, 0);
         AddToGrid(topGrid, rateCard,            2, 1);
 
+        var contentStack = new StackPanel
+        {
+            Margin = new Avalonia.Thickness(12),
+            Spacing = 10,
+            Children =
+            {
+                new TextBlock { Text = $"Applies to: {npcLabel}", FontWeight = FontWeight.Bold, FontSize = 16 },
+                new TextBlock { Text = $"Accent profile: {accentLabel}", Opacity = 0.8 },
+                new TextBlock { Text = "This changes how RuneReader reads detected text for this NPC type. It does not change WoW's built-in audio or settings.", TextWrapping = TextWrapping.Wrap },
+                topGrid,
+                dspCard,
+                Card("Live Preview", new StackPanel { Spacing = 8, Children =
+                {
+                    _previewText, new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Children = { _previewButton, _stopPreviewButton } },
+                    new TextBlock { Text = "Re-synthesizes fresh. Bypasses cache. Includes current DSP.", TextWrapping = TextWrapping.Wrap, Opacity = 0.8 }
+                }}),
+                Card("Summary", new StackPanel { Spacing = 6, Children = { _summaryText } }),
+                new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right, Spacing = 8, Children = { cancelBtn, saveBtn } }
+            }
+        };
+        if (chatterboxControlsCard != null)
+            contentStack.Children.Insert(4, chatterboxControlsCard);
+
         Content = new ScrollViewer
         {
-            Content = new StackPanel
-            {
-                Margin = new Avalonia.Thickness(12), Spacing = 10,
-                Children =
-                {
-                    new TextBlock { Text = $"Applies to: {npcLabel}", FontWeight = FontWeight.Bold, FontSize = 16 },
-                    new TextBlock { Text = $"Accent profile: {accentLabel}", Opacity = 0.8 },
-                    new TextBlock { Text = "This changes how RuneReader reads detected text for this NPC type. It does not change WoW's built-in audio or settings.", TextWrapping = TextWrapping.Wrap },
-                    topGrid,
-                    dspCard,
-                    Card("Live Preview", new StackPanel { Spacing = 8, Children =
-                    {
-                        _previewText, previewBtn,
-                        new TextBlock { Text = "Re-synthesizes fresh. Bypasses cache. Includes current DSP.", TextWrapping = TextWrapping.Wrap, Opacity = 0.8 }
-                    }}),
-                    Card("Summary", new StackPanel { Spacing = 6, Children = { _summaryText } }),
-                    new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right, Spacing = 8, Children = { cancelBtn, saveBtn } }
-                }
-            }
+            Content = contentStack
         };
 
         ApplyProfileToControls();
@@ -528,6 +682,13 @@ public sealed class VoiceProfileEditorDialog : Window
         RefreshSingleVoiceSummary();
         RefreshBlendSummary();
         RefreshSummary();
+        Closing += (_, _) =>
+        {
+            _previewCts?.Cancel();
+            _previewCts?.Dispose();
+            AppServices.Player.Stop();
+            AppServices.ClearOperationStatus();
+        };
     }
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -621,6 +782,18 @@ public sealed class VoiceProfileEditorDialog : Window
         _languageNameText.Text  = lang?.DisplayName ?? _workingProfile.LangCode;
         _speechRateSlider.Value = _workingProfile.SpeechRate;
         _speechRateText.Text    = _workingProfile.SpeechRate.ToString("0.00", Inv);
+        if (_cfgWeightSlider != null)
+        {
+            var cfg = _workingProfile.CfgWeight ?? (float)_cfgWeightSlider.Value;
+            _cfgWeightSlider.Value = cfg;
+            if (_cfgWeightText != null) _cfgWeightText.Text = cfg.ToString("0.00", Inv);
+        }
+        if (_exaggerationSlider != null)
+        {
+            var ex = _workingProfile.Exaggeration ?? (float)_exaggerationSlider.Value;
+            _exaggerationSlider.Value = ex;
+            if (_exaggerationText != null) _exaggerationText.Text = ex.ToString("0.00", Inv);
+        }
     }
 
     private void SetVoiceSelection(string voiceId)
@@ -661,7 +834,7 @@ public sealed class VoiceProfileEditorDialog : Window
     }
 
     private void RefreshSingleVoiceSummary()
-        => _voiceSummaryText.Text = _voiceCombo.SelectedItem is VoiceChoice c ? c.Display : "Select a voice.";
+        => _voiceSummaryText.Text = _voiceCombo.SelectedItem is VoiceChoice c ? c.Summary : "Select a voice.";
 
     private void RefreshBlendSummary()
     {
@@ -685,7 +858,10 @@ public sealed class VoiceProfileEditorDialog : Window
 
     private async void EditBlendButton_Click(object? sender, RoutedEventArgs e)
     {
-        var dialog = new VoiceMixDialog(KokoroTtsProvider.KnownVoices, _workingProfile.VoiceId);
+        var voices = _voiceCombo.ItemsSource?.OfType<VoiceChoice>()
+            .Select(v => new VoiceInfo { VoiceId = v.VoiceId, Name = v.VoiceId, Description = v.Summary, Language = string.Empty, Gender = Gender.Unknown })
+            .ToArray() ?? Array.Empty<VoiceInfo>();
+        var dialog = new VoiceMixDialog(voices, _workingProfile.VoiceId);
         await dialog.ShowDialog(this);
         if (!string.IsNullOrWhiteSpace(dialog.ResultSpec)) { _workingProfile.VoiceId = dialog.ResultSpec!; RefreshBlendSummary(); RefreshSummary(); }
     }
@@ -702,23 +878,79 @@ public sealed class VoiceProfileEditorDialog : Window
 
     private async void PreviewButton_Click(object? sender, RoutedEventArgs e)
     {
-        if (AppServices.Provider is not KokoroTtsProvider kokoro) return;
-        if (sender is Button btn) btn.IsEnabled = false;
-        var original = kokoro.ResolveVoiceProfile(_slot);
+        _previewCts?.Cancel();
+        _previewCts?.Dispose();
+        _previewCts = new CancellationTokenSource();
+        var ct = _previewCts.Token;
+        _previewButton.IsEnabled = false;
+        _stopPreviewButton.IsEnabled = true;
+        var provider = AppServices.Provider;
+        if (_singleVoiceRadio.IsChecked == true && string.IsNullOrWhiteSpace(_workingProfile.VoiceId))
+            return;
+
+        var original = provider.ResolveProfile(_slot)?.Clone();
         try
         {
-            kokoro.SetVoiceProfile(_slot, _workingProfile);
-            var pcm = await kokoro.SynthesizeAsync(_previewText.Text ?? string.Empty, _slot, CancellationToken.None);
+            if (provider is KokoroTtsProvider kokoro)
+                kokoro.SetVoiceProfile(_slot, _workingProfile);
+            else if (AppServices.Settings.PerProviderVoiceProfiles.TryGetValue(provider.ProviderId, out var dict))
+                dict[_slot.ToString()] = _workingProfile.Clone();
+
+            var previewText = _previewText.Text ?? string.Empty;
+            PcmAudio pcm;
+            if (provider is RemoteTtsProvider remote)
+            {
+                AppServices.SetOperationStatus("Requesting preview from server…");
+                var voiceId = provider.ResolveVoiceId(_slot);
+                var cached = await AppServices.Cache.TryGetDecodedAsync(previewText, voiceId, provider.ProviderId, "", ct);
+                if (cached == null)
+                {
+                    var oggBytes = await remote.SynthesizeOggAsync(previewText, _slot, ct);
+                    await AppServices.Cache.StoreOggAsync(oggBytes, previewText, voiceId, provider.ProviderId, "", ct);
+                    AppServices.SetOperationStatus("Decoding preview…");
+                    cached = await AppServices.Cache.TryGetDecodedAsync(previewText, voiceId, provider.ProviderId, "", ct);
+                    if (cached == null)
+                        throw new InvalidOperationException("Remote audio was cached but could not be decoded.");
+                }
+                pcm = cached;
+            }
+            else
+            {
+                AppServices.SetOperationStatus("Generating preview…");
+                pcm = await provider.SynthesizeAsync(previewText, _slot, ct);
+            }
+
             if (_workingProfile.Dsp is { IsNeutral: false } dspProfile)
                 pcm = DspFilterChain.Apply(pcm, dspProfile);
-            await AppServices.Player.PlayAsync(pcm, CancellationToken.None);
+            AppServices.SetOperationStatus("Playing preview…");
+            await AppServices.Player.PlayAsync(pcm, ct);
         }
         catch (OperationCanceledException) { }
         finally
         {
-            if (!_saved) kokoro.SetVoiceProfile(_slot, original);
-            if (sender is Button b) b.IsEnabled = true;
+            AppServices.ClearOperationStatus();
+            if (!_saved)
+            {
+                if (provider is KokoroTtsProvider kokoro)
+                    kokoro.SetVoiceProfile(_slot, original ?? VoiceProfileDefaults.Create(""));
+                else if (AppServices.Settings.PerProviderVoiceProfiles.TryGetValue(provider.ProviderId, out var dict))
+                {
+                    if (original != null) dict[_slot.ToString()] = original;
+                    else dict.Remove(_slot.ToString());
+                }
+            }
+            _stopPreviewButton.IsEnabled = false;
+            _previewButton.IsEnabled = true;
         }
+    }
+
+    private void StopPreviewButton_Click(object? sender, RoutedEventArgs e)
+    {
+        _previewCts?.Cancel();
+        AppServices.Player.Stop();
+        AppServices.ClearOperationStatus();
+        _stopPreviewButton.IsEnabled = false;
+        _previewButton.IsEnabled = true;
     }
 
     // ─────────────────────────────────────────────────────────────────────────
