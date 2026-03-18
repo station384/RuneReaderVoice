@@ -20,7 +20,7 @@ namespace RuneReaderVoice;
 
 internal static class Program
 {
-    
+
     private static IAudioPlayer CreateAudioPlayer()
     {
 #if WINDOWS
@@ -32,7 +32,7 @@ internal static class Program
 #endif
     }
     [STAThread]
-    public static async Task<int> Main(string[] args)
+    public static int Main(string[] args)
     {
         // ── Load settings ─────────────────────────────────────────────────────
         var settings = VoiceSettingsManager.LoadSettings();
@@ -55,7 +55,7 @@ internal static class Program
         // ── Unified SQLite DB ─────────────────────────────────────────────────
         var dbPath = Path.Combine(VoiceSettingsManager.GetConfigDirectory(), "runereader-voice.db");
         var db = new RvrDb(dbPath);
-        await db.InitializeAsync();
+        db.InitializeAsync().GetAwaiter().GetResult();
 
         var pronunciationRules = new PronunciationRuleStore(db);
         var textSwapRules      = new TextSwapRuleStore(db);
@@ -81,12 +81,14 @@ internal static class Program
 
         // ── NPC race override DB ──────────────────────────────────────────────
         var npcOverrides = new NpcRaceOverrideDb(db);
-        await npcOverrides.InitializeAsync();
+        npcOverrides.InitializeAsync().GetAwaiter().GetResult();
+        
+        
         var assembler = new TtsSessionAssembler(npcOverrides);
-        await assembler.LoadOverridesAsync();
+        assembler.LoadOverridesAsync().GetAwaiter().GetResult();;
 
-        var textSwapProcessor      = await BuildTextSwapProcessorAsync(textSwapRules);
-        var pronunciationProcessor = await BuildPronunciationProcessorAsync(pronunciationRules);
+        var textSwapProcessor      = BuildTextSwapProcessorAsync(textSwapRules).GetAwaiter().GetResult();;
+        var pronunciationProcessor = BuildPronunciationProcessorAsync(pronunciationRules).GetAwaiter().GetResult();;
 
         var tempDir = Path.Combine(Path.GetTempPath(), "RuneReaderVoice");
         var playbackMode = settings.PlaybackMode == "StreamOnFirstChunk"
