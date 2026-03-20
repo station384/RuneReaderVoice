@@ -24,10 +24,16 @@ public partial class MainWindow
     {
         try
         {
+            IReadOnlyList<VoiceInfo> voices;
             if (AppServices.Provider is RemoteTtsProvider remote)
-                return await remote.RefreshVoiceSourcesAsync(CancellationToken.None);
+                voices = await remote.RefreshVoiceSourcesAsync(CancellationToken.None);
+            else
+                voices = AppServices.Provider.GetAvailableVoices();
 
-            return AppServices.Provider.GetAvailableVoices();
+            // Voice list just refreshed — repopulate the bespoke sample dropdown
+            // in the Last NPC panel so it reflects the current sample library.
+            PopulateLastNpcSampleDropdown();
+            return voices;
         }
         catch (Exception ex)
         {
@@ -262,11 +268,7 @@ So go quickly, keep your wits about you, and return by the main road if you valu
     // ── Import / Export ───────────────────────────────────────────────────────
 
     // Export format: { "providerId": "kokoro", "profiles": { "SlotKey": { VoiceProfile } } }
-    private sealed class VoiceProfileExport
-    {
-        public string ProviderId { get; set; } = string.Empty;
-        public Dictionary<string, VoiceProfile> Profiles { get; set; } = new();
-    }
+    // VoiceProfileExport is defined in VoiceProfileModels.cs (shared with NpcSyncService)
 
     private static readonly JsonSerializerOptions _jsonVoiceOptions = new() { WriteIndented = true };
 
@@ -290,7 +292,7 @@ So go quickly, keep your wits about you, and return by the main road if you valu
             var path = await topLevel.StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions
             {
                 Title             = "Export Voice Profiles",
-                SuggestedFileName = $"voice-profiles-{providerId.Replace(':', '-')}.json",
+                SuggestedFileName = $"voice-profiles-{providerId}.json",
                 DefaultExtension  = "json",
                 FileTypeChoices   = new[] { new FilePickerFileType("JSON") { Patterns = new[] { "*.json" } } },
             });
@@ -358,6 +360,52 @@ So go quickly, keep your wits about you, and return by the main road if you valu
         catch (Exception ex)
         {
             SessionStatus.Text = $"Voice import failed: {ex.Message}";
+        }
+    }
+
+    private async void OnVoicesPushToServerClicked(object? sender, RoutedEventArgs e)
+    {
+        if (string.IsNullOrWhiteSpace(AppServices.Settings.RemoteServerUrl))
+        {
+            SessionStatus.Text = "No server URL configured.";
+            return;
+        }
+
+        try
+        {
+            var providerId = AppServices.Provider.ProviderId;
+            AppServices.Settings.PerProviderVoiceProfiles.TryGetValue(providerId, out var dict);
+            var export = new VoiceProfileExport
+            {
+                ProviderId = providerId,
+                Profiles   = dict ?? new System.Collections.Generic.Dictionary<string, VoiceProfile>(),
+            };
+            var json = System.Text.Json.JsonSerializer.Serialize(export, _jsonVoiceOptions);
+            var ok   = await AppServices.NpcSync.PushDefaultsAsync("voice-profiles", json);
+            SessionStatus.Text = ok ? "Voice profiles pushed to server." : "Push failed — check server logs.";
+        }
+        catch (Exception ex)
+        {
+            SessionStatus.Text = $"Push failed: {ex.Message}";
+        }
+    }
+
+    private async void OnVoicesPullFromServerClicked(object? sender, RoutedEventArgs e)
+    {
+        if (string.IsNullOrWhiteSpace(AppServices.Settings.RemoteServerUrl))
+        {
+            SessionStatus.Text = "No server URL configured.";
+            return;
+        }
+
+        try
+        {
+            var ok = await AppServices.NpcSync.PullAndApplyDefaultsAsync("voice-profiles");
+            SessionStatus.Text = ok ? "Voice profiles pulled from server." : "No voice profiles on server.";
+        }
+        catch (Exception ex)
+        {
+            SessionStatus.Text = $"Pull failed: {ex.Message}";
         }
     }
 

@@ -22,21 +22,44 @@ public sealed class RemoteTtsClient
     {
         _baseUrl = (baseUrl ?? string.Empty).Trim().TrimEnd('/');
         _apiKey = apiKey ?? string.Empty;
-        _httpClient = new HttpClient();
-        _httpClient.Timeout = TimeSpan.FromSeconds(300);
+
+        // SocketsHttpHandler with a pool lifetime shorter than Caddy's idle timeout
+        // (Caddy default keep-alive is 5 min). Setting PooledConnectionLifetime to
+        // 3 minutes forces HttpClient to recycle connections before the server closes
+        // them underneath us, preventing idle-kill IOException(SocketException 995).
+        var handler = new SocketsHttpHandler
+        {
+            PooledConnectionLifetime    = TimeSpan.FromMinutes(3),
+            PooledConnectionIdleTimeout = TimeSpan.FromMinutes(2),
+            ConnectTimeout              = TimeSpan.FromSeconds(10),
+        };
+
+        _httpClient = new HttpClient(handler)
+        {
+            Timeout = TimeSpan.FromSeconds(300),
+        };
+
         if (!string.IsNullOrWhiteSpace(_apiKey))
             _httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", _apiKey);
     }
 
     public async Task<IReadOnlyList<RemoteProviderInfoDto>> GetProvidersAsync(CancellationToken ct)
     {
-        using var response = await _httpClient.GetAsync(BuildUri("/api/v1/providers"), ct);
-        var body = await response.Content.ReadAsStringAsync(ct);
-        if (!response.IsSuccessStatusCode)
-            throw new InvalidOperationException($"Provider discovery failed: {(int)response.StatusCode} {body}");
+        try
+        {
+            using var response = await _httpClient.GetAsync(BuildUri("/api/v1/providers"), ct);
+            var body = await response.Content.ReadAsStringAsync(ct);
+            if (!response.IsSuccessStatusCode)
+                throw new InvalidOperationException($"Provider discovery failed: {(int)response.StatusCode} {body}");
 
-        return JsonSerializer.Deserialize<List<RemoteProviderInfoDto>>(body, JsonOptions)
-               ?? new List<RemoteProviderInfoDto>();
+            return JsonSerializer.Deserialize<List<RemoteProviderInfoDto>>(body, JsonOptions)
+                   ?? new List<RemoteProviderInfoDto>();
+        }
+        catch (OperationCanceledException) { throw; }
+        catch (Exception ex)
+        {
+            throw new InvalidOperationException($"Provider discovery failed: {ex.Message}", ex);
+        }
     }
 
     public async Task<IReadOnlyList<VoiceInfo>> GetAvailableVoiceSourcesAsync(ProviderDescriptor descriptor, CancellationToken ct)
@@ -46,48 +69,56 @@ public sealed class RemoteTtsClient
 
         var route = descriptor.VoiceSourceKind switch
         {
-            RemoteVoiceSourceKind.Voices => $"/api/v1/providers/{descriptor.RemoteProviderId}/voices",
+            RemoteVoiceSourceKind.Voices  => $"/api/v1/providers/{descriptor.RemoteProviderId}/voices",
             RemoteVoiceSourceKind.Samples => $"/api/v1/providers/{descriptor.RemoteProviderId}/samples",
             _ => null,
         };
         if (route == null)
             return Array.Empty<VoiceInfo>();
 
-        using var response = await _httpClient.GetAsync(BuildUri(route), ct);
-        var body = await response.Content.ReadAsStringAsync(ct);
-        if (!response.IsSuccessStatusCode)
-            throw new InvalidOperationException($"Voice source lookup failed: {(int)response.StatusCode} {body}");
-
-        if (descriptor.VoiceSourceKind == RemoteVoiceSourceKind.Voices)
+        try
         {
-            var voices = JsonSerializer.Deserialize<List<RemoteVoiceDto>>(body, JsonOptions) ?? new List<RemoteVoiceDto>();
-            return voices.Select(v => new VoiceInfo
+            using var response = await _httpClient.GetAsync(BuildUri(route), ct);
+            var body = await response.Content.ReadAsStringAsync(ct);
+            if (!response.IsSuccessStatusCode)
+                throw new InvalidOperationException($"Voice source lookup failed: {(int)response.StatusCode} {body}");
+
+            if (descriptor.VoiceSourceKind == RemoteVoiceSourceKind.Voices)
             {
-                VoiceId = v.VoiceId ?? string.Empty,
-                Name = v.VoiceId ?? string.Empty,
-                Description = string.IsNullOrWhiteSpace(v.DisplayName) ? string.Empty : v.DisplayName!,
-                Language = v.Language ?? string.Empty,
-                Gender = ParseGender(v.Gender),
+                var voices = JsonSerializer.Deserialize<List<RemoteVoiceDto>>(body, JsonOptions) ?? new List<RemoteVoiceDto>();
+                return voices.Select(v => new VoiceInfo
+                {
+                    VoiceId     = v.VoiceId ?? string.Empty,
+                    Name        = v.VoiceId ?? string.Empty,
+                    Description = string.IsNullOrWhiteSpace(v.DisplayName) ? string.Empty : v.DisplayName!,
+                    Language    = v.Language ?? string.Empty,
+                    Gender      = ParseGender(v.Gender),
+                }).ToList();
+            }
+
+            var samples    = JsonSerializer.Deserialize<List<RemoteSampleDto>>(body, JsonOptions) ?? new List<RemoteSampleDto>();
+            var providerId = descriptor.RemoteProviderId ?? string.Empty;
+            IEnumerable<RemoteSampleDto> filtered = samples;
+
+            if (providerId.Contains("f5", StringComparison.OrdinalIgnoreCase))
+                filtered = filtered.Where(s => (s.DurationSeconds ?? 0f) > 0f && (s.DurationSeconds ?? 0f) <= 11.0f);
+            else if (providerId.Contains("chatterbox", StringComparison.OrdinalIgnoreCase))
+                filtered = filtered.Where(s => (s.DurationSeconds ?? 0f) <= 0f || (s.DurationSeconds ?? 0f) <= 41.0f);
+
+            return filtered.Select(s => new VoiceInfo
+            {
+                VoiceId     = s.SampleId ?? string.Empty,
+                Name        = s.SampleId ?? string.Empty,
+                Description = !string.IsNullOrWhiteSpace(s.Description) ? s.Description! : (s.Filename ?? s.SampleId ?? string.Empty),
+                Language    = string.Empty,
+                Gender      = Protocol.Gender.Unknown,
             }).ToList();
         }
-
-        var samples = JsonSerializer.Deserialize<List<RemoteSampleDto>>(body, JsonOptions) ?? new List<RemoteSampleDto>();
-        var providerId = descriptor.RemoteProviderId ?? string.Empty;
-        IEnumerable<RemoteSampleDto> filtered = samples;
-
-        if (providerId.Contains("f5", StringComparison.OrdinalIgnoreCase))
-            filtered = filtered.Where(s => (s.DurationSeconds ?? 0f) > 0f && (s.DurationSeconds ?? 0f) <= 11.0f);
-        else if (providerId.Contains("chatterbox", StringComparison.OrdinalIgnoreCase))
-            filtered = filtered.Where(s => (s.DurationSeconds ?? 0f) <= 0f || (s.DurationSeconds ?? 0f) <= 41.0f);
-
-        return filtered.Select(s => new VoiceInfo
+        catch (OperationCanceledException) { throw; }
+        catch (Exception ex)
         {
-            VoiceId = s.SampleId ?? string.Empty,
-            Name = s.SampleId ?? string.Empty,
-            Description = !string.IsNullOrWhiteSpace(s.Description) ? s.Description! : (s.Filename ?? s.SampleId ?? string.Empty),
-            Language = string.Empty,
-            Gender = Protocol.Gender.Unknown,
-        }).ToList();
+            throw new InvalidOperationException($"Voice source lookup failed: {ex.Message}", ex);
+        }
     }
 
     public async Task<byte[]> SynthesizeAsync(RemoteSynthesizeRequest request, CancellationToken ct)

@@ -30,6 +30,7 @@ from .gpu_detect import detect as detect_gpu
 from .cache import AudioCache
 from .backends import load_backends
 from .transcriber import TranscriptionService
+from .community_db import CommunityDb
 
 log = logging.getLogger(__name__)
 
@@ -47,6 +48,11 @@ async def lifespan(app: FastAPI):
     gpu = detect_gpu(settings.gpu)
     app.state.gpu      = gpu
     app.state.settings = settings
+
+    # Community DB (NPC overrides crowd-source store)
+    community_db = CommunityDb(settings.community_db_path)
+    await community_db.initialize()
+    app.state.community_db = community_db
 
     # Audio cache
     cache = AudioCache(
@@ -111,6 +117,7 @@ async def lifespan(app: FastAPI):
             pass
 
     await cache.close()
+    await community_db.close()
     log.info("Server shut down cleanly")
 
 
@@ -144,6 +151,18 @@ app = FastAPI(
     docs_url="/docs",       # Swagger UI — useful for testing without the client
     redoc_url="/redoc",
 )
+
+# ── Reverse proxy support ─────────────────────────────────────────────────────
+# When running behind Caddy (or any reverse proxy), trust X-Forwarded-For
+# so logs and auth middleware see the real client IP instead of the proxy IP.
+# RRV_TRUSTED_PROXY_IPS: comma-separated list of trusted proxy IPs/CIDRs.
+# Defaults to "127.0.0.1" (loopback) which covers Caddy on the same host.
+# Set to "0.0.0.0/0" to trust all proxies (only safe on a private LAN).
+
+from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
+
+_trusted_proxies = settings.trusted_proxy_ips
+app.add_middleware(ProxyHeadersMiddleware, trusted_hosts=_trusted_proxies)
 
 
 # ── Auth middleware ───────────────────────────────────────────────────────────
@@ -181,15 +200,19 @@ async def auth_middleware(request: Request, call_next):
 
 # ── Routes ────────────────────────────────────────────────────────────────────
 
-from .routes.health       import router as health_router
-from .routes.capabilities import router as capabilities_router
-from .routes.providers    import router as providers_router
-from .routes.synthesize   import router as synthesize_router
+from .routes.health        import router as health_router
+from .routes.capabilities  import router as capabilities_router
+from .routes.providers     import router as providers_router
+from .routes.synthesize    import router as synthesize_router
+from .routes.npc_overrides import router as npc_overrides_router
+from .routes.defaults      import router as defaults_router
 
 app.include_router(health_router)
 app.include_router(capabilities_router)
 app.include_router(providers_router)
 app.include_router(synthesize_router)
+app.include_router(npc_overrides_router)
+app.include_router(defaults_router)
 
 
 # ── CLI entry point ───────────────────────────────────────────────────────────

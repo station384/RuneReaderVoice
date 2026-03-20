@@ -3,6 +3,7 @@
 // This file is part of RuneReaderVoice.
 // Copyright (C) 2026 Michael Sutton
 
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
@@ -45,8 +46,12 @@ public sealed class NpcRaceOverrideDb
     public Task UpsertAsync(int npcId, int raceId, string? notes,
         string? bespokeSampleId = null,
         float? bespokeExaggeration = null,
-        float? bespokeCfgWeight = null)
-        => _db.Connection.InsertOrReplaceAsync(new NpcRaceOverrideRow
+        float? bespokeCfgWeight = null,
+        string source = "Local",
+        int confidence = 0)
+    {
+        var now = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() / 1000.0;
+        return _db.Connection.InsertOrReplaceAsync(new NpcRaceOverrideRow
         {
             NpcId               = npcId,
             RaceId              = raceId,
@@ -54,13 +59,55 @@ public sealed class NpcRaceOverrideDb
             BespokeSampleId     = bespokeSampleId,
             BespokeExaggeration = bespokeExaggeration,
             BespokeCfgWeight    = bespokeCfgWeight,
+            Source              = source,
+            Confidence          = confidence,
+            UpdatedAt           = now,
         });
+    }
 
     public Task DeleteAsync(int npcId)
         => _db.Connection.DeleteAsync<NpcRaceOverrideRow>(npcId);
 
+    /// <summary>
+    /// Merges a batch of server records into the local DB.
+    /// Local entries always win — server records only fill gaps or update
+    /// existing server-sourced entries. Never overwrites a Local entry.
+    /// Returns the count of records actually written.
+    /// </summary>
+    public async Task<int> MergeFromServerAsync(IEnumerable<NpcRaceOverride> serverRecords)
+    {
+        int count = 0;
+        foreach (var record in serverRecords)
+        {
+            var existing = await _db.Connection.Table<NpcRaceOverrideRow>()
+                .Where(r => r.NpcId == record.NpcId)
+                .FirstOrDefaultAsync();
+
+            // Local always wins — skip if a local entry exists
+            if (existing != null && existing.Source == "Local")
+                continue;
+
+            await _db.Connection.InsertOrReplaceAsync(new NpcRaceOverrideRow
+            {
+                NpcId               = record.NpcId,
+                RaceId              = record.RaceId,
+                Notes               = record.Notes ?? string.Empty,
+                BespokeSampleId     = record.BespokeSampleId,
+                BespokeExaggeration = record.BespokeExaggeration,
+                BespokeCfgWeight    = record.BespokeCfgWeight,
+                Source              = record.Source.ToString(),
+                Confidence          = record.Confidence ?? 0,
+                UpdatedAt           = record.UpdatedAt,
+            });
+            count++;
+        }
+        return count;
+    }
+
     private static NpcRaceOverride ToModel(NpcRaceOverrideRow row)
-        => new()
+    {
+        Enum.TryParse<NpcOverrideSource>(row.Source, out var source);
+        return new()
         {
             NpcId               = row.NpcId,
             RaceId              = row.RaceId,
@@ -70,6 +117,9 @@ public sealed class NpcRaceOverrideDb
             BespokeCfgWeight    = row.BespokeCfgWeight,
             AccentGroup         = RaceAccentMapping.ResolveAccentGroup(row.RaceId)
                                   ?? AccentGroup.Narrator,
-            Source              = NpcOverrideSource.Local,
+            Source              = source,
+            Confidence          = row.Confidence,
+            UpdatedAt           = row.UpdatedAt,
         };
+    }
 }

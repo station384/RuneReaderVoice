@@ -72,8 +72,11 @@ public sealed class NpcRaceOverride
     /// </summary>
     public int? Confidence { get; set; }
 
+    /// <summary>Unix timestamp of last update. Used for delta sync polling.</summary>
+    public double UpdatedAt { get; set; } = 0.0;
+
     public DateTime CreatedAt { get; set; }
-    public DateTime UpdatedAt { get; set; }
+    public DateTime UpdatedAtUtc { get; set; }
 
     /// <summary>True if this entry was received from the server and must not be client-deleted.</summary>
     public bool IsReadOnly => Source != NpcOverrideSource.Local;

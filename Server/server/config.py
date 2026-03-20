@@ -67,6 +67,16 @@ class Settings:
         self.whisper_model_dir:    Path = Path(_env_str("RRV_WHISPER_MODEL_DIR",    "./data/models/whisper"))
         self.sample_scan_interval: int  = _env_int("RRV_SAMPLE_SCAN_INTERVAL", 30)
 
+        # Community / sync
+        self.community_db_path: Path = Path(_env_str("RRV_COMMUNITY_DB_PATH", "./data/community.db"))
+        self.defaults_dir:      Path = Path(_env_str("RRV_DEFAULTS_DIR",      "./data/defaults"))
+        # Contribute key — low-friction shared secret for crowd-source contributions.
+        # Good-citizen gate: empty = open contributions (trusted LAN/guild mode).
+        self.contribute_key: str = _env_str("RRV_CONTRIBUTE_KEY", "")
+        # Admin key — gates PUT /defaults and PUT /npc-overrides/{id} (confirm).
+        # Empty = open admin (trusted LAN mode). Set for any internet-facing deployment.
+        self.admin_key: str = _env_str("RRV_ADMIN_KEY", "")
+
         # Backends
         raw_backends = _env_set("RRV_BACKENDS", "kokoro")
         invalid = raw_backends - VALID_BACKENDS
@@ -91,6 +101,12 @@ class Settings:
 
         # Security
         self.api_key: str = _env_str("RRV_API_KEY", "")
+
+        # Reverse proxy — comma-separated trusted proxy IPs/CIDRs for X-Forwarded-For.
+        # "127.0.0.1" covers Caddy on the same host (default).
+        # Set "0.0.0.0/0" to trust all proxies on a private LAN.
+        # Set "" to disable proxy header trust entirely (direct connections only).
+        self.trusted_proxy_ips: str = _env_str("RRV_TRUSTED_PROXY_IPS", "127.0.0.1")
 
         # Logging
         log_level = _env_str("RRV_LOG_LEVEL", "info").lower()
@@ -163,6 +179,8 @@ class Settings:
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
         self.models_dir.mkdir(parents=True, exist_ok=True)
         self.samples_dir.mkdir(parents=True, exist_ok=True)
+        self.community_db_path.parent.mkdir(parents=True, exist_ok=True)
+        self.defaults_dir.mkdir(parents=True, exist_ok=True)
 
     def __repr__(self) -> str:
         return (
@@ -172,7 +190,10 @@ class Settings:
             f"cache_dir={self.cache_dir}, models_dir={self.models_dir}, "
             f"samples_dir={self.samples_dir}, "
             f"cache_max_mb={self.cache_max_mb}, "
-            f"auth_enabled={self.auth_enabled}, log_level={self.log_level!r}"
+            f"auth_enabled={self.auth_enabled}, "
+            f"contribute_key_set={bool(self.contribute_key)}, "
+            f"admin_key_set={bool(self.admin_key)}, "
+            f"log_level={self.log_level!r}"
             f")"
         )
 

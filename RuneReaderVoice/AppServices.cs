@@ -13,6 +13,7 @@ using RuneReaderVoice.Data;
 using RuneReaderVoice.Platform;
 using RuneReaderVoice.Protocol;
 using RuneReaderVoice.Session;
+using RuneReaderVoice.Sync;
 using RuneReaderVoice.TTS;
 using RuneReaderVoice.TTS.Audio;
 using RuneReaderVoice.TTS.Cache;
@@ -36,6 +37,7 @@ public static class AppServices
     public static DialoguePronunciationProcessor PronunciationProcessor { get; private set; } = null!;
     public static DialogueTextSwapProcessor      TextSwapProcessor      { get; private set; } = null!;
     public static NpcRaceOverrideDb              NpcOverrides           { get; private set; } = null!;
+    public static NpcSyncService                 NpcSync                { get; private set; } = null!;
 
     // ── SQLite back-end (single shared DB) ───────────────────────────────────
     public static RvrDb                Db                 { get; private set; } = null!;
@@ -76,6 +78,7 @@ public static class AppServices
         DialoguePronunciationProcessor pronunciationProcessor,
         DialogueTextSwapProcessor textSwapProcessor,
         NpcRaceOverrideDb npcOverrides,
+        NpcSyncService npcSync,
         RvrDb db,
         PronunciationRuleStore pronunciationRules,
         TextSwapRuleStore textSwapRules,
@@ -92,6 +95,7 @@ public static class AppServices
         PronunciationProcessor = pronunciationProcessor;
         TextSwapProcessor      = textSwapProcessor;
         NpcOverrides           = npcOverrides;
+        NpcSync                = npcSync;
         Db                     = db;
         PronunciationRules     = pronunciationRules;
         TextSwapRules          = textSwapRules;

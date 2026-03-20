@@ -88,6 +88,39 @@ public sealed class VoiceUserSettings
     public string RemoteApiKey { get; set; } = "";
     public string RemoteProviderCatalogJson { get; set; } = "";
 
+    // ── Community sync settings ───────────────────────────────────────────────
+
+    /// <summary>
+    /// Token sent with NPC override contributions (Bearer).
+    /// Matches RRV_CONTRIBUTE_KEY on the server. Empty = open contribution.
+    /// </summary>
+    public string ContributeKey { get; set; } = "";
+
+    /// <summary>
+    /// Admin token for pushing defaults to the server (Bearer).
+    /// Matches RRV_ADMIN_KEY on the server. Empty = open admin (LAN mode).
+    /// </summary>
+    public string AdminKey { get; set; } = "";
+
+    /// <summary>
+    /// When true, saving a Local NPC override automatically contributes it
+    /// to the server in the background (fire-and-forget, silent failure).
+    /// </summary>
+    public bool ContributeByDefault { get; set; } = false;
+
+    /// <summary>
+    /// Unix timestamp of the last successful NPC override poll from server.
+    /// 0 = never synced. Used by the polling loop for delta fetches.
+    /// </summary>
+    public double LastNpcSyncAt { get; set; } = 0.0;
+
+    /// <summary>
+    /// When false and RemoteServerUrl is set, the app pulls server defaults
+    /// for all four data types on startup (first-load seeding).
+    /// Set to true after the first successful pull — or manually to force re-seed.
+    /// </summary>
+    public bool FirstLoadComplete { get; set; } = false;
+
     public double AppStartX { get; set; } = 150;
     public double AppStartY { get; set; } = 150;
 

@@ -7,6 +7,7 @@ using RuneReaderVoice;
 using RuneReaderVoice.Data;
 using RuneReaderVoice.Platform;
 using RuneReaderVoice.Protocol;
+using RuneReaderVoice.Sync;
 using RuneReaderVoice.TTS;
 using RuneReaderVoice.TTS.Cache;
 using RuneReaderVoice.TTS.Providers;
@@ -82,10 +83,30 @@ internal static class Program
         // ── NPC race override DB ──────────────────────────────────────────────
         var npcOverrides = new NpcRaceOverrideDb(db);
         npcOverrides.InitializeAsync().GetAwaiter().GetResult();
-        
-        
+
         var assembler = new TtsSessionAssembler(npcOverrides);
-        assembler.LoadOverridesAsync().GetAwaiter().GetResult();;
+        assembler.LoadOverridesAsync().GetAwaiter().GetResult();
+
+        // ── Community sync service ────────────────────────────────────────────
+        NpcSyncService npcSync;
+        if (!string.IsNullOrWhiteSpace(settings.RemoteServerUrl))
+        {
+            var syncClient = new ServerDefaultsClient(
+                settings.RemoteServerUrl,
+                settings.ContributeKey,
+                settings.AdminKey);
+            var assemblerBridge = new TtsSessionAssemblerBridge(assembler, npcOverrides);
+            npcSync = new NpcSyncService(
+                settings, npcOverrides, pronunciationRules, textSwapRules,
+                syncClient, assemblerBridge);
+            npcSync.StartAsync().GetAwaiter().GetResult();
+        }
+        else
+        {
+            // No server configured — create a no-op stub so AppServices is never null
+            npcSync = NpcSyncService.CreateNoOp(
+                settings, npcOverrides, pronunciationRules, textSwapRules);
+        }
 
         var textSwapProcessor      = BuildTextSwapProcessorAsync(textSwapRules).GetAwaiter().GetResult();;
         var pronunciationProcessor = BuildPronunciationProcessorAsync(pronunciationRules).GetAwaiter().GetResult();;
@@ -114,11 +135,14 @@ internal static class Program
             var shapedText = AppServices.TextSwapProcessor.Process(seg.Text);
             var shapedSegment = new AssembledSegment
             {
-                Text         = shapedText,
-                Slot         = seg.Slot,
-                DialogId     = seg.DialogId,
-                SegmentIndex = seg.SegmentIndex,
-                NpcId        = seg.NpcId,
+                Text                = shapedText,
+                Slot                = seg.Slot,
+                DialogId            = seg.DialogId,
+                SegmentIndex        = seg.SegmentIndex,
+                NpcId               = seg.NpcId,
+                BespokeSampleId     = seg.BespokeSampleId,
+                BespokeExaggeration = seg.BespokeExaggeration,
+                BespokeCfgWeight    = seg.BespokeCfgWeight,
             };
             var processed = activeProvider.SupportsInlinePronunciationHints
                 ? AppServices.PronunciationProcessor.Process(shapedSegment)
@@ -167,7 +191,7 @@ internal static class Program
         AppServices.Initialize(
             settings, platform, provider, cache, player,
             assembler, coordinator, monitor, pronunciationProcessor, textSwapProcessor,
-            npcOverrides, db, pronunciationRules, textSwapRules, providerRegistry);
+            npcOverrides, npcSync, db, pronunciationRules, textSwapRules, providerRegistry);
 
         return AppBuilder
             .Configure<App>()

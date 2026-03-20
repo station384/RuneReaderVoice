@@ -34,6 +34,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Net.Sockets;
 using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
@@ -222,6 +223,13 @@ public sealed class PlaybackCoordinator : IDisposable
                 await SynthesizeAndPlayAsync(segment, ct);
             }
             catch (OperationCanceledException) { AppServices.ClearOperationStatus(); break; }
+            catch (Exception ex) when (IsCancellationIoException(ex, ct))
+            {
+                // HttpClient aborted mid-TLS-read due to CancellationToken firing.
+                // Surfaces as IOException(SocketException 995) on Windows — treat as cancellation.
+                AppServices.ClearOperationStatus();
+                break;
+            }
             catch (Exception ex)
             {
                 AppServices.ClearOperationStatus();
@@ -322,6 +330,35 @@ public sealed class PlaybackCoordinator : IDisposable
     {
         if (phraseCount == 1) return fullText;
         return index < phrases.Count ? phrases[index] : fullText;
+    }
+
+    // ── Helpers ───────────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Returns true when an exception is an IOException caused by a cancelled
+    /// HttpClient request. On Windows, cancelling a request mid-TLS-read surfaces
+    /// as IOException(SocketException 995 / ERROR_OPERATION_ABORTED) rather than
+    /// OperationCanceledException. Treat it as cancellation — not a real error.
+    /// </summary>
+    private static bool IsCancellationIoException(Exception ex, CancellationToken ct)
+    {
+        if (!ct.IsCancellationRequested)
+            return false;
+
+        // Walk the inner exception chain looking for SocketException 995
+        var inner = ex;
+        while (inner != null)
+        {
+            if (inner is System.Net.Sockets.SocketException se &&
+                se.SocketErrorCode == System.Net.Sockets.SocketError.OperationAborted)
+                return true;
+            if (inner is IOException ioe &&
+                ioe.InnerException is System.Net.Sockets.SocketException se2 &&
+                se2.SocketErrorCode == System.Net.Sockets.SocketError.OperationAborted)
+                return true;
+            inner = inner.InnerException;
+        }
+        return false;
     }
 
     // ── Dispose ───────────────────────────────────────────────────────────────

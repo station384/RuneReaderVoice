@@ -712,3 +712,13 @@ public static class EspeakLanguageCatalog
     private static EspeakLanguageOption Add(string code, string displayName, bool pinned = false)
         => new() { Code = code, DisplayName = displayName, IsPinned = pinned };
 }
+
+
+// ── VoiceProfileExport ────────────────────────────────────────────────────────
+// Shared export/import DTO used by MainWindow.Voices.cs and NpcSyncService.
+
+public sealed class VoiceProfileExport
+{
+    public string ProviderId { get; set; } = string.Empty;
+    public Dictionary<string, VoiceProfile> Profiles { get; set; } = new();
+}

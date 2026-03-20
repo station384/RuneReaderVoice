@@ -1,0 +1,196 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+//
+// This file is part of RuneReaderVoice.
+// Copyright (C) 2026 Michael Sutton
+
+// Sync/ServerDefaultsClient.cs
+// HTTP client for server-side defaults and NPC override community endpoints.
+//
+// Endpoints used:
+//   GET  /api/v1/defaults/{type}          — pull seed data
+//   PUT  /api/v1/defaults/{type}          — push seed data (admin)
+//   GET  /api/v1/npc-overrides/since?t=   — poll for new NPC override records
+//   POST /api/v1/npc-overrides            — contribute a record
+
+using System;
+using System.Collections.Generic;
+using System.Net.Http;
+using System.Net.Http.Json;
+using System.Text;
+using System.Text.Json;
+using System.Text.Json.Serialization;
+using System.Threading;
+using System.Threading.Tasks;
+using RuneReaderVoice.Data;
+
+namespace RuneReaderVoice.Sync;
+
+// ── DTOs ──────────────────────────────────────────────────────────────────────
+
+public sealed class ServerNpcOverrideRecord
+{
+    [JsonPropertyName("npc_id")]               public int     NpcId               { get; set; }
+    [JsonPropertyName("race_id")]              public int     RaceId              { get; set; }
+    [JsonPropertyName("notes")]                public string? Notes               { get; set; }
+    [JsonPropertyName("bespoke_sample_id")]    public string? BespokeSampleId     { get; set; }
+    [JsonPropertyName("bespoke_exaggeration")] public float?  BespokeExaggeration { get; set; }
+    [JsonPropertyName("bespoke_cfg_weight")]   public float?  BespokeCfgWeight    { get; set; }
+    [JsonPropertyName("source")]               public string  Source              { get; set; } = "crowdsourced";
+    [JsonPropertyName("confidence")]           public int     Confidence          { get; set; }
+    [JsonPropertyName("updated_at")]           public double  UpdatedAt           { get; set; }
+}
+
+public sealed class ServerNpcOverrideSinceResponse
+{
+    [JsonPropertyName("records")] public List<ServerNpcOverrideRecord> Records { get; set; } = new();
+    [JsonPropertyName("count")]   public int Count { get; set; }
+}
+
+public sealed class ServerDefaultsResponse
+{
+    [JsonPropertyName("data_type")] public string       DataType { get; set; } = string.Empty;
+    [JsonPropertyName("payload")]   public JsonElement? Payload  { get; set; }
+    [JsonPropertyName("exists")]    public bool         Exists   { get; set; }
+}
+
+// ── Client ────────────────────────────────────────────────────────────────────
+
+public sealed class ServerDefaultsClient
+{
+    private readonly HttpClient _http;
+    private readonly string     _contributeKey;
+    private readonly string     _adminKey;
+
+    private static readonly JsonSerializerOptions _jsonOptions = new()
+    {
+        PropertyNameCaseInsensitive = true,
+    };
+
+    public ServerDefaultsClient(string serverUrl, string contributeKey = "", string adminKey = "")
+    {
+        _http = new HttpClient
+        {
+            BaseAddress = new Uri(serverUrl.TrimEnd('/') + "/"),
+            Timeout     = TimeSpan.FromSeconds(15),
+        };
+        _contributeKey = contributeKey;
+        _adminKey      = adminKey;
+    }
+
+    // ── NPC overrides ─────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Polls for NPC override records updated after since_ts.
+    /// since_ts = 0 returns all records (full pull).
+    /// Returns null on failure.
+    /// </summary>
+    public async Task<List<ServerNpcOverrideRecord>?> GetNpcOverridesSinceAsync(
+        double sinceTs, CancellationToken ct = default)
+    {
+        try
+        {
+            var response = await _http.GetFromJsonAsync<ServerNpcOverrideSinceResponse>(
+                $"api/v1/npc-overrides/since?t={sinceTs}",
+                _jsonOptions, ct);
+            return response?.Records;
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"[ServerDefaultsClient] GetNpcOverridesSince failed: {ex.Message}");
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// Contributes a local NPC override to the server (crowd-source).
+    /// Fire-and-forget friendly — returns false on failure, no throw.
+    /// </summary>
+    public async Task<bool> ContributeNpcOverrideAsync(
+        NpcRaceOverride entry, CancellationToken ct = default)
+    {
+        try
+        {
+            var payload = new
+            {
+                npc_id               = entry.NpcId,
+                race_id              = entry.RaceId,
+                notes                = entry.Notes ?? string.Empty,
+                bespoke_sample_id    = entry.BespokeSampleId,
+                bespoke_exaggeration = entry.BespokeExaggeration,
+                bespoke_cfg_weight   = entry.BespokeCfgWeight,
+            };
+
+            var request = new HttpRequestMessage(HttpMethod.Post, "api/v1/npc-overrides")
+            {
+                Content = JsonContent.Create(payload),
+            };
+
+            if (!string.IsNullOrWhiteSpace(_contributeKey))
+                request.Headers.Authorization =
+                    new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", _contributeKey);
+
+            var response = await _http.SendAsync(request, ct);
+            return response.IsSuccessStatusCode;
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"[ServerDefaultsClient] ContributeNpcOverride failed: {ex.Message}");
+            return false;
+        }
+    }
+
+    // ── Defaults ──────────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Pulls the raw JSON payload for a defaults type from the server.
+    /// Returns null if not found or on error.
+    /// Valid types: "voice-profiles", "pronunciation", "text-shaping", "npc-overrides"
+    /// </summary>
+    public async Task<string?> GetDefaultsJsonAsync(
+        string dataType, CancellationToken ct = default)
+    {
+        try
+        {
+            var response = await _http.GetFromJsonAsync<ServerDefaultsResponse>(
+                $"api/v1/defaults/{dataType}", _jsonOptions, ct);
+
+            if (response == null || !response.Exists || response.Payload == null)
+                return null;
+
+            return response.Payload.Value.GetRawText();
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"[ServerDefaultsClient] GetDefaults({dataType}) failed: {ex.Message}");
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// Pushes a JSON payload to the server as the defaults for a type.
+    /// Requires admin key if server is configured with one.
+    /// </summary>
+    public async Task<bool> PutDefaultsJsonAsync(
+        string dataType, string json, CancellationToken ct = default)
+    {
+        try
+        {
+            var request = new HttpRequestMessage(HttpMethod.Put, $"api/v1/defaults/{dataType}")
+            {
+                Content = new StringContent(json, Encoding.UTF8, "application/json"),
+            };
+
+            if (!string.IsNullOrWhiteSpace(_adminKey))
+                request.Headers.Authorization =
+                    new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", _adminKey);
+
+            var response = await _http.SendAsync(request, ct);
+            return response.IsSuccessStatusCode;
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"[ServerDefaultsClient] PutDefaults({dataType}) failed: {ex.Message}");
+            return false;
+        }
+    }
+}

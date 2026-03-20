@@ -91,6 +91,9 @@ public partial class MainWindow
         LastNpcIdLabel.Text = $"NPC ID: {seg.NpcId}";
         LastNpcPanel.IsVisible = true;
 
+        // Refresh sample dropdown — voice list may have loaded since init
+        PopulateLastNpcSampleDropdown();
+
         // Pre-fill existing override if one exists, otherwise clear.
         LoadExistingOverrideIntoPanel(seg.NpcId);
     }
@@ -123,8 +126,8 @@ public partial class MainWindow
         if (_lastNpcId == 0) return;
         if (LastNpcRaceDropdown.SelectedItem is not ComboBoxItem item) return;
 
-        var raceId         = (int)(item.Tag ?? 0);
-        var notes          = LastNpcNotesBox.Text?.Trim();
+        var raceId          = (int)(item.Tag ?? 0);
+        var notes           = LastNpcNotesBox.Text?.Trim();
         var bespokeSampleId = GetSelectedLastNpcSampleId();
 
         _ = Task.Run(async () =>
@@ -136,6 +139,14 @@ public partial class MainWindow
             AppServices.Assembler.ApplyRaceOverride(
                 _lastNpcId, raceId,
                 bespokeSampleId: bespokeSampleId);
+
+            // Contribute to server if enabled
+            if (AppServices.Settings.ContributeByDefault)
+            {
+                var entry = await AppServices.NpcOverrides.GetOverrideAsync(_lastNpcId);
+                if (entry != null)
+                    AppServices.NpcSync.ContributeIfEnabled(entry);
+            }
 
             Dispatcher.UIThread.Post(() =>
             {
@@ -633,4 +644,56 @@ public partial class MainWindow
 
     private void OnNpcOverridesRefreshClicked(object? sender, RoutedEventArgs e)
         => RefreshNpcOverridesGrid();
+
+    private async void OnNpcOverridesPullFromServerClicked(object? sender, RoutedEventArgs e)
+    {
+        if (string.IsNullOrWhiteSpace(AppServices.Settings.RemoteServerUrl))
+        {
+            NpcOverridesStatus.Text = "No server URL configured.";
+            return;
+        }
+
+        NpcOverridesStatus.Text = "Pulling from server…";
+        try
+        {
+            int merged = await AppServices.NpcSync.PollNpcOverridesAsync(sinceTs: 0.0);
+            RefreshNpcOverridesGrid();
+            NpcOverridesStatus.Text = merged > 0
+                ? $"Pulled {merged} override(s) from server."
+                : "No new overrides on server.";
+        }
+        catch (Exception ex)
+        {
+            NpcOverridesStatus.Text = $"Pull failed: {ex.Message}";
+        }
+    }
+
+    private async void OnNpcOverridesPushToServerClicked(object? sender, RoutedEventArgs e)
+    {
+        if (string.IsNullOrWhiteSpace(AppServices.Settings.RemoteServerUrl))
+        {
+            NpcOverridesStatus.Text = "No server URL configured.";
+            return;
+        }
+
+        NpcOverridesStatus.Text = "Pushing to server…";
+        try
+        {
+            var entries = await AppServices.NpcOverrides.GetAllAsync();
+            var local   = entries.Where(x => x.Source == NpcOverrideSource.Local).ToList();
+
+            int ok = 0;
+            foreach (var entry in local)
+            {
+                if (await AppServices.NpcSync.ContributeOneAsync(entry))
+                    ok++;
+            }
+
+            NpcOverridesStatus.Text = $"Pushed {ok}/{local.Count} override(s) to server.";
+        }
+        catch (Exception ex)
+        {
+            NpcOverridesStatus.Text = $"Push failed: {ex.Message}";
+        }
+    }
 }

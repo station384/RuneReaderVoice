@@ -383,6 +383,53 @@ public partial class MainWindow
 
     // ── Removed: OnTextSwapOpenRulesFileClicked (rules now stored in DB) ──────
 
+    private async void OnTextSwapPushToServerClicked(object? sender, RoutedEventArgs e)
+    {
+        if (string.IsNullOrWhiteSpace(AppServices.Settings.RemoteServerUrl))
+        {
+            TextSwapRuleStatus.Text = "No server URL configured.";
+            return;
+        }
+
+        try
+        {
+            var entries = await AppServices.TextSwapRules.GetAllEntriesAsync();
+            var file    = new TextSwapRuleFile { Rules = entries };
+            var json    = System.Text.Json.JsonSerializer.Serialize(file,
+                new System.Text.Json.JsonSerializerOptions { WriteIndented = true });
+            var ok = await AppServices.NpcSync.PushDefaultsAsync("text-shaping", json);
+            TextSwapRuleStatus.Text = ok ? "Text shaping rules pushed to server." : "Push failed — check server logs.";
+        }
+        catch (Exception ex)
+        {
+            TextSwapRuleStatus.Text = $"Push failed: {ex.Message}";
+        }
+    }
+
+    private async void OnTextSwapPullFromServerClicked(object? sender, RoutedEventArgs e)
+    {
+        if (string.IsNullOrWhiteSpace(AppServices.Settings.RemoteServerUrl))
+        {
+            TextSwapRuleStatus.Text = "No server URL configured.";
+            return;
+        }
+
+        try
+        {
+            var ok = await AppServices.NpcSync.PullAndApplyDefaultsAsync("text-shaping");
+            if (ok)
+            {
+                await ReloadTextSwapProcessorAsync();
+                await ReloadTextSwapRuleListAsync();
+            }
+            TextSwapRuleStatus.Text = ok ? "Text shaping rules pulled from server." : "No text shaping rules on server.";
+        }
+        catch (Exception ex)
+        {
+            TextSwapRuleStatus.Text = $"Pull failed: {ex.Message}";
+        }
+    }
+
     private void OnTextSwapCopyPreviewClicked(object? sender, RoutedEventArgs e)
     {
         _ = CopyTextSwapPreviewAsync();

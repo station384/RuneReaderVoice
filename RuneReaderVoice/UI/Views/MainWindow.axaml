@@ -199,6 +199,26 @@ along with RuneReaderVoice. If not, see <https://www.gnu.org/licenses/>.
                                     <TextBlock Text="Remote API Key (optional)" Foreground="#888" FontSize="11" Margin="0,6,0,0"/>
                                     <TextBox x:Name="RemoteApiKey" TextChanged="OnRemoteApiKeyChanged" PasswordChar="*"/>
 
+                                    <TextBlock Text="Contribute Key (optional)" Foreground="#888" FontSize="11" Margin="0,6,0,0"
+                                               ToolTip.Tip="Shared token for contributing NPC voice overrides to the server. Leave empty for open LAN mode."/>
+                                    <TextBox x:Name="ContributeKeyBox" TextChanged="OnContributeKeyChanged" PasswordChar="*"/>
+
+                                    <TextBlock Text="Admin Key (optional)" Foreground="#888" FontSize="11" Margin="0,6,0,0"
+                                               ToolTip.Tip="Admin token for pushing defaults to the server. Leave empty for open LAN mode."/>
+                                    <TextBox x:Name="AdminKeyBox" TextChanged="OnAdminKeyChanged" PasswordChar="*"/>
+
+                                    <CheckBox x:Name="ContributeByDefaultCheck"
+                                              Content="Contribute NPC voice assignments to server automatically"
+                                              FontSize="11" Margin="0,6,0,0"
+                                              Click="OnContributeByDefaultChanged"
+                                              ToolTip.Tip="When enabled, saving an NPC voice override pushes it to the server in the background to share with other players."/>
+
+                                    <CheckBox x:Name="FirstLoadCompleteCheck"
+                                              Content="First-load seeding complete (uncheck to re-seed from server)"
+                                              FontSize="11" Margin="0,2,0,0"
+                                              Click="OnFirstLoadCompleteChanged"
+                                              ToolTip.Tip="On startup, if unchecked and a server URL is set, the app pulls server defaults for all four data types."/>
+
                                     <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,4,0,0">
                                         <Button x:Name="RemoteRefreshProvidersButton"
                                                 Content="Refresh Remote Providers"
@@ -284,6 +304,10 @@ along with RuneReaderVoice. If not, see <https://www.gnu.org/licenses/>.
                                     Click="OnVoicesExportClicked"/>
                             <Button Content="Import Profiles"
                                     Click="OnVoicesImportClicked"/>
+                            <Button Content="Push to Server" FontSize="11"
+                                    Click="OnVoicesPushToServerClicked"/>
+                            <Button Content="Pull from Server" FontSize="11"
+                                    Click="OnVoicesPullFromServerClicked"/>
                         </StackPanel>
                         <StackPanel x:Name="VoiceGrid" Spacing="6"/>
                     </StackPanel>
@@ -311,6 +335,12 @@ along with RuneReaderVoice. If not, see <https://www.gnu.org/licenses/>.
                             <Button Content="Import JSON"
                                     FontSize="11"
                                     Click="OnNpcOverridesImportClicked"/>
+                            <Button Content="Push to Server"
+                                    FontSize="11"
+                                    Click="OnNpcOverridesPushToServerClicked"/>
+                            <Button Content="Pull from Server"
+                                    FontSize="11"
+                                    Click="OnNpcOverridesPullFromServerClicked"/>
                             <Button Content="Refresh"
                                     FontSize="11"
                                     Click="OnNpcOverridesRefreshClicked"/>
@@ -628,6 +658,8 @@ along with RuneReaderVoice. If not, see <https://www.gnu.org/licenses/>.
                                 <Button x:Name="PronReloadRulesButton" Content="Reload Rules" Click="OnPronunciationReloadRulesClicked"/>
                                 <Button x:Name="PronExportRulesButton" Content="Export Rules" Click="OnPronunciationExportRulesClicked"/>
                                 <Button x:Name="PronImportRulesButton" Content="Import Rules" Click="OnPronunciationImportRulesClicked"/>
+                                <Button x:Name="PronPushToServerButton"   Content="Push to Server"   Click="OnPronunciationPushToServerClicked"/>
+                                <Button x:Name="PronPullFromServerButton" Content="Pull from Server" Click="OnPronunciationPullFromServerClicked"/>
                             </WrapPanel>
 
                             <TextBlock x:Name="PronRuleStatus"
@@ -785,6 +817,8 @@ along with RuneReaderVoice. If not, see <https://www.gnu.org/licenses/>.
                                 <Button x:Name="TextSwapReloadRulesButton"   Content="Reload Rules"    Click="OnTextSwapReloadRulesClicked"/>
                                 <Button x:Name="TextSwapExportRulesButton"   Content="Export Rules"    Click="OnTextSwapExportRulesClicked"/>
                                 <Button x:Name="TextSwapImportRulesButton"   Content="Import Rules"    Click="OnTextSwapImportRulesClicked"/>
+                                <Button x:Name="TextSwapPushToServerButton"   Content="Push to Server"   Click="OnTextSwapPushToServerClicked"/>
+                                <Button x:Name="TextSwapPullFromServerButton" Content="Pull from Server" Click="OnTextSwapPullFromServerClicked"/>
                             </WrapPanel>
 
                             <Border Background="#101A2B" CornerRadius="6" Padding="10">

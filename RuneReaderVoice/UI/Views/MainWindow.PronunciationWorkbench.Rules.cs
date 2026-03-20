@@ -308,4 +308,51 @@ public partial class MainWindow
             PronRuleStatus.Text = $"Import failed: {ex.Message}";
         }
     }
+
+    private async void OnPronunciationPushToServerClicked(object? sender, RoutedEventArgs e)
+    {
+        if (string.IsNullOrWhiteSpace(AppServices.Settings.RemoteServerUrl))
+        {
+            PronRuleStatus.Text = "No server URL configured.";
+            return;
+        }
+
+        try
+        {
+            var entries = await AppServices.PronunciationRules.GetAllEntriesAsync();
+            var file    = new PronunciationRuleFile { Rules = entries };
+            var json    = System.Text.Json.JsonSerializer.Serialize(file,
+                new System.Text.Json.JsonSerializerOptions { WriteIndented = true });
+            var ok = await AppServices.NpcSync.PushDefaultsAsync("pronunciation", json);
+            PronRuleStatus.Text = ok ? "Pronunciation rules pushed to server." : "Push failed — check server logs.";
+        }
+        catch (Exception ex)
+        {
+            PronRuleStatus.Text = $"Push failed: {ex.Message}";
+        }
+    }
+
+    private async void OnPronunciationPullFromServerClicked(object? sender, RoutedEventArgs e)
+    {
+        if (string.IsNullOrWhiteSpace(AppServices.Settings.RemoteServerUrl))
+        {
+            PronRuleStatus.Text = "No server URL configured.";
+            return;
+        }
+
+        try
+        {
+            var ok = await AppServices.NpcSync.PullAndApplyDefaultsAsync("pronunciation");
+            if (ok)
+            {
+                await ReloadPronunciationProcessorAsync();
+                await ReloadPronunciationRuleListAsync();
+            }
+            PronRuleStatus.Text = ok ? "Pronunciation rules pulled from server." : "No pronunciation rules on server.";
+        }
+        catch (Exception ex)
+        {
+            PronRuleStatus.Text = $"Pull failed: {ex.Message}";
+        }
+    }
 }

@@ -26,14 +26,21 @@ public enum RvrTable
 public sealed class NpcRaceOverrideRow
 {
     [PrimaryKey]
-    public int     NpcId              { get; set; }
-    public int     RaceId             { get; set; }
-    public string  Notes              { get; set; } = string.Empty;
+    public int     NpcId               { get; set; }
+    public int     RaceId              { get; set; }
+    public string  Notes               { get; set; } = string.Empty;
 
     // Bespoke voice override — null means "inherit from race slot"
-    public string? BespokeSampleId    { get; set; } = null;
+    public string? BespokeSampleId     { get; set; } = null;
     public float?  BespokeExaggeration { get; set; } = null;
-    public float?  BespokeCfgWeight   { get; set; } = null;
+    public float?  BespokeCfgWeight    { get; set; } = null;
+
+    // Sync metadata
+    // Source: "Local" | "CrowdSourced" | "Confirmed"
+    // Local always wins over server-sourced entries.
+    public string  Source              { get; set; } = "Local";
+    public int     Confidence          { get; set; } = 0;
+    public double  UpdatedAt           { get; set; } = 0.0;  // Unix timestamp
 }
 
 [Table("PronunciationRules")]

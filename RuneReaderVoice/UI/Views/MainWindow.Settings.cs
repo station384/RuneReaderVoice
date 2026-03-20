@@ -40,6 +40,30 @@ public partial class MainWindow
         VoiceSettingsManager.SaveSettings(AppServices.Settings);
     }
 
+    private void OnContributeKeyChanged(object? sender, TextChangedEventArgs e)
+    {
+        AppServices.Settings.ContributeKey = ContributeKeyBox.Text ?? string.Empty;
+        VoiceSettingsManager.SaveSettings(AppServices.Settings);
+    }
+
+    private void OnAdminKeyChanged(object? sender, TextChangedEventArgs e)
+    {
+        AppServices.Settings.AdminKey = AdminKeyBox.Text ?? string.Empty;
+        VoiceSettingsManager.SaveSettings(AppServices.Settings);
+    }
+
+    private void OnContributeByDefaultChanged(object? sender, RoutedEventArgs e)
+    {
+        AppServices.Settings.ContributeByDefault = ContributeByDefaultCheck.IsChecked == true;
+        VoiceSettingsManager.SaveSettings(AppServices.Settings);
+    }
+
+    private void OnFirstLoadCompleteChanged(object? sender, RoutedEventArgs e)
+    {
+        AppServices.Settings.FirstLoadComplete = FirstLoadCompleteCheck.IsChecked == true;
+        VoiceSettingsManager.SaveSettings(AppServices.Settings);
+    }
+
     private async void OnRefreshRemoteProvidersClicked(object? sender, RoutedEventArgs e)
     {
         RemoteRefreshProvidersButton.IsEnabled = false;
@@ -218,6 +242,7 @@ public partial class MainWindow
 
         AppServices.SwapProvider(newProvider);
         PopulateVoiceGrid();
+        PopulateLastNpcSampleDropdown();
     }
 
     private void HookProviderStatusCallbacks(ITtsProvider provider)
