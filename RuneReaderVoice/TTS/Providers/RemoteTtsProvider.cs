@@ -358,6 +358,30 @@ public sealed class RemoteTtsProvider : ITtsProvider
             AccentGroup.Elemental           => f ? "af_alloy"    : "am_onyx",
             AccentGroup.Giant               => f ? "af_kore"     : "am_fenrir",
             AccentGroup.Mechanical          => f ? "af_nova"     : "am_puck",
+
+            // Non-playable NPC races
+            AccentGroup.Amani               => f ? "af_aoede"    : "am_echo",
+            AccentGroup.Arathi              => f ? "bf_alice"    : "bm_george",
+            AccentGroup.Broken              => f ? "bf_isabella" : "bm_lewis",
+            AccentGroup.Centaur             => f ? "af_bella"    : "am_fenrir",
+            AccentGroup.DarkTroll           => f ? "af_aoede"    : "am_fenrir",
+            AccentGroup.Dredger             => f ? "af_alloy"    : "am_onyx",
+            AccentGroup.Dryad               => f ? "bf_alice"    : "bf_alice",
+            AccentGroup.Faerie              => f ? "af_nova"     : "af_sky",
+            AccentGroup.Fungarian           => f ? "af_nova"     : "am_puck",
+            AccentGroup.Grummle             => f ? "af_sky"      : "am_puck",
+            AccentGroup.Hobgoblin           => f ? "af_nova"     : "am_eric",
+            AccentGroup.Kyrian              => f ? "bf_alice"    : "bm_george",
+            AccentGroup.Nerubian            => f ? "af_alloy"    : "am_onyx",
+            AccentGroup.Refti               => f ? "af_alloy"    : "am_onyx",
+            AccentGroup.Revantusk           => f ? "af_aoede"    : "am_echo",
+            AccentGroup.Rutaani             => f ? "af_jessica"  : "am_fenrir",
+            AccentGroup.Shadowpine          => f ? "af_aoede"    : "am_echo",
+            AccentGroup.Titan               => f ? "af_kore"     : "am_onyx",
+            AccentGroup.Tortollan           => f ? "af_bella"    : "am_adam",
+            AccentGroup.Tuskarr             => f ? "af_bella"    : "am_adam",
+            AccentGroup.Venthyr             => f ? "bf_isabella" : "bm_fable",
+            AccentGroup.ZulAman             => f ? "af_aoede"    : "am_echo",
             _                               => slot.Gender == Gender.Female ? "af_bella" : "am_adam"
         };
     }

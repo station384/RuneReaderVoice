@@ -134,5 +134,72 @@ public static class NpcVoiceSlotCatalog
 
         new NpcVoiceSlotCatalogItem(new VoiceSlot(AccentGroup.Mechanical, Gender.Male),   "Mechanical NPC / Male",   "Mechanical", 430),
         new NpcVoiceSlotCatalogItem(new VoiceSlot(AccentGroup.Mechanical, Gender.Female), "Mechanical NPC / Female", "Mechanical", 431),
+
+        // ── Non-playable NPC races ────────────────────────────────────────────
+        new NpcVoiceSlotCatalogItem(new VoiceSlot(AccentGroup.Amani, Gender.Male),   "Amani Troll / Male",   "Caribbean (Fierce)", 500),
+        new NpcVoiceSlotCatalogItem(new VoiceSlot(AccentGroup.Amani, Gender.Female), "Amani Troll / Female", "Caribbean (Fierce)", 501),
+
+        new NpcVoiceSlotCatalogItem(new VoiceSlot(AccentGroup.Arathi, Gender.Male),   "Arathi / Male",   "British Measured", 510),
+        new NpcVoiceSlotCatalogItem(new VoiceSlot(AccentGroup.Arathi, Gender.Female), "Arathi / Female", "British Measured", 511),
+
+        new NpcVoiceSlotCatalogItem(new VoiceSlot(AccentGroup.Broken, Gender.Male),   "Broken / Male",   "Eastern European (Broken)", 520),
+        new NpcVoiceSlotCatalogItem(new VoiceSlot(AccentGroup.Broken, Gender.Female), "Broken / Female", "Eastern European (Broken)", 521),
+
+        new NpcVoiceSlotCatalogItem(new VoiceSlot(AccentGroup.Centaur, Gender.Male),   "Centaur / Male",   "Deep Rough Tribal", 530),
+        new NpcVoiceSlotCatalogItem(new VoiceSlot(AccentGroup.Centaur, Gender.Female), "Centaur / Female", "Deep Rough Tribal", 531),
+
+        new NpcVoiceSlotCatalogItem(new VoiceSlot(AccentGroup.DarkTroll, Gender.Male),   "Dark Troll / Male",   "Deep Earthy Caribbean", 540),
+        new NpcVoiceSlotCatalogItem(new VoiceSlot(AccentGroup.DarkTroll, Gender.Female), "Dark Troll / Female", "Deep Earthy Caribbean", 541),
+
+        new NpcVoiceSlotCatalogItem(new VoiceSlot(AccentGroup.Dredger, Gender.Male),   "Dredger / Male",   "Gravelly Subservient", 550),
+        new NpcVoiceSlotCatalogItem(new VoiceSlot(AccentGroup.Dredger, Gender.Female), "Dredger / Female", "Gravelly Subservient", 551),
+
+        new NpcVoiceSlotCatalogItem(new VoiceSlot(AccentGroup.Dryad, Gender.Male),   "Dryad / Male",   "Mystical Nature", 560),
+        new NpcVoiceSlotCatalogItem(new VoiceSlot(AccentGroup.Dryad, Gender.Female), "Dryad / Female", "Mystical Nature", 561),
+
+        new NpcVoiceSlotCatalogItem(new VoiceSlot(AccentGroup.Faerie, Gender.Male),   "Faerie / Male",   "Light Whimsical", 570),
+        new NpcVoiceSlotCatalogItem(new VoiceSlot(AccentGroup.Faerie, Gender.Female), "Faerie / Female", "Light Whimsical", 571),
+
+        new NpcVoiceSlotCatalogItem(new VoiceSlot(AccentGroup.Fungarian, Gender.Male),   "Fungarian / Male",   "Soft Bubbly", 580),
+        new NpcVoiceSlotCatalogItem(new VoiceSlot(AccentGroup.Fungarian, Gender.Female), "Fungarian / Female", "Soft Bubbly", 581),
+
+        new NpcVoiceSlotCatalogItem(new VoiceSlot(AccentGroup.Grummle, Gender.Male),   "Grummle / Male",   "Nasal Singsongy", 590),
+        new NpcVoiceSlotCatalogItem(new VoiceSlot(AccentGroup.Grummle, Gender.Female), "Grummle / Female", "Nasal Singsongy", 591),
+
+        new NpcVoiceSlotCatalogItem(new VoiceSlot(AccentGroup.Hobgoblin, Gender.Male),   "Hobgoblin / Male",   "New York (Crude)", 600),
+        new NpcVoiceSlotCatalogItem(new VoiceSlot(AccentGroup.Hobgoblin, Gender.Female), "Hobgoblin / Female", "New York (Crude)", 601),
+
+        new NpcVoiceSlotCatalogItem(new VoiceSlot(AccentGroup.Kyrian, Gender.Male),   "Kyrian / Male",   "British Ethereal", 610),
+        new NpcVoiceSlotCatalogItem(new VoiceSlot(AccentGroup.Kyrian, Gender.Female), "Kyrian / Female", "British Ethereal", 611),
+
+        new NpcVoiceSlotCatalogItem(new VoiceSlot(AccentGroup.Nerubian, Gender.Male),   "Nerubian / Male",   "Deep Raspy Ancient", 620),
+        new NpcVoiceSlotCatalogItem(new VoiceSlot(AccentGroup.Nerubian, Gender.Female), "Nerubian / Female", "Deep Raspy Ancient", 621),
+
+        new NpcVoiceSlotCatalogItem(new VoiceSlot(AccentGroup.Refti, Gender.Male),   "Refti / Male",   "Deep Aquatic Gravelly", 630),
+        new NpcVoiceSlotCatalogItem(new VoiceSlot(AccentGroup.Refti, Gender.Female), "Refti / Female", "Deep Aquatic Gravelly", 631),
+
+        new NpcVoiceSlotCatalogItem(new VoiceSlot(AccentGroup.Revantusk, Gender.Male),   "Revantusk Troll / Male",   "Caribbean", 640),
+        new NpcVoiceSlotCatalogItem(new VoiceSlot(AccentGroup.Revantusk, Gender.Female), "Revantusk Troll / Female", "Caribbean", 641),
+
+        new NpcVoiceSlotCatalogItem(new VoiceSlot(AccentGroup.Rutaani, Gender.Male),   "Rutaani / Male",   "Sharp Avian", 650),
+        new NpcVoiceSlotCatalogItem(new VoiceSlot(AccentGroup.Rutaani, Gender.Female), "Rutaani / Female", "Sharp Avian", 651),
+
+        new NpcVoiceSlotCatalogItem(new VoiceSlot(AccentGroup.Shadowpine, Gender.Male),   "Shadowpine Troll / Male",   "Caribbean", 660),
+        new NpcVoiceSlotCatalogItem(new VoiceSlot(AccentGroup.Shadowpine, Gender.Female), "Shadowpine Troll / Female", "Caribbean", 661),
+
+        new NpcVoiceSlotCatalogItem(new VoiceSlot(AccentGroup.Titan, Gender.Male),   "Titan Construct / Male",   "Deep Ancient", 670),
+        new NpcVoiceSlotCatalogItem(new VoiceSlot(AccentGroup.Titan, Gender.Female), "Titan Construct / Female", "Deep Ancient", 671),
+
+        new NpcVoiceSlotCatalogItem(new VoiceSlot(AccentGroup.Tortollan, Gender.Male),   "Tortollan / Male",   "Wise Slow", 680),
+        new NpcVoiceSlotCatalogItem(new VoiceSlot(AccentGroup.Tortollan, Gender.Female), "Tortollan / Female", "Wise Slow", 681),
+
+        new NpcVoiceSlotCatalogItem(new VoiceSlot(AccentGroup.Tuskarr, Gender.Male),   "Tuskarr / Male",   "Deep Slow", 690),
+        new NpcVoiceSlotCatalogItem(new VoiceSlot(AccentGroup.Tuskarr, Gender.Female), "Tuskarr / Female", "Deep Slow", 691),
+
+        new NpcVoiceSlotCatalogItem(new VoiceSlot(AccentGroup.Venthyr, Gender.Male),   "Venthyr / Male",   "British Aristocratic", 700),
+        new NpcVoiceSlotCatalogItem(new VoiceSlot(AccentGroup.Venthyr, Gender.Female), "Venthyr / Female", "British Aristocratic", 701),
+
+        new NpcVoiceSlotCatalogItem(new VoiceSlot(AccentGroup.ZulAman, Gender.Male),   "Zul'Aman Troll / Male",   "Caribbean (Ancient)", 710),
+        new NpcVoiceSlotCatalogItem(new VoiceSlot(AccentGroup.ZulAman, Gender.Female), "Zul'Aman Troll / Female", "Caribbean (Ancient)", 711),
     };
 }

@@ -68,6 +68,30 @@ public enum AccentGroup
     Giant,              // 0x56
     Mechanical,         // 0x57 — non-Gnome/Mechagnome mechanical NPCs
 
+    // ── Non-playable NPC races ─────────────────────────────────────────────────
+    Amani,              // Amani trolls — fierce Caribbean
+    Arathi,             // Arathi humans — measured British
+    Broken,             // Broken draenei — Eastern European (broken)
+    Centaur,            // Centaur — deep rough tribal
+    DarkTroll,          // Dark Trolls — deep earthy Caribbean
+    Dredger,            // Revendreth dredgers — gravelly subservient
+    Dryad,              // Dryads — mystical nature spirit
+    Faerie,             // Ardenweald faeries — light whimsical
+    Fungarian,          // Fungarian mushroom folk — soft bubbly
+    Grummle,            // Pandaria grummles — nasal singsongy
+    Hobgoblin,          // Hobgoblins — crude New York
+    Kyrian,             // Bastion kyrian — ethereal British
+    Nerubian,           // Nerubians — deep raspy ancient
+    Refti,              // Khaz Algar refti — deep aquatic gravelly
+    Revantusk,          // Revantusk trolls — Caribbean
+    Rutaani,            // Arakkoa-adjacent bird people — sharp clicking
+    Shadowpine,         // Shadowpine trolls — Caribbean
+    Titan,              // Titan constructs — deep ancient
+    Tortollan,          // Tortollans — wise slow
+    Tuskarr,            // Tuskarr — deep slow
+    Venthyr,            // Revendreth venthyr — British aristocratic
+    ZulAman,            // Zul'Aman amani — Caribbean ancient
+
     // ── Fallback ──────────────────────────────────────────────────────────────
     Narrator,           // RACE=0x00, FLAG_NARRATOR set, unmapped, or unknown gender
 }
