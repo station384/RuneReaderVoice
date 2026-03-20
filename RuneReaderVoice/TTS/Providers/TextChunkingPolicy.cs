@@ -235,33 +235,78 @@ public static class TextChunkingPolicy
     {
         var id = providerId ?? string.Empty;
         bool chatterbox = id.Contains("chatterbox", StringComparison.OrdinalIgnoreCase);
-        bool turbo = id.Contains("turbo", StringComparison.OrdinalIgnoreCase);
-        bool f5 = id.Contains("f5", StringComparison.OrdinalIgnoreCase);
-        bool kokoro = id.Contains("kokoro", StringComparison.OrdinalIgnoreCase);
+        bool turbo      = id.Contains("turbo", StringComparison.OrdinalIgnoreCase);
+        bool f5         = id.Contains("f5", StringComparison.OrdinalIgnoreCase);
+        bool kokoro     = id.Contains("kokoro", StringComparison.OrdinalIgnoreCase);
+
+        // Chatterbox limits derived from Provider_Tests.md:
+        //
+        // Chatterbox Full (exaggeration=0.5):
+        //   Plain prose:     ~450 chars safe, 600+ chars risky
+        //   Repeated frames: fails at 3-4 sentences regardless of length
+        //   Comma lists:     fails at ~10 items
+        //   Number words:    fails at 20-item sequences
+        //
+        // Chatterbox Turbo:
+        //   Plain prose:     ~650 chars safe, 870+ chars fails
+        //   Repeated frames: fails at 3 sentences
+        //   Comma lists:     fails at ~10 items
+        //
+        // Key insight: TargetChars controls where we split prose.
+        // ListItemLimit and RepeatedSentenceLimit control pattern-based splits
+        // that trigger BEFORE the char limit is reached.
 
         var result = new ChunkProfile
         {
-            TargetChars = kokoro ? 850 : (f5 ? 575 : (turbo ? 700 : (chatterbox ? 550 : 700))),
-            HardCapChars = kokoro ? 1050 : (f5 ? 725 : (turbo ? 850 : (chatterbox ? 650 : 850))),
-            ListItemLimit = kokoro ? 12 : (f5 ? 10 : (turbo ? 9 : (chatterbox ? 7 : 10))),
-            RepeatedSentenceLimit = kokoro ? 5 : (f5 ? 4 : (turbo ? 3 : (chatterbox ? 3 : 4))),
-            IsChatterboxFamily = chatterbox,
-            IsTurbo = turbo,
-            PivotMergeWordLimit = turbo ? 11 : (chatterbox ? 10 : 0),
+            // Chatterbox Full: tightened from 550/650 to 380/480
+            // Turbo is more robust — keep at 600/720 (tightened from 700/850)
+            // F5 and Kokoro unchanged
+            TargetChars           = kokoro    ? 850
+                                  : f5        ? 575
+                                  : turbo     ? 600
+                                  : chatterbox ? 380
+                                  : 700,
+
+            HardCapChars          = kokoro    ? 1050
+                                  : f5        ? 725
+                                  : turbo     ? 720
+                                  : chatterbox ? 480
+                                  : 850,
+
+            // Chatterbox Full fails at ~10 comma-separated items; cap at 7 (was 7, keep)
+            // Turbo fails at ~10 items; cap at 8 (was 9)
+            ListItemLimit         = kokoro    ? 12
+                                  : f5        ? 10
+                                  : turbo     ?  8
+                                  : chatterbox ?  6
+                                  : 10,
+
+            // Chatterbox fails on repeated sentence frames at 3+; cap at 2 (was 3)
+            RepeatedSentenceLimit = kokoro    ? 5
+                                  : f5        ? 4
+                                  : turbo     ? 3
+                                  : chatterbox ? 2
+                                  : 4,
+
+            IsChatterboxFamily    = chatterbox,
+            IsTurbo               = turbo,
+            PivotMergeWordLimit   = turbo ? 11 : (chatterbox ? 10 : 0),
         };
 
+        // Further tighten for high exaggeration — test showed exaggeration >= 1.0
+        // fails at roughly 60-70% of the normal safe length
         var exaggeration = profile?.Exaggeration ?? 0f;
-        if (chatterbox && exaggeration > 1.0f)
+        if (chatterbox && exaggeration >= 1.0f)
         {
             result = new ChunkProfile
             {
-                TargetChars = (int)Math.Round(result.TargetChars * 0.75),
-                HardCapChars = (int)Math.Round(result.HardCapChars * 0.8),
-                ListItemLimit = Math.Max(6, result.ListItemLimit - 2),
+                TargetChars           = (int)Math.Round(result.TargetChars   * 0.70),
+                HardCapChars          = (int)Math.Round(result.HardCapChars  * 0.75),
+                ListItemLimit         = Math.Max(4, result.ListItemLimit    - 2),
                 RepeatedSentenceLimit = Math.Max(2, result.RepeatedSentenceLimit - 1),
-                IsChatterboxFamily = result.IsChatterboxFamily,
-                IsTurbo = result.IsTurbo,
-                PivotMergeWordLimit = result.PivotMergeWordLimit,
+                IsChatterboxFamily    = result.IsChatterboxFamily,
+                IsTurbo               = result.IsTurbo,
+                PivotMergeWordLimit   = result.PivotMergeWordLimit,
             };
         }
 
