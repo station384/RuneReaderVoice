@@ -62,11 +62,17 @@ namespace RuneReaderVoice.Session;
 
 public sealed class AssembledSegment
 {
-    public string    Text         { get; init; } = string.Empty;
-    public VoiceSlot Slot         { get; init; }
-    public int       DialogId     { get; init; }
-    public int       SegmentIndex { get; init; }
-    public int       NpcId        { get; init; }
+    public string    Text              { get; init; } = string.Empty;
+    public VoiceSlot Slot              { get; init; }
+    public int       DialogId          { get; init; }
+    public int       SegmentIndex      { get; init; }
+    public int       NpcId             { get; init; }
+
+    // Bespoke voice override resolved at assembly time from NpcRaceOverride.
+    // Null means use the race slot defaults.
+    public string?   BespokeSampleId    { get; init; } = null;
+    public float?    BespokeExaggeration { get; init; } = null;
+    public float?    BespokeCfgWeight   { get; init; } = null;
 }
 
 public sealed class TtsSessionAssembler
@@ -113,13 +119,18 @@ public sealed class TtsSessionAssembler
 
     private readonly object _lock = new();
 
-    // ── NPC race override store ───────────────────────────────────────────────
+    // ── NPC voice override store ──────────────────────────────────────────────
     // Pre-loaded from NpcRaceOverrideDb at startup. Feed() is synchronous so
     // we maintain an in-memory copy here — the DB is the durable backing store.
-    // Key = NpcId, Value = RaceId.
 
-    private readonly Dictionary<int, int> _npcRaceStore = new();
-    private readonly NpcRaceOverrideDb    _overrideDb;
+    private record struct NpcVoiceOverride(
+        int     RaceId,
+        string? BespokeSampleId,
+        float?  BespokeExaggeration,
+        float?  BespokeCfgWeight);
+
+    private readonly Dictionary<int, NpcVoiceOverride> _npcVoiceStore = new();
+    private readonly NpcRaceOverrideDb                 _overrideDb;
 
     // ── Construction ──────────────────────────────────────────────────────────
 
@@ -138,7 +149,11 @@ public sealed class TtsSessionAssembler
         lock (_lock)
         {
             foreach (var entry in all)
-                _npcRaceStore[entry.NpcId] = entry.RaceId;
+                _npcVoiceStore[entry.NpcId] = new NpcVoiceOverride(
+                    entry.RaceId,
+                    entry.BespokeSampleId,
+                    entry.BespokeExaggeration,
+                    entry.BespokeCfgWeight);
         }
     }
 
@@ -168,10 +183,10 @@ public sealed class TtsSessionAssembler
             int effectiveRace = packet.Race;
             if (packet.NpcId != 0)
             {
-                if (_npcRaceStore.TryGetValue(packet.NpcId, out var stored))
-                    effectiveRace = stored;
+                if (_npcVoiceStore.TryGetValue(packet.NpcId, out var stored))
+                    effectiveRace = stored.RaceId;
                 else if (packet.Race != 0)
-                    _npcRaceStore[packet.NpcId] = packet.Race;
+                    _npcVoiceStore[packet.NpcId] = new NpcVoiceOverride(packet.Race, null, null, null);
             }
 
             if (packet.SubIndex == 0)
@@ -267,22 +282,26 @@ public sealed class TtsSessionAssembler
     }
 
     /// <summary>
-    /// Applies a new NPC race override at runtime (called from the UI after the
+    /// Applies a new NPC voice override at runtime (called from the UI after the
     /// user saves an assignment). Updates the in-memory store immediately so the
-    /// next dialog using this NpcId picks up the new race without a restart.
+    /// next dialog using this NpcId picks up the new settings without a restart.
     /// The caller is responsible for persisting to the DB via NpcRaceOverrideDb.
     /// </summary>
-    public void ApplyRaceOverride(int npcId, int raceId)
+    public void ApplyRaceOverride(int npcId, int raceId,
+        string? bespokeSampleId = null,
+        float? bespokeExaggeration = null,
+        float? bespokeCfgWeight = null)
     {
         if (npcId == 0) return;
         lock (_lock)
         {
-            _npcRaceStore[npcId] = raceId;
+            _npcVoiceStore[npcId] = new NpcVoiceOverride(
+                raceId, bespokeSampleId, bespokeExaggeration, bespokeCfgWeight);
         }
     }
 
     /// <summary>
-    /// Removes an NPC race override from the in-memory store (called from the UI
+    /// Removes an NPC voice override from the in-memory store (called from the UI
     /// after the user deletes a local override).
     /// The caller is responsible for deleting from the DB via NpcRaceOverrideDb.
     /// </summary>
@@ -290,7 +309,7 @@ public sealed class TtsSessionAssembler
     {
         lock (_lock)
         {
-            _npcRaceStore.Remove(npcId);
+            _npcVoiceStore.Remove(npcId);
         }
     }
 
@@ -322,13 +341,19 @@ public sealed class TtsSessionAssembler
         _completedKeys.Add(key);
         _completedUtteranceKeys.Add(utteranceKey);
 
+        // Resolve bespoke override for this NPC (null if not set)
+        _npcVoiceStore.TryGetValue(acc.NpcId, out var voiceOverride);
+
         _completedSegments[acc.SeqIndex] = new AssembledSegment
         {
-            Text         = text,
-            Slot         = acc.Slot,
-            DialogId     = _currentDialogId,
-            SegmentIndex = acc.SeqIndex,
-            NpcId        = acc.NpcId,
+            Text                = text,
+            Slot                = acc.Slot,
+            DialogId            = _currentDialogId,
+            SegmentIndex        = acc.SeqIndex,
+            NpcId               = acc.NpcId,
+            BespokeSampleId     = voiceOverride.BespokeSampleId,
+            BespokeExaggeration = voiceOverride.BespokeExaggeration,
+            BespokeCfgWeight    = voiceOverride.BespokeCfgWeight,
         };
     }
 

@@ -61,7 +61,8 @@ public sealed class RemoteTtsProvider : ITtsProvider
         return await DecodeOggAsync(oggBytes, ct);
     }
 
-    public async Task<byte[]> SynthesizeOggAsync(string text, VoiceSlot slot, CancellationToken ct)
+    public async Task<byte[]> SynthesizeOggAsync(string text, VoiceSlot slot, CancellationToken ct,
+        string? bespokeSampleId = null, float? bespokeExaggeration = null, float? bespokeCfgWeight = null)
     {
         if (string.IsNullOrWhiteSpace(_descriptor.RemoteProviderId))
             throw new InvalidOperationException("Remote provider id is missing.");
@@ -71,9 +72,12 @@ public sealed class RemoteTtsProvider : ITtsProvider
         var phrases = TextChunkingPolicy.GetChunkTexts(text, ProviderId, profile, chunkingEnabled);
 
         if (phrases.Count <= 1)
-            return await SynthesizeOggCoreAsync(text, slot, profile, ct);
+            return await SynthesizeOggCoreAsync(text, slot, profile, ct,
+                bespokeSampleId, bespokeExaggeration, bespokeCfgWeight);
 
-        var oggChunks = await RunLimitedAsync(phrases, 2, phrase => SynthesizeOggCoreAsync(phrase, slot, profile, ct), ct);
+        var oggChunks = await RunLimitedAsync(phrases, 2,
+            phrase => SynthesizeOggCoreAsync(phrase, slot, profile, ct,
+                bespokeSampleId, bespokeExaggeration, bespokeCfgWeight), ct);
 
         var pcmChunks = new List<PcmAudio>(oggChunks.Length);
         foreach (var ogg in oggChunks)
@@ -83,17 +87,29 @@ public sealed class RemoteTtsProvider : ITtsProvider
         return await EncodeOggAsync(combined, ct);
     }
 
-    private async Task<byte[]> SynthesizeOggCoreAsync(string text, VoiceSlot slot, VoiceProfile profile, CancellationToken ct)
+    private async Task<byte[]> SynthesizeOggCoreAsync(string text, VoiceSlot slot, VoiceProfile profile,
+        CancellationToken ct,
+        string? bespokeSampleId = null, float? bespokeExaggeration = null, float? bespokeCfgWeight = null)
     {
+        // Apply bespoke overrides on top of the resolved race-slot profile.
+        // DSP is NOT touched here — it lives in profile.Dsp and is applied post-synthesis.
+        if (!string.IsNullOrWhiteSpace(bespokeSampleId))
+        {
+            profile = profile.Clone();
+            profile.VoiceId = bespokeSampleId;
+            if (bespokeExaggeration.HasValue) profile.Exaggeration = bespokeExaggeration;
+            if (bespokeCfgWeight.HasValue)    profile.CfgWeight    = bespokeCfgWeight;
+        }
+
         var voiceSpec = BuildVoiceSpec(profile);
         var request = new RemoteSynthesizeRequest
         {
-            ProviderId = _descriptor.RemoteProviderId!,
-            Text = text,
-            Voice = voiceSpec,
-            LangCode = string.IsNullOrWhiteSpace(profile.LangCode) ? "en" : profile.LangCode,
-            SpeechRate = profile.SpeechRate <= 0f ? 1.0f : profile.SpeechRate,
-            CfgWeight = profile.CfgWeight,
+            ProviderId  = _descriptor.RemoteProviderId!,
+            Text        = text,
+            Voice       = voiceSpec,
+            LangCode    = string.IsNullOrWhiteSpace(profile.LangCode) ? "en" : profile.LangCode,
+            SpeechRate  = profile.SpeechRate <= 0f ? 1.0f : profile.SpeechRate,
+            CfgWeight   = profile.CfgWeight,
             Exaggeration = profile.Exaggeration,
         };
 

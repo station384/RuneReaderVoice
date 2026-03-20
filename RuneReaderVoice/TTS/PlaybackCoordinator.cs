@@ -256,7 +256,9 @@ public sealed class PlaybackCoordinator : IDisposable
         if (_provider is RemoteTtsProvider remoteProvider)
         {
             AppServices.SetOperationStatus("Requesting audio from server…");
-            var oggBytes = await remoteProvider.SynthesizeOggAsync(segment.Text, segment.Slot, ct);
+            var oggBytes = await remoteProvider.SynthesizeOggAsync(
+                segment.Text, segment.Slot, ct,
+                segment.BespokeSampleId, segment.BespokeExaggeration, segment.BespokeCfgWeight);
             AppServices.SetOperationStatus("Caching remote audio…");
             await _cache.StoreOggAsync(oggBytes, segment.Text, voiceId, _provider.ProviderId, "", ct);
             var cachedRemoteAudio = await _cache.TryGetDecodedAsync(segment.Text, voiceId, _provider.ProviderId, "", ct);

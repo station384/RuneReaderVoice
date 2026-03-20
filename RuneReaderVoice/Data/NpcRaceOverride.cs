@@ -44,6 +44,25 @@ public sealed class NpcRaceOverride
     /// <summary>Optional user-friendly label, e.g. "Rexxar" or "Thrall".</summary>
     public string? Notes { get; set; }
 
+    /// <summary>
+    /// When set, overrides the sample used for voice-matching synthesis for this NPC.
+    /// The race slot's DSP profile still applies — only the reference sample is replaced.
+    /// Null means use the race slot's default sample selection.
+    /// </summary>
+    public string? BespokeSampleId { get; set; } = null;
+
+    /// <summary>
+    /// Overrides the exaggeration parameter for this NPC's synthesis.
+    /// Null means inherit from the race slot's VoiceProfile.
+    /// </summary>
+    public float? BespokeExaggeration { get; set; } = null;
+
+    /// <summary>
+    /// Overrides the cfg_weight parameter for this NPC's synthesis.
+    /// Null means inherit from the race slot's VoiceProfile.
+    /// </summary>
+    public float? BespokeCfgWeight { get; set; } = null;
+
     /// <summary>Where this entry came from.</summary>
     public NpcOverrideSource Source { get; set; } = NpcOverrideSource.Local;
 

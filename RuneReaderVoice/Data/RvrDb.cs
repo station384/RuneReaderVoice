@@ -26,9 +26,14 @@ public enum RvrTable
 public sealed class NpcRaceOverrideRow
 {
     [PrimaryKey]
-    public int    NpcId  { get; set; }
-    public int    RaceId { get; set; }
-    public string Notes  { get; set; } = string.Empty;
+    public int     NpcId              { get; set; }
+    public int     RaceId             { get; set; }
+    public string  Notes              { get; set; } = string.Empty;
+
+    // Bespoke voice override — null means "inherit from race slot"
+    public string? BespokeSampleId    { get; set; } = null;
+    public float?  BespokeExaggeration { get; set; } = null;
+    public float?  BespokeCfgWeight   { get; set; } = null;
 }
 
 [Table("PronunciationRules")]

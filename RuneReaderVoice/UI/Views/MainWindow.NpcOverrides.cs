@@ -8,12 +8,15 @@
 
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
+using System.Text.Json;
 using System.Threading.Tasks;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
 using Avalonia.Layout;
 using Avalonia.Media;
+using Avalonia.Platform.Storage;
 using Avalonia.Threading;
 using RuneReaderVoice.Data;
 using RuneReaderVoice.Protocol;
@@ -36,7 +39,44 @@ public partial class MainWindow
             Dispatcher.UIThread.Post(() => OnSegmentCompletedForNpcPanel(seg));
 
         PopulateNpcOverrideRaceDropdown(LastNpcRaceDropdown);
+        PopulateLastNpcSampleDropdown();
         RefreshNpcOverridesGrid();
+    }
+
+    /// <summary>
+    /// Populates the bespoke sample dropdown in the Last NPC panel.
+    /// Only visible when the active provider is a RemoteTtsProvider that
+    /// supports voice matching. Shows "(no bespoke sample)" as first item.
+    /// </summary>
+    private void PopulateLastNpcSampleDropdown()
+    {
+        LastNpcSampleDropdown.Items.Clear();
+        LastNpcSampleDropdown.Items.Add(new ComboBoxItem
+        {
+            Content = "(no bespoke sample — use race default)",
+            Tag     = (string?)null,
+        });
+
+        if (AppServices.Provider is TTS.Providers.RemoteTtsProvider remoteProvider)
+        {
+            var voices = remoteProvider.GetAvailableVoices();
+            foreach (var v in voices.OrderBy(v => v.VoiceId))
+            {
+                LastNpcSampleDropdown.Items.Add(new ComboBoxItem
+                {
+                    Content = v.VoiceId,
+                    Tag     = v.VoiceId,
+                });
+            }
+
+            LastNpcSamplePanel.IsVisible = voices.Count > 0;
+        }
+        else
+        {
+            LastNpcSamplePanel.IsVisible = false;
+        }
+
+        LastNpcSampleDropdown.SelectedIndex = 0;
     }
 
     // ── Last NPC panel ────────────────────────────────────────────────────────
@@ -69,6 +109,9 @@ public partial class MainWindow
                 else
                     LastNpcRaceDropdown.SelectedIndex = 0;
 
+                // Bespoke sample — select existing or reset to "(no bespoke sample)"
+                SelectLastNpcSampleDropdown(existing?.BespokeSampleId);
+
                 LastNpcSaveButton.IsEnabled  = true;
                 LastNpcClearButton.IsEnabled = existing != null;
             });
@@ -80,13 +123,19 @@ public partial class MainWindow
         if (_lastNpcId == 0) return;
         if (LastNpcRaceDropdown.SelectedItem is not ComboBoxItem item) return;
 
-        var raceId = (int)(item.Tag ?? 0);
-        var notes  = LastNpcNotesBox.Text?.Trim();
+        var raceId         = (int)(item.Tag ?? 0);
+        var notes          = LastNpcNotesBox.Text?.Trim();
+        var bespokeSampleId = GetSelectedLastNpcSampleId();
 
         _ = Task.Run(async () =>
         {
-            await AppServices.NpcOverrides.UpsertAsync(_lastNpcId, raceId, notes);
-            AppServices.Assembler.ApplyRaceOverride(_lastNpcId, raceId);
+            await AppServices.NpcOverrides.UpsertAsync(
+                _lastNpcId, raceId, notes,
+                bespokeSampleId: bespokeSampleId);
+
+            AppServices.Assembler.ApplyRaceOverride(
+                _lastNpcId, raceId,
+                bespokeSampleId: bespokeSampleId);
 
             Dispatcher.UIThread.Post(() =>
             {
@@ -300,16 +349,13 @@ public partial class MainWindow
     {
         if (sender is not Button btn || btn.Tag is not NpcRaceOverride entry) return;
 
-        // Pre-fill the Last NPC panel with this entry and show it.
         _lastNpcId = entry.NpcId;
         LastNpcIdLabel.Text    = $"NPC ID: {entry.NpcId}";
         LastNpcNotesBox.Text   = entry.Notes ?? string.Empty;
         LastNpcPanel.IsVisible = true;
         SelectDropdownByRaceId(LastNpcRaceDropdown, entry.RaceId);
+        SelectLastNpcSampleDropdown(entry.BespokeSampleId);
         LastNpcClearButton.IsEnabled = true;
-
-        // Scroll / focus — navigate to the panel tab if tabs are in use.
-        // For now just make it visible; the panel is always on the main window.
     }
 
     private void OnNpcOverrideDeleteClicked(object? sender, RoutedEventArgs e)
@@ -415,6 +461,40 @@ public partial class MainWindow
         dropdown.SelectedIndex = 0;
     }
 
+    /// <summary>
+    /// Selects the bespoke sample dropdown entry matching the given sample ID.
+    /// Selects the "(no bespoke sample)" entry when sampleId is null or not found.
+    /// </summary>
+    private void SelectLastNpcSampleDropdown(string? sampleId)
+    {
+        if (string.IsNullOrWhiteSpace(sampleId))
+        {
+            LastNpcSampleDropdown.SelectedIndex = 0;
+            return;
+        }
+
+        foreach (var item in LastNpcSampleDropdown.Items.OfType<ComboBoxItem>())
+        {
+            if (string.Equals(item.Tag as string, sampleId, StringComparison.OrdinalIgnoreCase))
+            {
+                LastNpcSampleDropdown.SelectedItem = item;
+                return;
+            }
+        }
+
+        LastNpcSampleDropdown.SelectedIndex = 0;
+    }
+
+    /// <summary>
+    /// Returns the selected bespoke sample ID, or null if "(no bespoke sample)" is selected.
+    /// </summary>
+    private string? GetSelectedLastNpcSampleId()
+    {
+        if (LastNpcSampleDropdown.SelectedItem is ComboBoxItem item)
+            return item.Tag as string;
+        return null;
+    }
+
     private void AddCell(string text, int row, int col,
         IBrush? foreground = null, double fontSize = 11)
     {
@@ -431,14 +511,124 @@ public partial class MainWindow
         NpcOverridesGrid.Children.Add(tb);
     }
     
-    private void OnNpcOverridesExportClicked(object? sender, RoutedEventArgs e)
+    // ── Import / Export ───────────────────────────────────────────────────────
+
+    private static readonly JsonSerializerOptions _jsonNpcOptions = new() { WriteIndented = true };
+
+    /// <summary>
+    /// DTO for JSON export/import. Includes bespoke sample fields so round-trips
+    /// preserve per-NPC voice assignments.
+    /// </summary>
+    private sealed class NpcOverrideExportEntry
     {
-        // TODO: serialize GetAllAsync() to JSON and open a SaveFileDialog
+        public int     NpcId               { get; set; }
+        public int     RaceId              { get; set; }
+        public string? Notes               { get; set; }
+        public string? BespokeSampleId     { get; set; }
+        public float?  BespokeExaggeration { get; set; }
+        public float?  BespokeCfgWeight    { get; set; }
     }
 
-    private void OnNpcOverridesImportClicked(object? sender, RoutedEventArgs e)
+    private sealed class NpcOverrideExportFile
     {
-        // TODO: open OpenFileDialog, deserialize, call UpsertAsync per entry
+        public string                       Version { get; set; } = "1";
+        public List<NpcOverrideExportEntry> Entries { get; set; } = new();
+    }
+
+    private async void OnNpcOverridesExportClicked(object? sender, RoutedEventArgs e)
+    {
+        try
+        {
+            var entries = await AppServices.NpcOverrides.GetAllAsync();
+            var localEntries = entries.Where(x => x.Source == NpcOverrideSource.Local).ToList();
+
+            var file = new NpcOverrideExportFile
+            {
+                Entries = localEntries.Select(x => new NpcOverrideExportEntry
+                {
+                    NpcId               = x.NpcId,
+                    RaceId              = x.RaceId,
+                    Notes               = x.Notes,
+                    BespokeSampleId     = x.BespokeSampleId,
+                    BespokeExaggeration = x.BespokeExaggeration,
+                    BespokeCfgWeight    = x.BespokeCfgWeight,
+                }).ToList(),
+            };
+
+            var json = JsonSerializer.Serialize(file, _jsonNpcOptions);
+
+            var topLevel = TopLevel.GetTopLevel(this);
+            if (topLevel == null) return;
+
+            var path = await topLevel.StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions
+            {
+                Title             = "Export NPC Voice Overrides",
+                SuggestedFileName = "npc-voice-overrides.json",
+                DefaultExtension  = "json",
+                FileTypeChoices   = new[] { new FilePickerFileType("JSON") { Patterns = new[] { "*.json" } } },
+            });
+
+            if (path == null) return;
+
+            await File.WriteAllTextAsync(path.Path.LocalPath, json);
+            NpcOverridesStatus.Text = $"Exported {localEntries.Count} override(s).";
+        }
+        catch (Exception ex)
+        {
+            NpcOverridesStatus.Text = $"Export failed: {ex.Message}";
+        }
+    }
+
+    private async void OnNpcOverridesImportClicked(object? sender, RoutedEventArgs e)
+    {
+        try
+        {
+            var topLevel = TopLevel.GetTopLevel(this);
+            if (topLevel == null) return;
+
+            var files = await topLevel.StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions
+            {
+                Title          = "Import NPC Voice Overrides",
+                AllowMultiple  = false,
+                FileTypeFilter = new[] { new FilePickerFileType("JSON") { Patterns = new[] { "*.json" } } },
+            });
+
+            if (files.Count == 0) return;
+
+            var json = await File.ReadAllTextAsync(files[0].Path.LocalPath);
+            var file = JsonSerializer.Deserialize<NpcOverrideExportFile>(json);
+
+            if (file?.Entries == null || file.Entries.Count == 0)
+            {
+                NpcOverridesStatus.Text = "No entries found in file.";
+                return;
+            }
+
+            int count = 0;
+            foreach (var entry in file.Entries)
+            {
+                await AppServices.NpcOverrides.UpsertAsync(
+                    entry.NpcId, entry.RaceId, entry.Notes,
+                    bespokeSampleId:     entry.BespokeSampleId,
+                    bespokeExaggeration: entry.BespokeExaggeration,
+                    bespokeCfgWeight:    entry.BespokeCfgWeight);
+
+                AppServices.Assembler.ApplyRaceOverride(
+                    entry.NpcId, entry.RaceId,
+                    bespokeSampleId:     entry.BespokeSampleId,
+                    bespokeExaggeration: entry.BespokeExaggeration,
+                    bespokeCfgWeight:    entry.BespokeCfgWeight);
+
+                count++;
+            }
+
+            RefreshNpcOverridesGrid();
+            NpcOverridesStatus.Text = $"Imported {count} override(s).";
+        }
+        catch (Exception ex)
+        {
+            NpcOverridesStatus.Text = $"Import failed: {ex.Message}";
+        }
     }
 
     private void OnNpcOverridesRefreshClicked(object? sender, RoutedEventArgs e)

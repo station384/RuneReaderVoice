@@ -290,7 +290,7 @@ So go quickly, keep your wits about you, and return by the main road if you valu
             var path = await topLevel.StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions
             {
                 Title             = "Export Voice Profiles",
-                SuggestedFileName = $"voice-profiles-{providerId}.json",
+                SuggestedFileName = $"voice-profiles-{providerId.Replace(':', '-')}.json",
                 DefaultExtension  = "json",
                 FileTypeChoices   = new[] { new FilePickerFileType("JSON") { Patterns = new[] { "*.json" } } },
             });

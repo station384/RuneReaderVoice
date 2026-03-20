@@ -42,12 +42,18 @@ public sealed class NpcRaceOverrideDb
         return row == null ? null : ToModel(row);
     }
 
-    public Task UpsertAsync(int npcId, int raceId, string? notes)
+    public Task UpsertAsync(int npcId, int raceId, string? notes,
+        string? bespokeSampleId = null,
+        float? bespokeExaggeration = null,
+        float? bespokeCfgWeight = null)
         => _db.Connection.InsertOrReplaceAsync(new NpcRaceOverrideRow
         {
-            NpcId  = npcId,
-            RaceId = raceId,
-            Notes  = notes ?? string.Empty,
+            NpcId               = npcId,
+            RaceId              = raceId,
+            Notes               = notes ?? string.Empty,
+            BespokeSampleId     = bespokeSampleId,
+            BespokeExaggeration = bespokeExaggeration,
+            BespokeCfgWeight    = bespokeCfgWeight,
         });
 
     public Task DeleteAsync(int npcId)
@@ -56,11 +62,14 @@ public sealed class NpcRaceOverrideDb
     private static NpcRaceOverride ToModel(NpcRaceOverrideRow row)
         => new()
         {
-            NpcId       = row.NpcId,
-            RaceId      = row.RaceId,
-            Notes       = row.Notes,
-            AccentGroup = RaceAccentMapping.ResolveAccentGroup(row.RaceId)
-                          ?? AccentGroup.Narrator,
-            Source      = NpcOverrideSource.Local,
+            NpcId               = row.NpcId,
+            RaceId              = row.RaceId,
+            Notes               = row.Notes,
+            BespokeSampleId     = row.BespokeSampleId,
+            BespokeExaggeration = row.BespokeExaggeration,
+            BespokeCfgWeight    = row.BespokeCfgWeight,
+            AccentGroup         = RaceAccentMapping.ResolveAccentGroup(row.RaceId)
+                                  ?? AccentGroup.Narrator,
+            Source              = NpcOverrideSource.Local,
         };
 }

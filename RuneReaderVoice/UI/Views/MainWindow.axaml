@@ -114,7 +114,7 @@ along with RuneReaderVoice. If not, see <https://www.gnu.org/licenses/>.
                 Background="#1A2E1A" Margin="8,8,8,0"
                 CornerRadius="6" Padding="10,8" >
             <Grid ColumnDefinitions="Auto,*,Auto,Auto"
-                  RowDefinitions="Auto,Auto"
+                  RowDefinitions="Auto,Auto,Auto"
                   ColumnSpacing="8" RowSpacing="6">
 
                 <!-- Row 0: NPC id label + notes box + Save + Clear -->
@@ -146,6 +146,19 @@ along with RuneReaderVoice. If not, see <https://www.gnu.org/licenses/>.
                 <ComboBox x:Name="LastNpcRaceDropdown"
                           Grid.Row="1" Grid.Column="1" Grid.ColumnSpan="3"
                           FontSize="11" HorizontalAlignment="Stretch"/>
+
+                <!-- Row 2: bespoke sample picker (hidden when no voice-matching provider active) -->
+                <StackPanel x:Name="LastNpcSamplePanel"
+                            Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="4"
+                            Orientation="Horizontal" Spacing="8"
+                            IsVisible="False">
+                    <TextBlock Text="Bespoke sample" Foreground="#888" FontSize="10"
+                               VerticalAlignment="Center" Width="90"
+                               ToolTip.Tip="Override the reference voice sample for this specific NPC. Uses the race slot DSP and other settings — only the sample is replaced."/>
+                    <ComboBox x:Name="LastNpcSampleDropdown"
+                              FontSize="11" MinWidth="260" HorizontalAlignment="Stretch"/>
+                </StackPanel>
+
             </Grid>
         </Border>
 
@@ -301,6 +314,9 @@ along with RuneReaderVoice. If not, see <https://www.gnu.org/licenses/>.
                             <Button Content="Refresh"
                                     FontSize="11"
                                     Click="OnNpcOverridesRefreshClicked"/>
+                            <TextBlock x:Name="NpcOverridesStatus"
+                                       FontSize="11" Foreground="#888"
+                                       VerticalAlignment="Center"/>
                         </StackPanel>
                     </StackPanel>
                 </ScrollViewer>
