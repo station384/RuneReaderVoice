@@ -152,11 +152,11 @@ along with RuneReaderVoice. If not, see <https://www.gnu.org/licenses/>.
                             Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="4"
                             Orientation="Horizontal" Spacing="8"
                             IsVisible="False">
-                    <TextBlock Text="Bespoke sample" Foreground="#888" FontSize="10"
-                               VerticalAlignment="Center" Width="90"
+                    <TextBlock Text="Voice sample" Foreground="#888" FontSize="10"
+                               VerticalAlignment="Center" Width="80"
                                ToolTip.Tip="Override the reference voice sample for this specific NPC. Uses the race slot DSP and other settings — only the sample is replaced."/>
                     <ComboBox x:Name="LastNpcSampleDropdown"
-                              FontSize="11" MinWidth="260" HorizontalAlignment="Stretch"/>
+                              FontSize="11" MinWidth="380" HorizontalAlignment="Stretch"/>
                 </StackPanel>
 
             </Grid>

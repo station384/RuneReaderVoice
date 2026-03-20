@@ -53,26 +53,37 @@ public partial class MainWindow
         LastNpcSampleDropdown.Items.Clear();
         LastNpcSampleDropdown.Items.Add(new ComboBoxItem
         {
-            Content = "(no bespoke sample — use race default)",
+            Content = "(use race default sample)",
             Tag     = (string?)null,
         });
 
         if (AppServices.Provider is TTS.Providers.RemoteTtsProvider remoteProvider)
         {
             var voices = remoteProvider.GetAvailableVoices();
+            System.Diagnostics.Debug.WriteLine(
+                $"[NpcPanel] PopulateSampleDropdown: provider={AppServices.Provider.ProviderId} voiceCount={voices.Count}");
+
             foreach (var v in voices.OrderBy(v => v.VoiceId))
             {
+                var label = string.IsNullOrWhiteSpace(v.Description)
+                    ? v.VoiceId
+                    : $"{v.VoiceId}  —  {v.Description}";
+
                 LastNpcSampleDropdown.Items.Add(new ComboBoxItem
                 {
-                    Content = v.VoiceId,
+                    Content = label,
                     Tag     = v.VoiceId,
                 });
             }
 
             LastNpcSamplePanel.IsVisible = voices.Count > 0;
+            System.Diagnostics.Debug.WriteLine(
+                $"[NpcPanel] SamplePanel.IsVisible={LastNpcSamplePanel.IsVisible}");
         }
         else
         {
+            System.Diagnostics.Debug.WriteLine(
+                $"[NpcPanel] PopulateSampleDropdown: provider={AppServices.Provider?.ProviderId} is NOT RemoteTtsProvider — hiding panel");
             LastNpcSamplePanel.IsVisible = false;
         }
 
@@ -365,6 +376,7 @@ public partial class MainWindow
         LastNpcNotesBox.Text   = entry.Notes ?? string.Empty;
         LastNpcPanel.IsVisible = true;
         SelectDropdownByRaceId(LastNpcRaceDropdown, entry.RaceId);
+        PopulateLastNpcSampleDropdown();
         SelectLastNpcSampleDropdown(entry.BespokeSampleId);
         LastNpcClearButton.IsEnabled = true;
     }

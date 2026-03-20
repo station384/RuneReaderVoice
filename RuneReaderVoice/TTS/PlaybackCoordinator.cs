@@ -138,6 +138,8 @@ public sealed class PlaybackCoordinator : IDisposable
 
     private void CancelCurrentSession()
     {
+        System.Diagnostics.Debug.WriteLine(
+            $"[PC] Session reset — cancelling {_synthTasks.Count} pending task(s)");
         _player.Stop();
         _sessionCts?.Cancel();
 
@@ -210,10 +212,12 @@ public sealed class PlaybackCoordinator : IDisposable
             try
             {
                 AppServices.SetOperationStatus("Playing audio…");
+                int segIdx = _nextExpectedIndex - 1;
                 System.Diagnostics.Debug.WriteLine(
-                    $"[PC] Playing segment {_nextExpectedIndex - 1}: {audio?.Samples.Length} samples");
+                    $"[PC] Play start seg={segIdx} samples={audio?.Samples.Length} pending={_synthTasks.Count}");
                 await _player.PlayAsync(audio, ct);
                 AppServices.ClearOperationStatus();
+                System.Diagnostics.Debug.WriteLine($"[PC] Play done seg={segIdx}");
             }
             catch (OperationCanceledException) { AppServices.ClearOperationStatus(); break; }
             catch (Exception ex) when (IsCancellationIoException(ex, ct))
@@ -232,27 +236,63 @@ public sealed class PlaybackCoordinator : IDisposable
 
     private async Task<PcmAudio?> SynthesizeSegmentAsync(AssembledSegment segment, CancellationToken ct)
     {
+        System.Diagnostics.Debug.WriteLine(
+            $"[PC] Synth start seg={segment.SegmentIndex} slot={segment.Slot} provider={_provider.ProviderId}");
         if (_recentSpeechSuppressor.ShouldSuppress(segment.Text))
+        {
+            System.Diagnostics.Debug.WriteLine($"[PC] Suppressed seg={segment.SegmentIndex} (recent repeat)");
             return null;
+        }
 
-        var voiceId = _provider.ResolveVoiceId(segment.Slot);
+        // Bespoke sample only applies to NPC voice slots — never narrator.
+        // Narrator segments share the same NpcId as the NPC dialog but should
+        // always use the narrator voice profile, not the NPC's bespoke sample.
+        bool applyBespoke = !string.IsNullOrWhiteSpace(segment.BespokeSampleId)
+                            && segment.Slot.Group != Protocol.AccentGroup.Narrator;
+
+        if (!string.IsNullOrWhiteSpace(segment.BespokeSampleId) && !applyBespoke)
+            System.Diagnostics.Debug.WriteLine(
+                $"[PC] Bespoke ignored for narrator seg={segment.SegmentIndex}");
+        else if (applyBespoke)
+            System.Diagnostics.Debug.WriteLine(
+                $"[PC] Bespoke applied seg={segment.SegmentIndex} sample={segment.BespokeSampleId}");
+
+        var voiceId = applyBespoke
+            ? segment.BespokeSampleId!   // bespoke sample IS the voice identity
+            : _provider.ResolveVoiceId(segment.Slot);
         var profile = _provider.ResolveProfile(segment.Slot);
 
-        var cached = await _cache.TryGetDecodedAsync(segment.Text, voiceId, _provider.ProviderId, "", ct);
+        // When a bespoke sample is set, append it to the voice key so the cached
+        // audio for this NPC's unique voice never collides with the race slot default.
+        var effectiveVoiceId = applyBespoke
+            ? $"{voiceId}+bespoke:{segment.BespokeSampleId}"
+            : voiceId;
+
+        var cached = await _cache.TryGetDecodedAsync(segment.Text, effectiveVoiceId, _provider.ProviderId, "", ct);
         if (cached != null)
+        {
+            System.Diagnostics.Debug.WriteLine($"[PC] Cache HIT seg={segment.SegmentIndex} voice={effectiveVoiceId}");
             return DspFilterChain.Apply(cached, profile?.Dsp);
+        }
+        System.Diagnostics.Debug.WriteLine($"[PC] Cache MISS seg={segment.SegmentIndex} voice={effectiveVoiceId}");
 
         if (_provider is RemoteTtsProvider remoteProvider)
         {
             var oggBytes = await remoteProvider.SynthesizeOggAsync(
                 segment.Text, segment.Slot, ct,
-                segment.BespokeSampleId, segment.BespokeExaggeration, segment.BespokeCfgWeight);
+                applyBespoke ? segment.BespokeSampleId    : null,
+                applyBespoke ? segment.BespokeExaggeration : null,
+                applyBespoke ? segment.BespokeCfgWeight   : null);
 
-            await _cache.StoreOggAsync(oggBytes, segment.Text, voiceId, _provider.ProviderId, "", ct);
-            var decoded = await _cache.TryGetDecodedAsync(segment.Text, voiceId, _provider.ProviderId, "", ct);
+            System.Diagnostics.Debug.WriteLine(
+                $"[PC] Remote synth complete seg={segment.SegmentIndex} bytes={oggBytes.Length}");
+            await _cache.StoreOggAsync(oggBytes, segment.Text, effectiveVoiceId, _provider.ProviderId, "", ct);
+            var decoded = await _cache.TryGetDecodedAsync(segment.Text, effectiveVoiceId, _provider.ProviderId, "", ct);
             if (decoded == null)
                 throw new InvalidOperationException("Remote audio cached but could not be decoded.");
 
+            System.Diagnostics.Debug.WriteLine(
+                $"[PC] Synth done seg={segment.SegmentIndex} samples={decoded.Samples.Length} dsp={profile?.Dsp?.IsNeutral == false}");
             return DspFilterChain.Apply(decoded, profile?.Dsp);
         }
 
@@ -266,7 +306,7 @@ public sealed class PlaybackCoordinator : IDisposable
         {
             if (phraseIndex == 0) { sw.Stop(); LastSynthesisLatency = sw.Elapsed; }
             var phraseText = GetPhraseText(segment.Text, phraseIndex, phraseCount, chunkTexts);
-            await _cache.StoreAsync(audio, phraseText, voiceId, _provider.ProviderId, "", ct);
+            await _cache.StoreAsync(audio, phraseText, effectiveVoiceId, _provider.ProviderId, "", ct);
             chunks.Add(DspFilterChain.Apply(audio, profile?.Dsp));
         }
 

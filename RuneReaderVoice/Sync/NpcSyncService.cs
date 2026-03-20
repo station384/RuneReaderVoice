@@ -92,6 +92,7 @@ public sealed class NpcSyncService : IDisposable
 
     private async Task DoFirstLoadAsync()
     {
+        System.Diagnostics.Debug.WriteLine("[NpcSync] First load — pulling all server defaults");
         SetStatus("First load — pulling server defaults…");
 
         // Pull NPC overrides (full pull: t=0)
@@ -137,9 +138,14 @@ public sealed class NpcSyncService : IDisposable
     /// </summary>
     public async Task<int> PollNpcOverridesAsync(double sinceTs)
     {
+        System.Diagnostics.Debug.WriteLine($"[NpcSync] Polling since={sinceTs:F0}");
         var records = await _client.GetNpcOverridesSinceAsync(sinceTs);
         if (records == null || records.Count == 0)
+        {
+            System.Diagnostics.Debug.WriteLine("[NpcSync] Poll returned 0 records");
             return 0;
+        }
+        System.Diagnostics.Debug.WriteLine($"[NpcSync] Poll returned {records.Count} record(s)");
 
         // Map server records to domain model
         var domainRecords = records.Select(r => new NpcRaceOverride
@@ -158,6 +164,7 @@ public sealed class NpcSyncService : IDisposable
         }).ToList();
 
         int merged = await _npcDb.MergeFromServerAsync(domainRecords);
+        System.Diagnostics.Debug.WriteLine($"[NpcSync] Merged {merged}/{domainRecords.Count} records (skipped Local entries)");
 
         if (merged > 0)
         {

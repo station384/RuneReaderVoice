@@ -26,12 +26,17 @@ public partial class MainWindow
         {
             IReadOnlyList<VoiceInfo> voices;
             if (AppServices.Provider is RemoteTtsProvider remote)
+            {
+                System.Diagnostics.Debug.WriteLine(
+                    $"[Voices] Calling RefreshVoiceSourcesAsync for {remote.ProviderId}");
                 voices = await remote.RefreshVoiceSourcesAsync(CancellationToken.None);
+                System.Diagnostics.Debug.WriteLine(
+                    $"[Voices] RefreshVoiceSourcesAsync returned {voices.Count} voices");
+            }
             else
                 voices = AppServices.Provider.GetAvailableVoices();
 
             // Voice list just refreshed — repopulate the bespoke sample dropdown
-            // in the Last NPC panel so it reflects the current sample library.
             PopulateLastNpcSampleDropdown();
             return voices;
         }

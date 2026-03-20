@@ -25,6 +25,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Threading.Tasks;
 using Avalonia.Controls;
 using Avalonia.Threading;
 using RuneReaderVoice;
@@ -61,6 +62,28 @@ public partial class MainWindow : Window
             //     UpdateSettingsPanelHeight();
         };
         InitNpcOverridesUI();
+
+        // Warm the voice cache in the background so the NPC sample dropdown
+        // is populated as soon as possible — without requiring the user to
+        // visit the Voices tab first.
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                if (AppServices.Provider is TTS.Providers.RemoteTtsProvider remote)
+                {
+                    System.Diagnostics.Debug.WriteLine("[MainWindow] Background voice cache warmup starting");
+                    await remote.RefreshVoiceSourcesAsync(System.Threading.CancellationToken.None);
+                    System.Diagnostics.Debug.WriteLine(
+                        $"[MainWindow] Voice cache warmed: {remote.GetAvailableVoices().Count} voices");
+                    Avalonia.Threading.Dispatcher.UIThread.Post(PopulateLastNpcSampleDropdown);
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"[MainWindow] Voice cache warmup failed: {ex.Message}");
+            }
+        });
 
         // Status refresh timer — 500ms is plenty for UI feedback
         _statusTimer = new DispatcherTimer

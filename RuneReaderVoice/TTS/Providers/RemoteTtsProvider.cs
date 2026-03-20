@@ -71,6 +71,15 @@ public sealed class RemoteTtsProvider : ITtsProvider
         var chunkingEnabled = _settings.EnablePhraseChunking && !profile.DisableChunking;
         var phrases = TextChunkingPolicy.GetChunkTexts(text, ProviderId, profile, chunkingEnabled);
 
+        System.Diagnostics.Debug.WriteLine(
+            $"[RemoteTTS] SynthesizeOgg provider={ProviderId} chunks={phrases.Count} chunking={chunkingEnabled} textLen={text.Length}");
+        if (phrases.Count > 1)
+        {
+            for (int i = 0; i < phrases.Count; i++)
+                System.Diagnostics.Debug.WriteLine(
+                    $"[RemoteTTS]   chunk[{i}] len={phrases[i].Length}: '{phrases[i].Substring(0, Math.Min(50, phrases[i].Length))}'");
+        }
+
         if (phrases.Count <= 1)
             return await SynthesizeOggCoreAsync(text, slot, profile, ct,
                 bespokeSampleId, bespokeExaggeration, bespokeCfgWeight);
@@ -95,6 +104,8 @@ public sealed class RemoteTtsProvider : ITtsProvider
         // DSP is NOT touched here — it lives in profile.Dsp and is applied post-synthesis.
         if (!string.IsNullOrWhiteSpace(bespokeSampleId))
         {
+            System.Diagnostics.Debug.WriteLine(
+                $"[RemoteTTS] Bespoke override: sample={bespokeSampleId} ex={bespokeExaggeration} cfg={bespokeCfgWeight}");
             profile = profile.Clone();
             profile.VoiceId = bespokeSampleId;
             if (bespokeExaggeration.HasValue) profile.Exaggeration = bespokeExaggeration;
@@ -105,8 +116,16 @@ public sealed class RemoteTtsProvider : ITtsProvider
         // Other backends handle these patterns better and don't need this.
         var providerId = _descriptor.RemoteProviderId ?? string.Empty;
         if (providerId.Contains("chatterbox", StringComparison.OrdinalIgnoreCase))
+        {
+            var before = text;
             text = ChatterboxPreprocess(text);
+            if (text != before)
+                System.Diagnostics.Debug.WriteLine(
+                    $"[RemoteTTS] Chatterbox preprocess changed text: '{before.Substring(0, Math.Min(60, before.Length))}' -> '{text.Substring(0, Math.Min(60, text.Length))}'");
+        }
 
+        System.Diagnostics.Debug.WriteLine(
+            $"[RemoteTTS] Core request: provider={providerId} voice={profile.VoiceId} exag={profile.Exaggeration} cfg={profile.CfgWeight} len={text.Length}");
         var voiceSpec = BuildVoiceSpec(profile);
         var request = new RemoteSynthesizeRequest
         {

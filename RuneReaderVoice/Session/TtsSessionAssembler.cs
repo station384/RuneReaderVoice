@@ -176,6 +176,8 @@ public sealed class TtsSessionAssembler
                 _earlyChunks.Clear();
                 _completedSegments.Clear();
                 OnSessionReset?.Invoke(_currentDialogId);
+                System.Diagnostics.Debug.WriteLine(
+                    $"[Assembler] New dialog 0x{packet.DialogId:X4} seqTotal={packet.SeqTotal}");
             }
 
             // ── NPC race override lookup ──────────────────────────────────────
@@ -204,11 +206,15 @@ public sealed class TtsSessionAssembler
                     acc = new SegmentAccumulator(packet.SubTotal, slot, packet.NpcId,
                                                  packet.SeqIndex);
                     _segments[key] = acc;
+                    System.Diagnostics.Debug.WriteLine(
+                        $"[Assembler] New acc seq={packet.SeqIndex} sub=0/{packet.SubTotal} npc={packet.NpcId} slot={slot}");
 
                     // Replay stashed early sub-chunks for this segment
                     var earlyKey = MakeEarlyKey(packet.SubTotal, packet.Flags, effectiveRace, packet.SeqIndex);
                     if (_earlyChunks.TryGetValue(earlyKey, out var early))
                     {
+                        System.Diagnostics.Debug.WriteLine(
+                            $"[Assembler] Replaying {early.Count} early subs for seq={packet.SeqIndex}");
                         foreach (var (sub, payload) in early)
                         {
                             if (sub < acc.Subs.Length && acc.Subs[sub] == null)
@@ -246,7 +252,8 @@ public sealed class TtsSessionAssembler
                 {
                     acc.Subs[packet.SubIndex] = packet.Base64Payload;
                     acc.SubsReceived++;
-
+                    System.Diagnostics.Debug.WriteLine(
+                        $"[Assembler] sub {packet.SubIndex}/{packet.SubTotal} -> seq={acc.SeqIndex} ({acc.SubsReceived}/{acc.Subs.Length} received)");
                     var key = _segments.First(kv => kv.Value == acc).Key;
                     TryCompleteSegment(acc, key);
                 }
@@ -260,7 +267,11 @@ public sealed class TtsSessionAssembler
                         _earlyChunks[earlyKey] = early;
                     }
                     if (early.All(e => e.sub != packet.SubIndex))
+                    {
                         early.Add((packet.SubIndex, packet.Base64Payload));
+                        System.Diagnostics.Debug.WriteLine(
+                            $"[Assembler] Stashed early sub={packet.SubIndex}/{packet.SubTotal} seq={packet.SeqIndex} (no anchor yet)");
+                    }
                 }
             }
 
@@ -273,6 +284,8 @@ public sealed class TtsSessionAssembler
                 for (int i = 0; i < _seqTotal; i++)
                     toFire.Add(_completedSegments[i]);
                 _completedSegments.Clear();
+                System.Diagnostics.Debug.WriteLine(
+                    $"[Assembler] Dialog 0x{_currentDialogId:X4} complete — firing {toFire.Count} segment(s)");
             }
         }
 
@@ -280,6 +293,9 @@ public sealed class TtsSessionAssembler
         {
             foreach (var seg in toFire)
             {
+                System.Diagnostics.Debug.WriteLine(
+                    $"[Assembler] Firing seg={seg.SegmentIndex} slot={seg.Slot} npc={seg.NpcId}" +
+                    $" bespoke={seg.BespokeSampleId ?? "none"} text='{seg.Text.Substring(0, Math.Min(60, seg.Text.Length))}'");
                 AppServices.LastSegment = seg;
                 OnSegmentComplete?.Invoke(seg);
             }
