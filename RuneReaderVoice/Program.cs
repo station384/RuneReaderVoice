@@ -35,6 +35,24 @@ internal static class Program
     [STAThread]
     public static int Main(string[] args)
     {
+        // Suppress unobserved Task exceptions from HttpClient's internal connection
+        // pool keep-alive machinery. When Caddy closes an idle connection the pool's
+        // background read throws IOException(SocketException 995) as an unobserved
+        // Task — this handler catches it before it prints to debug output.
+        // Real synthesis/network errors are caught in our own try/catch blocks.
+        TaskScheduler.UnobservedTaskException += (_, e) =>
+        {
+            var ex = e.Exception?.InnerException ?? e.Exception;
+            if (ex is System.IO.IOException || ex is System.Net.Sockets.SocketException)
+            {
+                e.SetObserved(); // suppress — expected from idle connection recycling
+                return;
+            }
+            System.Diagnostics.Debug.WriteLine(
+                $"[UnobservedTask] {ex?.GetType().Name}: {ex?.Message}");
+            e.SetObserved();
+        };
+
         // ── Load settings ─────────────────────────────────────────────────────
         var settings = VoiceSettingsManager.LoadSettings();
 

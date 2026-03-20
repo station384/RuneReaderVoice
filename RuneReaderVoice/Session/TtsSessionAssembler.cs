@@ -111,7 +111,7 @@ public sealed class TtsSessionAssembler
     // Keys of segments whose chunks are all received (re-loop guard)
     private readonly HashSet<string>                        _completedKeys      = new();
     private readonly HashSet<string>                        _completedUtteranceKeys = new();
-    // Early sub-chunks (arrived before SUB=0): key = MakeEarlyKey(subTotal, flags, race)
+    // Early sub-chunks (arrived before SUB=0): key = MakeEarlyKey(subTotal, flags, race, seqIndex)
     private readonly Dictionary<string, List<(int sub, string payload)>> _earlyChunks = new();
     // Fully assembled segments waiting for the rest of the dialog to complete
     // before being fired. Key = SeqIndex, guaranteed 0-based contiguous.
@@ -206,7 +206,7 @@ public sealed class TtsSessionAssembler
                     _segments[key] = acc;
 
                     // Replay stashed early sub-chunks for this segment
-                    var earlyKey = MakeEarlyKey(packet.SubTotal, packet.Flags, effectiveRace);
+                    var earlyKey = MakeEarlyKey(packet.SubTotal, packet.Flags, effectiveRace, packet.SeqIndex);
                     if (_earlyChunks.TryGetValue(earlyKey, out var early))
                     {
                         foreach (var (sub, payload) in early)
@@ -232,9 +232,14 @@ public sealed class TtsSessionAssembler
             }
             else
             {
-                // Non-zero sub-chunk: find the matching in-progress accumulator
+                // Non-zero sub-chunk: find the matching in-progress accumulator.
+                // Require Subs[0] to be populated — this anchors the accumulator
+                // to a specific segment identity and prevents stale subs from a
+                // previous transmission of a same-shaped segment from matching a
+                // new accumulator that hasn't received its SUB=0 yet.
                 var acc = _segments.Values.FirstOrDefault(a =>
                     a.Subs.Length == packet.SubTotal &&
+                    a.Subs[0] != null &&
                     a.Subs[packet.SubIndex] == null);
 
                 if (acc != null)
@@ -248,7 +253,7 @@ public sealed class TtsSessionAssembler
                 else
                 {
                     // SUB=0 hasn't arrived yet — stash
-                    var earlyKey = MakeEarlyKey(packet.SubTotal, packet.Flags, effectiveRace);
+                    var earlyKey = MakeEarlyKey(packet.SubTotal, packet.Flags, effectiveRace, packet.SeqIndex);
                     if (!_earlyChunks.TryGetValue(earlyKey, out var early))
                     {
                         early = new List<(int, string)>();
@@ -363,8 +368,8 @@ public sealed class TtsSessionAssembler
     private static string MakeKey(int subTotal, int flags, int race, string sub0)
         => $"{subTotal}|{flags}|{race}|{sub0}";
 
-    private static string MakeEarlyKey(int subTotal, int flags, int race)
-        => $"{subTotal}|{flags}|{race}";
+    private static string MakeEarlyKey(int subTotal, int flags, int race, int seqIndex)
+        => $"{subTotal}|{flags}|{race}|{seqIndex}";
 
     // ── Text decoding and cleaning ────────────────────────────────────────────
 

@@ -21,16 +21,17 @@ public sealed class RemoteTtsClient
     public RemoteTtsClient(string baseUrl, string apiKey)
     {
         _baseUrl = (baseUrl ?? string.Empty).Trim().TrimEnd('/');
-        _apiKey = apiKey ?? string.Empty;
+        _apiKey  = apiKey ?? string.Empty;
 
-        // SocketsHttpHandler with a pool lifetime shorter than Caddy's idle timeout
-        // (Caddy default keep-alive is 5 min). Setting PooledConnectionLifetime to
-        // 3 minutes forces HttpClient to recycle connections before the server closes
-        // them underneath us, preventing idle-kill IOException(SocketException 995).
+        // SocketsHttpHandler configured to recycle connections before Caddy's
+        // idle keep-alive timeout (default 5 min) kills them underneath us.
+        // PooledConnectionLifetime=90s and IdleTimeout=60s ensure no connection
+        // is old enough for the server to close it, eliminating the idle
+        // IOException(SocketException 995) that surfaces as an unobserved Task.
         var handler = new SocketsHttpHandler
         {
-            PooledConnectionLifetime    = TimeSpan.FromMinutes(3),
-            PooledConnectionIdleTimeout = TimeSpan.FromMinutes(2),
+            PooledConnectionLifetime    = TimeSpan.FromSeconds(90),
+            PooledConnectionIdleTimeout = TimeSpan.FromSeconds(60),
             ConnectTimeout              = TimeSpan.FromSeconds(10),
         };
 
@@ -40,7 +41,8 @@ public sealed class RemoteTtsClient
         };
 
         if (!string.IsNullOrWhiteSpace(_apiKey))
-            _httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", _apiKey);
+            _httpClient.DefaultRequestHeaders.Authorization =
+                new AuthenticationHeaderValue("Bearer", _apiKey);
     }
 
     public async Task<IReadOnlyList<RemoteProviderInfoDto>> GetProvidersAsync(CancellationToken ct)
@@ -69,7 +71,7 @@ public sealed class RemoteTtsClient
 
         var route = descriptor.VoiceSourceKind switch
         {
-            RemoteVoiceSourceKind.Voices  => $"/api/v1/providers/{descriptor.RemoteProviderId}/voices",
+            RemoteVoiceSourceKind.Voices => $"/api/v1/providers/{descriptor.RemoteProviderId}/voices",
             RemoteVoiceSourceKind.Samples => $"/api/v1/providers/{descriptor.RemoteProviderId}/samples",
             _ => null,
         };
@@ -78,42 +80,42 @@ public sealed class RemoteTtsClient
 
         try
         {
-            using var response = await _httpClient.GetAsync(BuildUri(route), ct);
-            var body = await response.Content.ReadAsStringAsync(ct);
-            if (!response.IsSuccessStatusCode)
-                throw new InvalidOperationException($"Voice source lookup failed: {(int)response.StatusCode} {body}");
+        using var response = await _httpClient.GetAsync(BuildUri(route), ct);
+        var body = await response.Content.ReadAsStringAsync(ct);
+        if (!response.IsSuccessStatusCode)
+            throw new InvalidOperationException($"Voice source lookup failed: {(int)response.StatusCode} {body}");
 
-            if (descriptor.VoiceSourceKind == RemoteVoiceSourceKind.Voices)
+        if (descriptor.VoiceSourceKind == RemoteVoiceSourceKind.Voices)
+        {
+            var voices = JsonSerializer.Deserialize<List<RemoteVoiceDto>>(body, JsonOptions) ?? new List<RemoteVoiceDto>();
+            return voices.Select(v => new VoiceInfo
             {
-                var voices = JsonSerializer.Deserialize<List<RemoteVoiceDto>>(body, JsonOptions) ?? new List<RemoteVoiceDto>();
-                return voices.Select(v => new VoiceInfo
-                {
-                    VoiceId     = v.VoiceId ?? string.Empty,
-                    Name        = v.VoiceId ?? string.Empty,
-                    Description = string.IsNullOrWhiteSpace(v.DisplayName) ? string.Empty : v.DisplayName!,
-                    Language    = v.Language ?? string.Empty,
-                    Gender      = ParseGender(v.Gender),
-                }).ToList();
-            }
-
-            var samples    = JsonSerializer.Deserialize<List<RemoteSampleDto>>(body, JsonOptions) ?? new List<RemoteSampleDto>();
-            var providerId = descriptor.RemoteProviderId ?? string.Empty;
-            IEnumerable<RemoteSampleDto> filtered = samples;
-
-            if (providerId.Contains("f5", StringComparison.OrdinalIgnoreCase))
-                filtered = filtered.Where(s => (s.DurationSeconds ?? 0f) > 0f && (s.DurationSeconds ?? 0f) <= 11.0f);
-            else if (providerId.Contains("chatterbox", StringComparison.OrdinalIgnoreCase))
-                filtered = filtered.Where(s => (s.DurationSeconds ?? 0f) <= 0f || (s.DurationSeconds ?? 0f) <= 41.0f);
-
-            return filtered.Select(s => new VoiceInfo
-            {
-                VoiceId     = s.SampleId ?? string.Empty,
-                Name        = s.SampleId ?? string.Empty,
-                Description = !string.IsNullOrWhiteSpace(s.Description) ? s.Description! : (s.Filename ?? s.SampleId ?? string.Empty),
-                Language    = string.Empty,
-                Gender      = Protocol.Gender.Unknown,
+                VoiceId = v.VoiceId ?? string.Empty,
+                Name = v.VoiceId ?? string.Empty,
+                Description = string.IsNullOrWhiteSpace(v.DisplayName) ? string.Empty : v.DisplayName!,
+                Language = v.Language ?? string.Empty,
+                Gender = ParseGender(v.Gender),
             }).ToList();
         }
+
+        var samples = JsonSerializer.Deserialize<List<RemoteSampleDto>>(body, JsonOptions) ?? new List<RemoteSampleDto>();
+        var providerId = descriptor.RemoteProviderId ?? string.Empty;
+        IEnumerable<RemoteSampleDto> filtered = samples;
+
+        if (providerId.Contains("f5", StringComparison.OrdinalIgnoreCase))
+            filtered = filtered.Where(s => (s.DurationSeconds ?? 0f) > 0f && (s.DurationSeconds ?? 0f) <= 11.0f);
+        else if (providerId.Contains("chatterbox", StringComparison.OrdinalIgnoreCase))
+            filtered = filtered.Where(s => (s.DurationSeconds ?? 0f) <= 0f || (s.DurationSeconds ?? 0f) <= 41.0f);
+
+        return filtered.Select(s => new VoiceInfo
+        {
+            VoiceId = s.SampleId ?? string.Empty,
+            Name = s.SampleId ?? string.Empty,
+            Description = !string.IsNullOrWhiteSpace(s.Description) ? s.Description! : (s.Filename ?? s.SampleId ?? string.Empty),
+            Language = string.Empty,
+            Gender = Protocol.Gender.Unknown,
+        }).ToList();
+        } // end try
         catch (OperationCanceledException) { throw; }
         catch (Exception ex)
         {

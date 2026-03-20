@@ -101,19 +101,66 @@ public sealed class RemoteTtsProvider : ITtsProvider
             if (bespokeCfgWeight.HasValue)    profile.CfgWeight    = bespokeCfgWeight;
         }
 
+        // Chatterbox-specific text cleanup — applied before sending to the model.
+        // Other backends handle these patterns better and don't need this.
+        var providerId = _descriptor.RemoteProviderId ?? string.Empty;
+        if (providerId.Contains("chatterbox", StringComparison.OrdinalIgnoreCase))
+            text = ChatterboxPreprocess(text);
+
         var voiceSpec = BuildVoiceSpec(profile);
         var request = new RemoteSynthesizeRequest
         {
-            ProviderId  = _descriptor.RemoteProviderId!,
-            Text        = text,
-            Voice       = voiceSpec,
-            LangCode    = string.IsNullOrWhiteSpace(profile.LangCode) ? "en" : profile.LangCode,
-            SpeechRate  = profile.SpeechRate <= 0f ? 1.0f : profile.SpeechRate,
-            CfgWeight   = profile.CfgWeight,
+            ProviderId   = _descriptor.RemoteProviderId!,
+            Text         = text,
+            Voice        = voiceSpec,
+            LangCode     = string.IsNullOrWhiteSpace(profile.LangCode) ? "en" : profile.LangCode,
+            SpeechRate   = profile.SpeechRate <= 0f ? 1.0f : profile.SpeechRate,
+            CfgWeight    = profile.CfgWeight,
             Exaggeration = profile.Exaggeration,
         };
 
         return await _client.SynthesizeAsync(request, ct);
+    }
+
+    /// <summary>
+    /// Cleans text before sending to Chatterbox. Chatterbox is sensitive to:
+    ///   - Inline angle-bracket annotations like &lt;A water stain...&gt; — confuses
+    ///     the model's sequence tracking mid-generation
+    ///   - Dash-interrupted sentences reconstructed across paragraph breaks
+    ///   - Trailing/leading dashes left over from reconstruction
+    /// </summary>
+    private static string ChatterboxPreprocess(string text)
+    {
+        if (string.IsNullOrWhiteSpace(text)) return text;
+
+        // 1. Replace <annotation text> with a spoken cue or remove it.
+        //    WoW uses these for flavor notes (water stains, torn pages, etc.)
+        //    We replace with "..." so there is a natural pause rather than silence.
+        text = System.Text.RegularExpressions.Regex.Replace(
+            text,
+            @"<[^>]{1,120}>",
+            "... ",
+            System.Text.RegularExpressions.RegexOptions.None);
+
+        // 2. Clean up dash-reconstructed sentences: "ship-\n\n...-scout" becomes
+        //    "ship. Scout" — split at the reconstruction point into two sentences.
+        //    Pattern: word-dash at end of a chunk, dash-word at start of next.
+        text = System.Text.RegularExpressions.Regex.Replace(
+            text,
+            @"(\w)-\s*\.\.\.\s*-(\w)",
+            "$1. $2",
+            System.Text.RegularExpressions.RegexOptions.None);
+
+        // 3. Strip any remaining leading/trailing dashes that touch whitespace
+        text = System.Text.RegularExpressions.Regex.Replace(
+            text,
+            @"(?<=\s)-+(?=\w)|(?<=\w)-+(?=\s)",
+            " ");
+
+        // 4. Collapse multiple spaces and trim
+        text = System.Text.RegularExpressions.Regex.Replace(text, @"  +", " ").Trim();
+
+        return text;
     }
 
     private async Task<(PcmAudio audio, int index)> SynthesizeChunkAsync(string text, VoiceSlot slot, int index, CancellationToken ct)

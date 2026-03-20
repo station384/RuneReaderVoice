@@ -98,6 +98,8 @@ public sealed class PlaybackCoordinator : IDisposable
     /// </summary>
     public void EnqueueSegment(AssembledSegment segment)
     {
+        System.Diagnostics.Debug.WriteLine(
+            $"[PC] Enqueued segment {segment.SegmentIndex}: \"{segment.Text.Substring(0, Math.Min(40, segment.Text.Length))}\"");
         lock (_queueLock)
         {
             var ct        = _sessionCts?.Token ?? CancellationToken.None;
@@ -177,6 +179,9 @@ public sealed class PlaybackCoordinator : IDisposable
             PcmAudio? audio;
             try
             {
+                System.Diagnostics.Debug.WriteLine(
+                    $"[PC] Awaiting segment {_nextExpectedIndex}, tasks in map: {string.Join(",", _synthTasks.Keys.OrderBy(k=>k))}");
+
                 audio = await nextTask;
             }
             catch (OperationCanceledException) { AppServices.ClearOperationStatus(); break; }
@@ -205,6 +210,8 @@ public sealed class PlaybackCoordinator : IDisposable
             try
             {
                 AppServices.SetOperationStatus("Playing audio…");
+                System.Diagnostics.Debug.WriteLine(
+                    $"[PC] Playing segment {_nextExpectedIndex - 1}: {audio?.Samples.Length} samples");
                 await _player.PlayAsync(audio, ct);
                 AppServices.ClearOperationStatus();
             }
