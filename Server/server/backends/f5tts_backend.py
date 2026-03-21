@@ -174,6 +174,7 @@ class F5TtsBackend(AbstractTtsBackend):
             gen_text=request.text.rstrip() + " ...  ",
             speed=request.speech_rate,
             remove_silence=False,
+
         )
 
         samples = np.array(wav, dtype=np.float32)

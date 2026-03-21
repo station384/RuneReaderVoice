@@ -41,6 +41,36 @@ public sealed class RecentSpeechSuppressor
         }
     }
 
+    /// <summary>
+    /// Slot-aware suppression check. Narrator and NPC slots with the same text
+    /// are treated as distinct — suppressing an NPC line should never silence
+    /// a narrator line with the same text, and vice versa.
+    /// </summary>
+    public bool ShouldSuppress(string? text, string slotKey)
+    {
+        if (!Enabled || Window <= TimeSpan.Zero)
+            return false;
+
+        var normalized = Normalize(text);
+        if (string.IsNullOrWhiteSpace(normalized))
+            return false;
+
+        // Include slot in key so Narrator:text and BloodElf/Male:text never collide
+        var key = $"{slotKey}\x00{normalized}";
+        var now = DateTimeOffset.UtcNow;
+
+        lock (_lock)
+        {
+            PurgeExpired_NoLock(now);
+
+            if (_recent.TryGetValue(key, out var lastSpoken) && now - lastSpoken <= Window)
+                return true;
+
+            _recent[key] = now;
+            return false;
+        }
+    }
+
     public void Clear()
     {
         lock (_lock)

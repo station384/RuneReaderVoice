@@ -238,9 +238,12 @@ public sealed class PlaybackCoordinator : IDisposable
     {
         System.Diagnostics.Debug.WriteLine(
             $"[PC] Synth start seg={segment.SegmentIndex} slot={segment.Slot} provider={_provider.ProviderId}");
-        if (_recentSpeechSuppressor.ShouldSuppress(segment.Text))
+        // Use slot-aware suppression so Narrator and NPC slots with the same
+        // text never suppress each other.
+        var slotKey = segment.Slot.ToString();
+        if (_recentSpeechSuppressor.ShouldSuppress(segment.Text, slotKey))
         {
-            System.Diagnostics.Debug.WriteLine($"[PC] Suppressed seg={segment.SegmentIndex} (recent repeat)");
+            System.Diagnostics.Debug.WriteLine($"[PC] Suppressed seg={segment.SegmentIndex} slot={slotKey} (recent repeat)");
             return null;
         }
 
@@ -262,11 +265,13 @@ public sealed class PlaybackCoordinator : IDisposable
             : _provider.ResolveVoiceId(segment.Slot);
         var profile = _provider.ResolveProfile(segment.Slot);
 
-        // When a bespoke sample is set, append it to the voice key so the cached
-        // audio for this NPC's unique voice never collides with the race slot default.
+        // Cache key includes slot string as namespace prefix so two different slots
+        // that happen to share the same sample (e.g. Narrator and Tortollan both
+        // defaulting to am_adam) never share cache entries and play the wrong voice.
+        // Bespoke entries also include the sample ID to distinguish from the slot default.
         var effectiveVoiceId = applyBespoke
-            ? $"{voiceId}+bespoke:{segment.BespokeSampleId}"
-            : voiceId;
+            ? $"{slotKey}:{voiceId}+bespoke:{segment.BespokeSampleId}"
+            : $"{slotKey}:{voiceId}";
 
         var cached = await _cache.TryGetDecodedAsync(segment.Text, effectiveVoiceId, _provider.ProviderId, "", ct);
         if (cached != null)

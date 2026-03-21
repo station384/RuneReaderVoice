@@ -80,41 +80,41 @@ public sealed class RemoteTtsClient
 
         try
         {
-        using var response = await _httpClient.GetAsync(BuildUri(route), ct);
-        var body = await response.Content.ReadAsStringAsync(ct);
-        if (!response.IsSuccessStatusCode)
-            throw new InvalidOperationException($"Voice source lookup failed: {(int)response.StatusCode} {body}");
+            using var response = await _httpClient.GetAsync(BuildUri(route), ct);
+            var body = await response.Content.ReadAsStringAsync(ct);
+            if (!response.IsSuccessStatusCode)
+                throw new InvalidOperationException($"Voice source lookup failed: {(int)response.StatusCode} {body}");
 
-        if (descriptor.VoiceSourceKind == RemoteVoiceSourceKind.Voices)
-        {
-            var voices = JsonSerializer.Deserialize<List<RemoteVoiceDto>>(body, JsonOptions) ?? new List<RemoteVoiceDto>();
-            return voices.Select(v => new VoiceInfo
+            if (descriptor.VoiceSourceKind == RemoteVoiceSourceKind.Voices)
             {
-                VoiceId = v.VoiceId ?? string.Empty,
-                Name = v.VoiceId ?? string.Empty,
-                Description = string.IsNullOrWhiteSpace(v.DisplayName) ? string.Empty : v.DisplayName!,
-                Language = v.Language ?? string.Empty,
-                Gender = ParseGender(v.Gender),
+                var voices = JsonSerializer.Deserialize<List<RemoteVoiceDto>>(body, JsonOptions) ?? new List<RemoteVoiceDto>();
+                return voices.Select(v => new VoiceInfo
+                {
+                    VoiceId = v.VoiceId ?? string.Empty,
+                    Name = v.VoiceId ?? string.Empty,
+                    Description = string.IsNullOrWhiteSpace(v.DisplayName) ? string.Empty : v.DisplayName!,
+                    Language = v.Language ?? string.Empty,
+                    Gender = ParseGender(v.Gender),
+                }).ToList();
+            }
+
+            var samples = JsonSerializer.Deserialize<List<RemoteSampleDto>>(body, JsonOptions) ?? new List<RemoteSampleDto>();
+            var providerId = descriptor.RemoteProviderId ?? string.Empty;
+            IEnumerable<RemoteSampleDto> filtered = samples;
+
+            if (providerId.Contains("f5", StringComparison.OrdinalIgnoreCase))
+                filtered = filtered.Where(s => (s.DurationSeconds ?? 0f) > 0f && (s.DurationSeconds ?? 0f) <= 11.0f);
+            else if (providerId.Contains("chatterbox", StringComparison.OrdinalIgnoreCase))
+                filtered = filtered.Where(s => (s.DurationSeconds ?? 0f) <= 0f || (s.DurationSeconds ?? 0f) <= 41.0f);
+
+            return filtered.Select(s => new VoiceInfo
+            {
+                VoiceId = s.SampleId ?? string.Empty,
+                Name = s.SampleId ?? string.Empty,
+                Description = !string.IsNullOrWhiteSpace(s.Description) ? s.Description! : (s.Filename ?? s.SampleId ?? string.Empty),
+                Language = string.Empty,
+                Gender = Protocol.Gender.Unknown,
             }).ToList();
-        }
-
-        var samples = JsonSerializer.Deserialize<List<RemoteSampleDto>>(body, JsonOptions) ?? new List<RemoteSampleDto>();
-        var providerId = descriptor.RemoteProviderId ?? string.Empty;
-        IEnumerable<RemoteSampleDto> filtered = samples;
-
-        if (providerId.Contains("f5", StringComparison.OrdinalIgnoreCase))
-            filtered = filtered.Where(s => (s.DurationSeconds ?? 0f) > 0f && (s.DurationSeconds ?? 0f) <= 11.0f);
-        else if (providerId.Contains("chatterbox", StringComparison.OrdinalIgnoreCase))
-            filtered = filtered.Where(s => (s.DurationSeconds ?? 0f) <= 0f || (s.DurationSeconds ?? 0f) <= 41.0f);
-
-        return filtered.Select(s => new VoiceInfo
-        {
-            VoiceId = s.SampleId ?? string.Empty,
-            Name = s.SampleId ?? string.Empty,
-            Description = !string.IsNullOrWhiteSpace(s.Description) ? s.Description! : (s.Filename ?? s.SampleId ?? string.Empty),
-            Language = string.Empty,
-            Gender = Protocol.Gender.Unknown,
-        }).ToList();
         } // end try
         catch (OperationCanceledException) { throw; }
         catch (Exception ex)
