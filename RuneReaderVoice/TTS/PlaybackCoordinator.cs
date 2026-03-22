@@ -56,6 +56,8 @@ public sealed class PlaybackCoordinator : IDisposable
     private readonly SemaphoreSlim _queueSignal = new(0);
     private readonly object        _queueLock   = new();
 
+
+
     private CancellationTokenSource? _sessionCts;
     private Task?                    _playbackTask;
     private bool                     _disposed;
@@ -142,7 +144,6 @@ public sealed class PlaybackCoordinator : IDisposable
             $"[PC] Session reset — cancelling {_synthTasks.Count} pending task(s)");
         _player.Stop();
         _sessionCts?.Cancel();
-
         lock (_queueLock)
         {
             _synthTasks.Clear();

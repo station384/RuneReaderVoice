@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
 using NVorbis;
@@ -19,25 +20,30 @@ public sealed class RemoteTtsProvider : ITtsProvider
 
     public RemoteTtsProvider(VoiceUserSettings settings, ProviderDescriptor descriptor)
     {
-        _settings = settings;
+        _settings   = settings;
         _descriptor = descriptor;
-        _client = new RemoteTtsClient(settings.RemoteServerUrl, settings.RemoteApiKey);
+        _client     = new RemoteTtsClient(settings.RemoteServerUrl, settings.RemoteApiKey);
     }
 
-    public string ProviderId => _descriptor.ClientProviderId;
-    public string DisplayName => _descriptor.DisplayName;
-    public bool IsAvailable => !string.IsNullOrWhiteSpace(_settings.RemoteServerUrl);
-    public bool RequiresFullText => _descriptor.RequiresFullText;
-    public bool SupportsInlinePronunciationHints => _descriptor.SupportsInlinePronunciationHints;
+    public string ProviderId                      => _descriptor.ClientProviderId;
+    public string DisplayName                     => _descriptor.DisplayName;
+    public bool   IsAvailable                     => !string.IsNullOrWhiteSpace(_settings.RemoteServerUrl);
+    public bool   RequiresFullText                => _descriptor.RequiresFullText;
+    public bool   SupportsInlinePronunciationHints => _descriptor.SupportsInlinePronunciationHints;
 
-    public async IAsyncEnumerable<(PcmAudio audio, int phraseIndex, int phraseCount)> SynthesizePhraseStreamAsync(
-        string text,
-        VoiceSlot slot,
-        string tempDirectory,
-        [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken ct)
+    // ── Phrase stream ─────────────────────────────────────────────────────────
+
+    public async IAsyncEnumerable<(PcmAudio audio, int phraseIndex, int phraseCount)>
+        SynthesizePhraseStreamAsync(
+            string text,
+            VoiceSlot slot,
+            string tempDirectory,
+            [EnumeratorCancellation] CancellationToken ct)
     {
         var profile = ResolveProfile(slot) ?? VoiceProfileDefaults.Create(string.Empty);
-        var phrases = TextChunkingPolicy.GetChunkTexts(text, ProviderId, profile, _settings.EnablePhraseChunking && !profile.DisableChunking);
+        var phrases = TextChunkingPolicy.GetChunkTexts(
+            text, ProviderId, profile,
+            _settings.EnablePhraseChunking && !profile.DisableChunking);
         int count = phrases.Count;
         if (count <= 1)
         {
@@ -61,8 +67,19 @@ public sealed class RemoteTtsProvider : ITtsProvider
         return await DecodeOggAsync(oggBytes, ct);
     }
 
-    public async Task<byte[]> SynthesizeOggAsync(string text, VoiceSlot slot, CancellationToken ct,
-        string? bespokeSampleId = null, float? bespokeExaggeration = null, float? bespokeCfgWeight = null)
+    // ── OGG synthesis (public surface used by PlaybackCoordinator) ────────────
+
+    /// <summary>
+    /// Synthesize text to OGG bytes via the v2 async server endpoint.
+    /// batchId/batchTotal tag this request as part of a batch for SSE progress reporting.
+    /// </summary>
+    public async Task<byte[]> SynthesizeOggAsync(
+        string text, VoiceSlot slot, CancellationToken ct,
+        string? bespokeSampleId     = null,
+        float?  bespokeExaggeration = null,
+        float?  bespokeCfgWeight    = null,
+        string? batchId             = null,
+        int?    batchTotal          = null)
     {
         if (string.IsNullOrWhiteSpace(_descriptor.RemoteProviderId))
             throw new InvalidOperationException("Remote provider id is missing.");
@@ -73,78 +90,202 @@ public sealed class RemoteTtsProvider : ITtsProvider
 
         System.Diagnostics.Debug.WriteLine(
             $"[RemoteTTS] SynthesizeOgg provider={ProviderId} chunks={phrases.Count} chunking={chunkingEnabled} textLen={text.Length}");
-        if (phrases.Count > 1)
+
+        // Generate a batch ID here — one per full text request regardless of chunk count.
+        // All chunks submit under the same batchId so the server can report
+        // aggregate progress: "3/6 chunks complete".
+        // If a batchId was passed in by the caller (PlaybackCoordinator), use that.
+        // Otherwise generate one here so the preview path also gets batch tracking.
+        var effectiveBatchId    = batchId    ?? System.Guid.NewGuid().ToString("N");
+        var effectiveBatchTotal = batchTotal ?? phrases.Count;
+
+        // Start batch SSE monitor — linked to a CTS so we can cancel it if synthesis fails
+        using var monitorCts = System.Threading.CancellationTokenSource.CreateLinkedTokenSource(ct);
+        _ = Task.Run(() => _MonitorBatchProgress(effectiveBatchId, monitorCts.Token), monitorCts.Token);
+
+        try
         {
-            for (int i = 0; i < phrases.Count; i++)
-                System.Diagnostics.Debug.WriteLine(
-                    $"[RemoteTTS]   chunk[{i}] len={phrases[i].Length}: '{phrases[i].Substring(0, Math.Min(50, phrases[i].Length))}'");
+            if (phrases.Count <= 1)
+                return await SynthesizeOggCoreAsync(text, slot, profile, ct,
+                    bespokeSampleId, bespokeExaggeration, bespokeCfgWeight,
+                    effectiveBatchId, effectiveBatchTotal);
+
+            // Multi-chunk pipeline:
+            //   Phase 1: Submit ALL chunks immediately (fast, ~5ms each, no concurrency limit)
+            //   Phase 2: Fetch results as they complete (each awaits its own SSE)
+            // This means chunk N+1's result can be fetched while chunk N is still playing,
+            // rather than waiting for all chunks before returning any.
+
+            // Phase 1 — submit all
+            var submitTasks = phrases
+                .Select(phrase => SubmitOggCoreAsync(phrase, slot, profile, ct,
+                    bespokeSampleId, bespokeExaggeration, bespokeCfgWeight,
+                    effectiveBatchId, effectiveBatchTotal))
+                .ToArray();
+            var submitted = await Task.WhenAll(submitTasks);
+
+            // Phase 2 — fetch in parallel (each chunk awaits its own SSE independently)
+            var fetchTasks = submitted
+                .Select(s => FetchOggResultAsync(s.submitted, ct))
+                .ToArray();
+            var oggChunks = await Task.WhenAll(fetchTasks);
+
+            var pcmChunks = new List<PcmAudio>(oggChunks.Length);
+            foreach (var ogg in oggChunks)
+                pcmChunks.Add(await DecodeOggAsync(ogg, ct));
+
+            var combined = ConcatenatePcm(pcmChunks);
+            return await EncodeOggAsync(combined, ct);
         }
-
-        if (phrases.Count <= 1)
-            return await SynthesizeOggCoreAsync(text, slot, profile, ct,
-                bespokeSampleId, bespokeExaggeration, bespokeCfgWeight);
-
-        var oggChunks = await RunLimitedAsync(phrases, 2,
-            phrase => SynthesizeOggCoreAsync(phrase, slot, profile, ct,
-                bespokeSampleId, bespokeExaggeration, bespokeCfgWeight), ct);
-
-        var pcmChunks = new List<PcmAudio>(oggChunks.Length);
-        foreach (var ogg in oggChunks)
-            pcmChunks.Add(await DecodeOggAsync(ogg, ct));
-
-        var combined = ConcatenatePcm(pcmChunks);
-        return await EncodeOggAsync(combined, ct);
+        catch
+        {
+            monitorCts.Cancel();
+            AppServices.ClearOperationStatus();
+            throw;
+        }
+        finally
+        {
+            monitorCts.Cancel();
+        }
     }
 
-    private async Task<byte[]> SynthesizeOggCoreAsync(string text, VoiceSlot slot, VoiceProfile profile,
-        CancellationToken ct,
-        string? bespokeSampleId = null, float? bespokeExaggeration = null, float? bespokeCfgWeight = null)
+    private async Task _MonitorBatchProgress(string batchId, CancellationToken ct)
     {
-        // Apply bespoke overrides on top of the resolved race-slot profile.
-        // DSP is NOT touched here — it lives in profile.Dsp and is applied post-synthesis.
+        // Retry until the server registers the batch (first chunk POST has landed)
+        bool gotEvents = false;
+        for (int attempt = 0; attempt < 15 && !ct.IsCancellationRequested; attempt++)
+        {
+            if (attempt > 0)
+            {
+                try { await Task.Delay(200, ct); }
+                catch (OperationCanceledException) { break; }
+            }
+
+            await foreach (var evt in _client.GetBatchProgressAsync(batchId, ct))
+            {
+                gotEvents = true;
+                if (ct.IsCancellationRequested) break;
+
+                if (string.Equals(evt.Status, "complete", StringComparison.OrdinalIgnoreCase))
+                {
+                    AppServices.ClearOperationStatus();
+                    break;
+                }
+
+                var statusText = evt.Total > 1
+                    ? $"Generating voice... ({evt.Completed}/{evt.Total})"
+                    : "Generating voice...";
+                AppServices.SetOperationStatus(statusText);
+            }
+
+            if (gotEvents) break;
+        }
+    }
+
+    // ── Core synthesis (v2 API) ───────────────────────────────────────────────
+
+    /// <summary>
+    /// Phase 1 of 2: submit a synthesis job to the server and return immediately
+    /// with the submit response (progress_key, cached flag).
+    /// Does NOT wait for synthesis to complete.
+    /// </summary>
+    private async Task<(V2SubmitResponse submitted, VoiceProfile profile)> SubmitOggCoreAsync(
+        string text, VoiceSlot slot, VoiceProfile profile,
+        CancellationToken ct,
+        string? bespokeSampleId     = null,
+        float?  bespokeExaggeration = null,
+        float?  bespokeCfgWeight    = null,
+        string? batchId             = null,
+        int?    batchTotal          = null)
+    {
         if (!string.IsNullOrWhiteSpace(bespokeSampleId))
         {
-            System.Diagnostics.Debug.WriteLine(
-                $"[RemoteTTS] Bespoke override: sample={bespokeSampleId} ex={bespokeExaggeration} cfg={bespokeCfgWeight}");
-            profile = profile.Clone();
-            profile.VoiceId = bespokeSampleId;
+            profile          = profile.Clone();
+            profile.VoiceId  = bespokeSampleId;
             if (bespokeExaggeration.HasValue) profile.Exaggeration = bespokeExaggeration;
             if (bespokeCfgWeight.HasValue)    profile.CfgWeight    = bespokeCfgWeight;
         }
 
-        // Chatterbox-specific text cleanup — applied before sending to the model.
-        // Other backends handle these patterns better and don't need this.
         var providerId = _descriptor.RemoteProviderId ?? string.Empty;
         if (providerId.Contains("chatterbox", StringComparison.OrdinalIgnoreCase))
-        {
-            var before = text;
             text = ChatterboxPreprocess(text);
-            if (text != before)
-                System.Diagnostics.Debug.WriteLine(
-                    $"[RemoteTTS] Chatterbox preprocess changed text: '{before.Substring(0, Math.Min(60, before.Length))}' -> '{text.Substring(0, Math.Min(60, text.Length))}'");
-        }
 
-        System.Diagnostics.Debug.WriteLine(
-            $"[RemoteTTS] Core request: provider={providerId} voice={profile.VoiceId} exag={profile.Exaggeration} cfg={profile.CfgWeight} len={text.Length}");
         var voiceSpec = BuildVoiceSpec(profile);
-        var request = new RemoteSynthesizeRequest
+        var v2Request = new RemoteSynthesizeV2Request
         {
-            ProviderId   = _descriptor.RemoteProviderId!,
-            Text         = text,
-            Voice        = voiceSpec,
-            LangCode     = string.IsNullOrWhiteSpace(profile.LangCode) ? "en" : profile.LangCode,
-            SpeechRate   = profile.SpeechRate <= 0f ? 1.0f : profile.SpeechRate,
-            CfgWeight    = profile.CfgWeight,
-            Exaggeration = profile.Exaggeration,
+            ProviderId        = _descriptor.RemoteProviderId!,
+            Text              = text,
+            Voice             = voiceSpec,
+            LangCode          = string.IsNullOrWhiteSpace(profile.LangCode) ? "en" : profile.LangCode,
+            SpeechRate        = profile.SpeechRate <= 0f ? 1.0f : profile.SpeechRate,
+            CfgWeight         = profile.CfgWeight,
+            Exaggeration      = profile.Exaggeration,
+            BatchId           = batchId,
+            BatchTotal        = batchTotal,
+            CfgStrength       = profile.CfgStrength,
+            NfeStep           = profile.NfeStep,
+            CrossFadeDuration = profile.CrossFadeDuration,
+            SwaysamplingCoef  = profile.SwaysamplingCoef,
         };
 
-        return await _client.SynthesizeAsync(request, ct);
+        var submitted = await _client.SynthesizeV2Async(v2Request, ct);
+        System.Diagnostics.Debug.WriteLine(
+            $"[RemoteTTS] v2 submitted: key={submitted.ProgressKey} cached={submitted.Cached}");
+        return (submitted, profile);
     }
 
     /// <summary>
+    /// Phase 2 of 2: wait for a submitted job to complete and fetch the OGG bytes.
+    /// </summary>
+    private async Task<byte[]> FetchOggResultAsync(V2SubmitResponse submitted, CancellationToken ct)
+    {
+        if (submitted.Cached)
+        {
+            var cached = await _client.GetV2ResultAsync(submitted.ProgressKey, ct);
+            if (cached != null)
+            {
+                System.Diagnostics.Debug.WriteLine(
+                    $"[RemoteTTS] v2 cache hit: key={submitted.ProgressKey} bytes={cached.Length}");
+                return cached;
+            }
+        }
+
+        await _client.WaitForJobAsync(submitted.ProgressKey, ct);
+        ct.ThrowIfCancellationRequested();
+
+        var result = await _client.GetV2ResultAsync(submitted.ProgressKey, ct);
+        if (result != null)
+        {
+            System.Diagnostics.Debug.WriteLine(
+                $"[RemoteTTS] v2 result fetched: key={submitted.ProgressKey} bytes={result.Length}");
+            return result;
+        }
+
+        throw new InvalidOperationException(
+            $"v2 synthesis completed but result unavailable for key={submitted.ProgressKey}");
+    }
+
+    private async Task<byte[]> SynthesizeOggCoreAsync(
+        string text, VoiceSlot slot, VoiceProfile profile,
+        CancellationToken ct,
+        string? bespokeSampleId     = null,
+        float?  bespokeExaggeration = null,
+        float?  bespokeCfgWeight    = null,
+        string? batchId             = null,
+        int?    batchTotal          = null)
+    {
+        // Convenience wrapper — submit then fetch.
+        var (submitted, _) = await SubmitOggCoreAsync(text, slot, profile, ct,
+            bespokeSampleId, bespokeExaggeration, bespokeCfgWeight,
+            batchId, batchTotal);
+        return await FetchOggResultAsync(submitted, ct);
+    }
+
+    // ── Chatterbox text cleanup ───────────────────────────────────────────────
+
+    /// <summary>
     /// Cleans text before sending to Chatterbox. Chatterbox is sensitive to:
-    ///   - Inline angle-bracket annotations like &lt;A water stain...&gt; — confuses
-    ///     the model's sequence tracking mid-generation
+    ///   - Inline angle-bracket annotations like &lt;A water stain...&gt;
     ///   - Dash-interrupted sentences reconstructed across paragraph breaks
     ///   - Trailing/leading dashes left over from reconstruction
     /// </summary>
@@ -152,40 +293,29 @@ public sealed class RemoteTtsProvider : ITtsProvider
     {
         if (string.IsNullOrWhiteSpace(text)) return text;
 
-        // 1. Replace <annotation text> with a spoken cue or remove it.
-        //    WoW uses these for flavor notes (water stains, torn pages, etc.)
-        //    We replace with "..." so there is a natural pause rather than silence.
         text = System.Text.RegularExpressions.Regex.Replace(
-            text,
-            @"<[^>]{1,120}>",
-            "... ",
+            text, @"<[^>]{1,120}>", "... ",
             System.Text.RegularExpressions.RegexOptions.None);
 
-        // 2. Clean up dash-reconstructed sentences: "ship-\n\n...-scout" becomes
-        //    "ship. Scout" — split at the reconstruction point into two sentences.
-        //    Pattern: word-dash at end of a chunk, dash-word at start of next.
         text = System.Text.RegularExpressions.Regex.Replace(
-            text,
-            @"(\w)-\s*\.\.\.\s*-(\w)",
-            "$1. $2",
+            text, @"(\w)-\s*\.\.\.\s*-(\w)", "$1. $2",
             System.Text.RegularExpressions.RegexOptions.None);
 
-        // 3. Strip any remaining leading/trailing dashes that touch whitespace
         text = System.Text.RegularExpressions.Regex.Replace(
-            text,
-            @"(?<=\s)-+(?=\w)|(?<=\w)-+(?=\s)",
-            " ");
+            text, @"(?<=\s)-+(?=\w)|(?<=\w)-+(?=\s)", " ");
 
-        // 4. Collapse multiple spaces and trim
         text = System.Text.RegularExpressions.Regex.Replace(text, @"  +", " ").Trim();
 
         return text;
     }
 
-    private async Task<(PcmAudio audio, int index)> SynthesizeChunkAsync(string text, VoiceSlot slot, int index, CancellationToken ct)
+    // ── Internal helpers ──────────────────────────────────────────────────────
+
+    private async Task<(PcmAudio audio, int index)> SynthesizeChunkAsync(
+        string text, VoiceSlot slot, int index, CancellationToken ct)
     {
         var oggBytes = await SynthesizeOggAsync(text, slot, ct);
-        var audio = await DecodeOggAsync(oggBytes, ct);
+        var audio    = await DecodeOggAsync(oggBytes, ct);
         return (audio, index);
     }
 
@@ -217,15 +347,11 @@ public sealed class RemoteTtsProvider : ITtsProvider
     }
 
     public IReadOnlyList<VoiceInfo> GetAvailableVoices()
-    {
-        // Never block the UI thread on remote I/O here.
-        // Call RefreshVoiceSourcesAsync(...) from an async UI flow when a live fetch is needed.
-        return _voiceCache ?? Array.Empty<VoiceInfo>();
-    }
+        => _voiceCache ?? Array.Empty<VoiceInfo>();
 
-    public void Dispose()
-    {
-    }
+    public void Dispose() { }
+
+    // ── Concurrency helper ────────────────────────────────────────────────────
 
     private static async Task<T[]> RunLimitedAsync<TIn, T>(
         IEnumerable<TIn> items,
@@ -237,23 +363,18 @@ public sealed class RemoteTtsProvider : ITtsProvider
         var tasks = items.Select(async item =>
         {
             await semaphore.WaitAsync(ct).ConfigureAwait(false);
-            try
-            {
-                return await work(item).ConfigureAwait(false);
-            }
-            finally
-            {
-                semaphore.Release();
-            }
+            try   { return await work(item).ConfigureAwait(false); }
+            finally { semaphore.Release(); }
         }).ToArray();
 
         return await Task.WhenAll(tasks).ConfigureAwait(false);
     }
 
+    // ── Default sample resolution ─────────────────────────────────────────────
 
     private VoiceProfile? GetDefaultSampleProfile(VoiceSlot slot)
     {
-        var available = GetAvailableVoices();
+        var available    = GetAvailableVoices();
         var preferredIds = BuildPreferredSampleIds(slot);
 
         if (available.Count > 0)
@@ -263,20 +384,26 @@ public sealed class RemoteTtsProvider : ITtsProvider
             {
                 foreach (var preferred in preferredIds)
                 {
-                    var exact = guaranteed.FirstOrDefault(v => string.Equals(v.VoiceId, preferred, StringComparison.OrdinalIgnoreCase));
+                    var exact = guaranteed.FirstOrDefault(v =>
+                        string.Equals(v.VoiceId, preferred, StringComparison.OrdinalIgnoreCase));
                     if (exact != null)
                         return VoiceProfileDefaults.Create(exact.VoiceId);
 
-                    var stem = RemoveRegionSuffix(preferred);
-                    var partial = guaranteed.FirstOrDefault(v => v.VoiceId.StartsWith(stem, StringComparison.OrdinalIgnoreCase));
+                    var stem    = RemoveRegionSuffix(preferred);
+                    var partial = guaranteed.FirstOrDefault(v =>
+                        v.VoiceId.StartsWith(stem, StringComparison.OrdinalIgnoreCase));
                     if (partial != null)
                         return VoiceProfileDefaults.Create(partial.VoiceId);
                 }
 
-                var families = preferredIds.Select(GetSampleFamilyPrefix).Where(s => !string.IsNullOrWhiteSpace(s)).Distinct(StringComparer.OrdinalIgnoreCase);
+                var families = preferredIds
+                    .Select(GetSampleFamilyPrefix)
+                    .Where(s => !string.IsNullOrWhiteSpace(s))
+                    .Distinct(StringComparer.OrdinalIgnoreCase);
                 foreach (var family in families)
                 {
-                    var familyMatch = guaranteed.FirstOrDefault(v => v.VoiceId.StartsWith(family!, StringComparison.OrdinalIgnoreCase));
+                    var familyMatch = guaranteed.FirstOrDefault(v =>
+                        v.VoiceId.StartsWith(family!, StringComparison.OrdinalIgnoreCase));
                     if (familyMatch != null)
                         return VoiceProfileDefaults.Create(familyMatch.VoiceId);
                 }
@@ -309,12 +436,16 @@ public sealed class RemoteTtsProvider : ITtsProvider
         return stem switch
         {
             "af_heart" => new[] { "af-heart-en-us" },
-            _ when stem.StartsWith("af_", StringComparison.OrdinalIgnoreCase) || stem.StartsWith("am_", StringComparison.OrdinalIgnoreCase)
+            _ when stem.StartsWith("af_", StringComparison.OrdinalIgnoreCase) ||
+                   stem.StartsWith("am_", StringComparison.OrdinalIgnoreCase)
                 => new[] { stem + "-en-us" },
-            _ when stem.StartsWith("bf_", StringComparison.OrdinalIgnoreCase) || stem.StartsWith("bm_", StringComparison.OrdinalIgnoreCase)
+            _ when stem.StartsWith("bf_", StringComparison.OrdinalIgnoreCase) ||
+                   stem.StartsWith("bm_", StringComparison.OrdinalIgnoreCase)
                 => new[] { stem + "-en-gb" },
-            _ when stem.StartsWith("jf_", StringComparison.OrdinalIgnoreCase) || stem.StartsWith("jm_", StringComparison.OrdinalIgnoreCase) ||
-                   stem.StartsWith("zf_", StringComparison.OrdinalIgnoreCase) || stem.StartsWith("zm_", StringComparison.OrdinalIgnoreCase)
+            _ when stem.StartsWith("jf_", StringComparison.OrdinalIgnoreCase) ||
+                   stem.StartsWith("jm_", StringComparison.OrdinalIgnoreCase) ||
+                   stem.StartsWith("zf_", StringComparison.OrdinalIgnoreCase) ||
+                   stem.StartsWith("zm_", StringComparison.OrdinalIgnoreCase)
                 => new[] { stem + "-en-us", stem + "-en-gb" },
             _ => new[] { stem },
         };
@@ -358,8 +489,6 @@ public sealed class RemoteTtsProvider : ITtsProvider
             AccentGroup.Elemental           => f ? "af_alloy"    : "am_onyx",
             AccentGroup.Giant               => f ? "af_kore"     : "am_fenrir",
             AccentGroup.Mechanical          => f ? "af_nova"     : "am_puck",
-
-            // Non-playable NPC races
             AccentGroup.Amani               => f ? "af_aoede"    : "am_echo",
             AccentGroup.Arathi              => f ? "bf_alice"    : "bm_george",
             AccentGroup.Broken              => f ? "bf_isabella" : "bm_lewis",
@@ -382,18 +511,17 @@ public sealed class RemoteTtsProvider : ITtsProvider
             AccentGroup.Tuskarr             => f ? "af_bella"    : "am_adam",
             AccentGroup.Venthyr             => f ? "bf_isabella" : "bm_fable",
             AccentGroup.ZulAman             => f ? "af_aoede"    : "am_echo",
-            _                               => slot.Gender == Gender.Female ? "af_bella" : "am_adam"
+            _                               => slot.Gender == Gender.Female ? "af_bella" : "am_adam",
         };
     }
 
     private bool IsF5Provider()
-        => (_descriptor.RemoteProviderId ?? string.Empty).Contains("f5", StringComparison.OrdinalIgnoreCase);
+        => (_descriptor.RemoteProviderId ?? string.Empty)
+            .Contains("f5", StringComparison.OrdinalIgnoreCase);
 
     private static bool IsGuaranteedDefaultSample(string? sampleId)
     {
-        if (string.IsNullOrWhiteSpace(sampleId))
-            return false;
-
+        if (string.IsNullOrWhiteSpace(sampleId)) return false;
         return sampleId.StartsWith("af", StringComparison.OrdinalIgnoreCase) ||
                sampleId.StartsWith("am", StringComparison.OrdinalIgnoreCase) ||
                sampleId.StartsWith("bf", StringComparison.OrdinalIgnoreCase) ||
@@ -406,63 +534,46 @@ public sealed class RemoteTtsProvider : ITtsProvider
 
     private static string RemoveRegionSuffix(string sampleId)
     {
-        if (string.IsNullOrWhiteSpace(sampleId))
-            return string.Empty;
-
+        if (string.IsNullOrWhiteSpace(sampleId)) return string.Empty;
         foreach (var suffix in new[] { "-en-us", "-en-gb" })
         {
             if (sampleId.EndsWith(suffix, StringComparison.OrdinalIgnoreCase))
                 return sampleId[..^suffix.Length];
         }
-
         return sampleId;
     }
 
     private static string? GetSampleFamilyPrefix(string sampleId)
     {
-        if (string.IsNullOrWhiteSpace(sampleId) || sampleId.Length < 2)
-            return null;
+        if (string.IsNullOrWhiteSpace(sampleId) || sampleId.Length < 2) return null;
         return sampleId.Substring(0, 2);
     }
 
+    // ── Voice spec builder ────────────────────────────────────────────────────
+
     private RemoteVoiceSpec BuildVoiceSpec(VoiceProfile profile)
     {
-        if (_descriptor.SupportsVoiceBlending && !string.IsNullOrWhiteSpace(profile.VoiceId) &&
+        if (_descriptor.SupportsVoiceBlending &&
+            !string.IsNullOrWhiteSpace(profile.VoiceId) &&
             profile.VoiceId.StartsWith(KokoroTtsProvider.MixPrefix, StringComparison.OrdinalIgnoreCase))
         {
-            return new RemoteVoiceSpec
-            {
-                Type = "blend",
-                Blend = ParseBlend(profile.VoiceId),
-            };
+            return new RemoteVoiceSpec { Type = "blend", Blend = ParseBlend(profile.VoiceId) };
         }
 
         if (_descriptor.SupportsBaseVoices)
-        {
-            return new RemoteVoiceSpec
-            {
-                Type = "base",
-                VoiceId = profile.VoiceId,
-            };
-        }
+            return new RemoteVoiceSpec { Type = "base", VoiceId = profile.VoiceId };
 
         if (_descriptor.SupportsVoiceMatching)
-        {
-            return new RemoteVoiceSpec
-            {
-                Type = "reference",
-                SampleId = profile.VoiceId,
-            };
-        }
+            return new RemoteVoiceSpec { Type = "reference", SampleId = profile.VoiceId };
 
-        throw new InvalidOperationException($"Remote provider '{DisplayName}' has no supported voice source mode.");
+        throw new InvalidOperationException(
+            $"Remote provider '{DisplayName}' has no supported voice source mode.");
     }
 
     private static List<RemoteBlendSpec> ParseBlend(string blendSpec)
     {
         var result = new List<RemoteBlendSpec>();
-        if (string.IsNullOrWhiteSpace(blendSpec))
-            return result;
+        if (string.IsNullOrWhiteSpace(blendSpec)) return result;
 
         var raw = blendSpec;
         if (raw.StartsWith(KokoroTtsProvider.MixPrefix, StringComparison.OrdinalIgnoreCase))
@@ -472,7 +583,9 @@ public sealed class RemoteTtsProvider : ITtsProvider
         {
             var pieces = part.Split(':', 2, StringSplitOptions.TrimEntries);
             if (pieces.Length != 2) continue;
-            if (!float.TryParse(pieces[1], System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var weight))
+            if (!float.TryParse(pieces[1],
+                System.Globalization.NumberStyles.Float,
+                System.Globalization.CultureInfo.InvariantCulture, out var weight))
                 continue;
             result.Add(new RemoteBlendSpec { VoiceId = pieces[0], Weight = weight });
         }
@@ -480,21 +593,24 @@ public sealed class RemoteTtsProvider : ITtsProvider
         return result;
     }
 
+    // ── PCM / OGG helpers ─────────────────────────────────────────────────────
+
     private static PcmAudio ConcatenatePcm(IReadOnlyList<PcmAudio> chunks)
     {
         if (chunks.Count == 0)
             return new PcmAudio(Array.Empty<float>(), 24000, 1);
 
-        var first = chunks[0];
+        var first      = chunks[0];
         int sampleRate = first.SampleRate;
-        int channels = first.Channels;
+        int channels   = first.Channels;
 
         if (chunks.Any(c => c.SampleRate != sampleRate || c.Channels != channels))
-            throw new InvalidOperationException("Remote chunk synthesis returned incompatible audio formats.");
+            throw new InvalidOperationException(
+                "Remote chunk synthesis returned incompatible audio formats.");
 
         int totalSamples = chunks.Sum(c => c.Samples.Length);
-        var merged = new float[totalSamples];
-        int offset = 0;
+        var merged       = new float[totalSamples];
+        int offset       = 0;
         foreach (var chunk in chunks)
         {
             Array.Copy(chunk.Samples, 0, merged, offset, chunk.Samples.Length);
@@ -508,11 +624,11 @@ public sealed class RemoteTtsProvider : ITtsProvider
     {
         return await Task.Run(() =>
         {
-            int channels = Math.Max(1, audio.Channels);
-            int sampleRate = audio.SampleRate;
-            float quality = 0.8f;
+            int   channels   = Math.Max(1, audio.Channels);
+            int   sampleRate = audio.SampleRate;
+            float quality    = 0.8f;
 
-            var info = VorbisInfo.InitVariableBitRate(channels, sampleRate, quality);
+            var info     = VorbisInfo.InitVariableBitRate(channels, sampleRate, quality);
             var comments = new Comments();
             comments.AddTag("ENCODER", "RuneReaderVoice");
 
@@ -521,19 +637,19 @@ public sealed class RemoteTtsProvider : ITtsProvider
             oggStream.PacketIn(HeaderPacketBuilder.BuildCommentsPacket(comments));
             oggStream.PacketIn(HeaderPacketBuilder.BuildBooksPacket(info));
 
-            using var ms = new MemoryStream();
-            var processingState = ProcessingState.Create(info);
+            using var ms              = new MemoryStream();
+            var       processingState = ProcessingState.Create(info);
 
             while (oggStream.PageOut(out OggPage page, true))
             {
                 ms.Write(page.Header, 0, page.Header.Length);
-                ms.Write(page.Body, 0, page.Body.Length);
+                ms.Write(page.Body,   0, page.Body.Length);
             }
 
-            var pcmChannels = Deinterleave(audio);
-            const int chunkSize = 1024;
-            int total = pcmChannels[0].Length;
-            int offset = 0;
+            var        pcmChannels = Deinterleave(audio);
+            const int  chunkSize   = 1024;
+            int        total       = pcmChannels[0].Length;
+            int        offset      = 0;
             while (offset < total)
             {
                 ct.ThrowIfCancellationRequested();
@@ -554,7 +670,7 @@ public sealed class RemoteTtsProvider : ITtsProvider
                     while (oggStream.PageOut(out OggPage page, false))
                     {
                         ms.Write(page.Header, 0, page.Header.Length);
-                        ms.Write(page.Body, 0, page.Body.Length);
+                        ms.Write(page.Body,   0, page.Body.Length);
                     }
                 }
             }
@@ -566,7 +682,7 @@ public sealed class RemoteTtsProvider : ITtsProvider
                 while (oggStream.PageOut(out OggPage page, true))
                 {
                     ms.Write(page.Header, 0, page.Header.Length);
-                    ms.Write(page.Body, 0, page.Body.Length);
+                    ms.Write(page.Body,   0, page.Body.Length);
                 }
             }
 
@@ -584,16 +700,14 @@ public sealed class RemoteTtsProvider : ITtsProvider
             return empty;
         }
 
-        int sampleCount = audio.Samples.Length / channels;
-        var channelArrays = new float[channels][];
+        int sampleCount    = audio.Samples.Length / channels;
+        var channelArrays  = new float[channels][];
         for (int c = 0; c < channels; c++)
             channelArrays[c] = new float[sampleCount];
 
         for (int i = 0; i < sampleCount; i++)
-        {
             for (int c = 0; c < channels; c++)
                 channelArrays[c][i] = audio.Samples[(i * channels) + c];
-        }
 
         return channelArrays;
     }
@@ -602,14 +716,14 @@ public sealed class RemoteTtsProvider : ITtsProvider
     {
         return await Task.Run(() =>
         {
-            using var ms = new MemoryStream(oggBytes, writable: false);
+            using var ms     = new MemoryStream(oggBytes, writable: false);
             using var vorbis = new VorbisReader(ms, leaveOpen: false);
             vorbis.Initialize();
 
             var sampleRate = vorbis.SampleRate;
-            var channels = vorbis.Channels;
-            var samples = new List<float>(sampleRate * channels * 5);
-            var readBuf = new float[4096];
+            var channels   = vorbis.Channels;
+            var samples    = new List<float>(sampleRate * channels * 5);
+            var readBuf    = new float[4096];
             int read;
             while ((read = vorbis.ReadSamples(readBuf)) > 0)
             {

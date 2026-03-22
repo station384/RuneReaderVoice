@@ -458,6 +458,19 @@ public sealed class VoiceProfile
     public float? CfgWeight  { get; set; } = null;
     public float? Exaggeration { get; set; } = null;
 
+    // ── F5-TTS synthesis controls ─────────────────────────────────────────────
+    // These are passed through to the server only when using an F5 provider.
+    // Null = use server default.
+
+    /// <summary>F5: reference adherence (default 2.0, range 0.5–5.0).</summary>
+    public float? CfgStrength       { get; set; } = null;
+    /// <summary>F5: ODE solver steps (default 48 Vocos / 32 BigVGAN, max 64).</summary>
+    public int?   NfeStep            { get; set; } = null;
+    /// <summary>F5: cross-fade between internal synthesis chunks in seconds (default 0.15).</summary>
+    public float? CrossFadeDuration  { get; set; } = null;
+    /// <summary>F5: ODE time step distribution: -1.0 = sway optimal, 0.0 = uniform (default -1.0).</summary>
+    public float? SwaysamplingCoef   { get; set; } = null;
+
     /// <summary>
     /// When true the TextSplitter is skipped for this slot and the full assembled
     /// segment is synthesized as one unit. Useful for slow, deliberate voices
@@ -474,13 +487,17 @@ public sealed class VoiceProfile
 
     public VoiceProfile Clone() => new()
     {
-        VoiceId         = VoiceId,
-        LangCode        = LangCode,
-        SpeechRate      = SpeechRate,
-        CfgWeight       = CfgWeight,
-        Exaggeration    = Exaggeration,
-        DisableChunking = DisableChunking,
-        Dsp             = Dsp?.Clone(),
+        VoiceId           = VoiceId,
+        LangCode          = LangCode,
+        SpeechRate        = SpeechRate,
+        CfgWeight         = CfgWeight,
+        Exaggeration      = Exaggeration,
+        CfgStrength       = CfgStrength,
+        NfeStep           = NfeStep,
+        CrossFadeDuration = CrossFadeDuration,
+        SwaysamplingCoef  = SwaysamplingCoef,
+        DisableChunking   = DisableChunking,
+        Dsp               = Dsp?.Clone(),
     };
 
     /// <summary>
@@ -490,9 +507,12 @@ public sealed class VoiceProfile
     /// </summary>
     public string BuildIdentityKey()
     {
-        var cfg = CfgWeight.HasValue ? CfgWeight.Value.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture) : "-";
-        var exg = Exaggeration.HasValue ? Exaggeration.Value.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture) : "-";
-        return $"{VoiceId}|{LangCode}|{SpeechRate:0.00}|cfg:{cfg}|ex:{exg}";
+        var cfg  = CfgWeight.HasValue       ? CfgWeight.Value.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture) : "-";
+        var exg  = Exaggeration.HasValue    ? Exaggeration.Value.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture) : "-";
+        var cfs  = CfgStrength.HasValue     ? CfgStrength.Value.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture) : "-";
+        var nfe  = NfeStep.HasValue         ? NfeStep.Value.ToString() : "-";
+        var sway = SwaysamplingCoef.HasValue ? SwaysamplingCoef.Value.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture) : "-";
+        return $"{VoiceId}|{LangCode}|{SpeechRate:0.00}|cfg:{cfg}|ex:{exg}|cfs:{cfs}|nfe:{nfe}|sway:{sway}";
     }
 }
 

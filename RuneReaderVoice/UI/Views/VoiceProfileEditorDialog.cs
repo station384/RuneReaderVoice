@@ -7,6 +7,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
+using System.Threading.Tasks;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
 using Avalonia.Layout;
@@ -67,6 +68,7 @@ public sealed class VoiceProfileEditorDialog : Window
     private readonly TextBox?    _exaggerationText;
     private readonly Button      _previewButton;
     private readonly Button      _stopPreviewButton;
+    private readonly TextBlock   _previewStatusText;
     private CancellationTokenSource? _previewCts;
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -628,6 +630,7 @@ Years ago, before the road fell quiet, caravans used to pass through Bramblewatc
 So go quickly, keep your wits about you, and return by the main road if you value your skin. And if Warden Elira offers you tea, be polite and decline. Her tea is strong enough to wake the dead, and we have enough restless things wandering about already." };
         _previewButton = Btn("Preview", 90); _previewButton.Click += PreviewButton_Click;
         _stopPreviewButton = Btn("Stop", 80); _stopPreviewButton.Click += StopPreviewButton_Click; _stopPreviewButton.IsEnabled = false;
+        _previewStatusText = new TextBlock { VerticalAlignment = VerticalAlignment.Center, Foreground = Avalonia.Media.Brushes.Gold, FontSize = 12, Text = string.Empty };
         var saveBtn    = Btn("Save & Close", 120); saveBtn.Click += (_, _) => { _saved = true; Close(_workingProfile.Clone()); };
         saveBtn.IsEnabled = true;
         var cancelBtn  = Btn("Cancel", 90);        cancelBtn.Click += (_, _) => Close(null);
@@ -669,7 +672,7 @@ So go quickly, keep your wits about you, and return by the main road if you valu
                 dspCard,
                 Card("Live Preview", new StackPanel { Spacing = 8, Children =
                 {
-                    _previewText, new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Children = { _previewButton, _stopPreviewButton } },
+                    _previewText, new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Children = { _previewButton, _stopPreviewButton, _previewStatusText } },
                     new TextBlock { Text = "Re-synthesizes fresh. Bypasses cache. Includes current DSP.", TextWrapping = TextWrapping.Wrap, Opacity = 0.8 }
                 }}),
                 Card("Summary", new StackPanel { Spacing = 6, Children = { _summaryText } }),
@@ -690,8 +693,12 @@ So go quickly, keep your wits about you, and return by the main road if you valu
         RefreshSingleVoiceSummary();
         RefreshBlendSummary();
         RefreshSummary();
+        // Subscribe to operation status to show synthesis progress in the dialog.
+        // Must dispatch to UI thread since status fires from background threads.
+        AppServices.OperationStatusChanged += _OnPreviewStatusChanged;
         Closing += (_, _) =>
         {
+            AppServices.OperationStatusChanged -= _OnPreviewStatusChanged;
             _previewCts?.Cancel();
             _previewCts?.Dispose();
             AppServices.Player.Stop();
@@ -886,6 +893,20 @@ So go quickly, keep your wits about you, and return by the main road if you valu
 
     private async void PreviewButton_Click(object? sender, RoutedEventArgs e)
     {
+        // async void handlers must never throw — wrap entire body so exceptions
+        // don't escape to the Avalonia dispatcher and crash the app.
+        try { await PreviewButton_ClickAsync(sender, e); }
+        catch (Exception ex)
+        {
+            AppServices.SetOperationStatus($"Preview error: {ex.Message}");
+            System.Diagnostics.Debug.WriteLine($"[Preview] Unhandled: {ex}");
+            _stopPreviewButton.IsEnabled = false;
+            _previewButton.IsEnabled     = true;
+        }
+    }
+
+    private async Task PreviewButton_ClickAsync(object? sender, RoutedEventArgs e)
+    {
         _previewCts?.Cancel();
         _previewCts?.Dispose();
         _previewCts = new CancellationTokenSource();
@@ -934,6 +955,11 @@ So go quickly, keep your wits about you, and return by the main road if you valu
             await AppServices.Player.PlayAsync(pcm, ct);
         }
         catch (OperationCanceledException) { }
+        catch (Exception ex)
+        {
+            AppServices.SetOperationStatus($"Preview failed: {ex.Message}");
+            System.Diagnostics.Debug.WriteLine($"[Preview] Error: {ex.Message}");
+        }
         finally
         {
             AppServices.ClearOperationStatus();
@@ -950,6 +976,12 @@ So go quickly, keep your wits about you, and return by the main road if you valu
             _stopPreviewButton.IsEnabled = false;
             _previewButton.IsEnabled = true;
         }
+    }
+
+    private void _OnPreviewStatusChanged(string status)
+    {
+        Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+            _previewStatusText.Text = status ?? string.Empty);
     }
 
     private void StopPreviewButton_Click(object? sender, RoutedEventArgs e)
