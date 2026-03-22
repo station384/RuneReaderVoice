@@ -63,6 +63,8 @@ class Settings:
         self.cache_dir:   Path = Path(_env_str("RRV_CACHE_DIR",   "./data/cache"))
         self.db_path:     Path = Path(_env_str("RRV_DB_PATH",     "./data/server-cache.db"))
         self.models_dir:  Path = Path(_env_str("RRV_MODELS_DIR",  "./data/models"))
+        # F5-TTS vocoder: "auto" (BigVGAN if staged, else Vocos), "bigvgan", "vocos"
+        self.f5_vocoder: str = _env_str("RRV_F5_VOCODER", "auto")
         self.samples_dir:          Path = Path(_env_str("RRV_SAMPLES_DIR",          "./data/samples"))
         self.whisper_model_dir:    Path = Path(_env_str("RRV_WHISPER_MODEL_DIR",    "./data/models/whisper"))
         self.sample_scan_interval: int  = _env_int("RRV_SAMPLE_SCAN_INTERVAL", 30)
@@ -190,6 +192,7 @@ class Settings:
             f"cache_dir={self.cache_dir}, models_dir={self.models_dir}, "
             f"samples_dir={self.samples_dir}, "
             f"cache_max_mb={self.cache_max_mb}, "
+            f"f5_vocoder={self.f5_vocoder}, "
             f"auth_enabled={self.auth_enabled}, "
             f"contribute_key_set={bool(self.contribute_key)}, "
             f"admin_key_set={bool(self.admin_key)}, "

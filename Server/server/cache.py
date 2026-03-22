@@ -289,6 +289,7 @@ def compute_cache_key(
     cfg_strength:        float | None = None,
     nfe_step:            int   | None = None,
     cross_fade_duration: float | None = None,
+    sway_sampling_coef:  float | None = None,
 ) -> str:
     """
     Compute the 32-char hex server cache key.
@@ -309,11 +310,12 @@ def compute_cache_key(
     cfs_str   = "" if cfg_strength        is None else f"{cfg_strength:.3f}"
     nfe_str   = "" if nfe_step            is None else str(nfe_step)
     xfade_str = "" if cross_fade_duration is None else f"{cross_fade_duration:.3f}"
+    sway_str  = "" if sway_sampling_coef  is None else f"{sway_sampling_coef:.3f}"
 
     parts = [
         text, provider_id, model_version, voice_identity,
         lang_code, rate_str, cfg_str, exag_str,
-        cfs_str, nfe_str, xfade_str,
+        cfs_str, nfe_str, xfade_str, sway_str,
     ]
     joined = "\x00".join(parts)
     digest = hashlib.sha256(joined.encode("utf-8")).hexdigest()

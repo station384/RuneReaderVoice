@@ -47,9 +47,10 @@ class SynthesisRequest:
     # provider-specific optional controls
     cfg_weight:         Optional[float] = None
     exaggeration:       Optional[float] = None
-    cfg_strength:       Optional[float] = None   # F5-TTS: reference adherence (default 2.0)
-    nfe_step:           Optional[int]   = None   # F5-TTS: ODE solver steps (default 32)
-    cross_fade_duration: Optional[float] = None  # F5-TTS: internal chunk stitch duration (default 0.15)
+    cfg_strength:        Optional[float] = None   # F5-TTS: reference adherence (default 2.0)
+    nfe_step:            Optional[int]   = None   # F5-TTS: ODE solver steps (default 64 vocos, 32 bigvgan)
+    cross_fade_duration: Optional[float] = None   # F5-TTS: internal chunk stitch duration (default 0.15)
+    sway_sampling_coef:  Optional[float] = None   # F5-TTS: ODE time step distribution (-1.0=sway optimal, 0=uniform)
 
 
 @dataclass
