@@ -367,6 +367,7 @@ class F5TtsBackend(AbstractTtsBackend):
 
         # ── Generate using infer_process (matches CLI) ─────────────────────
         gen_text = request.text.rstrip() + " ...  "
+        _progress_cb = request.progress_callback
 
         infer_params = inspect.signature(infer_process).parameters
         infer_kwargs = dict(
@@ -389,7 +390,15 @@ class F5TtsBackend(AbstractTtsBackend):
         if "fix_duration"        in infer_params: infer_kwargs["fix_duration"]        = None
         if "device"              in infer_params: infer_kwargs["device"]              = self._torch_device
 
+        if _progress_cb is not None:
+            try: _progress_cb(0, 1)
+            except Exception: pass
+
         audio_segment, final_sample_rate, _ = infer_process(**infer_kwargs)
+
+        if _progress_cb is not None:
+            try: _progress_cb(1, 1)
+            except Exception: pass
 
         samples = np.array(audio_segment, dtype=np.float32)
         if samples.ndim > 1:

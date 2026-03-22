@@ -204,6 +204,7 @@ from .routes.health        import router as health_router
 from .routes.capabilities  import router as capabilities_router
 from .routes.providers     import router as providers_router
 from .routes.synthesize    import router as synthesize_router
+from .routes.synthesize_v2 import router as synthesize_v2_router
 from .routes.npc_overrides import router as npc_overrides_router
 from .routes.defaults      import router as defaults_router
 
@@ -211,6 +212,7 @@ app.include_router(health_router)
 app.include_router(capabilities_router)
 app.include_router(providers_router)
 app.include_router(synthesize_router)
+app.include_router(synthesize_v2_router)
 app.include_router(npc_overrides_router)
 app.include_router(defaults_router)
 

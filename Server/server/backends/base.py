@@ -51,6 +51,10 @@ class SynthesisRequest:
     nfe_step:            Optional[int]   = None   # F5-TTS: ODE solver steps (default 64 vocos, 32 bigvgan)
     cross_fade_duration: Optional[float] = None   # F5-TTS: internal chunk stitch duration (default 0.15)
     sway_sampling_coef:  Optional[float] = None   # F5-TTS: ODE time step distribution (-1.0=sway optimal, 0=uniform)
+    # Progress callback — called by backend as each chunk completes.
+    # Signature: callback(chunk: int, total: int) -> None
+    # None = no progress reporting (v1 endpoint)
+    progress_callback: Optional[object] = None
 
 
 @dataclass

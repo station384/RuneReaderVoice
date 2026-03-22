@@ -59,10 +59,18 @@ def pcm_to_ogg(samples, sample_rate: int) -> bytes:
             [
                 "ffmpeg", "-y",
                 "-i", tmp_wav_path,
+                # Loudness normalisation — aligns all backends to consistent
+                # perceived volume. Target is -21 LUFS which matches Chatterbox's
+                # natural output level (-20.6 LUFS measured). F5 outputs at
+                # ~-16 LUFS natively so this reduces it by ~4-5dB.
+                # I=-21    target integrated loudness (LUFS)
+                # LRA=11   loudness range — preserves natural dynamics
+                # TP=-1.5  true peak ceiling — prevents clipping after encode
+                "-af", "loudnorm=I=-21:LRA=11:TP=-1.5",
                 "-c:a", "libvorbis",
                 "-q:a", str(OGG_QUALITY),
                 "-f", "ogg",
-                "pipe:1",                  # write OGG to stdout
+                "pipe:1",
             ],
             capture_output=True,
             timeout=30,

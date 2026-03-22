@@ -34,11 +34,17 @@ log = logging.getLogger(__name__)
 
 class ChatterboxBackend(AbstractTtsBackend):
 
+    # Maximum concurrent synthesis requests — prevents GPU memory pressure
+    # from unbounded parallel generation. 2 allows reasonable throughput
+    # while keeping memory usage predictable.
+    _MAX_CONCURRENT = 2
+
     def __init__(self, models_dir: Path, torch_device: str) -> None:
         self._models_dir    = models_dir
         self._torch_device  = torch_device
         self._model         = None
         self._model_version = ""
+        self._infer_sem     = asyncio.Semaphore(self._MAX_CONCURRENT)
 
     # ── Identity ──────────────────────────────────────────────────────────────
 
@@ -252,7 +258,8 @@ class ChatterboxBackend(AbstractTtsBackend):
             raise ValueError("Chatterbox Turbo does not support voice blending.")
 
         loop = asyncio.get_event_loop()
-        ogg_bytes = await loop.run_in_executor(None, self._synthesize_sync, request)
+        async with self._infer_sem:
+            ogg_bytes = await loop.run_in_executor(None, self._synthesize_sync, request)
         duration = estimate_duration(ogg_bytes)
         return SynthesisResult(ogg_bytes=ogg_bytes, duration_sec=duration)
 
