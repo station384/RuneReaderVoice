@@ -113,8 +113,17 @@ def _analyse_pitch(y, sr) -> tuple[str, str]:
 
         mean_f0 = float(np.median(voiced_f0))
 
-        # Gender from pitch
-        gender = "Female" if mean_f0 >= 165 else "Male"
+        # Gender from pitch.
+        # 140-175Hz is an ambiguous overlap zone — voices in this range are
+        # labelled "Unknown" so the auto-prefix uses U_ rather than forcing
+        # a guess. Clearly male (<140Hz) and clearly female (>175Hz) are
+        # labelled confidently.
+        if mean_f0 > 175:
+            gender = "Female"
+        elif mean_f0 < 140:
+            gender = "Male"
+        else:
+            gender = "Unknown"
 
         # Register from pitch ranges (Hz)
         # Male:   Bass <110, Baritone 110-155, Tenor 155-210

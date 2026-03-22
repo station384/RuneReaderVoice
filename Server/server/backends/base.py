@@ -35,16 +35,21 @@ class SynthesisRequest:
     voice_id:    Optional[str] = None
 
     # voice.type = "reference"
-    sample_path: Optional[Path] = None   # resolved by the route from sample_id
-    ref_text:    str            = ""     # transcript of reference clip; empty = use Whisper
+    sample_path:  Optional[Path] = None   # resolved by the route from sample_id
+    sample_id:    Optional[str]  = None   # original sample_id (stem), for provider-specific lookup
+    samples_dir:  Optional[Path] = None   # samples directory root, for provider-specific lookup
+    ref_text:     str            = ""     # transcript of reference clip
 
     # voice.type = "blend"
-    blend:       list[dict]   = field(default_factory=list)
+    blend:        list[dict]   = field(default_factory=list)
     # blend entries: [{"voice_id": "am_adam", "weight": 0.4}, ...]
 
     # provider-specific optional controls
-    cfg_weight:   Optional[float] = None
-    exaggeration: Optional[float] = None
+    cfg_weight:         Optional[float] = None
+    exaggeration:       Optional[float] = None
+    cfg_strength:       Optional[float] = None   # F5-TTS: reference adherence (default 2.0)
+    nfe_step:           Optional[int]   = None   # F5-TTS: ODE solver steps (default 32)
+    cross_fade_duration: Optional[float] = None  # F5-TTS: internal chunk stitch duration (default 0.15)
 
 
 @dataclass

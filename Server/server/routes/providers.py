@@ -6,7 +6,7 @@ from __future__ import annotations
 from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel
 
-from ..samples import scan as scan_samples
+from ..samples import scan as scan_samples, scan_for_provider
 
 router = APIRouter()
 
@@ -75,7 +75,10 @@ async def get_samples(provider_id: str, request: Request) -> list[SampleResponse
             detail=f"Provider '{provider_id}' does not support voice matching.",
         )
 
-    samples = scan_samples(settings.samples_dir)
+    # Use provider-aware scan so reported duration reflects the provider-specific
+    # extracted clip (e.g. Christopher_Walken-f5.wav = 6.5s) rather than the
+    # master (59.9s). This ensures the client duration filter passes correctly.
+    samples = scan_for_provider(settings.samples_dir, provider_id)
     return [
         SampleResponse(
             sample_id=s.sample_id,

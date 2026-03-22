@@ -33,6 +33,8 @@ from typing import Optional
 
 from .base import AbstractTtsBackend, SynthesisRequest, SynthesisResult, VoiceInfo
 from ..cache import compute_file_hash
+from ..samples import resolve_sample_for_provider
+from .audio import pcm_to_ogg, estimate_duration
 
 log = logging.getLogger(__name__)
 
@@ -158,47 +160,67 @@ class F5TtsBackend(AbstractTtsBackend):
         loop = asyncio.get_event_loop()
         async with self._infer_lock:
             ogg_bytes = await loop.run_in_executor(None, self._synthesize_sync, request)
-        duration = _estimate_duration(ogg_bytes)
+        duration = estimate_duration(ogg_bytes)
         return SynthesisResult(ogg_bytes=ogg_bytes, duration_sec=duration)
 
     def _synthesize_sync(self, request: SynthesisRequest) -> bytes:
         import numpy as np
 
+        # Prefer the provider-specific extracted clip (<=10s, pre-validated for F5).
+        # Falls back to the route-resolved sample_path if no -f5 clip exists yet.
+        sample_path = request.sample_path
+        ref_text    = request.ref_text
+
+        if sample_path is not None and request.samples_dir is not None:
+            provider_info = resolve_sample_for_provider(
+                samples_dir=request.samples_dir,
+                sample_id=request.sample_id or "",
+                provider_id=self.provider_id,
+            )
+            if provider_info and provider_info.ref_text:
+                from pathlib import Path as _Path
+                candidate = request.samples_dir / provider_info.filename
+                if candidate.exists():
+                    sample_path = candidate
+                    ref_text    = provider_info.ref_text
+                    log.debug(
+                        "F5-TTS: using provider clip '%s' for sample '%s'",
+                        provider_info.filename, request.sample_id
+                    )
+
+        # nfe_step: ODE solver steps (default 32; 16=fast, 64=high quality)
+        # cfg_strength: reference adherence (default 2.0; range 1.0-4.0)
+        # cross_fade_duration: stitches F5's internal text chunks (default 0.15s)
+        nfe_step            = request.nfe_step            if request.nfe_step is not None else 32
+        cfg_strength_val    = request.cfg_strength        if request.cfg_strength is not None else 2.0
+        cross_fade_duration = request.cross_fade_duration if request.cross_fade_duration is not None else 0.15
+
+        log.debug(
+            "F5-TTS synth: nfe=%d cfg=%.2f xfade=%.3f speed=%.2f sample='%s'",
+            nfe_step, cfg_strength_val, cross_fade_duration,
+            request.speech_rate, sample_path.name if sample_path else "none",
+        )
+
         wav, sample_rate, _ = self._model.infer(
-            ref_file=str(request.sample_path),
-            ref_text=request.ref_text,
-            # Append trailing punctuation to give the model enough runway to
-            # complete the final word. Without this, F5-TTS clips the last
-            # syllable abruptly. The padding falls in the natural tail-off
-            # and does not appear in the audible output.
+            ref_file=str(sample_path),
+            ref_text=ref_text,
+            # Trailing punctuation gives the model runway to complete the
+            # final word without clipping the last syllable.
             gen_text=request.text.rstrip() + " ...  ",
             speed=request.speech_rate,
+            nfe_step=nfe_step,
+            cfg_strength=cfg_strength_val,
+            cross_fade_duration=cross_fade_duration,
             remove_silence=False,
-
         )
 
         samples = np.array(wav, dtype=np.float32)
         if samples.ndim > 1:
             samples = samples.squeeze()
 
-        return _pcm_to_ogg(samples, sample_rate)
+        return pcm_to_ogg(samples, sample_rate)
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
-def _pcm_to_ogg(samples, sample_rate: int) -> bytes:
-    import soundfile as sf
-    buf = io.BytesIO()
-    sf.write(buf, samples, sample_rate, format="OGG", subtype="VORBIS")
-    buf.seek(0)
-    return buf.read()
-
-
-def _estimate_duration(ogg_bytes: bytes) -> float:
-    try:
-        import soundfile as sf
-        buf = io.BytesIO(ogg_bytes)
-        info = sf.info(buf)
-        return info.duration
-    except Exception:
-        return 0.0
+# OGG encoding — see backends/audio.py

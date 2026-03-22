@@ -284,8 +284,11 @@ def compute_cache_key(
     voice_identity: str,
     lang_code: str,
     speech_rate: float,
-    cfg_weight: float | None = None,
-    exaggeration: float | None = None,
+    cfg_weight:          float | None = None,
+    exaggeration:        float | None = None,
+    cfg_strength:        float | None = None,
+    nfe_step:            int   | None = None,
+    cross_fade_duration: float | None = None,
 ) -> str:
     """
     Compute the 32-char hex server cache key.
@@ -300,11 +303,18 @@ def compute_cache_key(
       - blend:        canonical sorted "voice_id:weight" pairs joined by "|"
     """
     # Normalize control values for consistent hashing
-    rate_str = f"{speech_rate:.2f}"
-    cfg_str = "" if cfg_weight is None else f"{cfg_weight:.3f}"
-    exag_str = "" if exaggeration is None else f"{exaggeration:.3f}"
+    rate_str  = f"{speech_rate:.2f}"
+    cfg_str   = "" if cfg_weight          is None else f"{cfg_weight:.3f}"
+    exag_str  = "" if exaggeration        is None else f"{exaggeration:.3f}"
+    cfs_str   = "" if cfg_strength        is None else f"{cfg_strength:.3f}"
+    nfe_str   = "" if nfe_step            is None else str(nfe_step)
+    xfade_str = "" if cross_fade_duration is None else f"{cross_fade_duration:.3f}"
 
-    parts = [text, provider_id, model_version, voice_identity, lang_code, rate_str, cfg_str, exag_str]
+    parts = [
+        text, provider_id, model_version, voice_identity,
+        lang_code, rate_str, cfg_str, exag_str,
+        cfs_str, nfe_str, xfade_str,
+    ]
     joined = "\x00".join(parts)
     digest = hashlib.sha256(joined.encode("utf-8")).hexdigest()
     return digest[:32]

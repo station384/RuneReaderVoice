@@ -26,6 +26,7 @@ import logging
 from pathlib import Path
 
 from .base import AbstractTtsBackend, SynthesisRequest, SynthesisResult, VoiceInfo
+from .audio import pcm_to_ogg, estimate_duration
 from ..cache import compute_file_hash
 
 log = logging.getLogger(__name__)
@@ -252,7 +253,7 @@ class ChatterboxBackend(AbstractTtsBackend):
 
         loop = asyncio.get_event_loop()
         ogg_bytes = await loop.run_in_executor(None, self._synthesize_sync, request)
-        duration = _estimate_duration(ogg_bytes)
+        duration = estimate_duration(ogg_bytes)
         return SynthesisResult(ogg_bytes=ogg_bytes, duration_sec=duration)
 
     def _synthesize_sync(self, request: SynthesisRequest) -> bytes:
@@ -297,27 +298,11 @@ class ChatterboxBackend(AbstractTtsBackend):
         else:
             samples = np.array(wav).squeeze()
 
-        return _pcm_to_ogg(samples, self._model.sr)
+        return pcm_to_ogg(samples, self._model.sr)
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
-
-def _pcm_to_ogg(samples, sample_rate: int) -> bytes:
-    import soundfile as sf
-    import numpy as np
-    buf = io.BytesIO()
-    if samples.dtype != np.float32:
-        samples = samples.astype(np.float32)
-    sf.write(buf, samples, sample_rate, format="OGG", subtype="VORBIS")
-    buf.seek(0)
-    return buf.read()
+# OGG encoding — see backends/audio.py
 
 
-def _estimate_duration(ogg_bytes: bytes) -> float:
-    try:
-        import soundfile as sf
-        buf = io.BytesIO(ogg_bytes)
-        info = sf.info(buf)
-        return info.duration
-    except Exception:
-        return 0.0
+

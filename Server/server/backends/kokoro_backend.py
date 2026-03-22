@@ -27,6 +27,7 @@ from pathlib import Path
 from typing import Optional
 
 from .base import AbstractTtsBackend, SynthesisRequest, SynthesisResult, VoiceInfo
+from .audio import pcm_to_ogg, estimate_duration
 from ..cache import compute_file_hash
 
 log = logging.getLogger(__name__)
@@ -225,7 +226,7 @@ class KokoroBackend(AbstractTtsBackend):
             None, self._synthesize_sync, request
         )
 
-        duration = _estimate_duration(ogg_bytes)
+        duration = estimate_duration(ogg_bytes)
         return SynthesisResult(ogg_bytes=ogg_bytes, duration_sec=duration)
 
     def _synthesize_sync(self, request: SynthesisRequest) -> bytes:
@@ -244,7 +245,7 @@ class KokoroBackend(AbstractTtsBackend):
             lang=_normalize_lang(request.lang_code),
         )
 
-        return _pcm_to_ogg(samples, sample_rate)
+        return pcm_to_ogg(samples, sample_rate)
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
@@ -277,27 +278,6 @@ def _normalize_lang(lang_code: str) -> str:
     return mapping.get(lang_code.lower(), "en-us")
 
 
-def _pcm_to_ogg(samples, sample_rate: int) -> bytes:
-    """Encode float32 PCM samples to OGG Vorbis bytes."""
-    import soundfile as sf
-    import numpy as np
-
-    buf = io.BytesIO()
-    # Ensure float32
-    if samples.dtype != np.float32:
-        samples = samples.astype(np.float32)
-
-    sf.write(buf, samples, sample_rate, format="OGG", subtype="VORBIS")
-    buf.seek(0)
-    return buf.read()
+# OGG encoding — see backends/audio.py
 
 
-def _estimate_duration(ogg_bytes: bytes) -> float:
-    """Read duration from OGG header."""
-    try:
-        import soundfile as sf
-        buf = io.BytesIO(ogg_bytes)
-        info = sf.info(buf)
-        return info.duration
-    except Exception:
-        return 0.0

@@ -54,13 +54,17 @@ class VoiceSpec(BaseModel):
 
 
 class SynthesizeRequest(BaseModel):
-    provider_id: str
-    text:        str        = Field(min_length=1, max_length=8000)
-    voice:       VoiceSpec
-    lang_code:   str        = "en"
-    speech_rate: float      = Field(default=1.0, ge=0.5, le=2.0)
+    provider_id:  str
+    text:         str        = Field(min_length=1, max_length=8000)
+    voice:        VoiceSpec
+    lang_code:    str        = "en"
+    speech_rate:  float      = Field(default=1.0, ge=0.5, le=2.0)
     cfg_weight:   float | None = Field(default=None, ge=0.0, le=3.0)
     exaggeration: float | None = Field(default=None, ge=0.0, le=3.0)
+    # F5-TTS specific controls
+    cfg_strength:        float | None = Field(default=None, ge=0.5, le=5.0)
+    nfe_step:            int   | None = Field(default=None, ge=8,   le=128)
+    cross_fade_duration: float | None = Field(default=None, ge=0.0, le=1.0)
 
 
 # ── Endpoint ──────────────────────────────────────────────────────────────────
@@ -129,6 +133,9 @@ async def synthesize(body: SynthesizeRequest, request: Request) -> Response:
         speech_rate=body.speech_rate,
         cfg_weight=body.cfg_weight,
         exaggeration=body.exaggeration,
+        cfg_strength=body.cfg_strength,
+        nfe_step=body.nfe_step,
+        cross_fade_duration=body.cross_fade_duration,
     )
 
     # 6. Cache hit check (no lock needed for reads)
@@ -171,11 +178,16 @@ async def synthesize(body: SynthesizeRequest, request: Request) -> Response:
             speech_rate=body.speech_rate,
             voice_id=body.voice.voice_id,
             sample_path=sample_path,
+            sample_id=body.voice.sample_id if body.voice.type == "reference" else None,
+            samples_dir=settings.samples_dir,
             ref_text=ref_text,
             blend=[{"voice_id": e.voice_id, "weight": e.weight}
                    for e in body.voice.blend],
             cfg_weight=body.cfg_weight,
             exaggeration=body.exaggeration,
+            cfg_strength=body.cfg_strength,
+            nfe_step=body.nfe_step,
+            cross_fade_duration=body.cross_fade_duration,
         )
 
         try:
