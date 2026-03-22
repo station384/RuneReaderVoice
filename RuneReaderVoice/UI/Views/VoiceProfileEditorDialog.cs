@@ -66,6 +66,14 @@ public sealed class VoiceProfileEditorDialog : Window
     private readonly TextBox?    _cfgWeightText;
     private readonly Slider?     _exaggerationSlider;
     private readonly TextBox?    _exaggerationText;
+
+    // F5-TTS specific controls
+    private readonly Slider?     _cfgStrengthSlider;
+    private readonly TextBox?    _cfgStrengthText;
+    private readonly Slider?     _nfeStepSlider;
+    private readonly TextBox?    _nfeStepText;
+    private readonly Slider?     _swaySlider;
+    private readonly TextBox?    _swayText;
     private readonly Button      _previewButton;
     private readonly Button      _stopPreviewButton;
     private readonly TextBlock   _previewStatusText;
@@ -200,10 +208,18 @@ public sealed class VoiceProfileEditorDialog : Window
         controls.TryGetValue("exaggeration", out var exagControl);
 
         Border? chatterboxControlsCard = null;
-        _cfgWeightSlider = null;
-        _cfgWeightText = null;
+        _cfgWeightSlider    = null;
+        _cfgWeightText      = null;
         _exaggerationSlider = null;
-        _exaggerationText = null;
+        _exaggerationText   = null;
+
+        Border? f5ControlsCard = null;
+        _cfgStrengthSlider = null;
+        _cfgStrengthText   = null;
+        _nfeStepSlider     = null;
+        _nfeStepText       = null;
+        _swaySlider        = null;
+        _swayText          = null;
 
         if (cfgControl != null || exagControl != null)
         {
@@ -306,6 +322,125 @@ public sealed class VoiceProfileEditorDialog : Window
             }
 
             chatterboxControlsCard = Card("Voice Render Controls", controlRows);
+        }
+
+        // ── F5-TTS synthesis controls ─────────────────────────────────────────
+
+        controls.TryGetValue("cfg_strength",       out var cfgStrControl);
+        controls.TryGetValue("nfe_step",           out var nfeControl);
+        controls.TryGetValue("sway_sampling_coef", out var swayControl);
+
+        if (cfgStrControl != null || nfeControl != null || swayControl != null)
+        {
+            var f5Rows = new StackPanel { Spacing = 8 };
+
+            if (cfgStrControl != null)
+            {
+                float min = cfgStrControl.Min ?? 0.5f;
+                float max = cfgStrControl.Max ?? 5.0f;
+                float def = cfgStrControl.Default ?? 2.0f;
+                if (!_workingProfile.CfgStrength.HasValue) _workingProfile.CfgStrength = def;
+                float cur = _workingProfile.CfgStrength ?? def;
+
+                _cfgStrengthSlider = new Slider { Minimum = min, Maximum = max, Value = cur, TickFrequency = 0.1, HorizontalAlignment = HorizontalAlignment.Stretch };
+                _cfgStrengthText   = new TextBox { Width = 80, Text = cur.ToString("0.00", Inv), HorizontalContentAlignment = HorizontalAlignment.Center };
+                _cfgStrengthSlider.PropertyChanged += (_, e) => {
+                    if (e.Property != Slider.ValueProperty) return;
+                    _workingProfile.CfgStrength = (float)_cfgStrengthSlider.Value;
+                    var t = _workingProfile.CfgStrength.Value.ToString("0.00", Inv);
+                    if (_cfgStrengthText.Text != t) _cfgStrengthText.Text = t;
+                    RefreshSummary();
+                };
+                _cfgStrengthText.TextChanged += (_, _) => {
+                    if (!float.TryParse(_cfgStrengthText.Text, System.Globalization.NumberStyles.Float, Inv, out var v)) return;
+                    v = Math.Clamp(v, min, max);
+                    _workingProfile.CfgStrength = v;
+                    if (Math.Abs(_cfgStrengthSlider.Value - v) > 0.001) _cfgStrengthSlider.Value = v;
+                    RefreshSummary();
+                };
+                var row = new Grid { ColumnDefinitions = new ColumnDefinitions("130,*,70,70"), ColumnSpacing = 8 };
+                row.Children.Add(new TextBlock { Text = "Cfg Strength", VerticalAlignment = VerticalAlignment.Center, FontWeight = FontWeight.SemiBold });
+                Grid.SetColumn(_cfgStrengthSlider, 1); row.Children.Add(_cfgStrengthSlider);
+                Grid.SetColumn(_cfgStrengthText, 2);   row.Children.Add(_cfgStrengthText);
+                var btn = Btn("Default", 70); btn.Click += (_, _) => { _workingProfile.CfgStrength = def; _cfgStrengthSlider.Value = def; _cfgStrengthText.Text = def.ToString("0.00", Inv); RefreshSummary(); };
+                Grid.SetColumn(btn, 3); row.Children.Add(btn);
+                f5Rows.Children.Add(row);
+                if (!string.IsNullOrWhiteSpace(cfgStrControl.Description))
+                    f5Rows.Children.Add(new TextBlock { Text = cfgStrControl.Description, Opacity = 0.8, TextWrapping = TextWrapping.Wrap, Margin = new Avalonia.Thickness(0, 0, 0, 4) });
+            }
+
+            if (nfeControl != null)
+            {
+                float min = nfeControl.Min ?? 8f;
+                float max = nfeControl.Max ?? 64f;
+                float def = nfeControl.Default ?? 48f;
+                if (!_workingProfile.NfeStep.HasValue) _workingProfile.NfeStep = (int)def;
+                float cur = _workingProfile.NfeStep ?? (int)def;
+
+                _nfeStepSlider = new Slider { Minimum = min, Maximum = max, Value = cur, TickFrequency = 8, HorizontalAlignment = HorizontalAlignment.Stretch };
+                _nfeStepText   = new TextBox { Width = 80, Text = ((int)cur).ToString(), HorizontalContentAlignment = HorizontalAlignment.Center };
+                _nfeStepSlider.PropertyChanged += (_, e) => {
+                    if (e.Property != Slider.ValueProperty) return;
+                    _workingProfile.NfeStep = (int)Math.Round(_nfeStepSlider.Value / 8) * 8;
+                    _workingProfile.NfeStep = Math.Clamp(_workingProfile.NfeStep.Value, 8, 64);
+                    var t = _workingProfile.NfeStep.Value.ToString();
+                    if (_nfeStepText.Text != t) _nfeStepText.Text = t;
+                    RefreshSummary();
+                };
+                _nfeStepText.TextChanged += (_, _) => {
+                    if (!int.TryParse(_nfeStepText.Text, out var v)) return;
+                    v = Math.Clamp(v, 8, 64);
+                    _workingProfile.NfeStep = v;
+                    if (Math.Abs(_nfeStepSlider.Value - v) > 0.5) _nfeStepSlider.Value = v;
+                    RefreshSummary();
+                };
+                var row = new Grid { ColumnDefinitions = new ColumnDefinitions("130,*,70,70"), ColumnSpacing = 8 };
+                row.Children.Add(new TextBlock { Text = "NFE Steps", VerticalAlignment = VerticalAlignment.Center, FontWeight = FontWeight.SemiBold });
+                Grid.SetColumn(_nfeStepSlider, 1); row.Children.Add(_nfeStepSlider);
+                Grid.SetColumn(_nfeStepText, 2);   row.Children.Add(_nfeStepText);
+                var btn = Btn("Default", 70); btn.Click += (_, _) => { _workingProfile.NfeStep = (int)def; _nfeStepSlider.Value = def; _nfeStepText.Text = ((int)def).ToString(); RefreshSummary(); };
+                Grid.SetColumn(btn, 3); row.Children.Add(btn);
+                f5Rows.Children.Add(row);
+                if (!string.IsNullOrWhiteSpace(nfeControl.Description))
+                    f5Rows.Children.Add(new TextBlock { Text = nfeControl.Description, Opacity = 0.8, TextWrapping = TextWrapping.Wrap, Margin = new Avalonia.Thickness(0, 0, 0, 4) });
+            }
+
+            if (swayControl != null)
+            {
+                float min = swayControl.Min ?? -1.0f;
+                float max = swayControl.Max ?? 1.0f;
+                float def = swayControl.Default ?? -1.0f;
+                if (!_workingProfile.SwaysamplingCoef.HasValue) _workingProfile.SwaysamplingCoef = def;
+                float cur = _workingProfile.SwaysamplingCoef ?? def;
+
+                _swaySlider = new Slider { Minimum = min, Maximum = max, Value = cur, TickFrequency = 0.1, HorizontalAlignment = HorizontalAlignment.Stretch };
+                _swayText   = new TextBox { Width = 80, Text = cur.ToString("0.00", Inv), HorizontalContentAlignment = HorizontalAlignment.Center };
+                _swaySlider.PropertyChanged += (_, e) => {
+                    if (e.Property != Slider.ValueProperty) return;
+                    _workingProfile.SwaysamplingCoef = (float)_swaySlider.Value;
+                    var t = _workingProfile.SwaysamplingCoef.Value.ToString("0.00", Inv);
+                    if (_swayText.Text != t) _swayText.Text = t;
+                    RefreshSummary();
+                };
+                _swayText.TextChanged += (_, _) => {
+                    if (!float.TryParse(_swayText.Text, System.Globalization.NumberStyles.Float, Inv, out var v)) return;
+                    v = Math.Clamp(v, min, max);
+                    _workingProfile.SwaysamplingCoef = v;
+                    if (Math.Abs(_swaySlider.Value - v) > 0.001) _swaySlider.Value = v;
+                    RefreshSummary();
+                };
+                var row = new Grid { ColumnDefinitions = new ColumnDefinitions("130,*,70,70"), ColumnSpacing = 8 };
+                row.Children.Add(new TextBlock { Text = "Sway Coef", VerticalAlignment = VerticalAlignment.Center, FontWeight = FontWeight.SemiBold });
+                Grid.SetColumn(_swaySlider, 1); row.Children.Add(_swaySlider);
+                Grid.SetColumn(_swayText, 2);   row.Children.Add(_swayText);
+                var btn = Btn("Default", 70); btn.Click += (_, _) => { _workingProfile.SwaysamplingCoef = def; _swaySlider.Value = def; _swayText.Text = def.ToString("0.00", Inv); RefreshSummary(); };
+                Grid.SetColumn(btn, 3); row.Children.Add(btn);
+                f5Rows.Children.Add(row);
+                if (!string.IsNullOrWhiteSpace(swayControl.Description))
+                    f5Rows.Children.Add(new TextBlock { Text = swayControl.Description, Opacity = 0.8, TextWrapping = TextWrapping.Wrap, Margin = new Avalonia.Thickness(0, 0, 0, 4) });
+            }
+
+            f5ControlsCard = Card("F5-TTS Synthesis Controls", f5Rows);
         }
 
         // ── DSP groups ────────────────────────────────────────────────────────
@@ -681,6 +816,8 @@ So go quickly, keep your wits about you, and return by the main road if you valu
         };
         if (chatterboxControlsCard != null)
             contentStack.Children.Insert(4, chatterboxControlsCard);
+        if (f5ControlsCard != null)
+            contentStack.Children.Insert(chatterboxControlsCard != null ? 5 : 4, f5ControlsCard);
 
         Content = new ScrollViewer
         {
@@ -808,6 +945,24 @@ So go quickly, keep your wits about you, and return by the main road if you valu
             var ex = _workingProfile.Exaggeration ?? (float)_exaggerationSlider.Value;
             _exaggerationSlider.Value = ex;
             if (_exaggerationText != null) _exaggerationText.Text = ex.ToString("0.00", Inv);
+        }
+        if (_cfgStrengthSlider != null)
+        {
+            var v = _workingProfile.CfgStrength ?? (float)_cfgStrengthSlider.Value;
+            _cfgStrengthSlider.Value = v;
+            if (_cfgStrengthText != null) _cfgStrengthText.Text = v.ToString("0.00", Inv);
+        }
+        if (_nfeStepSlider != null)
+        {
+            var v = (float)(_workingProfile.NfeStep ?? (int)_nfeStepSlider.Value);
+            _nfeStepSlider.Value = v;
+            if (_nfeStepText != null) _nfeStepText.Text = ((int)v).ToString();
+        }
+        if (_swaySlider != null)
+        {
+            var v = _workingProfile.SwaysamplingCoef ?? (float)_swaySlider.Value;
+            _swaySlider.Value = v;
+            if (_swayText != null) _swayText.Text = v.ToString("0.00", Inv);
         }
     }
 

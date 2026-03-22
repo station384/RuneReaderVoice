@@ -95,6 +95,37 @@ class F5TtsBackend(AbstractTtsBackend):
     def model_version(self) -> str:
         return self._model_version
 
+    def extra_controls(self) -> dict:
+        vocoder = self._vocoder_name if self._vocoder_name else "vocos"
+        default_nfe = 32 if vocoder == "bigvgan" else 48
+        return {
+            "cfg_strength": {
+                "type":        "float",
+                "default":     2.0,
+                "min":         0.5,
+                "max":         3.0,
+                "description": "Reference voice adherence. 2.0 = natural default. "
+                               "Lower (0.5) = exaggerated expressive style. "
+                               "Higher (3.0) = tighter voice match. Above 3.0 causes distortion.",
+            },
+            "nfe_step": {
+                "type":        "int",
+                "default":     default_nfe,
+                "min":         8,
+                "max":         64,
+                "description": f"ODE solver steps. Higher = better quality, slower synthesis. "
+                               f"Default {default_nfe} is the recommended sweet spot.",
+            },
+            "sway_sampling_coef": {
+                "type":        "float",
+                "default":     -1.0,
+                "min":         -1.0,
+                "max":         1.0,
+                "description": "ODE time step distribution. -1.0 = sway (optimal), "
+                               "0.0 = uniform. Change only for experimentation.",
+            },
+        }
+
     # ── Load ──────────────────────────────────────────────────────────────────
 
     async def load(self) -> None:

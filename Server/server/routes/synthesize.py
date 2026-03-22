@@ -62,7 +62,7 @@ class SynthesizeRequest(BaseModel):
     cfg_weight:   float | None = Field(default=None, ge=0.0, le=3.0)
     exaggeration: float | None = Field(default=None, ge=0.0, le=3.0)
     # F5-TTS specific controls
-    cfg_strength:        float | None = Field(default=None, ge=0.5, le=5.0)
+    cfg_strength:        float | None = Field(default=None, ge=0.5, le=3.0)
     nfe_step:            int   | None = Field(default=None, ge=8,   le=64)
     cross_fade_duration: float | None = Field(default=None, ge=0.0, le=1.0)
     sway_sampling_coef:  float | None = Field(default=None, ge=-1.0, le=1.0)
