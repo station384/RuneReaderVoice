@@ -221,6 +221,11 @@ async def synthesize_v2(body: SynthesizeRequest, request: Request) -> dict:
                     batch_id=body.batch_id,
                     total=body.batch_total,
                 )
+            else:
+                # Update total if client sends a higher count as more segments arrive
+                batch = _batches[body.batch_id]
+                if body.batch_total > batch.total:
+                    batch.total = body.batch_total
             _batches[body.batch_id].job_keys.append(progress_key)
 
     cached = await cache.get(cache_key)
