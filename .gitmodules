@@ -1,0 +1,3 @@
+[submodule "LUAAddon"]
+	path = LUAAddon
+	url = https://github.com/station384/RuneReaderAddonVoice.git
