@@ -43,17 +43,56 @@ public partial class MainWindow
         RefreshNpcOverridesGrid();
     }
 
+    // Known variant suffixes — must match server-side variant names.
+    // These appear after a dash in the sample ID e.g. M_WWZ_10-slow.
+    private static readonly string[] _variantSuffixes =
+        { "slow", "fast", "quiet", "loud", "breathy" };
+
     /// <summary>
-    /// Populates the bespoke sample dropdown in the Last NPC panel.
-    /// Only visible when the active provider is a RemoteTtsProvider that
-    /// supports voice matching. Shows "(no bespoke sample)" as first item.
+    /// Returns the base sample ID by stripping known variant suffixes.
+    /// "M_WWZ_10-slow" → "M_WWZ_10", "M_WWZ_10" → "M_WWZ_10"
+    /// </summary>
+    private static string GetBaseSampleId(string sampleId)
+    {
+        if (string.IsNullOrWhiteSpace(sampleId)) return sampleId;
+        foreach (var suffix in _variantSuffixes)
+        {
+            if (sampleId.EndsWith($"-{suffix}", StringComparison.OrdinalIgnoreCase))
+                return sampleId[..^(suffix.Length + 1)];
+        }
+        return sampleId;
+    }
+
+    /// <summary>
+    /// Returns the variant suffix part of a sample ID, or null if it is a base sample.
+    /// "M_WWZ_10-slow" → "slow", "M_WWZ_10" → null
+    /// </summary>
+    private static string? GetVariantSuffix(string sampleId)
+    {
+        if (string.IsNullOrWhiteSpace(sampleId)) return null;
+        foreach (var suffix in _variantSuffixes)
+        {
+            if (sampleId.EndsWith($"-{suffix}", StringComparison.OrdinalIgnoreCase))
+                return suffix;
+        }
+        return null;
+    }
+
+    /// <summary>
+    /// Populates the two-level sample picker (base sample + variant dropdowns).
+    /// Dropdown 1: distinct base sample IDs.
+    /// Dropdown 2: variants available for the selected base.
+    /// Only visible when provider supports voice matching.
     /// </summary>
     private void PopulateLastNpcSampleDropdown()
     {
+        LastNpcSampleDropdown.SelectionChanged -= OnBaseSampleSelectionChanged;
         LastNpcSampleDropdown.Items.Clear();
+        LastNpcVariantDropdown.Items.Clear();
+
         LastNpcSampleDropdown.Items.Add(new ComboBoxItem
         {
-            Content = "(use race default sample)",
+            Content = "(race default)",
             Tag     = (string?)null,
         });
 
@@ -63,15 +102,17 @@ public partial class MainWindow
             System.Diagnostics.Debug.WriteLine(
                 $"[NpcPanel] PopulateSampleDropdown: provider={AppServices.Provider.ProviderId} voiceCount={voices.Count}");
 
-            foreach (var v in voices.OrderBy(v => v.VoiceId))
-            {
-                var label = string.IsNullOrWhiteSpace(v.Description)
-                    ? v.VoiceId
-                    : $"{v.VoiceId}  —  {v.Description}";
+            // Separate base samples from variants
+            var baseSamples = voices
+                .Where(v => GetVariantSuffix(v.VoiceId) == null)
+                .OrderBy(v => v.VoiceId)
+                .ToList();
 
+            foreach (var v in baseSamples)
+            {
                 LastNpcSampleDropdown.Items.Add(new ComboBoxItem
                 {
-                    Content = label,
+                    Content = v.VoiceId,
                     Tag     = v.VoiceId,
                 });
             }
@@ -88,7 +129,62 @@ public partial class MainWindow
         }
 
         LastNpcSampleDropdown.SelectedIndex = 0;
+        LastNpcSampleDropdown.SelectionChanged += OnBaseSampleSelectionChanged;
+        PopulateVariantDropdown(null);
     }
+
+    /// <summary>
+    /// Repopulates the variant dropdown for the currently selected base sample.
+    /// </summary>
+    private void PopulateVariantDropdown(string? baseSampleId)
+    {
+        LastNpcVariantDropdown.SelectionChanged -= OnVariantSelectionChanged;
+        LastNpcVariantDropdown.Items.Clear();
+
+        LastNpcVariantDropdown.Items.Add(new ComboBoxItem
+        {
+            Content = "(default)",
+            Tag     = baseSampleId,  // base ID = no variant
+        });
+
+        if (!string.IsNullOrWhiteSpace(baseSampleId) &&
+            AppServices.Provider is TTS.Providers.RemoteTtsProvider remoteProvider)
+        {
+            var allVoices = remoteProvider.GetAvailableVoices();
+            var variants  = allVoices
+                .Where(v => GetBaseSampleId(v.VoiceId) == baseSampleId
+                         && GetVariantSuffix(v.VoiceId) != null)
+                .OrderBy(v => v.VoiceId)
+                .ToList();
+
+            foreach (var v in variants)
+            {
+                var suffix = GetVariantSuffix(v.VoiceId) ?? v.VoiceId;
+                LastNpcVariantDropdown.Items.Add(new ComboBoxItem
+                {
+                    Content = suffix,
+                    Tag     = v.VoiceId,   // full ID including variant suffix
+                });
+            }
+
+            LastNpcVariantDropdown.IsVisible = variants.Count > 0;
+        }
+        else
+        {
+            LastNpcVariantDropdown.IsVisible = false;
+        }
+
+        LastNpcVariantDropdown.SelectedIndex = 0;
+        LastNpcVariantDropdown.SelectionChanged += OnVariantSelectionChanged;
+    }
+
+    private void OnBaseSampleSelectionChanged(object? sender, SelectionChangedEventArgs e)
+    {
+        var baseSampleId = (LastNpcSampleDropdown.SelectedItem as ComboBoxItem)?.Tag as string;
+        PopulateVariantDropdown(baseSampleId);
+    }
+
+    private void OnVariantSelectionChanged(object? sender, SelectionChangedEventArgs e) { }
 
     // ── Last NPC panel ────────────────────────────────────────────────────────
 
@@ -485,37 +581,66 @@ public partial class MainWindow
     }
 
     /// <summary>
-    /// Selects the bespoke sample dropdown entry matching the given sample ID.
-    /// Selects the "(no bespoke sample)" entry when sampleId is null or not found.
+    /// Selects the correct base sample and variant for the given full sample ID.
+    /// "M_WWZ_10-slow" → selects "M_WWZ_10" in base dropdown, "slow" in variant dropdown.
     /// </summary>
     private void SelectLastNpcSampleDropdown(string? sampleId)
     {
         if (string.IsNullOrWhiteSpace(sampleId))
         {
             LastNpcSampleDropdown.SelectedIndex = 0;
+            PopulateVariantDropdown(null);
             return;
         }
 
+        var baseId = GetBaseSampleId(sampleId);
+
+        // Select base
         foreach (var item in LastNpcSampleDropdown.Items.OfType<ComboBoxItem>())
         {
-            if (string.Equals(item.Tag as string, sampleId, StringComparison.OrdinalIgnoreCase))
+            if (string.Equals(item.Tag as string, baseId, StringComparison.OrdinalIgnoreCase))
             {
                 LastNpcSampleDropdown.SelectedItem = item;
-                return;
+                break;
             }
         }
 
-        LastNpcSampleDropdown.SelectedIndex = 0;
+        // Repopulate variants for this base, then select the right variant
+        PopulateVariantDropdown(baseId);
+
+        if (!string.Equals(baseId, sampleId, StringComparison.OrdinalIgnoreCase))
+        {
+            // Has a variant — find and select it
+            foreach (var item in LastNpcVariantDropdown.Items.OfType<ComboBoxItem>())
+            {
+                if (string.Equals(item.Tag as string, sampleId, StringComparison.OrdinalIgnoreCase))
+                {
+                    LastNpcVariantDropdown.SelectedItem = item;
+                    return;
+                }
+            }
+        }
+
+        LastNpcVariantDropdown.SelectedIndex = 0;
     }
 
     /// <summary>
-    /// Returns the selected bespoke sample ID, or null if "(no bespoke sample)" is selected.
+    /// Returns the full selected sample ID (including variant suffix if any),
+    /// or null if "(race default)" is selected.
+    /// Reads from the variant dropdown — its Tag holds the full ID.
     /// </summary>
     private string? GetSelectedLastNpcSampleId()
     {
-        if (LastNpcSampleDropdown.SelectedItem is ComboBoxItem item)
-            return item.Tag as string;
-        return null;
+        // Base dropdown has null tag for "(race default)"
+        var baseItem = LastNpcSampleDropdown.SelectedItem as ComboBoxItem;
+        if (baseItem?.Tag as string == null)
+            return null;
+
+        // Variant dropdown tag holds the full ID (base or base+variant)
+        if (LastNpcVariantDropdown.SelectedItem is ComboBoxItem varItem)
+            return varItem.Tag as string;
+
+        return baseItem.Tag as string;
     }
 
     private void AddCell(string text, int row, int col,

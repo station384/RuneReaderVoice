@@ -53,7 +53,8 @@ public sealed class VoiceProfileEditorDialog : Window
     private readonly RadioButton _blendVoiceRadio;
     private readonly Border      _singleVoiceSection;
     private readonly Border      _blendVoiceSection;
-    private readonly ComboBox    _voiceCombo;
+    private readonly ComboBox    _voiceBaseCombo;
+    private readonly ComboBox    _voiceVariantCombo;
     private readonly TextBlock   _voiceSummaryText;
     private readonly string      _voiceSourceLabel;
     private readonly TextBlock   _blendSummaryText;
@@ -146,27 +147,77 @@ public sealed class VoiceProfileEditorDialog : Window
         _singleVoiceRadio.Checked += VoiceModeChanged;
         _blendVoiceRadio.Checked  += VoiceModeChanged;
 
-        _voiceCombo = new ComboBox
+        // Build base samples list — strip known variant suffixes to get distinct bases.
+        // Variant suffixes: slow, fast, quiet, loud, breathy
+        static string GetBase(string id)
+        {
+            foreach (var s in new[] { "-slow", "-fast", "-quiet", "-loud", "-breathy" })
+                if (id.EndsWith(s, StringComparison.OrdinalIgnoreCase))
+                    return id[..^s.Length];
+            return id;
+        }
+        static string? GetVariant(string id)
+        {
+            foreach (var s in new[] { "slow", "fast", "quiet", "loud", "breathy" })
+                if (id.EndsWith($"-{s}", StringComparison.OrdinalIgnoreCase))
+                    return s;
+            return null;
+        }
+
+        var allVoiceChoices = availableVoices
+            .OrderBy(v => string.IsNullOrWhiteSpace(v.VoiceId) ? v.Name : v.VoiceId, StringComparer.OrdinalIgnoreCase)
+            .Select(v =>
+            {
+                var primary = string.IsNullOrWhiteSpace(v.VoiceId) ? v.Name : v.VoiceId;
+                var summary = string.IsNullOrWhiteSpace(v.Description) ? primary : v.Description;
+                return new VoiceChoice { VoiceId = v.VoiceId, Display = primary, Summary = summary };
+            })
+            .ToList();
+
+        var baseChoices = allVoiceChoices
+            .Where(v => GetVariant(v.VoiceId) == null)
+            .ToArray();
+
+        _voiceBaseCombo = new ComboBox
         {
             HorizontalAlignment = HorizontalAlignment.Stretch,
-            ItemsSource = availableVoices
-                .OrderBy(v => string.IsNullOrWhiteSpace(v.VoiceId) ? v.Name : v.VoiceId, StringComparer.OrdinalIgnoreCase)
-                .Select(v =>
-                {
-                    var primary = string.IsNullOrWhiteSpace(v.VoiceId) ? v.Name : v.VoiceId;
-                    var summary = string.IsNullOrWhiteSpace(v.Description)
-                        ? primary
-                        : v.Description;
-                    return new VoiceChoice
-                    {
-                        VoiceId = v.VoiceId,
-                        Display = string.IsNullOrWhiteSpace(v.Language) ? primary : $"{primary} · {v.Language}",
-                        Summary = summary
-                    };
-                })
-                .ToArray()
+            MinWidth            = 180,
+            ItemsSource         = baseChoices,
         };
-        _voiceCombo.SelectionChanged += VoiceCombo_SelectionChanged;
+        _voiceVariantCombo = new ComboBox
+        {
+            MinWidth    = 120,
+            IsVisible   = false,
+        };
+
+        _voiceBaseCombo.SelectionChanged += (_, _) =>
+        {
+            var baseId = (_voiceBaseCombo.SelectedItem as VoiceChoice)?.VoiceId;
+            if (baseId == null) return;
+
+            // Repopulate variant combo
+            var variants = allVoiceChoices
+                .Where(v => GetBase(v.VoiceId) == baseId && GetVariant(v.VoiceId) != null)
+                .ToArray();
+
+            _voiceVariantCombo.SelectionChanged -= VoiceVariantCombo_SelectionChanged;
+            _voiceVariantCombo.ItemsSource = variants.Length > 0
+                ? new[] { new VoiceChoice { VoiceId = baseId, Display = "(default)", Summary = "" } }
+                    .Concat(variants).ToArray()
+                : null;
+            _voiceVariantCombo.IsVisible = variants.Length > 0;
+            _voiceVariantCombo.SelectedIndex = 0;
+            _voiceVariantCombo.SelectionChanged += VoiceVariantCombo_SelectionChanged;
+
+            // Profile gets base ID unless a variant is selected
+            if (_singleVoiceRadio.IsChecked == true)
+            {
+                _workingProfile.VoiceId = baseId;
+                RefreshSingleVoiceSummary();
+                RefreshSummary();
+            }
+        };
+        _voiceVariantCombo.SelectionChanged += VoiceVariantCombo_SelectionChanged;
 
         _voiceSummaryText = new TextBlock { Foreground = Brushes.Gray, FontSize = 11, TextWrapping = TextWrapping.Wrap };
         _blendSummaryText = new TextBlock { TextWrapping = TextWrapping.Wrap, FontWeight = FontWeight.SemiBold };
@@ -773,7 +824,17 @@ So go quickly, keep your wits about you, and return by the main road if you valu
 
         // ── Section cards ─────────────────────────────────────────────────────
 
-        _singleVoiceSection = Card("Single Voice", new StackPanel { Spacing = 8, Children = { _voiceCombo, _voiceSummaryText } });
+        _singleVoiceSection = Card("Single Voice", new StackPanel { Spacing = 8, Children =
+        {
+            new StackPanel
+            {
+                Orientation = Orientation.Horizontal,
+                Spacing = 8,
+                HorizontalAlignment = HorizontalAlignment.Stretch,
+                Children = { _voiceBaseCombo, _voiceVariantCombo }
+            },
+            _voiceSummaryText
+        }});
         _blendVoiceSection  = Card("Blend Voices", new StackPanel { Spacing = 8, Children = { _blendSummaryText, editBlendBtn } });
 
         var presetCard    = Card("Voice Preset", new StackPanel { Spacing = 8, Children = { _presetCombo, _presetDescriptionText, new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Children = { useRecommendedBtn, applyPresetBtn } } } });
@@ -968,8 +1029,27 @@ So go quickly, keep your wits about you, and return by the main road if you valu
 
     private void SetVoiceSelection(string voiceId)
     {
-        var match = _voiceCombo.ItemsSource?.OfType<VoiceChoice>().FirstOrDefault(v => string.Equals(v.VoiceId, voiceId, StringComparison.OrdinalIgnoreCase));
-        if (match != null) _voiceCombo.SelectedItem = match;
+        // Determine base and variant
+        string baseId = voiceId;
+        foreach (var s in new[] { "-slow", "-fast", "-quiet", "-loud", "-breathy" })
+            if (voiceId.EndsWith(s, StringComparison.OrdinalIgnoreCase))
+            { baseId = voiceId[..^s.Length]; break; }
+
+        // Select base
+        var baseMatch = _voiceBaseCombo.ItemsSource?.OfType<VoiceChoice>()
+            .FirstOrDefault(v => string.Equals(v.VoiceId, baseId, StringComparison.OrdinalIgnoreCase));
+        if (baseMatch != null)
+        {
+            _voiceBaseCombo.SelectedItem = baseMatch;
+            // Variant combo repopulates via SelectionChanged; now select the right variant
+            if (!string.Equals(baseId, voiceId, StringComparison.OrdinalIgnoreCase))
+            {
+                var varMatch = _voiceVariantCombo.ItemsSource?.OfType<VoiceChoice>()
+                    .FirstOrDefault(v => string.Equals(v.VoiceId, voiceId, StringComparison.OrdinalIgnoreCase));
+                if (varMatch != null)
+                    _voiceVariantCombo.SelectedItem = varMatch;
+            }
+        }
     }
 
     private void VoiceModeChanged(object? sender, RoutedEventArgs e) { RefreshVoiceModeUi(); RefreshSummary(); }
@@ -997,14 +1077,28 @@ So go quickly, keep your wits about you, and return by the main road if you valu
         }
     }
 
-    private void VoiceCombo_SelectionChanged(object? sender, SelectionChangedEventArgs e)
+    private void VoiceCombo_SelectionChanged(object? sender, SelectionChangedEventArgs e) { }
+
+    private void VoiceVariantCombo_SelectionChanged(object? sender, SelectionChangedEventArgs e)
     {
-        if (_singleVoiceRadio.IsChecked == true && _voiceCombo.SelectedItem is VoiceChoice c)
-        { _workingProfile.VoiceId = c.VoiceId; RefreshSingleVoiceSummary(); RefreshSummary(); }
+        if (_singleVoiceRadio.IsChecked != true) return;
+        // Variant combo tag holds full ID (base or base+variant)
+        if (_voiceVariantCombo.SelectedItem is VoiceChoice c)
+        {
+            _workingProfile.VoiceId = c.VoiceId;
+            RefreshSingleVoiceSummary();
+            RefreshSummary();
+        }
     }
 
     private void RefreshSingleVoiceSummary()
-        => _voiceSummaryText.Text = _voiceCombo.SelectedItem is VoiceChoice c ? c.Summary : "Select a voice.";
+    {
+        // Show summary from variant combo if it has a selection, else base combo
+        var choice = _voiceVariantCombo.IsVisible && _voiceVariantCombo.SelectedItem is VoiceChoice vc && !string.IsNullOrWhiteSpace(vc.Summary)
+            ? vc
+            : _voiceBaseCombo.SelectedItem as VoiceChoice;
+        _voiceSummaryText.Text = choice?.Summary ?? "Select a voice.";
+    }
 
     private void RefreshBlendSummary()
     {
@@ -1028,7 +1122,7 @@ So go quickly, keep your wits about you, and return by the main road if you valu
 
     private async void EditBlendButton_Click(object? sender, RoutedEventArgs e)
     {
-        var voices = _voiceCombo.ItemsSource?.OfType<VoiceChoice>()
+        var voices = _voiceBaseCombo.ItemsSource?.OfType<VoiceChoice>()
             .Select(v => new VoiceInfo { VoiceId = v.VoiceId, Name = v.VoiceId, Description = v.Summary, Language = string.Empty, Gender = Gender.Unknown })
             .ToArray() ?? Array.Empty<VoiceInfo>();
         var dialog = new VoiceMixDialog(voices, _workingProfile.VoiceId);

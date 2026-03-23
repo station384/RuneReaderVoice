@@ -156,7 +156,10 @@ along with RuneReaderVoice. If not, see <https://www.gnu.org/licenses/>.
                                VerticalAlignment="Center" Width="80"
                                ToolTip.Tip="Override the reference voice sample for this specific NPC. Uses the race slot DSP and other settings — only the sample is replaced."/>
                     <ComboBox x:Name="LastNpcSampleDropdown"
-                              FontSize="11" MinWidth="380" HorizontalAlignment="Stretch"/>
+                              FontSize="11" MinWidth="200"/>
+                    <ComboBox x:Name="LastNpcVariantDropdown"
+                              FontSize="11" MinWidth="120"
+                              ToolTip.Tip="Select a variant of the chosen sample (e.g. slow, fast, quiet)."/>
                 </StackPanel>
 
             </Grid>

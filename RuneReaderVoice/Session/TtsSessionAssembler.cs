@@ -196,7 +196,8 @@ public sealed class TtsSessionAssembler
                 var slot = RaceAccentMapping.Resolve(
                     effectiveRace, packet.Flags, packet.IsMale, packet.IsFemale);
                 var key  = MakeKey(packet.SubTotal, packet.Flags,
-                                   effectiveRace, packet.Base64Payload);
+                                   effectiveRace, packet.Base64Payload,
+                                   packet.SeqIndex);
 
                 // Already completed — re-loop, ignore
                 if (_completedKeys.Contains(key)) return;
@@ -356,7 +357,7 @@ public sealed class TtsSessionAssembler
         var text = DecodeAndClean(acc.Subs!);
         if (string.IsNullOrWhiteSpace(text)) return;
 
-        var utteranceKey = MakeUtteranceKey(_currentDialogId, acc.Slot, acc.NpcId, text);
+        var utteranceKey = MakeUtteranceKey(_currentDialogId, acc.Slot, acc.NpcId, text, acc.SeqIndex);
         if (_completedUtteranceKeys.Contains(utteranceKey)) return;
 
         _completedKeys.Add(key);
@@ -378,11 +379,15 @@ public sealed class TtsSessionAssembler
         };
     }
 
-    private static string MakeUtteranceKey(int dialogId, VoiceSlot slot, int npcId, string text)
-        => $"{dialogId}|{slot}|{npcId}|{text.Trim()}";
+    private static string MakeUtteranceKey(int dialogId, VoiceSlot slot, int npcId,
+                                            string text, int seqIndex)
+        => $"{dialogId}|{seqIndex}|{slot}|{npcId}|{text.Trim()}";
 
-    private static string MakeKey(int subTotal, int flags, int race, string sub0)
-        => $"{subTotal}|{flags}|{race}|{sub0}";
+    private static string MakeKey(int subTotal, int flags, int race, string sub0,
+                                   int seqIndex = -1)
+        => seqIndex >= 0
+            ? $"{seqIndex}|{subTotal}|{flags}|{race}|{sub0}"
+            : $"{subTotal}|{flags}|{race}|{sub0}";
 
     private static string MakeEarlyKey(int subTotal, int flags, int race, int seqIndex)
         => $"{subTotal}|{flags}|{race}|{seqIndex}";

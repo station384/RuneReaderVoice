@@ -239,9 +239,11 @@ public sealed class PlaybackCoordinator : IDisposable
     {
         System.Diagnostics.Debug.WriteLine(
             $"[PC] Synth start seg={segment.SegmentIndex} slot={segment.Slot} provider={_provider.ProviderId}");
-        // Use slot-aware suppression so Narrator and NPC slots with the same
-        // text never suppress each other.
-        var slotKey = segment.Slot.ToString();
+        // Use slot+seq aware suppression. Including SegmentIndex ensures two
+        // segments with identical text at different positions in the same dialog
+        // (e.g. "You flip to the next section." appearing as seq=5 and seq=7)
+        // are never suppressed by each other.
+        var slotKey = $"{segment.Slot}:{segment.SegmentIndex}";
         if (_recentSpeechSuppressor.ShouldSuppress(segment.Text, slotKey))
         {
             System.Diagnostics.Debug.WriteLine($"[PC] Suppressed seg={segment.SegmentIndex} slot={slotKey} (recent repeat)");
