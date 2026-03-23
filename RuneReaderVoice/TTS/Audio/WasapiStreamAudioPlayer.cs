@@ -253,12 +253,12 @@ public sealed class WasapiStreamAudioPlayer : IAudioPlayer
         if (string.IsNullOrWhiteSpace(deviceId))
         {
             _outputDevice = null;
-            return new WasapiOut(AudioClientShareMode.Shared, true, 20);
+            return new WasapiOut(AudioClientShareMode.Shared, true, 100);
         }
 
         using var enumerator = new MMDeviceEnumerator();
         _outputDevice = enumerator.GetDevice(deviceId);
-        return new WasapiOut(_outputDevice, AudioClientShareMode.Shared, true, 20);
+        return new WasapiOut(_outputDevice, AudioClientShareMode.Shared, true, 100);
     }
 
     private async Task FeedStreamAsync(
