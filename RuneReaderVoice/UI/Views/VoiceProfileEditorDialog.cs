@@ -12,7 +12,6 @@ using Avalonia.Controls;
 using Avalonia.Interactivity;
 using Avalonia.Layout;
 using Avalonia.Media;
-using NWaves.Effects;
 using RuneReaderVoice.Protocol;
 using RuneReaderVoice.TTS.Dsp;
 using RuneReaderVoice.TTS.Providers;
@@ -41,7 +40,6 @@ public sealed class VoiceProfileEditorDialog : Window
     private readonly VoiceProfile _workingProfile;
     private bool _saved;
 
-    private DspProfile WorkingDsp => _workingProfile.Dsp ??= new DspProfile();
 
     // ─────────────────────────────────────────────────────────────────────────
     // Voice controls
@@ -81,20 +79,12 @@ public sealed class VoiceProfileEditorDialog : Window
     private CancellationTokenSource? _previewCts;
 
     // ─────────────────────────────────────────────────────────────────────────
-    // DSP outer section
-    // ─────────────────────────────────────────────────────────────────────────
+    // DSP chain section
+    // ───────────────────────────────────────────────────────────────────────────
 
-    private bool              _dspSectionExpanded;
-    private readonly StackPanel    _dspSectionBody;
-    private readonly TextBlock     _dspSectionArrow;
-    private readonly TextBlock     _dspSummaryLine;
+    private readonly StackPanel _dspChainPanel;
+    private readonly TextBlock  _dspSummaryLine;
 
-    // ─────────────────────────────────────────────────────────────────────────
-    // DSP distortion visibility panels
-    // ─────────────────────────────────────────────────────────────────────────
-
-    private readonly StackPanel _distModePanel;
-    private readonly StackPanel _distTubePanel;
 
     // ─────────────────────────────────────────────────────────────────────────
     // Constructor
@@ -125,8 +115,6 @@ public sealed class VoiceProfileEditorDialog : Window
 
         // Deep clone of the incoming DSP state used as the restore-shadow for
         // per-group enable/disable. Must be a clone, NOT a reference — otherwise
-        // WorkingDsp mutations would corrupt the shadow values.
-        var dsp = WorkingDsp.Clone();
 
         // ── Presets ───────────────────────────────────────────────────────────
 
@@ -494,314 +482,81 @@ public sealed class VoiceProfileEditorDialog : Window
             f5ControlsCard = Card("F5-TTS Synthesis Controls", f5Rows);
         }
 
-        // ── DSP groups ────────────────────────────────────────────────────────
+        // ── DSP chain ─────────────────────────────────────────────────────────
 
-        var masterEnabledCheck = new CheckBox { Content = "Effects enabled", IsChecked = dsp.Enabled, Margin = new Avalonia.Thickness(0, 0, 0, 4) };
-        masterEnabledCheck.IsCheckedChanged += (_, _) => WorkingDsp.Enabled = masterEnabledCheck.IsChecked == true;
+        _workingProfile.Dsp ??= new DspProfile();
+        var dsp = _workingProfile.Dsp;
 
-        // Distortion sub-panels
-        _distModePanel = new StackPanel { Spacing = 4, IsVisible = !dsp.TubeDistortion };
-        _distTubePanel = new StackPanel { Spacing = 4, IsVisible =  dsp.TubeDistortion };
-
-        var tubeCheck = new CheckBox { Content = "Tube model", IsChecked = dsp.TubeDistortion, Margin = new Avalonia.Thickness(0, 0, 0, 4) };
-        tubeCheck.IsCheckedChanged += (_, _) =>
+        // Master enabled toggle
+        var masterEnabledCheck = new CheckBox
         {
-            WorkingDsp.TubeDistortion = tubeCheck.IsChecked == true;
-            _distModePanel.IsVisible  = !WorkingDsp.TubeDistortion;
-            _distTubePanel.IsVisible  =  WorkingDsp.TubeDistortion;
+            Content   = "Effects enabled",
+            IsChecked = dsp.Enabled,
+            Margin    = new Avalonia.Thickness(0, 0, 0, 4),
+        };
+        masterEnabledCheck.IsCheckedChanged += (_, _) =>
+        {
+            _workingProfile.Dsp!.Enabled = masterEnabledCheck.IsChecked == true;
+            RefreshDspSummary();
+            RefreshSummary();
         };
 
-        var distModeCombo = new ComboBox
+        // Chain panel — populated by RebuildChainPanel
+        _dspChainPanel = new StackPanel { Spacing = 4 };
+        RebuildChainPanel();
+
+        // Buttons
+        var addEffectBtn = Btn("+ Add Effect", 110);
+        addEffectBtn.Click += async (_, _) =>
         {
-            HorizontalAlignment = HorizontalAlignment.Stretch,
-            ItemsSource = new[] { "(off)", "SoftClipping", "HardClipping", "Exponential", "FullWaveRectify", "HalfWaveRectify" },
-            Margin = new Avalonia.Thickness(0, 0, 0, 4)
-        };
-        distModeCombo.SelectedIndex = dsp.DistortionMode switch
-        {
-            DistortionMode.SoftClipping    => 1, DistortionMode.HardClipping    => 2,
-            DistortionMode.Exponential     => 3, DistortionMode.FullWaveRectify => 4,
-            DistortionMode.HalfWaveRectify => 5, _                              => 0
-        };
-        distModeCombo.SelectionChanged += (_, _) =>
-            WorkingDsp.DistortionMode = distModeCombo.SelectedIndex switch
+            var picker = new DspEffectPickerDialog();
+            await picker.ShowDialog(this);
+            if (picker.ChosenEffect.HasValue)
             {
-                1 => DistortionMode.SoftClipping, 2 => DistortionMode.HardClipping,
-                3 => DistortionMode.Exponential,  4 => DistortionMode.FullWaveRectify,
-                5 => DistortionMode.HalfWaveRectify, _ => (DistortionMode?)null
-            };
-
-        _distModePanel.Children.Add(distModeCombo);
-        _distModePanel.Children.Add(DspRow("In",  MakeCompactSlider(0,   40,  dsp.DistortionInputGainDb,  "0.0"," dB",v => WorkingDsp.DistortionInputGainDb  = v), "Input gain dB before clipping."));
-        _distModePanel.Children.Add(DspRow("Out", MakeCompactSlider(-40, 0,   dsp.DistortionOutputGainDb, "0.0"," dB",v => WorkingDsp.DistortionOutputGainDb = v), "Output compensation dB."));
-        _distTubePanel.Children.Add(DspRow("Drive", MakeCompactSlider(1,   20,  dsp.TubeDistortionDist, "0.0","",  v => WorkingDsp.TubeDistortionDist = v), "Tube character — higher = harder."));
-        _distTubePanel.Children.Add(DspRow("Q",     MakeCompactSlider(-1,  0,   dsp.TubeDistortionQ,    "0.00","", v => WorkingDsp.TubeDistortionQ    = v), "Work point — linearity at low levels."));
-
-        // Robot / Whisper combos — hop sizes must be powers of 2.
-        // fftSize is derived as NextPow2(hop*2) in DspFilterChain, min 256.
-        // Valid hops: 64 (fft=256), 128 (fft=256), 256 (fft=512), 512 (fft=1024)
-        var robotCombo = new ComboBox
-        {
-            HorizontalAlignment = HorizontalAlignment.Stretch,
-            ItemsSource = new[] { "(off)", "64  — subtle", "128 — moderate", "256 — strong", "512 — maximum" }
-        };
-        robotCombo.SelectedIndex = dsp.RobotHopSize switch { 64 => 1, 128 => 2, 256 => 3, 512 => 4, _ => 0 };
-        robotCombo.SelectionChanged += (_, _) =>
-            WorkingDsp.RobotHopSize = robotCombo.SelectedIndex switch { 1 => 64, 2 => 128, 3 => 256, 4 => 512, _ => 0 };
-
-        var whisperCombo = new ComboBox
-        {
-            HorizontalAlignment = HorizontalAlignment.Stretch,
-            ItemsSource = new[] { "(off)", "64  — subtle", "128 — moderate", "256 — strong", "512 — maximum" }
-        };
-        whisperCombo.SelectedIndex = dsp.WhisperHopSize switch { 64 => 1, 128 => 2, 256 => 3, 512 => 4, _ => 0 };
-        whisperCombo.SelectionChanged += (_, _) =>
-            WorkingDsp.WhisperHopSize = whisperCombo.SelectedIndex switch { 1 => 64, 2 => 128, 3 => 256, 4 => 512, _ => 0 };
-
-        // ── Build groups ──────────────────────────────────────────────────────
-
-        // Each group has a per-effect enable checkbox in its header.
-        // When disabled the sliders are still visible (so you can see/compare
-        // the setting) but the effect won't be applied at preview time.
-        // We store disabled state as a sentinel on the profile fields themselves:
-        // enable = restore last value; disable = zero/null the field.
-        // Simpler approach: store a separate bool per group, apply only when enabled.
-        // The DspProfile has no per-group bypass flags, so we handle it in the UI
-        // by keeping a "shadow" of the slider value and zeroing the profile field
-        // when the group is off.
-
-        var groups = new WrapPanel { Orientation = Orientation.Horizontal, ItemWidth = 258 };
-
-        groups.Children.Add(MakeGroup("Dynamics",
-            isOn: dsp.CompressorThresholdDb < 0,
-            onToggle: on =>
-            {
-                WorkingDsp.CompressorThresholdDb = on ? dsp.CompressorThresholdDb : 0f;
-                WorkingDsp.CompressorRatio       = on ? dsp.CompressorRatio       : 4f;
-            },
-            body: MakeDspRows(
-                ("Thresh", MakeCompactSlider(-60, 0,  dsp.CompressorThresholdDb, "0.0", " dB", v => WorkingDsp.CompressorThresholdDb = v), "Compressor threshold dB. Below 0 activates. -18 dB suits uneven TTS."),
-                ("Ratio",  MakeCompactSlider(1,   20, dsp.CompressorRatio,       "0.0", ":1",  v => WorkingDsp.CompressorRatio        = v), "Compression ratio above threshold.")
-            )));
-
-        groups.Children.Add(MakeGroup("Pitch & Tempo",
-            isOn: dsp.PitchSemitones != 0 || dsp.TempoPercent != 0,
-            onToggle: on =>
-            {
-                WorkingDsp.PitchSemitones = on ? dsp.PitchSemitones : 0f;
-                WorkingDsp.TempoPercent   = on ? dsp.TempoPercent   : 0f;
-            },
-            body: MakeDspRows(
-                ("Pitch",   MakeCompactSlider(-12, 12, dsp.PitchSemitones, "+0.0;-0.0;0", " st", v => WorkingDsp.PitchSemitones = v), "Pitch shift in semitones. ±4 is natural; ±12 is an octave."),
-                ("Tempo %", MakeCompactSlider(-50, 50, dsp.TempoPercent,   "+0;-0;0",     "%",   v => WorkingDsp.TempoPercent   = v), "Speed up (+) or slow down (-) without changing pitch (WSOLA).")
-            )));
-
-        groups.Children.Add(MakeGroup("EQ",
-            isOn: dsp.HighPassHz > 0 || dsp.LowShelfDb != 0 || dsp.MidGainDb != 0 || dsp.HighShelfDb != 0 || dsp.ExciterAmount > 0,
-            onToggle: on =>
-            {
-                WorkingDsp.HighPassHz     = on ? dsp.HighPassHz     : 0f;
-                WorkingDsp.LowShelfDb     = on ? dsp.LowShelfDb     : 0f;
-                WorkingDsp.MidGainDb      = on ? dsp.MidGainDb      : 0f;
-                WorkingDsp.MidFrequencyHz = on ? dsp.MidFrequencyHz : 1000f;
-                WorkingDsp.HighShelfDb    = on ? dsp.HighShelfDb    : 0f;
-                WorkingDsp.ExciterAmount  = on ? dsp.ExciterAmount  : 0f;
-            },
-            body: MakeDspRows(
-                ("HPF",     MakeCompactSlider(0,   500,  dsp.HighPassHz,     "0",           " Hz", v => WorkingDsp.HighPassHz     = v), "Cut below this Hz. 80–150 Hz removes mud."),
-                ("Low",     MakeCompactSlider(-12, 12,   dsp.LowShelfDb,     "+0.0;-0.0;0", " dB", v => WorkingDsp.LowShelfDb     = v), "Bass shelf (~200 Hz). + = warmer, - = thinner."),
-                ("Mid",     MakeCompactSlider(-12, 12,   dsp.MidGainDb,      "+0.0;-0.0;0", " dB", v => WorkingDsp.MidGainDb      = v), "Mid peak gain. + = honky/nasal, - = scooped."),
-                ("Mid Hz",  MakeCompactSlider(100, 8000, dsp.MidFrequencyHz, "0",           " Hz", v => WorkingDsp.MidFrequencyHz = v), "Center frequency for the mid band."),
-                ("High",    MakeCompactSlider(-12, 12,   dsp.HighShelfDb,    "+0.0;-0.0;0", " dB", v => WorkingDsp.HighShelfDb    = v), "High shelf (~5 kHz). + = bright, - = dark."),
-                ("Exciter", MakeCompactSlider(0,   1,    dsp.ExciterAmount,  "0.00",        "",    v => WorkingDsp.ExciterAmount   = v), "Adds synthesized upper harmonics for presence.")
-            )));
-
-        groups.Children.Add(MakeGroup("Distortion",
-            isOn: dsp.TubeDistortion || dsp.DistortionMode.HasValue || dsp.BitCrushDepth > 0,
-            onToggle: on =>
-            {
-                WorkingDsp.TubeDistortion         = on && dsp.TubeDistortion;
-                WorkingDsp.TubeDistortionDist     = on ? dsp.TubeDistortionDist     : 5f;
-                WorkingDsp.TubeDistortionQ        = on ? dsp.TubeDistortionQ        : -0.2f;
-                WorkingDsp.DistortionMode         = on ? dsp.DistortionMode         : null;
-                WorkingDsp.DistortionInputGainDb  = on ? dsp.DistortionInputGainDb  : 0f;
-                WorkingDsp.DistortionOutputGainDb = on ? dsp.DistortionOutputGainDb : 0f;
-                WorkingDsp.BitCrushDepth          = on ? dsp.BitCrushDepth          : 0;
-                tubeCheck.IsChecked = on && dsp.TubeDistortion;
-                if (!on) distModeCombo.SelectedIndex = 0;
-            },
-            body: new StackPanel { Spacing = 2, Children =
-            {
-                tubeCheck, _distModePanel, _distTubePanel,
-                DspRow("Bit", MakeCompactSlider(0, 16, (float)dsp.BitCrushDepth, "0", " bit", v => WorkingDsp.BitCrushDepth = (int)Math.Round(v)), "Bit crush. 0 = off. 8 = lo-fi. 4 = extreme glitch.")
-            }}));
-
-        groups.Children.Add(MakeGroup("Chorus",
-            isOn: dsp.ChorusWet > 0,
-            onToggle: on =>
-            {
-                WorkingDsp.ChorusWet    = on ? dsp.ChorusWet    : 0f;
-                WorkingDsp.ChorusRateHz = on ? dsp.ChorusRateHz : 1.5f;
-                WorkingDsp.ChorusWidth  = on ? dsp.ChorusWidth  : 0.02f;
-            },
-            body: MakeDspRows(
-                ("Wet",   MakeCompactSlider(0,      1,     dsp.ChorusWet,    "0.00",  "",    v => WorkingDsp.ChorusWet    = v), "Mix chorus voices in. Adds thickness and shimmer."),
-                ("Rate",  MakeCompactSlider(0.1f,   4,     dsp.ChorusRateHz, "0.00",  " Hz", v => WorkingDsp.ChorusRateHz = v), "LFO detuning speed."),
-                ("Width", MakeCompactSlider(0.005f, 0.04f, dsp.ChorusWidth,  "0.000", " s",  v => WorkingDsp.ChorusWidth  = v), "Max delay per voice.")
-            )));
-
-        groups.Children.Add(MakeGroup("Vibrato",
-            isOn: dsp.VibratoWidth > 0,
-            onToggle: on =>
-            {
-                WorkingDsp.VibratoWidth  = on ? dsp.VibratoWidth  : 0f;
-                WorkingDsp.VibratoRateHz = on ? dsp.VibratoRateHz : 2f;
-            },
-            body: MakeDspRows(
-                ("Width", MakeCompactSlider(0,    0.02f, dsp.VibratoWidth,  "0.000", " s",  v => WorkingDsp.VibratoWidth  = v), "Pitch wobble depth. 0.005 s = subtle."),
-                ("Rate",  MakeCompactSlider(0.5f, 10,    dsp.VibratoRateHz, "0.0",   " Hz", v => WorkingDsp.VibratoRateHz = v), "LFO rate. 1–3 Hz = natural. 5+ = unsettling.")
-            )));
-
-        groups.Children.Add(MakeGroup("Phaser",
-            isOn: dsp.PhaserWet > 0,
-            onToggle: on =>
-            {
-                WorkingDsp.PhaserWet    = on ? dsp.PhaserWet    : 0f;
-                WorkingDsp.PhaserRateHz = on ? dsp.PhaserRateHz : 0.5f;
-            },
-            body: MakeDspRows(
-                ("Wet",  MakeCompactSlider(0,    1, dsp.PhaserWet,    "0.00", "",    v => WorkingDsp.PhaserWet    = v), "Sweeping notch filter — psychedelic shimmer."),
-                ("Rate", MakeCompactSlider(0.1f, 4, dsp.PhaserRateHz, "0.00", " Hz", v => WorkingDsp.PhaserRateHz = v), "Phaser LFO speed.")
-            )));
-
-        groups.Children.Add(MakeGroup("Flanger",
-            isOn: dsp.FlangerWet > 0,
-            onToggle: on =>
-            {
-                WorkingDsp.FlangerWet      = on ? dsp.FlangerWet      : 0f;
-                WorkingDsp.FlangerRateHz   = on ? dsp.FlangerRateHz   : 0.5f;
-                WorkingDsp.FlangerFeedback = on ? dsp.FlangerFeedback : 0.5f;
-            },
-            body: MakeDspRows(
-                ("Wet",  MakeCompactSlider(0,    1,    dsp.FlangerWet,      "0.00", "",    v => WorkingDsp.FlangerWet      = v), "Metallic comb filter swoosh."),
-                ("Rate", MakeCompactSlider(0.1f, 4,    dsp.FlangerRateHz,   "0.00", " Hz", v => WorkingDsp.FlangerRateHz   = v), "Flanger LFO speed."),
-                ("Fb",   MakeCompactSlider(0,    0.9f, dsp.FlangerFeedback, "0.00", "",    v => WorkingDsp.FlangerFeedback = v), "Resonance. Higher = more metallic tone.")
-            )));
-
-        groups.Children.Add(MakeGroup("AutoWah",
-            isOn: dsp.AutoWahWet > 0,
-            onToggle: on =>
-            {
-                WorkingDsp.AutoWahWet   = on ? dsp.AutoWahWet   : 0f;
-                WorkingDsp.AutoWahMinHz = on ? dsp.AutoWahMinHz : 300f;
-                WorkingDsp.AutoWahMaxHz = on ? dsp.AutoWahMaxHz : 3000f;
-            },
-            body: MakeDspRows(
-                ("Wet", MakeCompactSlider(0,   1,    dsp.AutoWahWet,   "0.00", "",    v => WorkingDsp.AutoWahWet   = v), "Envelope-following wah. Reacts to voice dynamics."),
-                ("Min", MakeCompactSlider(20,  2000, dsp.AutoWahMinHz, "0",    " Hz", v => WorkingDsp.AutoWahMinHz = v), "Lowest wah frequency."),
-                ("Max", MakeCompactSlider(500, 8000, dsp.AutoWahMaxHz, "0",    " Hz", v => WorkingDsp.AutoWahMaxHz = v), "Highest wah frequency.")
-            )));
-
-        groups.Children.Add(MakeGroup("Tremolo",
-            isOn: dsp.TremoloDepth > 0,
-            onToggle: on =>
-            {
-                WorkingDsp.TremoloDepth  = on ? dsp.TremoloDepth  : 0f;
-                WorkingDsp.TremoloRateHz = on ? dsp.TremoloRateHz : 3f;
-            },
-            body: MakeDspRows(
-                ("Depth", MakeCompactSlider(0,    1,  dsp.TremoloDepth,  "0.00", "",    v => WorkingDsp.TremoloDepth  = v), "Amplitude LFO depth. Wavering undead quality."),
-                ("Rate",  MakeCompactSlider(0.5f, 12, dsp.TremoloRateHz, "0.0",  " Hz", v => WorkingDsp.TremoloRateHz = v), "Tremolo speed.")
-            )));
-
-        groups.Children.Add(MakeGroup("Echo",
-            isOn: dsp.EchoDelaySeconds > 0,
-            onToggle: on =>
-            {
-                WorkingDsp.EchoDelaySeconds = on ? dsp.EchoDelaySeconds : 0f;
-                WorkingDsp.EchoFeedback     = on ? dsp.EchoFeedback     : 0.4f;
-                WorkingDsp.EchoWet          = on ? dsp.EchoWet          : 0f;
-            },
-            body: MakeDspRows(
-                ("Delay", MakeCompactSlider(0,    1,    dsp.EchoDelaySeconds, "0.000", " s", v => WorkingDsp.EchoDelaySeconds = v), "Repeat delay. 0.15–0.4 s = cave ambiance."),
-                ("Fb",    MakeCompactSlider(0,    0.9f, dsp.EchoFeedback,     "0.00",  "",   v => WorkingDsp.EchoFeedback     = v), "How much each repeat feeds back."),
-                ("Wet",   MakeCompactSlider(0,    1,    dsp.EchoWet,          "0.00",  "",   v => WorkingDsp.EchoWet          = v), "Echo wet/dry blend.")
-            )));
-
-        groups.Children.Add(MakeGroup("Reverb",
-            isOn: dsp.ReverbWet > 0,
-            onToggle: on =>
-            {
-                WorkingDsp.ReverbWet      = on ? dsp.ReverbWet      : 0f;
-                WorkingDsp.ReverbRoomSize = on ? dsp.ReverbRoomSize : 0.5f;
-                WorkingDsp.ReverbDamping  = on ? dsp.ReverbDamping  : 0.5f;
-            },
-            body: MakeDspRows(
-                ("Wet",  MakeCompactSlider(0, 1, dsp.ReverbWet,      "0.00", "", v => WorkingDsp.ReverbWet      = v), "Wet/dry. Even 0.1 adds noticeable space."),
-                ("Room", MakeCompactSlider(0, 1, dsp.ReverbRoomSize, "0.00", "", v => WorkingDsp.ReverbRoomSize = v), "Room size. Larger = longer tail."),
-                ("Damp", MakeCompactSlider(0, 1, dsp.ReverbDamping,  "0.00", "", v => WorkingDsp.ReverbDamping  = v), "High-freq damping. High = warm. Low = cold.")
-            )));
-
-        groups.Children.Add(MakeGroup("Spectral",
-            isOn: dsp.RobotHopSize > 0 || dsp.WhisperHopSize > 0,
-            onToggle: on =>
-            {
-                WorkingDsp.RobotHopSize   = on ? dsp.RobotHopSize   : 0;
-                WorkingDsp.WhisperHopSize = on ? dsp.WhisperHopSize : 0;
-                robotCombo.SelectedIndex   = on ? dsp.RobotHopSize   switch { 64=>1,128=>2,256=>3,512=>4,_=>0 } : 0;
-                whisperCombo.SelectedIndex = on ? dsp.WhisperHopSize switch { 64=>1,128=>2,256=>3,512=>4,_=>0 } : 0;
-            },
-            body: new StackPanel { Spacing = 4, Children =
-            {
-                new TextBlock { Text = "Robot", FontSize = 11, Opacity = 0.7 },
-                robotCombo,
-                new TextBlock { Text = "Whisper", FontSize = 11, Opacity = 0.7, Margin = new Avalonia.Thickness(0, 4, 0, 0) },
-                whisperCombo,
-                new TextBlock { Text = "Use one at a time. Hop = smaller → more effect.", FontSize = 10, Opacity = 0.5, TextWrapping = TextWrapping.Wrap, Margin = new Avalonia.Thickness(0, 4, 0, 0) }
-            }}));
-
-        // ── DSP outer section ─────────────────────────────────────────────────
-
-        _dspSummaryLine  = new TextBlock { Foreground = Brushes.Gray, FontSize = 11, Text = BuildDspSummary(), VerticalAlignment = VerticalAlignment.Center };
-        _dspSectionArrow = new TextBlock { Text = "▶", VerticalAlignment = VerticalAlignment.Center, Margin = new Avalonia.Thickness(0, 0, 6, 0) };
-
-        var dspHeaderBtn = new Button
-        {
-            HorizontalAlignment        = HorizontalAlignment.Stretch,
-            HorizontalContentAlignment = HorizontalAlignment.Stretch,
-            Background                 = Brushes.Transparent,
-            BorderThickness            = new Avalonia.Thickness(0),
-            Padding                    = new Avalonia.Thickness(0),
-            Content = new StackPanel
-            {
-                Orientation = Orientation.Horizontal, Spacing = 4,
-                Children =
-                {
-                    _dspSectionArrow,
-                    new TextBlock { Text = "Audio Effects (DSP)", FontWeight = FontWeight.SemiBold, VerticalAlignment = VerticalAlignment.Center },
-                    new TextBlock { Text = " — ", VerticalAlignment = VerticalAlignment.Center, Opacity = 0.4 },
-                    _dspSummaryLine
-                }
+                _workingProfile.Dsp!.Effects.Add(DspEffectItem.CreateDefault(picker.ChosenEffect.Value));
+                RebuildChainPanel();
+                RefreshDspSummary();
+                RefreshSummary();
             }
         };
-        dspHeaderBtn.Click += DspSectionHeader_Click;
 
-        var resetDspBtn = Btn("Reset All", 80);
-        resetDspBtn.Click += (_, _) => ResetDsp(masterEnabledCheck, distModeCombo, tubeCheck, robotCombo, whisperCombo);
-
-        _dspSectionBody = new StackPanel { Spacing = 6, IsVisible = false, Children =
+        var clearAllBtn = Btn("Clear All", 80);
+        clearAllBtn.Click += (_, _) =>
         {
-            new StackPanel { Orientation = Orientation.Horizontal, Spacing = 12, Children = { masterEnabledCheck, resetDspBtn } },
-            groups
-        }};
-
-        var dspCard = new Border
-        {
-            BorderThickness = new Avalonia.Thickness(1),
-            Padding         = new Avalonia.Thickness(10),
-            CornerRadius    = new Avalonia.CornerRadius(6),
-            Child = new StackPanel { Spacing = 8, Children = { dspHeaderBtn, _dspSectionBody } }
+            _workingProfile.Dsp!.Effects.Clear();
+            RebuildChainPanel();
+            RefreshDspSummary();
+            RefreshSummary();
         };
+
+        _dspSummaryLine = new TextBlock
+        {
+            Foreground = Brushes.Gray,
+            FontSize   = 11,
+            Text       = BuildDspSummary(),
+            VerticalAlignment = VerticalAlignment.Center,
+        };
+
+        var dspCard = Card("Audio Effects (DSP)", new StackPanel
+        {
+            Spacing = 8,
+            Children =
+            {
+                new StackPanel
+                {
+                    Orientation = Orientation.Horizontal,
+                    Spacing     = 8,
+                    Children    = { masterEnabledCheck },
+                },
+                _dspChainPanel,
+                new StackPanel
+                {
+                    Orientation = Orientation.Horizontal,
+                    Spacing     = 8,
+                    Children    = { addEffectBtn, clearAllBtn, _dspSummaryLine },
+                },
+            }
+        });
 
         // ── Preview / Summary ─────────────────────────────────────────────────
 
@@ -904,59 +659,196 @@ So go quickly, keep your wits about you, and return by the main road if you valu
         };
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
-    // DSP section expand/collapse
-    // ─────────────────────────────────────────────────────────────────────────
 
-    private void DspSectionHeader_Click(object? sender, RoutedEventArgs e)
+    // ── DSP chain management ──────────────────────────────────────────────────
+
+    private void RebuildChainPanel()
     {
-        _dspSectionExpanded       = !_dspSectionExpanded;
-        _dspSectionBody.IsVisible = _dspSectionExpanded;
-        _dspSectionArrow.Text     = _dspSectionExpanded ? "▼" : "▶";
+        _dspChainPanel.Children.Clear();
+        var effects = _workingProfile.Dsp?.Effects ?? new System.Collections.Generic.List<DspEffectItem>();
+
+        for (int i = 0; i < effects.Count; i++)
+        {
+            var row = BuildEffectRow(effects[i], i, effects.Count);
+            _dspChainPanel.Children.Add(row);
+        }
+
+        if (effects.Count == 0)
+            _dspChainPanel.Children.Add(new TextBlock { Text = "No effects. Click '+ Add Effect' to begin.", Foreground = Brushes.Gray, FontSize = 11, Margin = new Avalonia.Thickness(0, 4) });
     }
 
-    private void ResetDsp(CheckBox masterCheck, ComboBox distModeCombo, CheckBox tubeCheck, ComboBox robotCombo, ComboBox whisperCombo)
+    private Border BuildEffectRow(DspEffectItem item, int idx, int total)
     {
-        _workingProfile.Dsp        = new DspProfile();
-        masterCheck.IsChecked      = true;
-        tubeCheck.IsChecked        = false;
-        distModeCombo.SelectedIndex = 0;
-        robotCombo.SelectedIndex   = 0;
-        whisperCombo.SelectedIndex = 0;
-        _distModePanel.IsVisible   = true;
-        _distTubePanel.IsVisible   = false;
-        _dspSummaryLine.Text       = BuildDspSummary();
-        RefreshSummary();
-        // Note: slider thumb positions don't auto-reset (no stored Slider refs in this version).
-        // Values on WorkingDsp are correct; positions drift until user moves each slider.
+        var effects = _workingProfile.Dsp!.Effects;
+
+        var enabledCheck = new CheckBox { IsChecked = item.Enabled, Margin = new Avalonia.Thickness(0, 0, 6, 0), VerticalAlignment = VerticalAlignment.Center };
+        enabledCheck.IsCheckedChanged += (_, _) => { item.Enabled = enabledCheck.IsChecked == true; RefreshDspSummary(); RefreshSummary(); };
+
+        var nameLabel = new TextBlock { Text = DspEffectItem.DisplayName(item.Kind), FontWeight = FontWeight.SemiBold, FontSize = 12, VerticalAlignment = VerticalAlignment.Center };
+        ToolTip.SetTip(nameLabel, DspEffectItem.Description(item.Kind));
+
+        var upBtn = new Button { Content = "▲", FontSize = 10, Padding = new Avalonia.Thickness(4, 1), IsEnabled = idx > 0 };
+        upBtn.Click += (_, _) => { effects.RemoveAt(idx); effects.Insert(idx - 1, item); RebuildChainPanel(); RefreshDspSummary(); };
+
+        var downBtn = new Button { Content = "▼", FontSize = 10, Padding = new Avalonia.Thickness(4, 1), IsEnabled = idx < total - 1 };
+        downBtn.Click += (_, _) => { effects.RemoveAt(idx); effects.Insert(idx + 1, item); RebuildChainPanel(); RefreshDspSummary(); };
+
+        var removeBtn = new Button { Content = "✕", FontSize = 10, Padding = new Avalonia.Thickness(4, 1), Foreground = Brushes.IndianRed };
+        removeBtn.Click += (_, _) => { effects.RemoveAt(idx); RebuildChainPanel(); RefreshDspSummary(); RefreshSummary(); };
+
+        var headerRow = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 4, Children = { enabledCheck, nameLabel } };
+        var btnRow    = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 2, HorizontalAlignment = HorizontalAlignment.Right, Children = { upBtn, downBtn, removeBtn } };
+        var headerGrid = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto") };
+        headerGrid.Children.Add(headerRow);
+        Grid.SetColumn(btnRow, 1); headerGrid.Children.Add(btnRow);
+
+        var paramsPanel = BuildParamsPanel(item);
+        var content = new StackPanel { Spacing = 4, Margin = new Avalonia.Thickness(4), Children = { headerGrid, paramsPanel } };
+
+        return new Border
+        {
+            Background    = SolidColorBrush.Parse("#16213E"),
+            BorderBrush   = SolidColorBrush.Parse("#0F3460"),
+            BorderThickness = new Avalonia.Thickness(1),
+            CornerRadius  = new Avalonia.CornerRadius(4),
+            Margin        = new Avalonia.Thickness(0, 2),
+            Child         = content,
+        };
     }
+
+    private StackPanel BuildParamsPanel(DspEffectItem item)
+    {
+        var panel = new StackPanel { Spacing = 3 };
+
+        void Row(string label, float min, float max, string key, float def, string fmt, string suffix, string tip)
+        {
+            var cur = item.Get(key, def);
+            var (slider, tb) = MakeCompactSlider(min, max, cur, fmt, suffix, v => { item.Set(key, v); RefreshDspSummary(); RefreshSummary(); });
+            panel.Children.Add(DspRow(label, (slider, tb), tip));
+        }
+
+        switch (item.Kind)
+        {
+            case DspEffectKind.EvenOut:
+                Row("Amount",   -60,  0,   "threshold", -18f, "0",         " dB", "How loud the voice needs to get before it's reined in. -18 dB is a good starting point.");
+                Row("Strength",   1, 20,   "ratio",       4f, "0.0",       ":1",  "How aggressively loud parts are brought down. 4:1 is natural; 10:1 is heavy.");
+                break;
+            case DspEffectKind.Level:
+                panel.Children.Add(new TextBlock { Text = "No settings — automatically brings peak volume to 0 dBFS.", Foreground = Brushes.Gray, FontSize = 11, TextWrapping = TextWrapping.Wrap });
+                break;
+            case DspEffectKind.Pitch:
+                Row("Pitch", -12, 12, "semitones", 0f, "+0.0;-0.0;0", " st", "How many semitones to shift. +12 is an octave up, -12 is an octave down. ±4 sounds natural.");
+                break;
+            case DspEffectKind.Speed:
+                Row("Speed", -50, 50, "percent", 0f, "+0;-0;0", "%", "Positive = faster, negative = slower. Does not change the pitch.");
+                break;
+            case DspEffectKind.RumbleRemover:
+                Row("Cut below", 20, 500, "hz", 100f, "0", " Hz", "Removes sound below this frequency. 80–150 Hz cleans up boxiness without thinning the voice.");
+                break;
+            case DspEffectKind.Bass:
+                Row("Amount", -12, 12, "db", 0f, "+0.0;-0.0;0", " dB", "Positive adds warmth and body. Negative thins out a heavy or muddy voice.");
+                break;
+            case DspEffectKind.Presence:
+                Row("Amount", -12,   12, "db",   0f,    "+0.0;-0.0;0", " dB", "Positive makes the voice push forward. Negative makes it sit back.");
+                Row("Focus",  100, 8000, "hz",  1000f,  "0",           " Hz", "Where in the voice to boost or cut. 800–2000 Hz is the most noticeable range.");
+                break;
+            case DspEffectKind.Brightness:
+                Row("Amount", -12, 12, "db", 0f, "+0.0;-0.0;0", " dB", "Positive makes the voice crisper. Negative makes it warmer and softer.");
+                break;
+            case DspEffectKind.Air:
+                Row("Amount", 0, 1, "amount", 0.3f, "0.00", "", "How much sparkle to add. Start low — a little goes a long way.");
+                break;
+            case DspEffectKind.Grit:
+            {
+                var modeCombo = new ComboBox { ItemsSource = new[] { "Soft (warm crunch)", "Hard (harsh edge)", "Asymmetric (gritty drive)", "Full rectify (extreme buzz)", "Half rectify (fuzzy octave)" }, HorizontalAlignment = HorizontalAlignment.Stretch, Margin = new Avalonia.Thickness(0, 0, 0, 4) };
+                modeCombo.SelectedIndex = Math.Max(0, (int)item.Get("mode", 1f) - 1);
+                modeCombo.SelectionChanged += (_, _) => { item.Set("mode", modeCombo.SelectedIndex + 1f); RefreshDspSummary(); };
+                ToolTip.SetTip(modeCombo, "What kind of distortion character to use.");
+                panel.Children.Add(modeCombo);
+                Row("Drive",   0,   40, "inDb",   12f,  "0.0", " dB", "How much the signal is pushed into distortion. Higher = more grit.");
+                Row("Output", -40,   0, "outDb", -12f,  "0.0", " dB", "Compensates for volume increase from distortion. Usually kept negative.");
+                break;
+            }
+            case DspEffectKind.WarmthGrit:
+                Row("Drive",  1,   20, "drive",  5f,   "0.0", "",  "How hard the tube is pushed. Higher = more grit. 3–8 is natural saturation.");
+                Row("Tone",  -1,    0, "q",     -0.2f, "0.00","",  "Changes character at low volumes. More negative = cleaner at quiet parts.");
+                break;
+            case DspEffectKind.LoFi:
+                Row("Degradation", 1, 16, "bits", 8f, "0", " bit", "Fewer bits = more degraded. 8 bit sounds like old games. 4 bit is extreme.");
+                break;
+            case DspEffectKind.Thickness:
+                Row("Mix",    0,     1,    "wet",   0.5f,  "0.00", "",    "How much thickness to blend in. 0.3–0.5 is subtle.");
+                Row("Speed",  0.1f,  4,    "rate",  1.5f,  "0.00", " Hz", "How fast the doubling effect pulses.");
+                Row("Spread", 0.005f,0.04f,"width", 0.02f, "0.000"," s",  "How wide the doubling effect spreads.");
+                break;
+            case DspEffectKind.Wobble:
+                Row("Depth", 0,    0.02f, "width", 0.005f, "0.000", " s",  "How much the pitch wavers. 0.003–0.008 is a gentle wobble.");
+                Row("Speed", 0.5f, 10,    "rate",  3f,     "0.0",   " Hz", "How fast the wobble oscillates. 5+ Hz is unsettling.");
+                break;
+            case DspEffectKind.Swirl:
+                Row("Mix",   0,    1,    "wet",   0.5f,  "0.00", "",    "How much of the swirling effect to add.");
+                Row("Speed", 0.1f, 4,    "rate",  1f,    "0.00", " Hz", "How fast the sweep moves.");
+                Row("Low",   20,   2000, "minHz", 300f,  "0",    " Hz", "Where the sweep starts at the bottom.");
+                Row("High",  500,  8000, "maxHz", 3000f, "0",    " Hz", "Where the sweep reaches at the top.");
+                break;
+            case DspEffectKind.Jet:
+                Row("Mix",       0,    1,   "wet",      0.5f, "0.00", "",    "How much of the metallic effect to blend in.");
+                Row("Speed",     0.1f, 4,   "rate",     1f,   "0.00", " Hz", "How fast the whooshing oscillates.");
+                Row("Resonance", 0,    0.9f,"feedback", 0.5f, "0.00", "",    "How pronounced and metallic the effect becomes.");
+                break;
+            case DspEffectKind.Wah:
+                Row("Mix",  0,   1,    "wet",   0.5f,  "0.00", "",    "How much the wah effect blends in.");
+                Row("Low",  20,  2000, "minHz", 300f,  "0",    " Hz", "The lowest point of the wah sweep.");
+                Row("High", 500, 8000, "maxHz", 3000f, "0",    " Hz", "The highest point of the wah sweep.");
+                break;
+            case DspEffectKind.Tremor:
+                Row("Depth", 0,    1,  "depth", 0.5f, "0.00", "",    "How much the volume pulses. Higher = more dramatic wavering.");
+                Row("Speed", 0.5f, 12, "rate",  4f,   "0.0",  " Hz", "How fast the pulsing happens. 1–3 Hz = slow haunt. 8+ Hz = nervous tremor.");
+                break;
+            case DspEffectKind.Room:
+                Row("Size",    0, 1, "roomSize", 0.5f, "0.00", "", "How large the simulated room is.");
+                Row("Damping", 0, 1, "damping",  0.5f, "0.00", "", "Higher = warmer room. Lower = cold, bright, reflective space.");
+                Row("Mix",     0, 1, "wet",      0.3f, "0.00", "", "How much of the room sound to blend in. 0.1–0.3 is subtle.");
+                break;
+            case DspEffectKind.Echo:
+                Row("Delay",  0.05f, 1,   "delay",    0.3f, "0.00", " s", "How long before the echo repeats. 0.3 s is a quick slap. 0.7+ s is a large cave.");
+                Row("Decay",  0,     0.9f,"feedback", 0.4f, "0.00", "",   "How many times the echo repeats before fading.");
+                Row("Mix",    0,     1,   "wet",      0.5f, "0.00", "",   "How loud the echo is relative to the original voice.");
+                break;
+            case DspEffectKind.Robot:
+            {
+                var combo = new ComboBox { ItemsSource = new[] { "Subtle", "Moderate", "Strong", "Maximum" }, HorizontalAlignment = HorizontalAlignment.Stretch };
+                combo.SelectedIndex = (int)Math.Clamp(item.Get("strength", 2f), 0, 3);
+                combo.SelectionChanged += (_, _) => { item.Set("strength", combo.SelectedIndex); RefreshDspSummary(); };
+                ToolTip.SetTip(combo, "How strongly the mechanical effect is applied.");
+                panel.Children.Add(combo);
+                break;
+            }
+            case DspEffectKind.Whisper:
+            {
+                var combo = new ComboBox { ItemsSource = new[] { "Subtle", "Moderate", "Strong", "Maximum" }, HorizontalAlignment = HorizontalAlignment.Stretch };
+                combo.SelectedIndex = (int)Math.Clamp(item.Get("strength", 1f), 0, 3);
+                combo.SelectionChanged += (_, _) => { item.Set("strength", combo.SelectedIndex); RefreshDspSummary(); };
+                ToolTip.SetTip(combo, "How strongly the whispery effect is applied.");
+                panel.Children.Add(combo);
+                break;
+            }
+        }
+
+        return panel;
+    }
+
+    private void RefreshDspSummary()
+        => _dspSummaryLine.Text = BuildDspSummary();
 
     private string BuildDspSummary()
     {
-        var d = WorkingDsp;
-        if (!d.Enabled || d.IsNeutral) return "no effects";
-        var parts = new System.Collections.Generic.List<string>();
-        if (d.CompressorThresholdDb < 0)    parts.Add($"comp {d.CompressorThresholdDb:0}dB");
-        if (d.PitchSemitones != 0)          parts.Add($"pitch {d.PitchSemitones:+0.#;-0.#}st");
-        if (d.TempoPercent != 0)            parts.Add($"tempo {d.TempoPercent:+0;-0}%");
-        if (d.HighPassHz > 0)               parts.Add($"hpf {d.HighPassHz:0}Hz");
-        if (d.LowShelfDb != 0 || d.MidGainDb != 0 || d.HighShelfDb != 0) parts.Add("eq");
-        if (d.ExciterAmount > 0)            parts.Add($"exc {d.ExciterAmount:0.0}");
-        if (d.TubeDistortion)               parts.Add("tube");
-        else if (d.DistortionMode.HasValue) parts.Add(d.DistortionMode.Value.ToString().ToLowerInvariant());
-        if (d.BitCrushDepth > 0)            parts.Add($"{d.BitCrushDepth}bit");
-        if (d.ChorusWet > 0)               parts.Add($"chor {d.ChorusWet:0.0}");
-        if (d.VibratoWidth > 0)             parts.Add("vib");
-        if (d.PhaserWet > 0)               parts.Add($"phs {d.PhaserWet:0.0}");
-        if (d.FlangerWet > 0)              parts.Add($"fln {d.FlangerWet:0.0}");
-        if (d.AutoWahWet > 0)              parts.Add($"wah {d.AutoWahWet:0.0}");
-        if (d.TremoloDepth > 0)            parts.Add($"trem {d.TremoloDepth:0.0}");
-        if (d.EchoDelaySeconds > 0)         parts.Add($"echo {d.EchoDelaySeconds:0.00}s");
-        if (d.ReverbWet > 0)               parts.Add($"rev {d.ReverbWet:0.0}");
-        if (d.RobotHopSize > 0)             parts.Add("robot");
-        if (d.WhisperHopSize > 0)           parts.Add("whisper");
-        return parts.Count == 0 ? "no effects" : string.Join(" · ", parts);
+        var dsp = _workingProfile.Dsp;
+        if (dsp is null || !dsp.Enabled || dsp.IsNeutral) return "no effects";
+        var active = dsp.Effects.Where(e => e.Enabled).Select(e => DspEffectItem.DisplayName(e.Kind));
+        return string.Join(" \u2192 ", active);
     }
+
 
     // ─────────────────────────────────────────────────────────────────────────
     // Voice logic (unchanged from original)
@@ -1025,6 +917,9 @@ So go quickly, keep your wits about you, and return by the main road if you valu
             _swaySlider.Value = v;
             if (_swayText != null) _swayText.Text = v.ToString("0.00", Inv);
         }
+        // Rebuild DSP chain to reflect any preset changes
+        RebuildChainPanel();
+        RefreshDspSummary();
     }
 
     private void SetVoiceSelection(string voiceId)
@@ -1263,65 +1158,6 @@ So go quickly, keep your wits about you, and return by the main road if you valu
     /// so the profile fields are always in sync with the checkbox from the start.
     /// Callers must handle both on=true (restore/set fields) and on=false (zero fields).
     /// </summary>
-    private static Border MakeGroup(string title, bool isOn, Action<bool> onToggle, Control body)
-    {
-        var arrow    = new TextBlock { Text = "▶", FontSize = 10, VerticalAlignment = VerticalAlignment.Center, Margin = new Avalonia.Thickness(0, 0, 3, 0) };
-        var bodyWrap = new StackPanel { Children = { body }, IsVisible = false, Margin = new Avalonia.Thickness(0, 6, 0, 0) };
-
-        var enableCheck = new CheckBox
-        {
-            IsChecked = isOn,
-            Margin    = new Avalonia.Thickness(6, 0, 0, 0),
-            VerticalAlignment = VerticalAlignment.Center
-        };
-
-        // Prevent click on checkbox from also toggling the expand arrow
-        enableCheck.PointerPressed += (_, e) => e.Handled = true;
-        enableCheck.IsCheckedChanged += (_, _) => onToggle(enableCheck.IsChecked == true);
-
-        // Apply initial state immediately — profile fields must match the checkbox
-        // from the moment the dialog opens, not just after the first toggle.
-        onToggle(isOn);
-
-        var titleBlock = new TextBlock
-        {
-            Text              = title,
-            FontWeight        = FontWeight.SemiBold,
-            FontSize          = 12,
-            VerticalAlignment = VerticalAlignment.Center
-        };
-
-        var headerContent = new StackPanel
-        {
-            Orientation = Orientation.Horizontal,
-            Spacing     = 0,
-            Children    = { arrow, titleBlock, enableCheck }
-        };
-
-        var headerBtn = new Button
-        {
-            HorizontalAlignment        = HorizontalAlignment.Stretch,
-            HorizontalContentAlignment = HorizontalAlignment.Stretch,
-            Background                 = Brushes.Transparent,
-            BorderThickness            = new Avalonia.Thickness(0),
-            Padding                    = new Avalonia.Thickness(0),
-            Content                    = headerContent
-        };
-        headerBtn.Click += (_, _) =>
-        {
-            bodyWrap.IsVisible = !bodyWrap.IsVisible;
-            arrow.Text         = bodyWrap.IsVisible ? "▼" : "▶";
-        };
-
-        return new Border
-        {
-            BorderThickness = new Avalonia.Thickness(1),
-            Padding         = new Avalonia.Thickness(8),
-            CornerRadius    = new Avalonia.CornerRadius(4),
-            Margin          = new Avalonia.Thickness(3),
-            Child           = new StackPanel { Children = { headerBtn, bodyWrap } }
-        };
-    }
 
     private static (Slider slider, TextBlock label) MakeCompactSlider(
         float min, float max, float initial,
@@ -1342,7 +1178,6 @@ So go quickly, keep your wits about you, and return by the main road if you valu
         return (slider, valLabel);
     }
 
-    /// <summary>[label 55px] [slider 100px] [value 52px] on one row.</summary>
     private static Grid DspRow(string rowLabel, (Slider s, TextBlock l) ctrl, string tooltip)
     {
         var g   = new Grid { ColumnDefinitions = new ColumnDefinitions("55,100,*"), ColumnSpacing = 4, Margin = new Avalonia.Thickness(0, 1, 0, 1) };
@@ -1353,15 +1188,7 @@ So go quickly, keep your wits about you, and return by the main road if you valu
         return g;
     }
 
-    private static StackPanel MakeDspRows(params (string label, (Slider s, TextBlock l) ctrl, string tooltip)[] rows)
-    {
-        var panel = new StackPanel { Spacing = 2 };
-        foreach (var (lbl, ctrl, tip) in rows)
-            panel.Children.Add(DspRow(lbl, ctrl, tip));
-        return panel;
-    }
-
-    private static void AddToGrid(Grid g, Control c, int row, int col)
+        private static void AddToGrid(Grid g, Control c, int row, int col)
     { Grid.SetRow(c, row); Grid.SetColumn(c, col); g.Children.Add(c); }
 
     // ─────────────────────────────────────────────────────────────────────────
