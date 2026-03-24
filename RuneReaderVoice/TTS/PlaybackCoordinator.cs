@@ -52,9 +52,14 @@ public sealed class PlaybackCoordinator : IDisposable
     // Synthesis task map keyed by SegmentIndex.
     // Tasks are fired immediately on EnqueueSegment and consumed in strict order.
     private readonly Dictionary<int, Task<PcmAudio?>> _synthTasks = new();
-    private int            _nextExpectedIndex;
-    private readonly SemaphoreSlim _queueSignal = new(0);
-    private readonly object        _queueLock   = new();
+    private int _nextExpectedIndex;
+    private readonly object _queueLock = new();
+
+    // Per-segment ready signals. The playback loop awaits the TCS for exactly
+    // the next expected index — no semaphore counting, no signal loss on
+    // out-of-order arrivals. EnqueueSegment creates or completes the TCS for
+    // the arriving index; the loop creates it if it arrives before the segment.
+    private readonly Dictionary<int, TaskCompletionSource<bool>> _segmentReady = new();
 
 
 
@@ -107,7 +112,16 @@ public sealed class PlaybackCoordinator : IDisposable
             var ct        = _sessionCts?.Token ?? CancellationToken.None;
             var synthTask = SynthesizeSegmentAsync(segment, ct);
             _synthTasks[segment.SegmentIndex] = synthTask;
-            _queueSignal.Release();
+
+            // Signal the TCS for this index.
+            // If the loop already created a TCS awaiting this segment → complete it.
+            // Otherwise pre-create a completed TCS so the loop finds it ready.
+            if (!_segmentReady.TryGetValue(segment.SegmentIndex, out var tcs))
+            {
+                tcs = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+                _segmentReady[segment.SegmentIndex] = tcs;
+            }
+            tcs.TrySetResult(true);
         }
     }
 
@@ -147,11 +161,12 @@ public sealed class PlaybackCoordinator : IDisposable
         lock (_queueLock)
         {
             _synthTasks.Clear();
+            // Cancel any pending TCS awaits so the playback loop unblocks cleanly
+            foreach (var tcs in _segmentReady.Values)
+                tcs.TrySetCanceled();
+            _segmentReady.Clear();
             _nextExpectedIndex = 0;
         }
-
-        while (_queueSignal.CurrentCount > 0)
-            _queueSignal.Wait(0);
 
         var oldCts    = _sessionCts;
         _sessionCts   = new CancellationTokenSource();
@@ -167,25 +182,31 @@ public sealed class PlaybackCoordinator : IDisposable
 
         while (!ct.IsCancellationRequested)
         {
-            try { await _queueSignal.WaitAsync(ct); }
+            // Get or create the TCS for the next expected segment index.
+            // If the segment was already enqueued (TCS pre-completed), this
+            // returns immediately. If not yet enqueued, we await here until
+            // EnqueueSegment signals it — no spin, no signal loss.
+            TaskCompletionSource<bool> readyTcs;
+            lock (_queueLock)
+            {
+                if (!_segmentReady.TryGetValue(_nextExpectedIndex, out readyTcs!))
+                {
+                    readyTcs = new TaskCompletionSource<bool>(
+                        TaskCreationOptions.RunContinuationsAsynchronously);
+                    _segmentReady[_nextExpectedIndex] = readyTcs;
+                }
+            }
+
+            try { await readyTcs.Task.WaitAsync(ct); }
             catch (OperationCanceledException) { break; }
 
             Task<PcmAudio?>? nextTask;
-            bool foundNext;
             lock (_queueLock)
             {
-                foundNext = _synthTasks.TryGetValue(_nextExpectedIndex, out nextTask);
+                _synthTasks.TryGetValue(_nextExpectedIndex, out nextTask);
             }
 
-            if (!foundNext)
-            {
-                // Expected segment not yet enqueued — signal was consumed by an
-                // out-of-order arrival. Re-release so the loop wakes again when
-                // the missing segment arrives.
-                _queueSignal.Release();
-                try { await Task.Delay(5, ct); } catch (OperationCanceledException) { break; }
-                continue;
-            }
+            if (nextTask == null) continue; // shouldn't happen but guard anyway
 
             // Await synthesis — natural buffer-underrun wait.
             // While this waits, all later synthesis tasks are already running.
@@ -207,13 +228,14 @@ public sealed class PlaybackCoordinator : IDisposable
                 AppServices.ClearOperationStatus();
                 System.Diagnostics.Debug.WriteLine(
                     $"[PlaybackCoordinator] Synthesis error segment {_nextExpectedIndex}: {ex.Message}");
-                lock (_queueLock) { _synthTasks.Remove(_nextExpectedIndex); _nextExpectedIndex++; }
+                lock (_queueLock) { _synthTasks.Remove(_nextExpectedIndex); _segmentReady.Remove(_nextExpectedIndex); _nextExpectedIndex++; }
                 continue;
             }
 
             lock (_queueLock)
             {
                 _synthTasks.Remove(_nextExpectedIndex);
+                _segmentReady.Remove(_nextExpectedIndex);
                 _nextExpectedIndex++;
             }
 
@@ -384,6 +406,5 @@ public sealed class PlaybackCoordinator : IDisposable
         _disposed = true;
         CancelCurrentSession();
         _sessionCts?.Dispose();
-        _queueSignal.Dispose();
     }
 }
