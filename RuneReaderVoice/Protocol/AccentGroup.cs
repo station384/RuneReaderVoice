@@ -69,6 +69,7 @@ public enum AccentGroup
     Mechanical,         // 0x57 — non-Gnome/Mechagnome mechanical NPCs
 
     // ── Non-playable NPC races ─────────────────────────────────────────────────
+    Illidari,           // Illidari Demon Hunters — intense British-accented intensity
     Amani,              // Amani trolls — fierce Caribbean
     Arathi,             // Arathi humans — measured British
     Broken,             // Broken draenei — Eastern European (broken)
@@ -183,7 +184,7 @@ public static class RaceAccentMapping
         { 0x51, AccentGroup.Narrator    },  // Beast
         { 0x52, AccentGroup.Dragonkin   },  // Dragonkin
         { 0x53, AccentGroup.Undead      },  // Undead (non-Forsaken)
-        { 0x54, AccentGroup.Narrator    },  // Demon
+        { 0x54, AccentGroup.Illidari    },  // Demon — Illidari/Demon Hunter NPCs
         { 0x55, AccentGroup.Elemental   },  // Elemental
         { 0x56, AccentGroup.Giant       },  // Giant
         { 0x57, AccentGroup.Mechanical  },  // Mechanical

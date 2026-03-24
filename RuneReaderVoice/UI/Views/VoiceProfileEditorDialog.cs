@@ -964,9 +964,33 @@ So go quickly, keep your wits about you, and return by the main road if you valu
         {
             if (_workingProfile.VoiceId.StartsWith(KokoroTtsProvider.MixPrefix, StringComparison.OrdinalIgnoreCase))
             {
-                var first = ExtractFirstVoiceId(_workingProfile.VoiceId) ?? KokoroTtsProvider.DefaultVoiceId;
-                _workingProfile.VoiceId = first;
-                SetVoiceSelection(first);
+                var first = ExtractFirstVoiceId(_workingProfile.VoiceId) ?? string.Empty;
+
+                // Try to select the extracted voice. If it's not in the available list
+                // (e.g. remote Kokoro uses samples, not Kokoro base voice IDs), fall back
+                // to the first available voice in the combo instead of failing silently.
+                var found = _voiceBaseCombo.ItemsSource?.OfType<VoiceChoice>()
+                    .FirstOrDefault(v => string.Equals(v.VoiceId, first, StringComparison.OrdinalIgnoreCase));
+
+                if (found != null)
+                {
+                    _workingProfile.VoiceId = first;
+                    SetVoiceSelection(first);
+                }
+                else
+                {
+                    // Voice not in list — select first available
+                    var firstAvailable = _voiceBaseCombo.ItemsSource?.OfType<VoiceChoice>().FirstOrDefault();
+                    if (firstAvailable != null)
+                    {
+                        _workingProfile.VoiceId = firstAvailable.VoiceId;
+                        _voiceBaseCombo.SelectedItem = firstAvailable;
+                    }
+                    else
+                    {
+                        _workingProfile.VoiceId = string.Empty;
+                    }
+                }
             }
             RefreshSingleVoiceSummary();
         }

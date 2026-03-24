@@ -25,7 +25,8 @@ from pydantic import BaseModel, Field, field_validator
 
 from ..backends.base import SynthesisRequest
 from ..cache import compute_cache_key, compute_file_hash, blend_voice_identity
-from ..samples import resolve_sample_path, resolve_sample
+from ..samples import (resolve_sample_path, resolve_sample,
+                        resolve_sample_path_for_provider, resolve_sample_for_provider)
 
 log = logging.getLogger(__name__)
 router = APIRouter()
@@ -98,7 +99,7 @@ async def synthesize(body: SynthesizeRequest, request: Request) -> Response:
         if not sample_id:
             raise HTTPException(status_code=400,
                                 detail="voice.sample_id is required for type='reference'")
-        sample_path = resolve_sample_path(settings.samples_dir, sample_id)
+        sample_path = resolve_sample_path_for_provider(settings.samples_dir, sample_id, body.provider_id)
         if sample_path is None:
             raise HTTPException(
                 status_code=404,
@@ -109,7 +110,7 @@ async def synthesize(body: SynthesizeRequest, request: Request) -> Response:
 
         # ref_text is loaded from the .ref.txt sidecar — REQUIRED for F5-TTS.
         # The server never invokes Whisper or any auto-transcription at runtime.
-        sample_info = resolve_sample(settings.samples_dir, sample_id)
+        sample_info = resolve_sample_for_provider(settings.samples_dir, sample_id, body.provider_id)
         ref_text = sample_info.ref_text if sample_info else ""
         if not ref_text:
             log.warning("No .ref.txt sidecar for sample '%s'", sample_id)

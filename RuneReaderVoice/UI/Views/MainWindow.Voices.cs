@@ -185,6 +185,18 @@ public partial class MainWindow
 
     private async void VoiceProfilePreview_Click(object? sender, RoutedEventArgs e)
     {
+        // async void — must not throw. Delegate to Task method.
+        try { await VoiceProfilePreview_ClickAsync(sender, e); }
+        catch (Exception ex)
+        {
+            SessionStatus.Text = $"Preview failed: {ex.Message}";
+            System.Diagnostics.Debug.WriteLine($"[VoicesTab] Preview error: {ex}");
+            if (sender is Button b) b.IsEnabled = true;
+        }
+    }
+
+    private async Task VoiceProfilePreview_ClickAsync(object? sender, RoutedEventArgs e)
+    {
         if (sender is not Button btn || btn.Tag is not VoiceSlot slot)
             return;
 
@@ -211,6 +223,11 @@ So go quickly, keep your wits about you, and return by the main road if you valu
             await AppServices.Player.PlayAsync(audio, CancellationToken.None);
         }
         catch (OperationCanceledException) { }
+        catch (Exception ex)
+        {
+            SessionStatus.Text = $"Preview failed: {ex.Message}";
+            System.Diagnostics.Debug.WriteLine($"[VoicesTab] Preview error: {ex.Message}");
+        }
         finally
         {
             btn.IsEnabled = true;
@@ -252,7 +269,13 @@ So go quickly, keep your wits about you, and return by the main road if you valu
             var catalog = NpcVoiceSlotCatalog.All.First(x => x.Slot.Equals(slot));
             var voiceSourceLabel = descriptor?.VoiceSourceKind == RemoteVoiceSourceKind.Samples ? "sample" : "voice";
             var supportsPresets = AppServices.Provider is KokoroTtsProvider;
-            var supportsBlend = descriptor?.SupportsVoiceBlending ?? (AppServices.Provider is KokoroTtsProvider);
+            // Blend is supported by local Kokoro and remote Kokoro backends.
+            // Descriptor may be stale (pre-dates blend support) so also check provider ID.
+            var isRemoteKokoro = AppServices.Provider is TTS.Providers.RemoteTtsProvider rp
+                && rp.ProviderId.Contains("kokoro", StringComparison.OrdinalIgnoreCase);
+            var supportsBlend = (descriptor?.SupportsVoiceBlending ?? false)
+                             || (AppServices.Provider is KokoroTtsProvider)
+                             || isRemoteKokoro;
             var dlg = new VoiceProfileEditorDialog(slot, catalog.NpcLabel, catalog.AccentLabel, profile, availableVoices, supportsPresets, supportsBlend, voiceSourceLabel, descriptor?.Controls);
             var updated = await dlg.ShowDialog<VoiceProfile?>(this);
             if (updated == null)

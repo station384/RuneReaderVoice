@@ -171,10 +171,20 @@ public sealed class PlaybackCoordinator : IDisposable
             catch (OperationCanceledException) { break; }
 
             Task<PcmAudio?>? nextTask;
+            bool foundNext;
             lock (_queueLock)
             {
-                if (!_synthTasks.TryGetValue(_nextExpectedIndex, out nextTask))
-                    continue;
+                foundNext = _synthTasks.TryGetValue(_nextExpectedIndex, out nextTask);
+            }
+
+            if (!foundNext)
+            {
+                // Expected segment not yet enqueued — signal was consumed by an
+                // out-of-order arrival. Re-release so the loop wakes again when
+                // the missing segment arrives.
+                _queueSignal.Release();
+                try { await Task.Delay(5, ct); } catch (OperationCanceledException) { break; }
+                continue;
             }
 
             // Await synthesis — natural buffer-underrun wait.

@@ -40,7 +40,8 @@ class SynthesizeRequest(_SynthesizeRequestBase):
     batch_total: _Opt[int] = None   # total segments in this batch (required if batch_id set)
 from ..backends.base import SynthesisRequest
 from ..cache import compute_cache_key, compute_file_hash, blend_voice_identity
-from ..samples import resolve_sample_path, resolve_sample, _base_stem
+from ..samples import (resolve_sample_path, resolve_sample, _base_stem,
+                        resolve_sample_path_for_provider, resolve_sample_for_provider)
 
 log = logging.getLogger(__name__)
 router = APIRouter()
@@ -174,11 +175,16 @@ async def synthesize_v2(body: SynthesizeRequest, request: Request) -> dict:
         sample_id = body.voice.sample_id
         if not sample_id:
             raise HTTPException(status_code=400, detail="voice.sample_id required for type='reference'")
-        sample_path = resolve_sample_path(settings.samples_dir, sample_id)
+        # Use provider-specific clip (e.g. M_WWZ_10-f5.wav) when available.
+        # Falls back to master sample if no provider clip exists.
+        sample_path = resolve_sample_path_for_provider(
+            settings.samples_dir, sample_id, body.provider_id)
         if sample_path is None:
             raise HTTPException(status_code=404, detail=f"Sample '{sample_id}' not found")
         sample_file_hash = compute_file_hash(sample_path)
-        sample_info = resolve_sample(settings.samples_dir, sample_id)
+        # Use provider-aware ref_text (from -f5.ref.txt sidecar when available)
+        sample_info = resolve_sample_for_provider(
+            settings.samples_dir, sample_id, body.provider_id)
         ref_text = sample_info.ref_text if sample_info else ""
 
     # 3. Compute cache key

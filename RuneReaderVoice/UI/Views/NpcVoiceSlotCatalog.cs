@@ -136,6 +136,9 @@ public static class NpcVoiceSlotCatalog
         new NpcVoiceSlotCatalogItem(new VoiceSlot(AccentGroup.Mechanical, Gender.Female), "Mechanical NPC / Female", "Mechanical", 431),
 
         // ── Non-playable NPC races ────────────────────────────────────────────
+        new NpcVoiceSlotCatalogItem(new VoiceSlot(AccentGroup.Illidari, Gender.Male),   "Illidari / Male",   "Intense British (Demon Hunter)", 440),
+        new NpcVoiceSlotCatalogItem(new VoiceSlot(AccentGroup.Illidari, Gender.Female), "Illidari / Female", "Intense British (Demon Hunter)", 441),
+
         new NpcVoiceSlotCatalogItem(new VoiceSlot(AccentGroup.Amani, Gender.Male),   "Amani Troll / Male",   "Caribbean (Fierce)", 500),
         new NpcVoiceSlotCatalogItem(new VoiceSlot(AccentGroup.Amani, Gender.Female), "Amani Troll / Female", "Caribbean (Fierce)", 501),
 
