@@ -56,9 +56,20 @@ CONVERTIBLE_EXTENSIONS = frozenset({
 })
 
 # Target WAV parameters
-_WAV_SAMPLE_RATE = 16000
-_WAV_CHANNELS    = 1
+#_WAV_SAMPLE_RATE = 22000
+_WAV_SAMPLE_RATE = 44100
+#_WAV_CHANNELS    = 1
+_WAV_CHANNELS    = 2
 _WAV_CODEC       = "pcm_s16le"   # PCM_16 — guarantees float32 from librosa
+
+# Silence padding added to every converted sample.
+# F5-TTS loses pacing if the reference clip starts or ends abruptly — it needs
+# a short runway of silence before the voice starts and after it ends so the
+# ODE solver can stabilise at the boundaries. Without lead silence, generated
+# audio is compressed/rushed at the start. Without tail silence, the model
+# may clip the last phoneme or mis-time the final word.
+_PAD_LEAD_SECONDS = 0.5   # 0.5s silence prepended
+_PAD_TAIL_SECONDS = 1.0   # 1.0s silence appended
 
 
 def check_ffmpeg() -> bool:
@@ -163,6 +174,137 @@ def _apply_gender_prefix(audio_path: Path, prefix: str) -> Path:
 # Files longer than this are rejected — they cannot produce useful provider
 # clips (max 38s) and would OOM during librosa.load on the full audio array.
 MAX_SAMPLE_DURATION_SEC = 1200.0  # 20 minutes — covers typical audiobook chapter segments
+
+
+def _pad_wav_silence(wav_path: Path) -> None:
+    """
+    Prepend _PAD_LEAD_SECONDS and append _PAD_TAIL_SECONDS of silence to the
+    WAV file at wav_path, in-place.  No-op if soundfile is not available.
+
+    Called immediately after ffmpeg conversion so all downstream consumers
+    (Whisper, voice_profiler, sample_extractor, F5-TTS, Chatterbox) see the
+    padded file.  The silence is pure zeros at the file sample rate — no
+    re-encoding artefacts.
+    """
+    try:
+        import numpy as np
+        import soundfile as sf
+
+        data, sr = sf.read(str(wav_path), dtype="float32", always_2d=False)
+
+        lead_samples = int(round(_PAD_LEAD_SECONDS * sr))
+        tail_samples = int(round(_PAD_TAIL_SECONDS * sr))
+
+        if data.ndim == 1:
+            lead = np.zeros(lead_samples, dtype=data.dtype)
+            tail = np.zeros(tail_samples, dtype=data.dtype)
+        else:
+            lead = np.zeros((lead_samples, data.shape[1]), dtype=data.dtype)
+            tail = np.zeros((tail_samples, data.shape[1]), dtype=data.dtype)
+
+        padded = np.concatenate([lead, data, tail], axis=0)
+        sf.write(str(wav_path), padded, sr, subtype="PCM_16")
+
+        log.info(
+            "Padded '%s' — added %.2fs lead + %.2fs tail silence (%.2fs → %.2fs total)",
+            wav_path.name,
+            _PAD_LEAD_SECONDS, _PAD_TAIL_SECONDS,
+            len(data) / sr, len(padded) / sr,
+        )
+    except ImportError:
+        log.warning("soundfile not available — silence padding skipped for '%s'", wav_path.name)
+    except Exception as e:
+        log.warning("Silence padding failed for '%s': %s — continuing without padding", wav_path.name, e)
+
+
+
+def _clean_hallucinated_transcript(text: str, chunks: list) -> tuple[str, list]:
+    """
+    Detect and remove Whisper hallucination patterns from a transcript.
+
+    Whisper v3-turbo has two known hallucination modes on padded/silent audio:
+      1. Phrase looping: "I'm sorry. I'm sorry. I'm sorry. ..." — the model
+         repeats a short phrase many times, massively inflating the text length
+         relative to the audio. This corrupts F5-TTS pacing (audio/text ratio).
+      2. Interleaved loops: real speech, then a loop, then real speech again.
+         The corrupted ref.txt in the bug report was of this form.
+
+    Strategy:
+      - Split the transcript into sentences/phrases.
+      - Count how many times each unique phrase appears.
+      - If any phrase appears >= REPEAT_THRESHOLD times, the transcript is
+        considered hallucinated. Remove all occurrences of the repeated phrase
+        and keep only the non-repeated content.
+      - Filter chunks to match the cleaned text.
+      - If the cleaned text is empty or trivially short, return empty (caller
+        will log a warning and skip writing ref.txt).
+
+    This is a last-resort guard. The generate_kwargs changes to the Whisper
+    pipeline should prevent hallucination from occurring in the first place.
+    """
+    import re
+
+    REPEAT_THRESHOLD = 3   # phrase appearing >= this many times = hallucination
+
+    if not text:
+        return text, chunks
+
+    # Split on sentence-ending punctuation, keeping the delimiter
+    sentences = re.split(r'(?<=[.!?,])\s+', text.strip())
+    sentences = [s.strip() for s in sentences if s.strip()]
+
+    if len(sentences) < REPEAT_THRESHOLD:
+        return text, chunks   # too short to analyse
+
+    # Count occurrences of each sentence (case-insensitive)
+    from collections import Counter
+    counts = Counter(s.lower() for s in sentences)
+    repeated = {phrase for phrase, count in counts.items() if count >= REPEAT_THRESHOLD}
+
+    if not repeated:
+        return text, chunks   # no hallucination detected
+
+    log.warning(
+        "_clean_hallucinated_transcript: detected %d repeated phrase(s) — "
+        "removing hallucinated content. Repeated: %s",
+        len(repeated),
+        ", ".join(f"'{p[:40]}'" for p in list(repeated)[:3])
+    )
+
+    # Keep only sentences that are NOT hallucinated phrases
+    clean_sentences = [s for s in sentences if s.lower() not in repeated]
+    if not clean_sentences:
+        log.warning(
+            "_clean_hallucinated_transcript: all sentences were hallucinated — "
+            "transcript cleared. Clip may need manual review."
+        )
+        return "", []
+
+    clean_text = " ".join(clean_sentences)
+
+    # Filter chunks: keep only chunks whose text is not a hallucinated phrase.
+    # We check each chunk word against the hallucinated phrases — if a chunk's
+    # text exactly matches one, drop it. This is approximate since chunks are
+    # word-level, not sentence-level.
+    clean_chunks = []
+    for chunk in chunks:
+        chunk_text = chunk.get("text", "").strip().lower()
+        # Drop chunk if it's exactly a hallucinated phrase or a fragment of one
+        is_hallucinated = any(
+            chunk_text in phrase or phrase in chunk_text
+            for phrase in repeated
+        )
+        if not is_hallucinated:
+            clean_chunks.append(chunk)
+
+    log.info(
+        "_clean_hallucinated_transcript: cleaned transcript — "
+        "%d/%d sentences kept, %d/%d chunks kept",
+        len(clean_sentences), len(sentences),
+        len(clean_chunks), len(chunks)
+    )
+
+    return clean_text, clean_chunks
 
 
 class TranscriptionService:
@@ -317,6 +459,9 @@ class TranscriptionService:
                     src.name, result.stderr[-500:] if result.stderr else "no output"
                 )
                 return False
+
+            # Add silence padding to the converted WAV before any downstream use
+            _pad_wav_silence(dst)
 
             # Move original to originals directory
             archive_path = self._originals_dir / src.name
@@ -530,10 +675,10 @@ class TranscriptionService:
 
             model = AutoModelForSpeechSeq2Seq.from_pretrained(
                 str(self._whisper_dir),
-                torch_dtype=torch_dtype,
+                dtype=torch_dtype,           # 'dtype' replaces deprecated 'torch_dtype'
                 low_cpu_mem_usage=True,
                 use_safetensors=True,
-                local_files_only=True,   # NEVER download from HuggingFace
+                local_files_only=True,       # NEVER download from HuggingFace
             )
             model.to(device)
 
@@ -547,9 +692,32 @@ class TranscriptionService:
                 model=model,
                 tokenizer=processor.tokenizer,
                 feature_extractor=processor.feature_extractor,
-                torch_dtype=torch_dtype,
+                dtype=torch_dtype,       # 'dtype' replaces deprecated 'torch_dtype'
                 device=device,
             )
+
+            # Patch generation_config to suppress hallucination and silence warnings.
+            gc = getattr(model, "generation_config", None)
+            if gc is not None:
+                # Prevents "I'm sorry. I'm sorry." looping — model no longer
+                # conditions each chunk on its own previously hallucinated output.
+                gc.condition_on_previous_text = False
+
+                # Clear suppress-token lists that the model's generation_config
+                # carries from training. When language="en" + task="transcribe"
+                # are passed as generate_kwargs, the pipeline rebuilds these lists
+                # from scratch — having them pre-set in generation_config causes
+                # duplicate SuppressTokensLogitsProcessor warnings. Clearing them
+                # here lets the pipeline own them without conflict.
+                gc.suppress_tokens     = None
+                gc.begin_suppress_tokens = None
+
+                # Clear forced_decoder_ids — deprecated and replaced by
+                # language/task flags. Leaving it set causes the
+                # "forced_decoder_ids is deprecated" warning.
+                gc.forced_decoder_ids  = None
+
+                log.debug("Whisper generation_config patched")
 
             log.info("Whisper loaded successfully")
             return pipe
@@ -588,10 +756,25 @@ class TranscriptionService:
             return_timestamps="word",  # word-level timestamps for smart extraction
             chunk_length_s=30,         # process in 30s chunks for long-form audio
             ignore_warning=True,       # suppress seq2seq chunk_length_s warning — expected usage
+            generate_kwargs={
+                # Force English transcription — suppresses "multilingual default"
+                # and "forced_decoder_ids deprecated" warnings, and ensures samples
+                # with foreign-sounding names (e.g. character names) don't trigger
+                # language detection fallback to another language.
+                "language": "en",
+                "task": "transcribe",
+            },
         )
         text     = result.get("text", "").strip()
         language = result.get("language", "")
         chunks   = result.get("chunks", [])
+
+        # Post-transcription hallucination check.
+        # If Whisper still produces a repetitive transcript despite the above
+        # guards (e.g. silence-heavy clips), detect and clean it here before
+        # the corrupted text reaches ref.txt and poisons F5-TTS pacing.
+        text, chunks = _clean_hallucinated_transcript(text, chunks)
+
         if language:
             log.info("Whisper detected language '%s' for '%s'", language, audio_path.name)
         log.debug("Whisper chunks for '%s': %d chunk(s)", audio_path.name, len(chunks))

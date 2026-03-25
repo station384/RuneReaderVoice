@@ -35,23 +35,31 @@ log = logging.getLogger(__name__)
 VALID_EXTENSIONS = frozenset({".wav", ".mp3", ".flac", ".ogg"})
 _VALID_STEM_RE = re.compile(r"^[A-Za-z0-9_-]+$")
 
-# Provider suffixes appended to extracted clips — these files are internal
-# and hidden from the client-visible sample list. The server resolves them
-# based on the active provider when building synthesis requests.
+# Provider suffixes appended to extracted clips.
+# All extracted clips carry one of these suffixes — no bare variant files exist.
+#   <stem>-f5.wav                  — F5-TTS default
+#   <stem>-chatterbox.wav          — Chatterbox default
+#   <stem>-<mode>-f5.wav           — F5 variant (loud/quiet/fast/slow/breathy)
+#   <stem>-<mode>-chatterbox.wav   — Chatterbox variant
+#   <stem>-master.wav              — original master (hidden, kept for diagnostics)
 PROVIDER_SUFFIXES = ("f5", "chatterbox")
 
-# Variant mode suffixes produced by the smart extractor
+# Variant mode names (without provider suffix)
 VARIANT_SUFFIXES = ("loud", "quiet", "fast", "slow", "breathy")
 
-# Regex matching ONLY provider-specific internal clips — hidden from clients.
-# Variants (loud/quiet/fast/slow/breathy) are user-visible and must NOT match.
-#   Hidden:  <base>-f5, <base>-chatterbox
-#   Hidden:  <base>-loud-f5, <base>-quiet-f5  (F5-trimmed variant)
-#   Visible: <base>-loud, <base>-quiet, <base>-fast, <base>-slow, <base>-breathy
+# Regex matching ALL internal/hidden files — never exposed to clients.
+# Format: provider prefix comes BEFORE mode suffix.
+#   -f5              ← F5 default
+#   -f5-loud         ← F5 loud variant
+#   -chatterbox      ← Chatterbox default
+#   -chatterbox-loud ← Chatterbox loud variant
+#   -master          ← archived original
 _INTERNAL_SUFFIX_RE = re.compile(
-    r"-(?:f5|chatterbox)$"
+    r"-(?:f5|chatterbox)$"                                         # default clips
     r"|"
-    r"-(?:loud|quiet|fast|slow|breathy)-f5$"
+    r"-(?:f5|chatterbox)-(?:loud|quiet|fast|slow|breathy)$"        # variant clips
+    r"|"
+    r"-master$"                                                    # archived master
 )
 
 
@@ -66,10 +74,22 @@ class SampleInfo:
 
 def _scan_directory(samples_dir: Path, directory: Path) -> list[SampleInfo]:
     """
-    Scan a single directory for valid master sample files.
-    The directory name is the sample_id (e.g. M_Christopher_Walken/).
-    Only the master file (stem == directory name) is returned as a visible sample.
-    Provider and variant clips are internal and filtered out.
+    Scan a single directory for extracted sample clips.
+
+    Post-extraction layout (new):
+        <stem>-f5.wav               ← canonical entry (always present)
+        <stem>-chatterbox.wav       ← provider default (always present)
+        <stem>-<mode>-f5.wav        ← variant F5 clips
+        <stem>-<mode>-chatterbox.wav← variant Chatterbox clips
+        <stem>-master.wav           ← archived original (hidden)
+
+    The -f5 file is used as the anchor to determine the base sample_id.
+    Client-visible sample_ids are:
+        <stem>          — resolved to -f5 or -chatterbox by the server
+        <stem>-<mode>   — variant, resolved to -<mode>-f5 or -<mode>-chatterbox
+
+    Legacy layout (master file present, pre-extraction):
+        <stem>.wav — master file only, not yet extracted. Hidden until extracted.
     """
     results = []
     dir_stem = directory.name
@@ -81,37 +101,48 @@ def _scan_directory(samples_dir: Path, directory: Path) -> list[SampleInfo]:
         )
         return results
 
-    # Look for the master file: <dir>/<stem>.<ext>
+    # ── Find the canonical anchor file (-f5.wav) ──────────────────────────────
+    # The -f5 file is always present after extraction and carries the
+    # authoritative ref_text and description for the base sample entry.
+    # Anchor on the -f5 default clip (always present after extraction).
+    # New naming: <stem>-f5.wav
+    anchor_path = None
     for ext in (".wav", ".mp3", ".flac", ".ogg"):
-        path = directory / f"{dir_stem}{ext}"
-        if not path.exists():
-            continue
+        candidate = directory / f"{dir_stem}-f5{ext}"
+        if candidate.exists():
+            anchor_path = candidate
+            break
 
-        duration = _read_duration(path)
-        if duration is None:
-            log.warning("Sample skipped — could not read duration: %s", path)
-            continue
+    if anchor_path is None:
+        # Not yet extracted (master-only or empty directory) — skip silently.
+        # The transcriber will process it on the next scan cycle.
+        log.debug(
+            "Sample directory '%s' has no -f5 anchor yet — skipping "
+            "(not yet extracted or extraction in progress)", dir_stem
+        )
+        return results
 
-        description = _load_sidecar(path, ".txt")
-        ref_text    = _load_sidecar(path, ".ref.txt")
+    anchor_ref  = _load_sidecar(anchor_path, ".ref.txt")
+    anchor_desc = _load_sidecar(anchor_path, ".txt")
+    anchor_dur  = _read_duration(anchor_path)
 
-        if not ref_text:
-            log.debug(
-                "Sample '%s' skipped — no .ref.txt sidecar yet",
-                dir_stem,
-            )
-            return results
+    if not anchor_ref:
+        log.debug("Sample '%s' skipped — -f5 has no .ref.txt yet", dir_stem)
+        return results
 
-        results.append(SampleInfo(
-            sample_id=dir_stem,
-            filename=path.name,
-            duration_seconds=round(duration, 2),
-            description=description,
-            ref_text=ref_text,
-        ))
-        break  # found master, stop looking
+    results.append(SampleInfo(
+        sample_id=dir_stem,
+        filename=anchor_path.name,
+        duration_seconds=round(anchor_dur, 2) if anchor_dur else 0.0,
+        description=anchor_desc,
+        ref_text=anchor_ref,
+    ))
 
-    # Also expose variant clips (loud/quiet/fast/slow/breathy) as separate entries
+    # ── Expose variant sample IDs ─────────────────────────────────────────────
+    # Variant clips are <stem>-<mode>-f5.wav and <stem>-<mode>-chatterbox.wav.
+    # We expose the base variant ID (<stem>-<mode>) once per mode — the server
+    # resolves to the correct provider file at synthesis time.
+    seen_variants: set[str] = set()
     for path in sorted(directory.iterdir()):
         if not path.is_file():
             continue
@@ -120,18 +151,36 @@ def _scan_directory(samples_dir: Path, directory: Path) -> list[SampleInfo]:
 
         stem = path.stem
         if stem == dir_stem:
-            continue  # already handled as master above
+            continue  # bare master — legacy, skip
 
-        # Skip internal provider clips
-        if _INTERNAL_SUFFIX_RE.search(stem):
+        # Only process variant F5 files as the representative entry
+        # (avoids double-exposing the same variant via -chatterbox file).
+        # New naming: <stem>-f5-<mode>.wav — provider prefix comes before mode.
+        variant_id = None
+        for mode in VARIANT_SUFFIXES:
+            if stem == f"{dir_stem}-f5-{mode}":
+                variant_id = f"{dir_stem}-{mode}"
+                break
+
+        if variant_id is None or variant_id in seen_variants:
             continue
 
-        duration = _read_duration(path)
+        ref_text    = _load_sidecar(path, ".ref.txt")
+        if not ref_text:
+            continue
+        description = _load_sidecar(path, ".txt")
+        duration    = _read_duration(path)
         if duration is None:
             continue
 
-        description = _load_sidecar(path, ".txt")
-        ref_text    = _load_sidecar(path, ".ref.txt")
+        seen_variants.add(variant_id)
+        results.append(SampleInfo(
+            sample_id=variant_id,
+            filename=path.name,
+            duration_seconds=round(duration, 2),
+            description=description,
+            ref_text=ref_text,
+        ))
 
         if not ref_text:
             continue
@@ -202,7 +251,7 @@ def scan_for_provider(samples_dir: Path, provider_id: str) -> list[SampleInfo]:
     """
     Like scan() but returns provider-aware duration and description.
 
-    When a provider-specific extracted clip exists (e.g. am_onyx-f5.wav),
+    When a provider-specific extracted clip exists (e.g. M_WWZ_10-f5.wav),
     the reported duration_seconds reflects that clip rather than the master.
     This ensures the client duration filter (F5 <=11s, Chatterbox <=40s)
     operates on the actual clip that will be used for synthesis, not the
@@ -322,12 +371,13 @@ def _base_stem(sample_id: str) -> str:
     Extract the base stem from a sample_id by stripping any variant suffix.
     Variant files live in the base sample's subdirectory, not their own.
 
-    M_WWZ_10-fast    -> M_WWZ_10
-    M_WWZ_10-quiet   -> M_WWZ_10
-    M_WWZ_10         -> M_WWZ_10
-    M_Christopher_Walken-breathy -> M_Christopher_Walken
+    sample_id is always the CLIENT-VISIBLE id (no provider suffix):
+        M_WWZ_10              -> M_WWZ_10
+        M_WWZ_10-fast         -> M_WWZ_10
+        M_WWZ_10-quiet        -> M_WWZ_10
+        M_Christopher_Walken-breathy -> M_Christopher_Walken
     """
-    for mode in ("loud", "quiet", "fast", "slow", "breathy"):
+    for mode in VARIANT_SUFFIXES:
         if sample_id.endswith(f"-{mode}"):
             return sample_id[: -(len(mode) + 1)]
     return sample_id
@@ -338,17 +388,26 @@ def _provider_clip_search_paths(samples_dir: Path, sample_id: str, suffix: str):
     Yield candidate paths for a provider-specific clip, checking
     subdirectory layout first then flat layout.
 
-    Variant clips (M_WWZ_10-fast) live in the BASE sample's subdirectory
-    (M_WWZ_10/), not their own. The base stem is extracted to locate the
-    correct subdirectory.
+    Naming convention: provider prefix comes BEFORE mode suffix.
+      sample_id "M_WWZ_10"       + suffix "f5"         → M_WWZ_10-f5.wav
+      sample_id "M_WWZ_10-fast"  + suffix "f5"         → M_WWZ_10-f5-fast.wav
+      sample_id "M_WWZ_10-loud"  + suffix "chatterbox" → M_WWZ_10-chatterbox-loud.wav
+
+    For variants: strip the mode suffix from sample_id, insert provider,
+    then re-append the mode.
     """
-    base = _base_stem(sample_id)
-    # Subdirectory of the base sample (covers both master and variant clips)
+    base = _base_stem(sample_id)   # e.g. "M_WWZ_10" from "M_WWZ_10-fast"
+
+    # Determine mode suffix (empty string for base sample_ids)
+    mode = sample_id[len(base):]   # e.g. "-fast" or ""
+
+    # Canonical path: base/base-{suffix}{mode}.ext
+    # e.g. M_WWZ_10/M_WWZ_10-f5-fast.wav  or  M_WWZ_10/M_WWZ_10-f5.wav
     for ext in (".wav", ".mp3", ".flac", ".ogg"):
-        yield samples_dir / base / f"{sample_id}-{suffix}{ext}"
+        yield samples_dir / base / f"{base}-{suffix}{mode}{ext}"
     # Flat fallback
     for ext in (".wav", ".mp3", ".flac", ".ogg"):
-        yield samples_dir / f"{sample_id}-{suffix}{ext}"
+        yield samples_dir / f"{base}-{suffix}{mode}{ext}"
 
 
 def resolve_sample_path_for_provider(

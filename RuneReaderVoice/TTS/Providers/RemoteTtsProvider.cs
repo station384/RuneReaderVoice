@@ -226,6 +226,7 @@ public sealed class RemoteTtsProvider : ITtsProvider
             NfeStep           = profile.NfeStep,
             CrossFadeDuration = profile.CrossFadeDuration,
             SwaysamplingCoef  = profile.SwaysamplingCoef,
+            VoiceContext      = slot.ToString(),   // discriminates narrator vs NPC slots sharing same sample
         };
 
         var submitted = await _client.SynthesizeV2Async(v2Request, ct);

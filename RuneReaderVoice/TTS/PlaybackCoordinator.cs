@@ -52,14 +52,9 @@ public sealed class PlaybackCoordinator : IDisposable
     // Synthesis task map keyed by SegmentIndex.
     // Tasks are fired immediately on EnqueueSegment and consumed in strict order.
     private readonly Dictionary<int, Task<PcmAudio?>> _synthTasks = new();
-    private int _nextExpectedIndex;
-    private readonly object _queueLock = new();
-
-    // Per-segment ready signals. The playback loop awaits the TCS for exactly
-    // the next expected index — no semaphore counting, no signal loss on
-    // out-of-order arrivals. EnqueueSegment creates or completes the TCS for
-    // the arriving index; the loop creates it if it arrives before the segment.
-    private readonly Dictionary<int, TaskCompletionSource<bool>> _segmentReady = new();
+    private int            _nextExpectedIndex;
+    private readonly SemaphoreSlim _queueSignal = new(0);
+    private readonly object        _queueLock   = new();
 
 
 
@@ -112,16 +107,7 @@ public sealed class PlaybackCoordinator : IDisposable
             var ct        = _sessionCts?.Token ?? CancellationToken.None;
             var synthTask = SynthesizeSegmentAsync(segment, ct);
             _synthTasks[segment.SegmentIndex] = synthTask;
-
-            // Signal the TCS for this index.
-            // If the loop already created a TCS awaiting this segment → complete it.
-            // Otherwise pre-create a completed TCS so the loop finds it ready.
-            if (!_segmentReady.TryGetValue(segment.SegmentIndex, out var tcs))
-            {
-                tcs = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
-                _segmentReady[segment.SegmentIndex] = tcs;
-            }
-            tcs.TrySetResult(true);
+            _queueSignal.Release();
         }
     }
 
@@ -161,12 +147,11 @@ public sealed class PlaybackCoordinator : IDisposable
         lock (_queueLock)
         {
             _synthTasks.Clear();
-            // Cancel any pending TCS awaits so the playback loop unblocks cleanly
-            foreach (var tcs in _segmentReady.Values)
-                tcs.TrySetCanceled();
-            _segmentReady.Clear();
             _nextExpectedIndex = 0;
         }
+
+        while (_queueSignal.CurrentCount > 0)
+            _queueSignal.Wait(0);
 
         var oldCts    = _sessionCts;
         _sessionCts   = new CancellationTokenSource();
@@ -182,31 +167,15 @@ public sealed class PlaybackCoordinator : IDisposable
 
         while (!ct.IsCancellationRequested)
         {
-            // Get or create the TCS for the next expected segment index.
-            // If the segment was already enqueued (TCS pre-completed), this
-            // returns immediately. If not yet enqueued, we await here until
-            // EnqueueSegment signals it — no spin, no signal loss.
-            TaskCompletionSource<bool> readyTcs;
-            lock (_queueLock)
-            {
-                if (!_segmentReady.TryGetValue(_nextExpectedIndex, out readyTcs!))
-                {
-                    readyTcs = new TaskCompletionSource<bool>(
-                        TaskCreationOptions.RunContinuationsAsynchronously);
-                    _segmentReady[_nextExpectedIndex] = readyTcs;
-                }
-            }
-
-            try { await readyTcs.Task.WaitAsync(ct); }
+            try { await _queueSignal.WaitAsync(ct); }
             catch (OperationCanceledException) { break; }
 
             Task<PcmAudio?>? nextTask;
             lock (_queueLock)
             {
-                _synthTasks.TryGetValue(_nextExpectedIndex, out nextTask);
+                if (!_synthTasks.TryGetValue(_nextExpectedIndex, out nextTask))
+                    continue;
             }
-
-            if (nextTask == null) continue; // shouldn't happen but guard anyway
 
             // Await synthesis — natural buffer-underrun wait.
             // While this waits, all later synthesis tasks are already running.
@@ -228,14 +197,13 @@ public sealed class PlaybackCoordinator : IDisposable
                 AppServices.ClearOperationStatus();
                 System.Diagnostics.Debug.WriteLine(
                     $"[PlaybackCoordinator] Synthesis error segment {_nextExpectedIndex}: {ex.Message}");
-                lock (_queueLock) { _synthTasks.Remove(_nextExpectedIndex); _segmentReady.Remove(_nextExpectedIndex); _nextExpectedIndex++; }
+                lock (_queueLock) { _synthTasks.Remove(_nextExpectedIndex); _nextExpectedIndex++; }
                 continue;
             }
 
             lock (_queueLock)
             {
                 _synthTasks.Remove(_nextExpectedIndex);
-                _segmentReady.Remove(_nextExpectedIndex);
                 _nextExpectedIndex++;
             }
 
@@ -271,16 +239,24 @@ public sealed class PlaybackCoordinator : IDisposable
     {
         System.Diagnostics.Debug.WriteLine(
             $"[PC] Synth start seg={segment.SegmentIndex} slot={segment.Slot} provider={_provider.ProviderId}");
-        // Use slot+seq aware suppression. Including SegmentIndex ensures two
-        // segments with identical text at different positions in the same dialog
-        // (e.g. "You flip to the next section." appearing as seq=5 and seq=7)
-        // are never suppressed by each other.
-        var slotKey = $"{segment.Slot}:{segment.SegmentIndex}";
-        if (_recentSpeechSuppressor.ShouldSuppress(segment.Text, slotKey))
+        // Suppressor key includes SegmentIndex so two segments with identical text
+        // at different positions in the same dialog (e.g. "You flip to the next
+        // section." at seq=5 and seq=7) are never suppressed by each other.
+        var suppressorKey = $"{segment.Slot}:{segment.SegmentIndex}";
+        if (_recentSpeechSuppressor.ShouldSuppress(segment.Text, suppressorKey))
         {
-            System.Diagnostics.Debug.WriteLine($"[PC] Suppressed seg={segment.SegmentIndex} slot={slotKey} (recent repeat)");
+            System.Diagnostics.Debug.WriteLine($"[PC] Suppressed seg={segment.SegmentIndex} slot={suppressorKey} (recent repeat)");
             return null;
         }
+
+        // Cache key does NOT include SegmentIndex. The same text spoken by the
+        // same voice at any position in any dialog should share a cache entry.
+        // SegmentIndex in the cache key caused:
+        //   (a) cache misses when text shaping changed segment boundaries
+        //   (b) stale Human-slot audio surfacing because the old key was never hit
+        // The slot string (e.g. "BloodElf/Male") already namespaces the key —
+        // two different races or genders with the same sample never collide.
+        var cacheSlotKey = $"{segment.Slot}";
 
         // Bespoke sample only applies to NPC voice slots — never narrator.
         // Narrator segments share the same NpcId as the NPC dialog but should
@@ -305,16 +281,16 @@ public sealed class PlaybackCoordinator : IDisposable
         // defaulting to am_adam) never share cache entries and play the wrong voice.
         // Bespoke entries also include the sample ID to distinguish from the slot default.
         var effectiveVoiceId = applyBespoke
-            ? $"{slotKey}:{voiceId}+bespoke:{segment.BespokeSampleId}"
-            : $"{slotKey}:{voiceId}";
+            ? $"{cacheSlotKey}:{voiceId}+bespoke:{segment.BespokeSampleId}"
+            : $"{cacheSlotKey}:{voiceId}";
 
         var cached = await _cache.TryGetDecodedAsync(segment.Text, effectiveVoiceId, _provider.ProviderId, "", ct);
         if (cached != null)
         {
-            System.Diagnostics.Debug.WriteLine($"[PC] Cache HIT seg={segment.SegmentIndex} voice={effectiveVoiceId}");
+            System.Diagnostics.Debug.WriteLine($"[PC] Cache HIT seg={segment.SegmentIndex} slot={cacheSlotKey} voice={effectiveVoiceId}");
             return DspFilterChain.Apply(cached, profile?.Dsp);
         }
-        System.Diagnostics.Debug.WriteLine($"[PC] Cache MISS seg={segment.SegmentIndex} voice={effectiveVoiceId}");
+        System.Diagnostics.Debug.WriteLine($"[PC] Cache MISS seg={segment.SegmentIndex} slot={cacheSlotKey} voice={effectiveVoiceId}");
 
         if (_provider is RemoteTtsProvider remoteProvider)
         {
@@ -406,5 +382,6 @@ public sealed class PlaybackCoordinator : IDisposable
         _disposed = true;
         CancelCurrentSession();
         _sessionCts?.Dispose();
+        _queueSignal.Dispose();
     }
 }

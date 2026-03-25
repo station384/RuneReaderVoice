@@ -210,6 +210,7 @@ async def synthesize_v2(body: SynthesizeRequest, request: Request) -> dict:
         nfe_step=body.nfe_step,
         cross_fade_duration=body.cross_fade_duration,
         sway_sampling_coef=body.sway_sampling_coef,
+        voice_context=body.voice_context,
     )
 
     # 4. Check cache — if hit, job completes immediately

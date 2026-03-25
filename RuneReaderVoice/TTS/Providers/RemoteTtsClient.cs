@@ -390,6 +390,16 @@ public sealed class RemoteSynthesizeV2Request
     [JsonPropertyName("cross_fade_duration")] public float? CrossFadeDuration  { get; set; }
     /// <summary>ODE time step distribution: -1.0 = sway optimal, 0.0 = uniform.</summary>
     [JsonPropertyName("sway_sampling_coef")] public float? SwaysamplingCoef   { get; set; }
+
+    // ── Cache discrimination ───────────────────────────────────────────────────
+    /// <summary>
+    /// Slot identity string (e.g. "NightElf/Female", "Narrator") included in the
+    /// server cache key. Prevents two different voice slots that happen to use the
+    /// same reference sample and same text from sharing a cache entry and returning
+    /// the wrong audio (e.g. narrator text cached from an NPC slot being served back
+    /// for a narrator segment, or male NPC audio returned for a female NPC request).
+    /// </summary>
+    [JsonPropertyName("voice_context")] public string? VoiceContext { get; set; }
 }
 
 public sealed class RemoteVoiceSpec

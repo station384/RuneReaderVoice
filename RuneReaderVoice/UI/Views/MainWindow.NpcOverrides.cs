@@ -525,37 +525,44 @@ public partial class MainWindow
     {
         dropdown.Items.Clear();
 
-        var entries = new System.Collections.Generic.List<(int raceId, string label)>();
-
         var playerIds   = RaceAccentMapping.PlayerRaceIds;
         var creatureIds = RaceAccentMapping.CreatureTypeIds;
+        var npcOnlyIds  = RaceAccentMapping.NpcOnlyRaceIds;
 
-        // One row per unique race: use the Male (or Narrator) catalog entry as
+        var playerEntries   = new System.Collections.Generic.List<(int raceId, string label)>();
+        var creatureEntries = new System.Collections.Generic.List<(int raceId, string label)>();
+        var npcOnlyEntries  = new System.Collections.Generic.List<(int raceId, string label)>();
+
+        // One row per unique race/group: use the Male (or Narrator) catalog entry as
         // the representative label; gender is resolved at runtime from NPC data.
         foreach (var item in NpcVoiceSlotCatalog.All)
         {
             if (item.Slot.Gender == Gender.Female) continue;
 
-            var group     = item.Slot.Group;
-            var raceName  = item.NpcLabel
+            var group    = item.Slot.Group;
+            var raceName = item.NpcLabel
                 .Replace(" / Male", "")
                 .Replace(" NPC / Male", " NPC");
-            var label     = $"{raceName} — {item.AccentLabel}";
+            var label    = $"{raceName} — {item.AccentLabel}";
 
             if (playerIds.TryGetValue(group, out int pid))
-            {
-                entries.Add((pid, label));
-            }
+                playerEntries.Add((pid, label));
             else if (creatureIds.TryGetValue(group, out int cid))
-            {
-                entries.Add((cid, label));
-            }
+                creatureEntries.Add((cid, label));
+            else if (npcOnlyIds.TryGetValue(group, out int nid))
+                npcOnlyEntries.Add((nid, label));
+            // Narrator slot has no race ID — intentionally excluded
         }
 
-        // Sort: player races (low IDs) first, then creature types (0x50+).
-        entries.Sort((a, b) => a.raceId.CompareTo(b.raceId));
+        // Sort each group by ID, then append in display order:
+        //   Player races (IDs 1–70) → Creature types (0x50–0x58) → NPC-only (0x0200+)
+        playerEntries.Sort((a, b)  => a.raceId.CompareTo(b.raceId));
+        creatureEntries.Sort((a, b) => a.raceId.CompareTo(b.raceId));
+        npcOnlyEntries.Sort((a, b)  => a.raceId.CompareTo(b.raceId));
 
-        foreach (var (raceId, label) in entries)
+        foreach (var (raceId, label) in playerEntries
+            .Concat(creatureEntries)
+            .Concat(npcOnlyEntries))
         {
             dropdown.Items.Add(new ComboBoxItem
             {

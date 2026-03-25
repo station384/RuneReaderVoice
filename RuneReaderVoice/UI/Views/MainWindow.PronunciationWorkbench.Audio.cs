@@ -13,9 +13,12 @@ public partial class MainWindow
     {
         var voiceId = AppServices.Provider.ResolveVoiceId(slot);
         var profile = AppServices.Provider.ResolveProfile(slot);
+        // Include slot in cache key — same as PlaybackCoordinator — so two slots
+        // that share the same underlying voice ID never collide in cache.
+        var effectiveVoiceId = $"{slot}:{voiceId}";
         var cachedAudio = await AppServices.Cache.TryGetDecodedAsync(
             text,
-            voiceId,
+            effectiveVoiceId,
             AppServices.Provider.ProviderId,
             "",
             default);
@@ -29,14 +32,14 @@ public partial class MainWindow
             await AppServices.Cache.StoreOggAsync(
                 oggBytes,
                 text,
-                voiceId,
+                effectiveVoiceId,
                 AppServices.Provider.ProviderId,
                 "",
                 default);
 
             var decoded = await AppServices.Cache.TryGetDecodedAsync(
                 text,
-                voiceId,
+                effectiveVoiceId,
                 AppServices.Provider.ProviderId,
                 "",
                 default);
@@ -52,7 +55,7 @@ public partial class MainWindow
         await AppServices.Cache.StoreAsync(
             rawAudio,
             text,
-            voiceId,
+            effectiveVoiceId,
             AppServices.Provider.ProviderId,
             "",
             default);

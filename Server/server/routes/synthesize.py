@@ -67,6 +67,7 @@ class SynthesizeRequest(BaseModel):
     nfe_step:            int   | None = Field(default=None, ge=8,   le=64)
     cross_fade_duration: float | None = Field(default=None, ge=0.0, le=1.0)
     sway_sampling_coef:  float | None = Field(default=None, ge=-1.0, le=1.0)
+    voice_context:       str   | None = None   # slot identity (e.g. "NightElf/Female") for cache discrimination
 
 
 # ── Endpoint ──────────────────────────────────────────────────────────────────
@@ -139,6 +140,7 @@ async def synthesize(body: SynthesizeRequest, request: Request) -> Response:
         nfe_step=body.nfe_step,
         cross_fade_duration=body.cross_fade_duration,
         sway_sampling_coef=body.sway_sampling_coef,
+        voice_context=body.voice_context,
     )
 
     # 6. Cache hit check (no lock needed for reads)

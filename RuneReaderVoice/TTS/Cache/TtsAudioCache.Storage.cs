@@ -208,7 +208,11 @@ public sealed partial class TtsAudioCache
 
     public static string ComputeKey(string text, string voiceId, string providerId, string dspKey = "")
     {
-        var input = $"{text}\x00{voiceId}\x00{providerId}\x00{dspKey}";
+        // dspKey intentionally excluded — DSP is a client-side post-process applied
+        // after cache retrieval. The same raw synthesized audio is valid for any DSP
+        // setting; DSP was never server-side. Including it would cause unnecessary
+        // cache misses whenever the user changes effect parameters.
+        var input = $"{text}\x00{voiceId}\x00{providerId}";
         var hash  = SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(input));
         return Convert.ToHexString(hash)[..16].ToLowerInvariant();
     }

@@ -206,6 +206,42 @@ public static class RaceAccentMapping
     public static IReadOnlyDictionary<AccentGroup, int> CreatureTypeIds { get; } =
         BuildInverse(CreatureTypeMap);
 
+    /// <summary>
+    /// Synthetic race IDs for NPC-only accent groups that have no WoW race byte.
+    /// These are assigned by the user via the NPC override panel (not auto-detected
+    /// from packets). Range: 0x0200 + (int)AccentGroup — safely above all real
+    /// WoW race IDs (max ~0x70) and creature types (0x50–0x58).
+    /// Stored in NpcRaceOverrides.RaceId so overrides round-trip correctly.
+    /// </summary>
+    private static readonly Dictionary<int, AccentGroup> NpcOnlyRaceMap = new()
+    {
+        { 0x021F, AccentGroup.Amani                },  // Amani
+        { 0x0220, AccentGroup.Arathi               },  // Arathi
+        { 0x0221, AccentGroup.Broken               },  // Broken
+        { 0x0222, AccentGroup.Centaur              },  // Centaur
+        { 0x0223, AccentGroup.DarkTroll            },  // DarkTroll
+        { 0x0224, AccentGroup.Dredger              },  // Dredger
+        { 0x0225, AccentGroup.Dryad                },  // Dryad
+        { 0x0226, AccentGroup.Faerie               },  // Faerie
+        { 0x0227, AccentGroup.Fungarian            },  // Fungarian
+        { 0x0228, AccentGroup.Grummle              },  // Grummle
+        { 0x0229, AccentGroup.Hobgoblin            },  // Hobgoblin
+        { 0x022A, AccentGroup.Kyrian               },  // Kyrian
+        { 0x022B, AccentGroup.Nerubian             },  // Nerubian
+        { 0x022C, AccentGroup.Refti                },  // Refti
+        { 0x022D, AccentGroup.Revantusk            },  // Revantusk
+        { 0x022E, AccentGroup.Rutaani              },  // Rutaani
+        { 0x022F, AccentGroup.Shadowpine           },  // Shadowpine
+        { 0x0230, AccentGroup.Titan                },  // Titan
+        { 0x0231, AccentGroup.Tortollan            },  // Tortollan
+        { 0x0232, AccentGroup.Tuskarr              },  // Tuskarr
+        { 0x0233, AccentGroup.Venthyr              },  // Venthyr
+        { 0x0234, AccentGroup.ZulAman              },  // ZulAman
+    };
+
+    public static IReadOnlyDictionary<AccentGroup, int> NpcOnlyRaceIds { get; } =
+        BuildInverse(NpcOnlyRaceMap);
+
     private static System.Collections.Generic.Dictionary<AccentGroup, int>
         BuildInverse(Dictionary<int, AccentGroup> map)
     {
@@ -258,6 +294,10 @@ public static class RaceAccentMapping
         // range because 0x50–0x7F overlaps with the broad player race check below.
         if (raceByte is >= 0x50 and <= 0x58)
             return CreatureTypeMap.TryGetValue(raceByte, out var g) ? g : AccentGroup.Narrator;
+
+        // Synthetic NPC-only range: 0x0200 + (int)AccentGroup
+        if (raceByte >= 0x0200)
+            return NpcOnlyRaceMap.TryGetValue(raceByte, out var ng) ? ng : AccentGroup.Narrator;
 
         if (raceByte is >= 0x01 and <= 0x7F)
             return PlayerRaceMap.TryGetValue(raceByte, out var g) ? g : AccentGroup.Human;
