@@ -44,6 +44,15 @@ def pcm_to_ogg(samples, sample_rate: int) -> bytes:
     if not isinstance(samples, np.ndarray) or samples.dtype != np.float32:
         samples = np.array(samples, dtype=np.float32)
 
+    # Determine channel count from array shape so ffmpeg output can be forced
+    # back to the expected layout after loudnorm processing.
+    if samples.ndim == 1:
+        channels = 1
+    elif samples.ndim == 2:
+        channels = int(samples.shape[1])
+    else:
+        raise ValueError(f"Unsupported PCM shape for OGG encode: {samples.shape}")
+
     # Clamp to prevent clipping artefacts in the encoder
     samples = np.clip(samples, -1.0, 1.0)
 
@@ -67,6 +76,12 @@ def pcm_to_ogg(samples, sample_rate: int) -> bytes:
                 # LRA=11   loudness range — preserves natural dynamics
                 # TP=-1.5  true peak ceiling — prevents clipping after encode
                 "-af", "loudnorm=I=-21:LRA=11:TP=-1.5",
+                # loudnorm may internally upsample to 192 kHz for true-peak
+                # analysis; force the encoded output back to the model/native
+                # PCM format so downstream caches and clients see stable audio
+                # formats.
+                "-ar", str(int(sample_rate)),
+                "-ac", str(int(channels)),
                 "-c:a", "libvorbis",
                 "-q:a", str(OGG_QUALITY),
                 "-f", "ogg",
