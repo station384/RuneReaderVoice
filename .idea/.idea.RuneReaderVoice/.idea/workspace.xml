@@ -12,7 +12,6 @@
       <change afterPath="$PROJECT_DIR$/RuneReaderVoice/Models/kokoro-quant-gpu.onnx" afterDir="false" />
       <change afterPath="$PROJECT_DIR$/RuneReaderVoice/Models/kokoro-quant.onnx" afterDir="false" />
       <change afterPath="$PROJECT_DIR$/RuneReaderVoice/Models/kokoro.onnx" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/RuneReaderVoice/TTS/Providers/RemoteTtsProvider.cs" beforeDir="false" afterPath="$PROJECT_DIR$/RuneReaderVoice/TTS/Providers/RemoteTtsProvider.cs" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -55,7 +54,7 @@
     "node.js.selected.package.eslint": "(autodetect)",
     "node.js.selected.package.tslint": "(autodetect)",
     "nodejs_package_manager_path": "npm",
-    "settings.editor.selected.configurable": "configurable.group.build",
+    "settings.editor.selected.configurable": "project.propDebugger",
     "vue.rearranger.settings.migration": "true"
   }
 }]]></component>
@@ -89,7 +88,7 @@
       <option name="number" value="Default" />
       <option name="presentableId" value="Default" />
       <updated>1774479846937</updated>
-      <workItem from="1774479850514" duration="7766000" />
+      <workItem from="1774479850514" duration="8213000" />
     </task>
     <task id="LOCAL-00001" summary="Add the IDE settings because I am getting tired os seeing them in the list.">
       <option name="closed" value="true" />
@@ -147,7 +146,31 @@
       <option name="project" value="LOCAL" />
       <updated>1774545057541</updated>
     </task>
-    <option name="localTasksCounter" value="8" />
+    <task id="LOCAL-00008" summary="Relax constraints on what sound files the client can play">
+      <option name="closed" value="true" />
+      <created>1774546045435</created>
+      <option name="number" value="00008" />
+      <option name="presentableId" value="LOCAL-00008" />
+      <option name="project" value="LOCAL" />
+      <updated>1774546045435</updated>
+    </task>
+    <task id="LOCAL-00009" summary="Add the updated design document">
+      <option name="closed" value="true" />
+      <created>1774546113257</created>
+      <option name="number" value="00009" />
+      <option name="presentableId" value="LOCAL-00009" />
+      <option name="project" value="LOCAL" />
+      <updated>1774546113257</updated>
+    </task>
+    <task id="LOCAL-00010" summary="Add my workspace settings">
+      <option name="closed" value="true" />
+      <created>1774546137054</created>
+      <option name="number" value="00010" />
+      <option name="presentableId" value="LOCAL-00010" />
+      <option name="project" value="LOCAL" />
+      <updated>1774546137054</updated>
+    </task>
+    <option name="localTasksCounter" value="11" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -187,7 +210,10 @@
     <MESSAGE value="Having a working parallel pipeline.   as long as we don't go OOM." />
     <MESSAGE value="Parallel is now fully in.   Samples can be out at different qualities per provider which helps with some (F5 is twitchy)" />
     <MESSAGE value="Small fix for server TTS generation.  lock it keep sample rate at source sample rate,  not 119khz." />
-    <option name="LAST_COMMIT_MESSAGE" value="Small fix for server TTS generation.  lock it keep sample rate at source sample rate,  not 119khz." />
+    <MESSAGE value="Relax constraints on what sound files the client can play" />
+    <MESSAGE value="Add the updated design document" />
+    <MESSAGE value="Add my workspace settings" />
+    <option name="LAST_COMMIT_MESSAGE" value="Add my workspace settings" />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>
@@ -203,6 +229,12 @@
         <breakpoint enabled="true" type="DotNet_Exception_Breakpoints">
           <properties exception="System.Threading.ThreadAbortException" breakIfHandledByOtherCode="false" displayValue="System.Threading.ThreadAbortException" />
           <option name="timeStamp" value="3" />
+        </breakpoint>
+        <breakpoint enabled="true" type="DotNet_Exception_Breakpoints">
+          <properties exception="System.IO.IOException" breakIfHandledByOtherCode="false" breakIfThrownInExternalCode="false" isInternal="false" displayValue="IOException" namespaceName="System.IO">
+            <option name="internal" value="false" />
+          </properties>
+          <option name="timeStamp" value="4" />
         </breakpoint>
       </breakpoints>
     </breakpoint-manager>
