@@ -41,7 +41,6 @@ import logging
 import os
 import shutil
 import subprocess
-from concurrent.futures import ProcessPoolExecutor, Future
 from pathlib import Path
 from typing import Optional
 
@@ -72,6 +71,12 @@ _WAV_CODEC       = "pcm_s16le"   # PCM_16 — guarantees float32 from librosa
 # may clip the last phoneme or mis-time the final word.
 _PAD_LEAD_SECONDS = 0.5   # 0.5s silence prepended
 _PAD_TAIL_SECONDS = 1.0   # 1.0s silence appended
+
+# Generated clip retranscription uses batched inference on the same Whisper
+# pipeline rather than loading multiple Whisper model copies. This improves GPU
+# utilisation without duplicating the model in VRAM. Default batch size is 2,
+# which can be overridden for backfill runs.
+_GENERATED_BATCH_SIZE = max(1, int(os.getenv("RRV_WHISPER_GENERATED_BATCH_SIZE", "2") or "2"))
 
 
 def check_ffmpeg() -> bool:
@@ -178,86 +183,6 @@ def _apply_gender_prefix(audio_path: Path, prefix: str) -> Path:
 MAX_SAMPLE_DURATION_SEC = 1200.0  # 20 minutes — covers typical audiobook chapter segments
 
 
-_PROFILE_EXECUTOR: ProcessPoolExecutor | None = None
-_PROFILE_WORKERS: int | None = None
-
-
-def _default_profile_workers() -> int:
-    env_value = os.getenv("RRV_SAMPLE_PROFILE_WORKERS", "").strip()
-    if env_value:
-        try:
-            workers = int(env_value)
-            if workers < 1:
-                raise ValueError
-            return workers
-        except ValueError:
-            log.warning(
-                "Invalid RRV_SAMPLE_PROFILE_WORKERS=%r — using automatic worker count",
-                env_value,
-            )
-    cpu_count = os.cpu_count() or 2
-    return max(2, min(4, cpu_count // 2 if cpu_count > 2 else 2))
-
-
-def _get_profile_executor() -> tuple[ProcessPoolExecutor, int]:
-    global _PROFILE_EXECUTOR, _PROFILE_WORKERS
-    if _PROFILE_EXECUTOR is None:
-        _PROFILE_WORKERS = _default_profile_workers()
-        _PROFILE_EXECUTOR = ProcessPoolExecutor(max_workers=_PROFILE_WORKERS)
-        log.info(
-            "Clip profiling parallelism enabled — process workers=%d",
-            _PROFILE_WORKERS,
-        )
-    return _PROFILE_EXECUTOR, _PROFILE_WORKERS or 1
-
-
-def _profile_voice_job(audio_path_str: str, transcript: str, language: str) -> tuple[str, str]:
-    audio_path = Path(audio_path_str)
-    profile = profile_voice(audio_path, transcript=transcript, language=language)
-    return audio_path_str, profile
-
-
-def _submit_clip_profile_task(audio_path: Path, transcript: str, language: str) -> Future:
-    executor, _ = _get_profile_executor()
-    return executor.submit(_profile_voice_job, str(audio_path), transcript, language)
-
-
-def _drain_clip_profile_futures(
-    pending_futures: list[tuple[Future, Path]],
-    *,
-    wait_for_all: bool,
-) -> None:
-    if not pending_futures:
-        return
-
-    remaining: list[tuple[Future, Path]] = []
-    for future, clip_path in pending_futures:
-        if not wait_for_all and not future.done():
-            remaining.append((future, clip_path))
-            continue
-
-        try:
-            resolved_audio_path_str, clip_profile = future.result()
-            resolved_audio_path = Path(resolved_audio_path_str)
-            if clip_profile:
-                clip_txt = resolved_audio_path.with_name(resolved_audio_path.stem + ".txt")
-                _write_sidecar_with_debug(
-                    clip_txt,
-                    clip_profile,
-                    kind="generated_profile",
-                    source_audio=resolved_audio_path,
-                )
-                log.info(
-                    "Voice profile written for clip '%s': %s",
-                    resolved_audio_path.name, clip_profile
-                )
-        except Exception as e:
-            log.warning("Voice profiling task failed for '%s': %s", clip_path.name, e)
-
-    pending_futures[:] = remaining
-
-
-
 def _pad_wav_silence(wav_path: Path) -> None:
     """
     Prepend _PAD_LEAD_SECONDS and append _PAD_TAIL_SECONDS of silence to the
@@ -315,6 +240,112 @@ def _write_sidecar_with_debug(sidecar_path: Path, text: str, *, kind: str, sourc
         )
 
 
+def _is_cuda_oom_error(exc: Exception) -> bool:
+    message = str(exc).lower()
+    return "out of memory" in message and "cuda" in message
+
+
+def _log_cuda_memory(prefix: str) -> None:
+    try:
+        import torch
+        if torch.cuda.is_available():
+            allocated = torch.cuda.memory_allocated() / (1024 * 1024)
+            reserved = torch.cuda.memory_reserved() / (1024 * 1024)
+            log.info("%s cuda_mem_allocated=%.1fMiB cuda_mem_reserved=%.1fMiB", prefix, allocated, reserved)
+    except Exception:
+        pass
+
+
+def _retranscribe_generated_clips(pipe, clips: list, language_hint: str, batch_size: int = _GENERATED_BATCH_SIZE) -> None:
+    """Re-run Whisper on generated clips using batched inference on a single pipeline."""
+    if not clips:
+        return
+
+    batch_size = max(1, int(batch_size or 1))
+    total = len(clips)
+    log.info(
+        "Generated clip retranscription queue starting — clips=%d batch_size=%d",
+        total, batch_size
+    )
+
+    index = 0
+    while index < total:
+        batch = clips[index:index + batch_size]
+        try:
+            results = TranscriptionService._transcribe_many_static(
+                pipe,
+                [clip.path for clip in batch],
+                language_hint=language_hint,
+                batch_size=len(batch),
+            )
+            for clip, (transcript, _clip_language, _chunks) in zip(batch, results):
+                if not transcript:
+                    log.warning(
+                        "Generated clip retranscription returned empty result: audio='%s'",
+                        clip.path,
+                    )
+                    continue
+                _write_sidecar_with_debug(
+                    clip.ref_path,
+                    transcript,
+                    kind="generated_ref",
+                    source_audio=clip.path,
+                )
+            index += len(batch)
+        except Exception as e:
+            if len(batch) > 1 and _is_cuda_oom_error(e):
+                log.warning(
+                    "Generated clip batch retranscription hit CUDA OOM at batch_size=%d — falling back to serial for remaining %d clip(s)",
+                    len(batch), total - index
+                )
+                _log_cuda_memory("Generated clip retranscription OOM:")
+                try:
+                    import torch
+                    if torch.cuda.is_available():
+                        torch.cuda.empty_cache()
+                except Exception:
+                    pass
+                batch_size = 1
+                continue
+
+            if len(batch) > 1:
+                log.warning(
+                    "Generated clip batch retranscription failed at batch_size=%d — retrying serial for this batch: %s",
+                    len(batch), e
+                )
+                for clip in batch:
+                    try:
+                        transcript, _clip_language, _chunks = TranscriptionService._transcribe_one_static(
+                            pipe, clip.path, language_hint=language_hint
+                        )
+                        if not transcript:
+                            log.warning(
+                                "Generated clip retranscription returned empty result: audio='%s'",
+                                clip.path,
+                            )
+                            continue
+                        _write_sidecar_with_debug(
+                            clip.ref_path,
+                            transcript,
+                            kind="generated_ref",
+                            source_audio=clip.path,
+                        )
+                    except Exception as inner:
+                        log.warning(
+                            "Generated clip retranscription failed: audio='%s' error=%s",
+                            clip.path, inner
+                        )
+                index += len(batch)
+                continue
+
+            clip = batch[0]
+            log.warning(
+                "Generated clip retranscription failed: audio='%s' error=%s",
+                clip.path, e
+            )
+            index += 1
+
+
 def _retranscribe_generated_clips(pipe, clips: list, language_hint: str) -> None:
     """Re-run Whisper on each generated clip so clip .ref.txt reflects actual clip audio."""
     for clip in clips:
@@ -339,23 +370,6 @@ def _retranscribe_generated_clips(pipe, clips: list, language_hint: str) -> None
                 "Generated clip retranscription failed: audio='%s' error=%s",
                 clip.path, e
             )
-
-
-def _drain_generated_clip_queue(pipe, queued_generated_clips: list[tuple[Path, list, str]]) -> None:
-    if not queued_generated_clips:
-        return
-
-    log.info(
-        "Generated clip retranscription queue starting — master_files=%d",
-        len(queued_generated_clips),
-    )
-    for master_audio_path, clips, language in queued_generated_clips:
-        log.info(
-            "Generated clip retranscription: master='%s' clips=%d",
-            master_audio_path.name,
-            len(clips),
-        )
-        _retranscribe_generated_clips(pipe, clips, language)
 
 
 
@@ -692,11 +706,8 @@ class TranscriptionService:
             return 0
 
         count = 0
-        clip_profile_futures: list[tuple[Future, Path]] = []
-        queued_generated_clips: list[tuple[Path, list, str]] = []
         try:
             for audio_path in pending:
-                _drain_clip_profile_futures(clip_profile_futures, wait_for_all=False)
                 try:
                     transcript, language, chunks = self._transcribe_one(pipe, audio_path)
                     if transcript:
@@ -762,45 +773,27 @@ class TranscriptionService:
                                     master_duration=master_duration,
                                     emit_variants=True,
                                 )
-                                if extraction.clips:
-                                    queued_generated_clips.append((audio_path, extraction.clips, language))
-                                    log.info(
-                                        "Queued generated clip retranscription: master='%s' clips=%d queued_masters=%d",
-                                        audio_path.name,
-                                        len(extraction.clips),
-                                        len(queued_generated_clips),
-                                    )
-
-                                # Write voice profile sidecar for each extracted clip.
-                                # This is CPU-heavy (librosa/pyin/etc.), so dispatch it
-                                # to a small process pool while the main thread continues
-                                # on to the next master Whisper pass.
-                                _, profile_workers = _get_profile_executor()
+                                _retranscribe_generated_clips(pipe, extraction.clips, language)
+                                # Write voice profile sidecar for each extracted clip
                                 for clip in extraction.clips:
                                     clip_txt = clip.path.with_name(clip.path.stem + ".txt")
-                                    if clip_txt.exists():
-                                        continue
-                                    transcript_for_profile = _load_sidecar(clip.path, ".ref.txt") or clip.ref_text
-                                    future = _submit_clip_profile_task(
-                                        clip.path,
-                                        transcript_for_profile,
-                                        language,
-                                    )
-                                    clip_profile_futures.append((future, clip.path))
-                                    log.info(
-                                        "Queued clip voice profiling: audio='%s' pending=%d workers=%d",
-                                        clip.path, len(clip_profile_futures), profile_workers
-                                    )
-
-                                # Keep the queue bounded so a large batch does not build
-                                # up an unbounded number of pending profiling tasks.
-                                max_pending_profiles = max(2, profile_workers * 2)
-                                if len(clip_profile_futures) >= max_pending_profiles:
-                                    log.info(
-                                        "Clip profile queue reached %d pending task(s) — draining completed work",
-                                        len(clip_profile_futures),
-                                    )
-                                    _drain_clip_profile_futures(clip_profile_futures, wait_for_all=False)
+                                    if not clip_txt.exists():
+                                        clip_profile = profile_voice(
+                                            clip.path,
+                                            transcript=clip.ref_text,
+                                            language=language,
+                                        )
+                                        if clip_profile:
+                                            _write_sidecar_with_debug(
+                                                clip_txt,
+                                                clip_profile,
+                                                kind="generated_profile",
+                                                source_audio=clip.path,
+                                            )
+                                            log.info(
+                                                "Voice profile written for clip '%s': %s",
+                                                clip.path.name, clip_profile
+                                            )
                             except Exception as e:
                                 log.warning(
                                     "Smart extraction failed for '%s' (non-fatal): %s",
@@ -817,10 +810,7 @@ class TranscriptionService:
                         log.warning("Transcription returned empty result for: %s", audio_path.name)
                 except Exception as e:
                     log.error("Failed to transcribe '%s': %s", audio_path.name, e)
-
-            _drain_generated_clip_queue(pipe, queued_generated_clips)
         finally:
-            _drain_clip_profile_futures(clip_profile_futures, wait_for_all=True)
             del pipe
             try:
                 import torch
@@ -911,6 +901,55 @@ class TranscriptionService:
         return self._transcribe_one_static(pipe, audio_path, language_hint="en")
 
     @staticmethod
+    def _transcribe_many_static(pipe, audio_paths: list[Path], language_hint: str = "en", batch_size: int = 1) -> list[tuple[str, str, list]]:
+        import soundfile as sf
+
+        audio_inputs = []
+        for audio_path in audio_paths:
+            raw_audio_data, sample_rate = sf.read(str(audio_path), dtype='float32')
+            channels = raw_audio_data.shape[1] if getattr(raw_audio_data, 'ndim', 1) > 1 else 1
+            audio_data = raw_audio_data.mean(axis=1) if channels > 1 else raw_audio_data
+            log.info(
+                "Whisper input: audio='%s' sample_rate=%d samples=%d channels=%d",
+                audio_path, sample_rate, len(audio_data), channels
+            )
+            audio_inputs.append({"array": audio_data, "sampling_rate": sample_rate})
+
+        generate_kwargs = {"task": "transcribe"}
+        if language_hint:
+            generate_kwargs["language"] = language_hint
+
+        _log_cuda_memory("Generated clip retranscription batch start:")
+        results = pipe(
+            audio_inputs,
+            return_timestamps="word",
+            chunk_length_s=30,
+            batch_size=max(1, int(batch_size or 1)),
+            ignore_warning=True,
+            generate_kwargs=generate_kwargs,
+        )
+        if isinstance(results, dict):
+            results = [results]
+
+        processed = []
+        for audio_path, result in zip(audio_paths, results):
+            text = result.get("text", "").strip()
+            language = result.get("language", "")
+            chunks = result.get("chunks", [])
+            text, chunks = _clean_hallucinated_transcript(text, chunks)
+            log.info(
+                "Whisper output: audio='%s' chars=%d chunks=%d text='%s'",
+                audio_path, len(text), len(chunks), text[:160] + ("..." if len(text) > 160 else "")
+            )
+            if language:
+                log.info("Whisper detected language '%s' for '%s'", language, audio_path.name)
+            log.debug("Whisper chunks for '%s': %d chunk(s)", audio_path.name, len(chunks))
+            processed.append((text, language, chunks))
+
+        _log_cuda_memory("Generated clip retranscription batch end:")
+        return processed
+
+    @staticmethod
     def _transcribe_one_static(pipe, audio_path: Path, language_hint: str = "en") -> tuple[str, str, list]:
         """
         Transcribe a single audio file.
@@ -923,40 +962,6 @@ class TranscriptionService:
         Audio is pre-loaded with soundfile to bypass torchcodec which has
         ffmpeg shared library conflicts on some systems.
         """
-        import soundfile as sf
-
-        raw_audio_data, sample_rate = sf.read(str(audio_path), dtype='float32')
-        channels = raw_audio_data.shape[1] if getattr(raw_audio_data, 'ndim', 1) > 1 else 1
-        audio_data = raw_audio_data.mean(axis=1) if channels > 1 else raw_audio_data
-
-        log.info(
-            "Whisper input: audio='%s' sample_rate=%d samples=%d channels=%d",
-            audio_path, sample_rate, len(audio_data), channels
-        )
-
-        audio_input = {"array": audio_data, "sampling_rate": sample_rate}
-        generate_kwargs = {"task": "transcribe"}
-        if language_hint:
-            generate_kwargs["language"] = language_hint
-
-        result = pipe(
-            audio_input,
-            return_timestamps="word",
-            chunk_length_s=30,
-            ignore_warning=True,
-            generate_kwargs=generate_kwargs,
-        )
-        text     = result.get("text", "").strip()
-        language = result.get("language", "")
-        chunks   = result.get("chunks", [])
-
-        text, chunks = _clean_hallucinated_transcript(text, chunks)
-
-        log.info(
-            "Whisper output: audio='%s' chars=%d chunks=%d text='%s'",
-            audio_path, len(text), len(chunks), text[:160] + ("..." if len(text) > 160 else "")
-        )
-        if language:
-            log.info("Whisper detected language '%s' for '%s'", language, audio_path.name)
-        log.debug("Whisper chunks for '%s': %d chunk(s)", audio_path.name, len(chunks))
-        return text, language, chunks
+        return TranscriptionService._transcribe_many_static(
+            pipe, [audio_path], language_hint=language_hint, batch_size=1
+        )[0]
