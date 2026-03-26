@@ -418,6 +418,13 @@ class F5TtsBackend(AbstractTtsBackend):
         sway = request.sway_sampling_coef if request.sway_sampling_coef is not None else -1.0
         if "sway_sampling_coef" in infer_params: infer_kwargs["sway_sampling_coef"] = sway
         if "speed"               in infer_params: infer_kwargs["speed"]               = request.speech_rate
+        if request.lang_code:
+            if "lang_code" in infer_params:
+                infer_kwargs["lang_code"] = request.lang_code
+            elif "language" in infer_params:
+                infer_kwargs["language"] = request.lang_code
+            elif "lang" in infer_params:
+                infer_kwargs["lang"] = request.lang_code
         if "fix_duration"        in infer_params: infer_kwargs["fix_duration"]        = None
         if "device"              in infer_params: infer_kwargs["device"]              = self._torch_device
 

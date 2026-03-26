@@ -72,66 +72,24 @@ class SampleInfo:
     ref_text:         str = ""   # verbatim transcript — required for F5-TTS synthesis
 
 
-def _scan_directory_for_provider(directory: Path, dir_stem: str, suffix: str) -> list[SampleInfo]:
-    """Scan one sample-family directory for a single provider family.
-
-    Provider-tagged disk files are translated into provider-neutral public ids.
-    Examples:
-      F_NightElf-chatterbox.wav      -> sample_id F_NightElf
-      F_NightElf-chatterbox-slow.wav -> sample_id F_NightElf-slow
-    """
-    results: list[SampleInfo] = []
-
-    def public_id_for(stem: str) -> str | None:
-        base_token = f"{dir_stem}-{suffix}"
-        if stem == base_token:
-            return dir_stem
-        prefix = base_token + "-"
-        if stem.startswith(prefix):
-            variant = stem[len(prefix):]
-            if variant in VARIANT_SUFFIXES:
-                return f"{dir_stem}-{variant}"
-        return None
-
-    for path in sorted(directory.iterdir()):
-        if not path.is_file() or path.suffix.lower() not in VALID_EXTENSIONS:
-            continue
-        public_id = public_id_for(path.stem)
-        if not public_id:
-            continue
-        ref_text = _load_sidecar(path, ".ref.txt")
-        if not ref_text:
-            continue
-        duration = _read_duration(path)
-        if duration is None:
-            continue
-        description = _load_sidecar(path, ".txt")
-        results.append(SampleInfo(
-            sample_id=public_id,
-            filename=path.name,
-            duration_seconds=round(duration, 2),
-            description=description,
-            ref_text=ref_text,
-        ))
-
-    return results
-
-
 def _scan_directory(samples_dir: Path, directory: Path) -> list[SampleInfo]:
     """
-    Scan a single directory and return the union of all public sample ids found
-    across provider-specific files.
+    Scan a single directory for extracted sample clips.
 
-    Disk naming is INTERNAL and provider-tagged:
-        <stem>-f5.wav
-        <stem>-f5-<variant>.wav
-        <stem>-chatterbox.wav
-        <stem>-chatterbox-<variant>.wav
-        <stem>-master.wav
+    Post-extraction layout (new):
+        <stem>-f5.wav               ← canonical entry (always present)
+        <stem>-chatterbox.wav       ← provider default (always present)
+        <stem>-<mode>-f5.wav        ← variant F5 clips
+        <stem>-<mode>-chatterbox.wav← variant Chatterbox clips
+        <stem>-master.wav           ← archived original (hidden)
 
-    Client-visible sample_ids are provider-neutral:
-        <stem>
-        <stem>-<variant>
+    The -f5 file is used as the anchor to determine the base sample_id.
+    Client-visible sample_ids are:
+        <stem>          — resolved to -f5 or -chatterbox by the server
+        <stem>-<mode>   — variant, resolved to -<mode>-f5 or -<mode>-chatterbox
+
+    Legacy layout (master file present, pre-extraction):
+        <stem>.wav — master file only, not yet extracted. Hidden until extracted.
     """
     results = []
     dir_stem = directory.name
@@ -143,17 +101,99 @@ def _scan_directory(samples_dir: Path, directory: Path) -> list[SampleInfo]:
         )
         return results
 
-    seen_ids: set[str] = set()
+    # ── Find the canonical anchor file (-f5.wav) ──────────────────────────────
+    # The -f5 file is always present after extraction and carries the
+    # authoritative ref_text and description for the base sample entry.
+    # Anchor on the -f5 default clip (always present after extraction).
+    # New naming: <stem>-f5.wav
+    anchor_path = None
+    for ext in (".wav", ".mp3", ".flac", ".ogg"):
+        candidate = directory / f"{dir_stem}-f5{ext}"
+        if candidate.exists():
+            anchor_path = candidate
+            break
 
-    for suffix in PROVIDER_SUFFIXES:
-        provider_entries = _scan_directory_for_provider(directory, dir_stem, suffix)
-        for info in provider_entries:
-            if info.sample_id in seen_ids:
-                continue
-            seen_ids.add(info.sample_id)
-            results.append(info)
+    if anchor_path is None:
+        # Not yet extracted (master-only or empty directory) — skip silently.
+        # The transcriber will process it on the next scan cycle.
+        log.debug(
+            "Sample directory '%s' has no -f5 anchor yet — skipping "
+            "(not yet extracted or extraction in progress)", dir_stem
+        )
+        return results
 
-    return sorted(results, key=lambda s: s.sample_id.lower())
+    anchor_ref  = _load_sidecar(anchor_path, ".ref.txt")
+    anchor_desc = _load_sidecar(anchor_path, ".txt")
+    anchor_dur  = _read_duration(anchor_path)
+
+    if not anchor_ref:
+        log.debug("Sample '%s' skipped — -f5 has no .ref.txt yet", dir_stem)
+        return results
+
+    results.append(SampleInfo(
+        sample_id=dir_stem,
+        filename=anchor_path.name,
+        duration_seconds=round(anchor_dur, 2) if anchor_dur else 0.0,
+        description=anchor_desc,
+        ref_text=anchor_ref,
+    ))
+
+    # ── Expose variant sample IDs ─────────────────────────────────────────────
+    # Variant clips are <stem>-<mode>-f5.wav and <stem>-<mode>-chatterbox.wav.
+    # We expose the base variant ID (<stem>-<mode>) once per mode — the server
+    # resolves to the correct provider file at synthesis time.
+    seen_variants: set[str] = set()
+    for path in sorted(directory.iterdir()):
+        if not path.is_file():
+            continue
+        if path.suffix.lower() not in VALID_EXTENSIONS:
+            continue
+
+        stem = path.stem
+        if stem == dir_stem:
+            continue  # bare master — legacy, skip
+
+        # Only process variant F5 files as the representative entry
+        # (avoids double-exposing the same variant via -chatterbox file).
+        # New naming: <stem>-f5-<mode>.wav — provider prefix comes before mode.
+        variant_id = None
+        for mode in VARIANT_SUFFIXES:
+            if stem == f"{dir_stem}-f5-{mode}":
+                variant_id = f"{dir_stem}-{mode}"
+                break
+
+        if variant_id is None or variant_id in seen_variants:
+            continue
+
+        ref_text    = _load_sidecar(path, ".ref.txt")
+        if not ref_text:
+            continue
+        description = _load_sidecar(path, ".txt")
+        duration    = _read_duration(path)
+        if duration is None:
+            continue
+
+        seen_variants.add(variant_id)
+        results.append(SampleInfo(
+            sample_id=variant_id,
+            filename=path.name,
+            duration_seconds=round(duration, 2),
+            description=description,
+            ref_text=ref_text,
+        ))
+
+        if not ref_text:
+            continue
+
+        results.append(SampleInfo(
+            sample_id=stem,
+            filename=path.name,
+            duration_seconds=round(duration, 2),
+            description=description,
+            ref_text=ref_text,
+        ))
+
+    return results
 
 
 def scan(samples_dir: Path) -> list[SampleInfo]:
@@ -209,60 +249,59 @@ def scan(samples_dir: Path) -> list[SampleInfo]:
 
 def scan_for_provider(samples_dir: Path, provider_id: str) -> list[SampleInfo]:
     """
-    Provider-aware sample scan.
+    Like scan() but returns provider-aware duration and description.
 
-    Disk files are provider-tagged, but the returned sample_id values are always
-    provider-neutral public ids. For example, both of these map to client-facing
-    ids without the provider token:
-        F_NightElf-chatterbox.wav      -> F_NightElf
-        F_NightElf-chatterbox-slow.wav -> F_NightElf-slow
+    When a provider-specific extracted clip exists (e.g. M_WWZ_10-f5.wav),
+    the reported duration_seconds reflects that clip rather than the master.
+    This ensures the client duration filter (F5 <=11s, Chatterbox <=40s)
+    operates on the actual clip that will be used for synthesis, not the
+    potentially much longer master file.
 
-    chatterbox_full is an alias of chatterbox and resolves against the same
-    -chatterbox[-variant] files.
+    The sample_id and filename in the response always refer to the master
+    so the client never needs to know about provider-specific files.
     """
-    suffix = _provider_suffix(provider_id)
+    pid = provider_id.lower()
+    if pid.startswith("f5"):
+        suffix = "f5"
+    elif pid.startswith("chatterbox"):
+        suffix = "chatterbox"
+    else:
+        suffix = None
+
+    base_results = scan(samples_dir)
     if suffix is None:
-        return scan(samples_dir)
+        return base_results
 
-    if not samples_dir.exists():
-        return []
+    adjusted = []
+    for info in base_results:
+        # Check if a provider-specific clip exists.
+        # Checks subdirectory layout first, then flat layout.
+        # Handles both base stems and variant stems.
+        found_provider_clip = False
+        for candidate in _provider_clip_search_paths(samples_dir, info.sample_id, suffix):
+            if candidate.exists():
+                clip_duration = _read_duration(candidate)
+                if clip_duration is not None:
+                    clip_description = _load_sidecar(candidate, ".txt") or info.description
+                    clip_ref_text = _load_sidecar(candidate, ".ref.txt") or info.ref_text
+                    adjusted.append(SampleInfo(
+                        sample_id=info.sample_id,
+                        filename=info.filename,
+                        duration_seconds=round(clip_duration, 2),
+                        description=clip_description,
+                        ref_text=clip_ref_text,
+                    ))
+                    log.debug(
+                        "scan_for_provider: sample_id='%s' provider='%s' master_ref='%s' provider_clip='%s' provider_ref='%s' duration=%.1fs",
+                        info.sample_id, provider_id, info.filename, candidate.name, candidate.with_name(candidate.stem + '.ref.txt').name, clip_duration
+                    )
+                    found_provider_clip = True
+                    break
 
-    results: list[SampleInfo] = []
+        if not found_provider_clip:
+            adjusted.append(info)
 
-    for entry in sorted(samples_dir.iterdir()):
-        if entry.name == "originals":
-            continue
-
-        if entry.is_dir():
-            dir_stem = entry.name
-            if not _VALID_STEM_RE.match(dir_stem):
-                continue
-            results.extend(_scan_directory_for_provider(entry, dir_stem, suffix))
-        elif entry.is_file():
-            if entry.suffix.lower() not in VALID_EXTENSIONS:
-                continue
-            stem = entry.stem
-            if not _VALID_STEM_RE.match(stem):
-                continue
-            if _INTERNAL_SUFFIX_RE.search(stem):
-                continue
-            duration = _read_duration(entry)
-            if duration is None:
-                continue
-            description = _load_sidecar(entry, ".txt")
-            ref_text = _load_sidecar(entry, ".ref.txt")
-            if not ref_text:
-                continue
-            results.append(SampleInfo(
-                sample_id=stem,
-                filename=entry.name,
-                duration_seconds=round(duration, 2),
-                description=description,
-                ref_text=ref_text,
-            ))
-
-    log.debug("Provider sample scan: provider=%s found %d sample(s) in %s", provider_id, len(results), samples_dir)
-    return results
+    return adjusted
 
 
 def _sample_search_paths(samples_dir: Path, sample_id: str):
