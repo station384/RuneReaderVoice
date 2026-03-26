@@ -79,6 +79,8 @@ _PAD_TAIL_SECONDS = 1.0   # 1.0s silence appended
 _GENERATED_BATCH_SIZE = max(1, int(os.getenv("RRV_WHISPER_GENERATED_BATCH_SIZE", "2") or "2"))
 _MASTER_BATCH_SIZE = max(1, int(os.getenv("RRV_WHISPER_MASTER_BATCH_SIZE", "2") or "2"))
 
+_GENERATED_RETURN_TIMESTAMPS = str(os.getenv("RRV_WHISPER_GENERATED_RETURN_TIMESTAMPS", "0") or "0").strip().lower() in {"1", "true", "yes", "on"}
+
 
 def check_ffmpeg() -> bool:
     """
@@ -257,7 +259,7 @@ def _log_cuda_memory(prefix: str) -> None:
         pass
 
 
-def _transcribe_batched_clips(pipe, clips: list, language_hint: str, *, batch_size: int, queue_name: str, sidecar_kind: str) -> None:
+def _transcribe_batched_clips(pipe, clips: list, language_hint: str, *, batch_size: int, queue_name: str, sidecar_kind: str, return_timestamps: bool | str = False) -> None:
     """Run Whisper over clip batches using a single loaded pipeline."""
     if not clips:
         return
@@ -278,6 +280,7 @@ def _transcribe_batched_clips(pipe, clips: list, language_hint: str, *, batch_si
                 [clip.path for clip in batch],
                 language_hint=language_hint,
                 batch_size=len(batch),
+                return_timestamps=return_timestamps,
             )
             for clip, (transcript, _clip_language, _chunks) in zip(batch, results):
                 if not transcript:
@@ -317,9 +320,18 @@ def _transcribe_batched_clips(pipe, clips: list, language_hint: str, *, batch_si
                 )
                 for clip in batch:
                     try:
-                        transcript, _clip_language, _chunks = TranscriptionService._transcribe_one_static(
-                            pipe, clip.path, language_hint=language_hint
-                        )
+                        if return_timestamps:
+                            transcript, _clip_language, _chunks = TranscriptionService._transcribe_one_static(
+                                pipe, clip.path, language_hint=language_hint
+                            )
+                        else:
+                            transcript, _clip_language, _chunks = TranscriptionService._transcribe_many_static(
+                                pipe,
+                                [clip.path],
+                                language_hint=language_hint,
+                                batch_size=1,
+                                return_timestamps=False,
+                            )[0]
                         if not transcript:
                             log.warning(
                                 "%s returned empty result: audio='%s'",
@@ -358,6 +370,7 @@ def _retranscribe_generated_clips(pipe, clips: list, language_hint: str, batch_s
         batch_size=batch_size,
         queue_name="Generated clip retranscription queue",
         sidecar_kind="generated_ref",
+        return_timestamps="word" if _GENERATED_RETURN_TIMESTAMPS else False,
     )
 
 
@@ -814,12 +827,6 @@ class TranscriptionService:
                                         len(extraction.clips),
                                         len(generated_retranscribe_jobs),
                                     )
-                                    _enqueue_clip_profile_jobs(
-                                        extraction.clips,
-                                        language=language,
-                                        max_workers=_PROFILE_WORKERS,
-                                    )
-
                                     for clip in extraction.clips:
                                         clip_txt = clip.path.with_name(clip.path.stem + ".txt")
                                         if not clip_txt.exists():
@@ -961,7 +968,7 @@ class TranscriptionService:
         return self._transcribe_one_static(pipe, audio_path, language_hint="en")
 
     @staticmethod
-    def _transcribe_many_static(pipe, audio_paths: list[Path], language_hint: str = "en", batch_size: int = 1) -> list[tuple[str, str, list]]:
+    def _transcribe_many_static(pipe, audio_paths: list[Path], language_hint: str = "en", batch_size: int = 1, return_timestamps: bool | str = "word") -> list[tuple[str, str, list]]:
         import soundfile as sf
 
         audio_inputs = []
@@ -982,7 +989,7 @@ class TranscriptionService:
         _log_cuda_memory("Whisper batch start:")
         results = pipe(
             audio_inputs,
-            return_timestamps="word",
+            return_timestamps=return_timestamps,
             chunk_length_s=30,
             batch_size=max(1, int(batch_size or 1)),
             ignore_warning=True,
@@ -995,7 +1002,7 @@ class TranscriptionService:
         for audio_path, result in zip(audio_paths, results):
             text = result.get("text", "").strip()
             language = result.get("language", "")
-            chunks = result.get("chunks", [])
+            chunks = result.get("chunks", []) if return_timestamps else []
             text, chunks = _clean_hallucinated_transcript(text, chunks)
             log.info(
                 "Whisper output: audio='%s' chars=%d chunks=%d text='%s'",
@@ -1023,5 +1030,5 @@ class TranscriptionService:
         ffmpeg shared library conflicts on some systems.
         """
         return TranscriptionService._transcribe_many_static(
-            pipe, [audio_path], language_hint=language_hint, batch_size=1
+            pipe, [audio_path], language_hint=language_hint, batch_size=1, return_timestamps="word"
         )[0]

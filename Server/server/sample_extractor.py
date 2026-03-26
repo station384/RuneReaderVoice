@@ -109,6 +109,9 @@ _CHATTERBOX_OUTPUT_CHANNELS = _env_clip_channels("RRV_CHATTERBOX_SAMPLE_CHANNELS
 _F5_OUTPUT_SAMPLE_RATE = _env_clip_rate("RRV_F5_SAMPLE_RATE", 22050)
 _CHATTERBOX_OUTPUT_SAMPLE_RATE = _env_clip_rate("RRV_CHATTERBOX_SAMPLE_RATE", 44100)
 
+_CLIP_PREROLL_SEC = max(0.0, float(os.getenv("RRV_SAMPLE_CLIP_PREROLL_SEC", "0.08") or "0.08"))
+_CLIP_POSTROLL_SEC = max(0.0, float(os.getenv("RRV_SAMPLE_CLIP_POSTROLL_SEC", "0.18") or "0.18"))
+
 
 def _provider_output_channels(label: str) -> int:
     """Return desired output channel count for the generated provider clip label."""
@@ -883,8 +886,10 @@ def _write_clip(
     import soundfile as sf
 
     start, end = region
-    s_start = int(start * sr)
-    s_end   = int(end   * sr)
+    clip_start = max(0.0, float(start) - _CLIP_PREROLL_SEC)
+    clip_end = min(float(len(y)) / float(sr), float(end) + _CLIP_POSTROLL_SEC)
+    s_start = int(round(clip_start * sr))
+    s_end   = int(round(clip_end   * sr))
 
     if s_end <= s_start:
         return None
@@ -938,7 +943,7 @@ def _write_clip(
     # Build ref text from chunks that fall within this region
     ref_chunks = [
         c for c in chunks
-        if c.start >= start - 0.05 and c.end <= end + 0.05
+        if c.start >= start - max(0.05, _CLIP_PREROLL_SEC) and c.end <= end + max(0.05, _CLIP_POSTROLL_SEC)
     ]
     ref_text = " ".join(c.text.strip() for c in ref_chunks).strip()
     if not ref_text:
