@@ -174,8 +174,22 @@ def extract_clips(
     # ── Load audio for acoustic analysis ──────────────────────────────────────
     try:
         import numpy as np
-        import librosa
-        y, sr = librosa.load(str(master_path), sr=None, mono=True)
+        import soundfile as sf
+
+        info = sf.info(str(master_path))
+        if int(info.samplerate) != 44100 or int(info.channels) != 2:
+            raise RuntimeError(
+                f"master audio must be 44100 Hz stereo after import normalization; "
+                f"got sample_rate={info.samplerate} channels={info.channels}"
+            )
+
+        y_stereo, sr = sf.read(str(master_path), dtype="float32", always_2d=True)
+        if y_stereo.ndim != 2 or y_stereo.shape[1] != 2:
+            raise RuntimeError(
+                f"master audio decode did not preserve stereo layout; shape={getattr(y_stereo, 'shape', None)}"
+            )
+
+        y = np.mean(y_stereo, axis=1, dtype=np.float32)
     except Exception as e:
         log.error("extract_clips: failed to load audio '%s': %s", master_path.name, e)
         return result
@@ -213,7 +227,7 @@ def extract_clips(
 
     # ── F5 default clip ───────────────────────────────────────────────────────
     # Always written. Max 8s speech + silence pad → ~10s total.
-    f5_clip = _write_clip(master_path, normal_f5_region, wchunks, "f5", y, sr)
+    f5_clip = _write_clip(master_path, normal_f5_region, wchunks, "f5", y_stereo, sr)
     if f5_clip:
         result.clips.append(f5_clip)
         log.info(
@@ -238,7 +252,7 @@ def extract_clips(
             mode="normal", baseline_rms=baseline_rms, baseline_wpm=baseline_wpm,
         )
     if normal_cb_region:
-        cb_clip = _write_clip(master_path, normal_cb_region, wchunks, "chatterbox", y, sr)
+        cb_clip = _write_clip(master_path, normal_cb_region, wchunks, "chatterbox", y_stereo, sr)
         if cb_clip:
             result.clips.append(cb_clip)
             log.info(
@@ -297,7 +311,7 @@ def extract_clips(
                 f5_region = None
 
         if f5_region:
-            f5_var = _write_clip(master_path, f5_region, wchunks, f"f5-{mode}", y, sr)
+            f5_var = _write_clip(master_path, f5_region, wchunks, f"f5-{mode}", y_stereo, sr)
             if f5_var:
                 result.clips.append(f5_var)
                 log.info(
@@ -329,7 +343,7 @@ def extract_clips(
             continue
 
         # Variant is named <mode>-chatterbox so the server resolves it correctly
-        cb_var = _write_clip(master_path, cb_region, wchunks, f"chatterbox-{mode}", y, sr)
+        cb_var = _write_clip(master_path, cb_region, wchunks, f"chatterbox-{mode}", y_stereo, sr)
         if cb_var:
             result.clips.append(cb_var)
             log.info(
@@ -767,18 +781,28 @@ def _pad_clip(segment, sr: int, label: str) -> "np.ndarray":
     if len(segment) == 0:
         return segment
 
-    lead = np.zeros(int(_LEAD_PAD_SEC * sr), dtype=np.float32)
-    tail = np.zeros(int(_TAIL_PAD_SEC * sr), dtype=np.float32)
+    if segment.ndim == 1:
+        lead = np.zeros(int(_LEAD_PAD_SEC * sr), dtype=np.float32)
+        tail = np.zeros(int(_TAIL_PAD_SEC * sr), dtype=np.float32)
+    elif segment.ndim == 2:
+        channels = segment.shape[1]
+        lead = np.zeros((int(_LEAD_PAD_SEC * sr), channels), dtype=np.float32)
+        tail = np.zeros((int(_TAIL_PAD_SEC * sr), channels), dtype=np.float32)
+    else:
+        raise ValueError(f"Unsupported segment shape for padding: {segment.shape}")
 
-    padded = np.concatenate([lead, segment, tail])
+    padded = np.concatenate([lead, segment, tail], axis=0)
 
     # Chatterbox minimum length enforcement
     is_chatterbox = label.startswith("chatterbox")
     if is_chatterbox:
         min_samples = int(CHATTERBOX_MIN_SEC * sr)
         if len(padded) < min_samples:
-            extra = np.zeros(min_samples - len(padded), dtype=np.float32)
-            padded = np.concatenate([padded, extra])
+            if padded.ndim == 1:
+                extra = np.zeros(min_samples - len(padded), dtype=np.float32)
+            else:
+                extra = np.zeros((min_samples - len(padded), padded.shape[1]), dtype=np.float32)
+            padded = np.concatenate([padded, extra], axis=0)
             log.debug(
                 "_pad_clip: extended chatterbox clip '%s' to %.1fs minimum",
                 label, CHATTERBOX_MIN_SEC
@@ -813,6 +837,11 @@ def _write_clip(
     if len(segment) == 0:
         return None
 
+    if segment.ndim != 2 or segment.shape[1] != 2:
+        raise RuntimeError(
+            f"Refusing to write non-stereo clip for '{label}': shape={getattr(segment, 'shape', None)}"
+        )
+
     # Add lead/tail silence padding. Source silence is NEVER trimmed.
     # Chatterbox clips are extended to CHATTERBOX_MIN_SEC if shorter.
     import numpy as np
@@ -840,8 +869,25 @@ def _write_clip(
         ref_text += "."
 
     try:
+        if int(sr) != 44100:
+            raise RuntimeError(f"Refusing to write clip with sample_rate={sr}; expected 44100")
+
         sf.write(str(out_wav), segment, sr, subtype="PCM_16")
+
+        written_info = sf.info(str(out_wav))
+        if int(written_info.samplerate) != 44100 or int(written_info.channels) != 2:
+            raise RuntimeError(
+                f"Extractor wrote invalid clip '{out_wav.name}': "
+                f"sample_rate={written_info.samplerate} channels={written_info.channels}"
+            )
+
         out_ref.write_text(ref_text, encoding="utf-8")
+        log.info(
+            "_write_clip: wrote '%s' sample_rate=%d channels=%d",
+            out_wav.name,
+            int(written_info.samplerate),
+            int(written_info.channels),
+        )
     except Exception as e:
         log.error("_write_clip: failed to write '%s': %s", out_wav.name, e)
         return None
