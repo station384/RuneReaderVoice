@@ -283,17 +283,17 @@ def scan_for_provider(samples_dir: Path, provider_id: str) -> list[SampleInfo]:
                 clip_duration = _read_duration(candidate)
                 if clip_duration is not None:
                     clip_description = _load_sidecar(candidate, ".txt") or info.description
+                    clip_ref_text = _load_sidecar(candidate, ".ref.txt") or info.ref_text
                     adjusted.append(SampleInfo(
                         sample_id=info.sample_id,
                         filename=info.filename,
                         duration_seconds=round(clip_duration, 2),
                         description=clip_description,
-                        ref_text=info.ref_text,
+                        ref_text=clip_ref_text,
                     ))
                     log.debug(
-                        "scan_for_provider: '%s' reporting provider clip duration "
-                        "%.1fs (master=%.1fs) for provider '%s'",
-                        info.sample_id, clip_duration, info.duration_seconds, provider_id
+                        "scan_for_provider: sample_id='%s' provider='%s' master_ref='%s' provider_clip='%s' provider_ref='%s' duration=%.1fs",
+                        info.sample_id, provider_id, info.filename, candidate.name, candidate.with_name(candidate.stem + '.ref.txt').name, clip_duration
                     )
                     found_provider_clip = True
                     break
@@ -423,9 +423,9 @@ def resolve_sample_path_for_provider(
     if suffix:
         for candidate in _provider_clip_search_paths(samples_dir, sample_id, suffix):
             if candidate.exists():
-                log.debug(
-                    "resolve_sample_path_for_provider: using '%s' for '%s'",
-                    candidate.name, sample_id
+                log.info(
+                    "resolve_sample_path_for_provider: sample_id='%s' provider='%s' audio='%s'",
+                    sample_id, provider_id, candidate
                 )
                 return candidate
     return resolve_sample_path(samples_dir, sample_id)
@@ -452,8 +452,9 @@ def resolve_sample_for_provider(
                 description = _load_sidecar(candidate, ".txt")
                 ref_text    = _load_sidecar(candidate, ".ref.txt")
                 if ref_text:
-                    log.debug(
-                        "resolve_sample_for_provider: using '%s'", candidate
+                    log.info(
+                        "resolve_sample_for_provider: sample_id='%s' provider='%s' audio='%s' ref='%s' chars=%d",
+                        sample_id, provider_id, candidate, candidate.with_name(candidate.stem + '.ref.txt'), len(ref_text)
                     )
                     # Store the full path relative to samples_dir so the backend
                     # can reconstruct the absolute path correctly regardless of

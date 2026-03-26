@@ -108,11 +108,20 @@ async def synthesize(body: SynthesizeRequest, request: Request) -> Response:
                        f"Check GET /api/v1/providers/{body.provider_id}/samples",
             )
         sample_file_hash = compute_file_hash(sample_path)
+        log.info(
+            "synthesize: resolved reference audio sample_id='%s' provider='%s' audio='%s'",
+            sample_id, body.provider_id, sample_path
+        )
 
         # ref_text is loaded from the .ref.txt sidecar — REQUIRED for F5-TTS.
         # The server never invokes Whisper or any auto-transcription at runtime.
         sample_info = resolve_sample_for_provider(settings.samples_dir, sample_id, body.provider_id)
         ref_text = sample_info.ref_text if sample_info else ""
+        if sample_info is not None:
+            log.info(
+                "synthesize: resolved reference text sample_id='%s' provider='%s' ref_source='%s' chars=%d",
+                sample_id, body.provider_id, sample_info.filename, len(ref_text)
+            )
         if not ref_text:
             log.warning("No .ref.txt sidecar for sample '%s'", sample_id)
 

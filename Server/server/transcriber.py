@@ -218,6 +218,48 @@ def _pad_wav_silence(wav_path: Path) -> None:
 
 
 
+def _write_sidecar_with_debug(sidecar_path: Path, text: str, *, kind: str, source_audio: Path | None = None) -> None:
+    """Write a sidecar file and emit a debug log with exact path details."""
+    sidecar_path.write_text(text, encoding="utf-8")
+    if source_audio is not None:
+        log.info(
+            "Sidecar write: kind=%s audio='%s' sidecar='%s' chars=%d",
+            kind, source_audio, sidecar_path, len(text)
+        )
+    else:
+        log.info(
+            "Sidecar write: kind=%s sidecar='%s' chars=%d",
+            kind, sidecar_path, len(text)
+        )
+
+
+def _retranscribe_generated_clips(pipe, clips: list, language_hint: str) -> None:
+    """Re-run Whisper on each generated clip so clip .ref.txt reflects actual clip audio."""
+    for clip in clips:
+        try:
+            transcript, clip_language, _ = TranscriptionService._transcribe_one_static(
+                pipe, clip.path, language_hint=language_hint
+            )
+            if not transcript:
+                log.warning(
+                    "Generated clip retranscription returned empty result: audio='%s'",
+                    clip.path,
+                )
+                continue
+            _write_sidecar_with_debug(
+                clip.ref_path,
+                transcript,
+                kind="generated_ref",
+                source_audio=clip.path,
+            )
+        except Exception as e:
+            log.warning(
+                "Generated clip retranscription failed: audio='%s' error=%s",
+                clip.path, e
+            )
+
+
+
 def _clean_hallucinated_transcript(text: str, chunks: list) -> tuple[str, list]:
     """
     Detect and remove Whisper hallucination patterns from a transcript.
@@ -558,7 +600,12 @@ class TranscriptionService:
                     if transcript:
                         # Write .ref.txt transcript sidecar
                         ref_txt = audio_path.with_name(audio_path.stem + ".ref.txt")
-                        ref_txt.write_text(transcript, encoding="utf-8")
+                        _write_sidecar_with_debug(
+                            ref_txt,
+                            transcript,
+                            kind="master_ref",
+                            source_audio=audio_path,
+                        )
                         log.info(
                             "Transcribed '%s': %s",
                             audio_path.name,
@@ -577,7 +624,12 @@ class TranscriptionService:
                                 language=language,
                             )
                             if profile:
-                                txt_sidecar.write_text(profile, encoding="utf-8")
+                                _write_sidecar_with_debug(
+                                    txt_sidecar,
+                                    profile,
+                                    kind="master_profile",
+                                    source_audio=audio_path,
+                                )
                                 log.info("Voice profile written for '%s': %s", audio_path.name, profile)
                         else:
                             # Read existing profile for gender detection
@@ -608,6 +660,7 @@ class TranscriptionService:
                                     master_duration=master_duration,
                                     emit_variants=True,
                                 )
+                                _retranscribe_generated_clips(pipe, extraction.clips, language)
                                 # Write voice profile sidecar for each extracted clip
                                 for clip in extraction.clips:
                                     clip_txt = clip.path.with_name(clip.path.stem + ".txt")
@@ -618,7 +671,12 @@ class TranscriptionService:
                                             language=language,
                                         )
                                         if clip_profile:
-                                            clip_txt.write_text(clip_profile, encoding="utf-8")
+                                            _write_sidecar_with_debug(
+                                                clip_txt,
+                                                clip_profile,
+                                                kind="generated_profile",
+                                                source_audio=clip.path,
+                                            )
                                             log.info(
                                                 "Voice profile written for clip '%s': %s",
                                                 clip.path.name, clip_profile
@@ -727,6 +785,10 @@ class TranscriptionService:
             return None
 
     def _transcribe_one(self, pipe, audio_path: Path) -> tuple[str, str, list]:
+        return self._transcribe_one_static(pipe, audio_path, language_hint="en")
+
+    @staticmethod
+    def _transcribe_one_static(pipe, audio_path: Path, language_hint: str = "en") -> tuple[str, str, list]:
         """
         Transcribe a single audio file.
         Returns (transcript, language, chunks).
@@ -735,46 +797,42 @@ class TranscriptionService:
         timestamps: [{"text": "...", "timestamp": [start_sec, end_sec]}, ...]
         These are passed to sample_extractor for smart clip extraction.
 
-        Language is auto-detected by Whisper — no forced language constraint
-        so non-English samples transcribe correctly in their native language.
-
         Audio is pre-loaded with soundfile to bypass torchcodec which has
         ffmpeg shared library conflicts on some systems.
         """
         import soundfile as sf
-        import numpy as np
 
-        # Load audio with soundfile — always works, bypasses torchcodec
-        audio_data, sample_rate = sf.read(str(audio_path), dtype='float32')
-        if audio_data.ndim > 1:
-            audio_data = audio_data.mean(axis=1)   # stereo → mono
+        raw_audio_data, sample_rate = sf.read(str(audio_path), dtype='float32')
+        channels = raw_audio_data.shape[1] if getattr(raw_audio_data, 'ndim', 1) > 1 else 1
+        audio_data = raw_audio_data.mean(axis=1) if channels > 1 else raw_audio_data
+
+        log.info(
+            "Whisper input: audio='%s' sample_rate=%d samples=%d channels=%d",
+            audio_path, sample_rate, len(audio_data), channels
+        )
 
         audio_input = {"array": audio_data, "sampling_rate": sample_rate}
+        generate_kwargs = {"task": "transcribe"}
+        if language_hint:
+            generate_kwargs["language"] = language_hint
 
         result = pipe(
             audio_input,
-            return_timestamps="word",  # word-level timestamps for smart extraction
-            chunk_length_s=30,         # process in 30s chunks for long-form audio
-            ignore_warning=True,       # suppress seq2seq chunk_length_s warning — expected usage
-            generate_kwargs={
-                # Force English transcription — suppresses "multilingual default"
-                # and "forced_decoder_ids deprecated" warnings, and ensures samples
-                # with foreign-sounding names (e.g. character names) don't trigger
-                # language detection fallback to another language.
-                "language": "en",
-                "task": "transcribe",
-            },
+            return_timestamps="word",
+            chunk_length_s=30,
+            ignore_warning=True,
+            generate_kwargs=generate_kwargs,
         )
         text     = result.get("text", "").strip()
         language = result.get("language", "")
         chunks   = result.get("chunks", [])
 
-        # Post-transcription hallucination check.
-        # If Whisper still produces a repetitive transcript despite the above
-        # guards (e.g. silence-heavy clips), detect and clean it here before
-        # the corrupted text reaches ref.txt and poisons F5-TTS pacing.
         text, chunks = _clean_hallucinated_transcript(text, chunks)
 
+        log.info(
+            "Whisper output: audio='%s' chars=%d chunks=%d text='%s'",
+            audio_path, len(text), len(chunks), text[:160] + ("..." if len(text) > 160 else "")
+        )
         if language:
             log.info("Whisper detected language '%s' for '%s'", language, audio_path.name)
         log.debug("Whisper chunks for '%s': %d chunk(s)", audio_path.name, len(chunks))
