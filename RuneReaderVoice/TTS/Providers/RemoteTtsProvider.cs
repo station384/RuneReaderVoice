@@ -601,24 +601,124 @@ public sealed class RemoteTtsProvider : ITtsProvider
         if (chunks.Count == 0)
             return new PcmAudio(Array.Empty<float>(), 24000, 1);
 
-        var first      = chunks[0];
-        int sampleRate = first.SampleRate;
-        int channels   = first.Channels;
+        int targetSampleRate = chunks.Max(c => c.SampleRate);
+        int targetChannels   = chunks.Max(c => Math.Max(1, c.Channels));
 
-        if (chunks.Any(c => c.SampleRate != sampleRate || c.Channels != channels))
-            throw new InvalidOperationException(
-                "Remote chunk synthesis returned incompatible audio formats.");
+        var normalized = chunks
+            .Select(chunk => NormalizePcm(chunk, targetSampleRate, targetChannels))
+            .ToList();
 
-        int totalSamples = chunks.Sum(c => c.Samples.Length);
+        if (chunks.Any(c => c.SampleRate != targetSampleRate || Math.Max(1, c.Channels) != targetChannels))
+        {
+            System.Diagnostics.Debug.WriteLine(
+                $"[RemoteTTS] Normalized mixed chunk formats to {targetSampleRate} Hz / {targetChannels} ch before concatenation.");
+        }
+
+        int totalSamples = normalized.Sum(c => c.Samples.Length);
         var merged       = new float[totalSamples];
         int offset       = 0;
-        foreach (var chunk in chunks)
+        foreach (var chunk in normalized)
         {
             Array.Copy(chunk.Samples, 0, merged, offset, chunk.Samples.Length);
             offset += chunk.Samples.Length;
         }
 
-        return new PcmAudio(merged, sampleRate, channels);
+        return new PcmAudio(merged, targetSampleRate, targetChannels);
+    }
+
+    private static PcmAudio NormalizePcm(PcmAudio audio, int targetSampleRate, int targetChannels)
+    {
+        var working = audio;
+
+        if (Math.Max(1, working.Channels) != targetChannels)
+            working = ConvertChannels(working, targetChannels);
+
+        if (working.SampleRate != targetSampleRate)
+            working = ResampleLinear(working, targetSampleRate);
+
+        return working;
+    }
+
+    private static PcmAudio ConvertChannels(PcmAudio audio, int targetChannels)
+    {
+        int sourceChannels = Math.Max(1, audio.Channels);
+        targetChannels = Math.Max(1, targetChannels);
+
+        if (sourceChannels == targetChannels)
+            return audio;
+
+        int frameCount = audio.Samples.Length / sourceChannels;
+        var converted = new float[frameCount * targetChannels];
+
+        if (sourceChannels == 1 && targetChannels == 2)
+        {
+            for (int i = 0; i < frameCount; i++)
+            {
+                var s = audio.Samples[i];
+                int o = i * 2;
+                converted[o] = s;
+                converted[o + 1] = s;
+            }
+            return new PcmAudio(converted, audio.SampleRate, 2);
+        }
+
+        if (sourceChannels == 2 && targetChannels == 1)
+        {
+            for (int i = 0; i < frameCount; i++)
+            {
+                int o = i * 2;
+                converted[i] = (audio.Samples[o] + audio.Samples[o + 1]) * 0.5f;
+            }
+            return new PcmAudio(converted, audio.SampleRate, 1);
+        }
+
+        for (int frame = 0; frame < frameCount; frame++)
+        {
+            int srcBase = frame * sourceChannels;
+            int dstBase = frame * targetChannels;
+            for (int ch = 0; ch < targetChannels; ch++)
+            {
+                int srcCh = Math.Min(ch, sourceChannels - 1);
+                converted[dstBase + ch] = audio.Samples[srcBase + srcCh];
+            }
+        }
+
+        return new PcmAudio(converted, audio.SampleRate, targetChannels);
+    }
+
+    private static PcmAudio ResampleLinear(PcmAudio audio, int targetSampleRate)
+    {
+        if (audio.SampleRate == targetSampleRate)
+            return audio;
+
+        int channels = Math.Max(1, audio.Channels);
+        int sourceFrames = audio.Samples.Length / channels;
+        if (sourceFrames <= 1)
+            return new PcmAudio(audio.Samples.ToArray(), targetSampleRate, channels);
+
+        int targetFrames = Math.Max(1, (int)Math.Round(sourceFrames * (targetSampleRate / (double)audio.SampleRate)));
+        var resampled = new float[targetFrames * channels];
+        double ratio = audio.SampleRate / (double)targetSampleRate;
+
+        for (int frame = 0; frame < targetFrames; frame++)
+        {
+            double srcPos = frame * ratio;
+            int srcIndex0 = Math.Min((int)srcPos, sourceFrames - 1);
+            int srcIndex1 = Math.Min(srcIndex0 + 1, sourceFrames - 1);
+            float frac = (float)(srcPos - srcIndex0);
+
+            int dstBase = frame * channels;
+            int srcBase0 = srcIndex0 * channels;
+            int srcBase1 = srcIndex1 * channels;
+            for (int ch = 0; ch < channels; ch++)
+            {
+                float s0 = audio.Samples[srcBase0 + ch];
+                float s1 = audio.Samples[srcBase1 + ch];
+                resampled[dstBase + ch] = s0 + ((s1 - s0) * frac);
+            }
+        }
+
+        return new PcmAudio(resampled, targetSampleRate, channels);
     }
 
     private static async Task<byte[]> EncodeOggAsync(PcmAudio audio, CancellationToken ct)
