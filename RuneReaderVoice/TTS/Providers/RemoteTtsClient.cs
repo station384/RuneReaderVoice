@@ -44,6 +44,28 @@ public sealed class RemoteTtsClient
                 new AuthenticationHeaderValue("Bearer", _apiKey);
     }
 
+
+    private static bool LooksLikeForeignProviderSample(RemoteSampleDto sample, string providerId)
+    {
+        if (sample == null) return false;
+
+        var isF5         = providerId.Contains("f5", StringComparison.OrdinalIgnoreCase);
+        var isChatterbox = providerId.Contains("chatterbox", StringComparison.OrdinalIgnoreCase);
+        if (!isF5 && !isChatterbox)
+            return false;
+
+        var foreignMarker = isF5 ? "-chatterbox" : "-f5";
+        return ContainsMarker(sample.SampleId, foreignMarker)
+            || ContainsMarker(sample.Filename, foreignMarker)
+            || ContainsMarker(sample.Description, foreignMarker);
+    }
+
+    private static bool ContainsMarker(string? value, string marker)
+    {
+        return !string.IsNullOrWhiteSpace(value)
+            && value.IndexOf(marker, StringComparison.OrdinalIgnoreCase) >= 0;
+    }
+
     // ── v1 endpoints (unchanged) ──────────────────────────────────────────────
 
     public async Task<IReadOnlyList<RemoteProviderInfoDto>> GetProvidersAsync(CancellationToken ct)
@@ -110,20 +132,21 @@ public sealed class RemoteTtsClient
             if (providerId.Contains("f5", StringComparison.OrdinalIgnoreCase))
                 filtered = filtered.Where(s => (s.DurationSeconds ?? 0f) > 0f
                                             && (s.DurationSeconds ?? 0f) <= 11.0f);
-            else if (providerId.Contains("chatterbox", StringComparison.OrdinalIgnoreCase))
-                filtered = filtered.Where(s => (s.DurationSeconds ?? 0f) <= 0f
-                                            || (s.DurationSeconds ?? 0f) <= 41.0f);
 
-            return filtered.Select(s => new VoiceInfo
-            {
-                VoiceId     = s.SampleId ?? string.Empty,
-                Name        = s.SampleId ?? string.Empty,
-                Description = !string.IsNullOrWhiteSpace(s.Description)
-                              ? s.Description!
-                              : (s.Filename ?? s.SampleId ?? string.Empty),
-                Language    = string.Empty,
-                Gender      = Protocol.Gender.Unknown,
-            }).ToList();
+            return filtered
+                .GroupBy(s => s.SampleId ?? string.Empty, StringComparer.OrdinalIgnoreCase)
+                .Select(g => g.First())
+                .Select(s => new VoiceInfo
+                {
+                    VoiceId     = s.SampleId ?? string.Empty,
+                    Name        = s.SampleId ?? string.Empty,
+                    Description = !string.IsNullOrWhiteSpace(s.Description)
+                                  ? s.Description!
+                                  : (s.Filename ?? s.SampleId ?? string.Empty),
+                    Language    = string.Empty,
+                    Gender      = Protocol.Gender.Unknown,
+                })
+                .ToList();
         }
         catch (OperationCanceledException) { throw; }
         catch (Exception ex)
