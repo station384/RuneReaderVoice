@@ -68,6 +68,18 @@ class Settings:
         self.samples_dir:          Path = Path(_env_str("RRV_SAMPLES_DIR",          "./data/samples"))
         self.whisper_model_dir:    Path = Path(_env_str("RRV_WHISPER_MODEL_DIR",    "./data/models/whisper"))
         self.sample_scan_interval: int  = _env_int("RRV_SAMPLE_SCAN_INTERVAL", 30)
+        self.f5_sample_channels: int = _env_int("RRV_F5_SAMPLE_CHANNELS", 1)
+        self.chatterbox_sample_channels: int = _env_int("RRV_CHATTERBOX_SAMPLE_CHANNELS", 2)
+        self.f5_sample_rate: int = _env_int("RRV_F5_SAMPLE_RATE", 22050)
+        self.chatterbox_sample_rate: int = _env_int("RRV_CHATTERBOX_SAMPLE_RATE", 44100)
+        if self.f5_sample_channels not in (1, 2):
+            raise ValueError("RRV_F5_SAMPLE_CHANNELS must be 1 or 2")
+        if self.chatterbox_sample_channels not in (1, 2):
+            raise ValueError("RRV_CHATTERBOX_SAMPLE_CHANNELS must be 1 or 2")
+        if self.f5_sample_rate <= 0:
+            raise ValueError("RRV_F5_SAMPLE_RATE must be a positive integer")
+        if self.chatterbox_sample_rate <= 0:
+            raise ValueError("RRV_CHATTERBOX_SAMPLE_RATE must be a positive integer")
 
         # Community / sync
         self.community_db_path: Path = Path(_env_str("RRV_COMMUNITY_DB_PATH", "./data/community.db"))
@@ -162,8 +174,10 @@ class Settings:
                          "whisper_model_dir"):
                 value = Path(value)
 
-            elif key in ("port", "cache_max_mb", "sample_scan_interval"):
+            elif key in ("port", "cache_max_mb", "sample_scan_interval", "f5_sample_channels", "chatterbox_sample_channels"):
                 value = int(value)
+                if key in ("f5_sample_channels", "chatterbox_sample_channels") and value not in (1, 2):
+                    raise ValueError(f"{key} must be 1 or 2")
 
             setattr(self, key, value)
 
@@ -191,6 +205,8 @@ class Settings:
             f"backends={sorted(self.backends)}, gpu={self.gpu!r}, "
             f"cache_dir={self.cache_dir}, models_dir={self.models_dir}, "
             f"samples_dir={self.samples_dir}, "
+            f"f5_sample_channels={self.f5_sample_channels}, "
+            f"chatterbox_sample_channels={self.chatterbox_sample_channels}, "
             f"cache_max_mb={self.cache_max_mb}, "
             f"f5_vocoder={self.f5_vocoder}, "
             f"auth_enabled={self.auth_enabled}, "

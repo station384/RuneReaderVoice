@@ -65,12 +65,68 @@
 from __future__ import annotations
 
 import logging
+import os
 import subprocess
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Optional
 
 log = logging.getLogger(__name__)
+
+
+
+
+def _env_clip_rate(name: str, default: int) -> int:
+    """Return validated provider clip sample rate from env (> 0)."""
+    raw = (os.getenv(name, str(default)) or str(default)).strip()
+    try:
+        value = int(raw)
+    except Exception:
+        log.warning("%s=%r is invalid; using %d", name, raw, default)
+        return default
+    if value <= 0:
+        log.warning("%s=%r is invalid; using %d", name, raw, default)
+        return default
+    return value
+
+
+def _env_clip_channels(name: str, default: int) -> int:
+    """Return validated provider clip channel count from env (1 or 2)."""
+    raw = (os.getenv(name, str(default)) or str(default)).strip()
+    try:
+        value = int(raw)
+    except Exception:
+        log.warning("%s=%r is invalid; using %d", name, raw, default)
+        return default
+    if value not in (1, 2):
+        log.warning("%s=%r is invalid; using %d", name, raw, default)
+        return default
+    return value
+
+
+_F5_OUTPUT_CHANNELS = _env_clip_channels("RRV_F5_SAMPLE_CHANNELS", 1)
+_CHATTERBOX_OUTPUT_CHANNELS = _env_clip_channels("RRV_CHATTERBOX_SAMPLE_CHANNELS", 2)
+_F5_OUTPUT_SAMPLE_RATE = _env_clip_rate("RRV_F5_SAMPLE_RATE", 22050)
+_CHATTERBOX_OUTPUT_SAMPLE_RATE = _env_clip_rate("RRV_CHATTERBOX_SAMPLE_RATE", 44100)
+
+
+def _provider_output_channels(label: str) -> int:
+    """Return desired output channel count for the generated provider clip label."""
+    if label.startswith("f5"):
+        return _F5_OUTPUT_CHANNELS
+    if label.startswith("chatterbox"):
+        return _CHATTERBOX_OUTPUT_CHANNELS
+    return 2
+
+
+def _provider_output_sample_rate(label: str) -> int:
+    """Return desired output sample rate for the generated provider clip label."""
+    if label.startswith("f5"):
+        return _F5_OUTPUT_SAMPLE_RATE
+    if label.startswith("chatterbox"):
+        return _CHATTERBOX_OUTPUT_SAMPLE_RATE
+    return 44100
+
 
 # ── Provider duration targets (seconds) ───────────────────────────────────────
 
@@ -839,13 +895,38 @@ def _write_clip(
 
     if segment.ndim != 2 or segment.shape[1] != 2:
         raise RuntimeError(
-            f"Refusing to write non-stereo clip for '{label}': shape={getattr(segment, 'shape', None)}"
+            f"Refusing to slice clip from non-stereo master for '{label}': shape={getattr(segment, 'shape', None)}"
         )
+
+    output_channels = _provider_output_channels(label)
+    target_sr = _provider_output_sample_rate(label)
+
+    if output_channels == 1:
+        segment = np.mean(segment, axis=1, dtype=np.float32)
+    elif output_channels == 2:
+        segment = np.asarray(segment, dtype=np.float32)
+    else:
+        raise RuntimeError(f"Unsupported output channel count for '{label}': {output_channels}")
+
+    if int(target_sr) <= 0:
+        raise RuntimeError(f"Unsupported output sample rate for '{label}': {target_sr}")
+
+    if int(target_sr) != int(sr):
+        import librosa
+        if segment.ndim == 1:
+            segment = librosa.resample(segment, orig_sr=sr, target_sr=target_sr)
+        else:
+            left = librosa.resample(segment[:, 0], orig_sr=sr, target_sr=target_sr)
+            right = librosa.resample(segment[:, 1], orig_sr=sr, target_sr=target_sr)
+            min_len = min(len(left), len(right))
+            if min_len <= 0:
+                raise RuntimeError(f"Resample produced empty clip for '{label}'")
+            segment = np.stack([left[:min_len], right[:min_len]], axis=1).astype(np.float32, copy=False)
 
     # Add lead/tail silence padding. Source silence is NEVER trimmed.
     # Chatterbox clips are extended to CHATTERBOX_MIN_SEC if shorter.
     import numpy as np
-    segment = _pad_clip(segment, sr, label)
+    segment = _pad_clip(segment, target_sr, label)
     if len(segment) == 0:
         return None
 
@@ -869,16 +950,16 @@ def _write_clip(
         ref_text += "."
 
     try:
-        if int(sr) != 44100:
-            raise RuntimeError(f"Refusing to write clip with sample_rate={sr}; expected 44100")
-
-        sf.write(str(out_wav), segment, sr, subtype="PCM_16")
+        sf.write(str(out_wav), segment, int(target_sr), subtype="PCM_16")
 
         written_info = sf.info(str(out_wav))
-        if int(written_info.samplerate) != 44100 or int(written_info.channels) != 2:
+        expected_channels = output_channels
+        expected_sample_rate = int(target_sr)
+        if int(written_info.samplerate) != expected_sample_rate or int(written_info.channels) != expected_channels:
             raise RuntimeError(
                 f"Extractor wrote invalid clip '{out_wav.name}': "
-                f"sample_rate={written_info.samplerate} channels={written_info.channels}"
+                f"sample_rate={written_info.samplerate} channels={written_info.channels} "
+                f"expected_sample_rate={expected_sample_rate} expected_channels={expected_channels}"
             )
 
         out_ref.write_text(ref_text, encoding="utf-8")
