@@ -44,7 +44,35 @@ class ChatterboxBackend(AbstractTtsBackend):
         self._torch_device  = torch_device
         self._model         = None
         self._model_version = ""
-        self._infer_sem     = asyncio.Semaphore(self._MAX_CONCURRENT)
+        self._voice_cond    = asyncio.Condition()
+        self._active_voice_key: str | None = None
+        self._active_count  = 0
+
+
+    def _voice_group_key(self, request: SynthesisRequest) -> str:
+        sample_key = str(request.sample_path.resolve()) if request.sample_path is not None else ""
+        lang_key = request.lang_code or ""
+        return f"{sample_key}|{lang_key}"
+
+    async def _acquire_voice_slot(self, voice_key: str) -> None:
+        async with self._voice_cond:
+            while True:
+                if self._active_voice_key is None:
+                    self._active_voice_key = voice_key
+                    self._active_count = 1
+                    return
+                if self._active_voice_key == voice_key and self._active_count < self._MAX_CONCURRENT:
+                    self._active_count += 1
+                    return
+                await self._voice_cond.wait()
+
+    async def _release_voice_slot(self, voice_key: str) -> None:
+        async with self._voice_cond:
+            if self._active_voice_key == voice_key and self._active_count > 0:
+                self._active_count -= 1
+                if self._active_count == 0:
+                    self._active_voice_key = None
+            self._voice_cond.notify_all()
 
     # ── Identity ──────────────────────────────────────────────────────────────
 
@@ -258,8 +286,12 @@ class ChatterboxBackend(AbstractTtsBackend):
             raise ValueError("Chatterbox Turbo does not support voice blending.")
 
         loop = asyncio.get_event_loop()
-        async with self._infer_sem:
+        voice_key = self._voice_group_key(request)
+        await self._acquire_voice_slot(voice_key)
+        try:
             ogg_bytes = await loop.run_in_executor(None, self._synthesize_sync, request)
+        finally:
+            await self._release_voice_slot(voice_key)
         duration = estimate_duration(ogg_bytes)
         return SynthesisResult(ogg_bytes=ogg_bytes, duration_sec=duration)
 
