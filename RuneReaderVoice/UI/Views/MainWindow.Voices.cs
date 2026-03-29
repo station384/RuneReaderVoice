@@ -160,10 +160,10 @@ public partial class MainWindow
             string.Equals(profile.LangCode,  preset.Profile.LangCode, StringComparison.OrdinalIgnoreCase) &&
             Math.Abs(profile.SpeechRate - preset.Profile.SpeechRate) < 0.001f)
         {
-            return $"{preset.DisplayName} · {lang} · {profile.SpeechRate:0.00}x";
+            return $"{preset.DisplayName} · {lang} · {profile.SpeechRate * 100:0.#}%";
         }
 
-        return $"{voiceText} · {lang} · {profile.SpeechRate:0.00}x · {accentText}";
+        return $"{voiceText} · {lang} · {profile.SpeechRate * 100:0.#}% · {accentText}";
     }
 
 

@@ -220,20 +220,20 @@ public sealed class VoiceProfileEditorDialog : Window
 
         // ── Speech rate ───────────────────────────────────────────────────────
 
-        _speechRateSlider = new Slider { Minimum = 0.50, Maximum = 1.50, Value = _workingProfile.SpeechRate, TickFrequency = 0.05, HorizontalAlignment = HorizontalAlignment.Stretch };
-        _speechRateText   = new TextBox { Width = 80, Text = _workingProfile.SpeechRate.ToString("0.00", Inv), HorizontalContentAlignment = HorizontalAlignment.Center };
+        _speechRateSlider = new Slider { Minimum = 0.25, Maximum = 4.00, Value = _workingProfile.SpeechRate, TickFrequency = 0.05, HorizontalAlignment = HorizontalAlignment.Stretch };
+        _speechRateText   = new TextBox { Width = 80, Text = FormatPercent(_workingProfile.SpeechRate), HorizontalContentAlignment = HorizontalAlignment.Center };
         _speechRateSlider.PropertyChanged += (_, e) =>
         {
             if (e.Property != Slider.ValueProperty) return;
             _workingProfile.SpeechRate = (float)_speechRateSlider.Value;
-            var t = _workingProfile.SpeechRate.ToString("0.00", Inv);
+            var t = FormatPercent(_workingProfile.SpeechRate);
             if (_speechRateText.Text != t) _speechRateText.Text = t;
             RefreshSummary();
         };
         _speechRateText.TextChanged += (_, _) =>
         {
-            if (!float.TryParse(_speechRateText.Text, System.Globalization.NumberStyles.Float, Inv, out var v)) return;
-            v = Math.Clamp(v, 0.50f, 1.50f);
+            if (!TryParsePercentOrNumber(_speechRateText.Text, out var v)) return;
+            v = Math.Clamp(v, 0.25f, 4.00f);
             _workingProfile.SpeechRate = v;
             if (Math.Abs(_speechRateSlider.Value - v) > 0.001) _speechRateSlider.Value = v;
             RefreshSummary();
@@ -723,7 +723,8 @@ So go quickly, keep your wits about you, and return by the main road if you valu
         void Row(string label, float min, float max, string key, float def, string fmt, string suffix, string tip)
         {
             var cur = item.Get(key, def);
-            var (slider, tb) = MakeCompactSlider(min, max, cur, fmt, suffix, v => { item.Set(key, v); RefreshDspSummary(); RefreshSummary(); });
+            var displayAsPercent = string.IsNullOrEmpty(suffix) && min >= 0f && max <= 1f && item.Kind != DspEffectKind.WarmthGrit;
+            var (slider, tb) = MakeCompactSlider(min, max, cur, fmt, suffix, v => { item.Set(key, v); RefreshDspSummary(); RefreshSummary(); }, displayAsPercent);
             panel.Children.Add(DspRow(label, (slider, tb), tip));
         }
 
@@ -886,7 +887,7 @@ So go quickly, keep your wits about you, and return by the main road if you valu
         var lang = EspeakLanguageCatalog.All.FirstOrDefault(x => string.Equals(x.Code, _workingProfile.LangCode, StringComparison.OrdinalIgnoreCase));
         _languageNameText.Text  = lang?.DisplayName ?? _workingProfile.LangCode;
         _speechRateSlider.Value = _workingProfile.SpeechRate;
-        _speechRateText.Text    = _workingProfile.SpeechRate.ToString("0.00", Inv);
+        _speechRateText.Text    = FormatPercent(_workingProfile.SpeechRate);
         if (_cfgWeightSlider != null)
         {
             var cfg = _workingProfile.CfgWeight ?? (float)_cfgWeightSlider.Value;
@@ -1035,7 +1036,7 @@ So go quickly, keep your wits about you, and return by the main road if you valu
         var lang      = EspeakLanguageCatalog.All.FirstOrDefault(x => string.Equals(x.Code, _workingProfile.LangCode, StringComparison.OrdinalIgnoreCase))?.DisplayName ?? _workingProfile.LangCode;
         var mode      = _blendVoiceRadio.IsChecked == true ? "Blend Voices" : "Single Voice";
         var voiceText = _blendVoiceRadio.IsChecked == true ? _blendSummaryText.Text : _voiceSummaryText.Text;
-        _summaryText.Text    = $"Mode: {mode}\nVoice: {voiceText}\nDialect / Language: {lang}\nSpeech Rate: {_workingProfile.SpeechRate:0.00}x\nEffects: {BuildDspSummary()}";
+        _summaryText.Text    = $"Mode: {mode}\nVoice: {voiceText}\nDialect / Language: {lang}\nSpeech Rate: {FormatPercent(_workingProfile.SpeechRate)}\nEffects: {BuildDspSummary()}";
         _dspSummaryLine.Text = BuildDspSummary();
     }
 
@@ -1183,12 +1184,31 @@ So go quickly, keep your wits about you, and return by the main road if you valu
     /// Callers must handle both on=true (restore/set fields) and on=false (zero fields).
     /// </summary>
 
+    private static bool TryParsePercentOrNumber(string? text, out float value)
+    {
+        value = 0f;
+        if (string.IsNullOrWhiteSpace(text)) return false;
+
+        var s = text.Trim();
+        if (s.EndsWith("%", StringComparison.Ordinal))
+            s = s[..^1].TrimEnd();
+
+        if (!float.TryParse(s, System.Globalization.NumberStyles.Float, Inv, out var parsed))
+            return false;
+
+        value = parsed / 100f;
+        return true;
+    }
+
+    private static string FormatPercent(float value)
+        => $"{value * 100f:0.#}%";
+
     private static (Slider slider, TextBlock label) MakeCompactSlider(
         float min, float max, float initial,
-        string fmt, string suffix, Action<float> onChange)
+        string fmt, string suffix, Action<float> onChange, bool displayAsPercent = false)
     {
-        var valLabel = new TextBlock { Width = 52, VerticalAlignment = VerticalAlignment.Center, TextAlignment = TextAlignment.Right, FontSize = 11 };
-        void Upd(float v) => valLabel.Text = v.ToString(fmt, Inv) + suffix;
+        var valLabel = new TextBlock { Width = 60, VerticalAlignment = VerticalAlignment.Center, TextAlignment = TextAlignment.Right, FontSize = 11 };
+        void Upd(float v) => valLabel.Text = displayAsPercent ? FormatPercent(v) : v.ToString(fmt, Inv) + suffix;
         Upd(initial);
 
         var slider = new Slider { Minimum = min, Maximum = max, Value = initial, Width = 100, TickFrequency = (max - min) / 50f };
