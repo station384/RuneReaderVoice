@@ -76,7 +76,7 @@ public sealed class RvPacket
     public int NpcId { get; init; }
 
     /// <summary>
-    /// Base64-encoded text chunk (trailing spaces are padding — trim after decode).
+    /// Base64-encoded payload chunk. Preserve exactly; do not trim or normalize after decode.
     /// </summary>
     public string Base64Payload { get; init; } = string.Empty;
 

@@ -2,7 +2,6 @@
 
 using System;
 using System.Collections.Generic;
-using System.Text.RegularExpressions;
 
 namespace RuneReaderVoice.TTS;
 
@@ -102,12 +101,9 @@ public sealed class RecentSpeechSuppressor
 
     private static string Normalize(string? text)
     {
-        if (string.IsNullOrWhiteSpace(text))
+        if (string.IsNullOrEmpty(text))
             return string.Empty;
 
-        var value = text.Trim();
-        value = Regex.Replace(value, @"\s+", " ");
-        value = value.ToLowerInvariant();
-        return value;
+        return text;
     }
 }

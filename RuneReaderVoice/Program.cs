@@ -15,6 +15,7 @@ using RuneReaderVoice.TTS.Audio;
 using RuneReaderVoice.Session;
 using RuneReaderVoice.TTS.Pronunciation;
 using RuneReaderVoice.TTS.TextSwap;
+using Rect = OpenCvSharp.Rect;
 
 
 namespace RuneReaderVoice;
@@ -198,6 +199,8 @@ internal static class Program
                 ScreenHeight = platform.ScreenCapture.ScreenHeight,
             };
             _ = VoiceSettingsManager.SaveSettingsAsync(settings);
+           // platform.ScreenCapture.CaptureRegion = new Rect(settings.LastBarcodeRegion.X, settings.LastBarcodeRegion.Y, settings.LastBarcodeRegion.Width, settings.LastBarcodeRegion.Height);
+                
         };
 
         platform.ScreenCapture.OnFullScreenUpdated += monitor.ProcessFrame;

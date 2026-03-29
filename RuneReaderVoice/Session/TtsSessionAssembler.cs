@@ -381,7 +381,7 @@ public sealed class TtsSessionAssembler
 
     private static string MakeUtteranceKey(int dialogId, VoiceSlot slot, int npcId,
                                             string text, int seqIndex)
-        => $"{dialogId}|{seqIndex}|{slot}|{npcId}|{text.Trim()}";
+        => $"{dialogId}|{seqIndex}|{slot}|{npcId}|{text}";
 
     private static string MakeKey(int subTotal, int flags, int race, string sub0,
                                    int seqIndex = -1)
@@ -396,25 +396,46 @@ public sealed class TtsSessionAssembler
 
     private static string DecodeAndClean(string[] subs)
     {
-        var sb = new StringBuilder();
-        for (int i = 0; i < subs.Length; i++)
+        // var totalBytes = 0;
+        // var decodedChunks = new byte[subs.Length][];
+        //
+        // for (int i = 0; i < subs.Length; i++)
+        // {
+        //     var b64 = subs[i];
+        //     var bytes = Convert.FromBase64String(b64);
+        //     decodedChunks[i] = bytes;
+        //     totalBytes += bytes.Length;
+        //
+        //     System.Diagnostics.Debug.WriteLine(
+        //         $"[Assembler] sub {i}/{subs.Length - 1} b64len={b64.Length} " +
+        //         $"bytelen={bytes.Length}");
+        // }
+        //
+        // var allBytes = new byte[totalBytes];
+        // var offset = 0;
+        // for (int i = 0; i < decodedChunks.Length; i++)
+        // {
+        //     var bytes = decodedChunks[i];
+        //     Buffer.BlockCopy(bytes, 0, allBytes, offset, bytes.Length);
+        //     offset += bytes.Length;
+        // }
+
+        //var text = Encoding.UTF8.GetString(allBytes);
+
+        //System.Diagnostics.Debug.WriteLine($"[Assembler] final bytelen={allBytes.Length} text='{text}'");
+        
+        StringBuilder sb = new StringBuilder();
+        foreach (var s in subs)
         {
-            var b64   = subs[i];
-            var bytes = Convert.FromBase64String(b64);
-            var raw   = Encoding.UTF8.GetString(bytes).Trim();
-
-            System.Diagnostics.Debug.WriteLine(
-                $"[Assembler] sub {i}/{subs.Length - 1} b64len={b64.Length} " +
-                $"bytelen={bytes.Length} text='{raw}'");
-
-            if (sb.Length > 0) sb.Append(' ');
-            sb.Append(raw);
+            if (!string.IsNullOrEmpty(s))
+              sb.Append(s);
         }
+        
+        var result = "";
+        
+        if (sb.Length > 0)
+            result = sb.ToString();
 
-        var text = sb.ToString().Trim();
-
-        System.Diagnostics.Debug.WriteLine($"[Assembler] final text='{text}'");
-
-        return text;
+        return result;
     }
 }

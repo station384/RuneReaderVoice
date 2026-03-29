@@ -32,15 +32,19 @@
 
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
 using OpenCvSharp;
+using System.Text;
 using ZXing;
 using ZXing.Common;
 using RuneReaderVoice.Protocol;
 using RuneReaderVoice.Platform;
+using ZXing.QrCode;
+
 
 namespace RuneReaderVoice.Session;
 // Shim for Marshal.Copy — needs using System.Runtime.InteropServices
@@ -92,22 +96,26 @@ public sealed class RvBarcodeMonitor : IDisposable
 
     private readonly object _gate = new();
     private bool _disposed;
-
+    //private QRCodeDetector  _QRCodeDetector  = new QRCodeDetector();
+    
     public RvBarcodeMonitor(IScreenCaptureProvider capture)
     {
         _capture = capture;
-
+       // Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
         multiReader.Options.Hints.Add(DecodeHintType.CHARACTER_SET, "ISO-8859-1");
+        
+        multiReader.Options.PossibleFormats = new List<BarcodeFormat> { BarcodeFormat.QR_CODE };
         multiReader.Options.Hints.Add(DecodeHintType.TRY_HARDER, true);
         multiReader.Options.Hints.Add(DecodeHintType.PURE_BARCODE, false);
-        multiReader.Options.Hints.Add(DecodeHintType.POSSIBLE_FORMATS, new List<BarcodeFormat> { BarcodeFormat.QR_CODE });
+      //  multiReader.Options.Hints.Add(DecodeHintType.POSSIBLE_FORMATS, new List<BarcodeFormat> { BarcodeFormat.QR_CODE });
 
         singleReader.Options.Hints.Add(DecodeHintType.CHARACTER_SET, "ISO-8859-1");
+        singleReader.Options.PossibleFormats = new List<BarcodeFormat> { BarcodeFormat.QR_CODE };
         singleReader.Options.Hints.Add(DecodeHintType.TRY_HARDER, true);
-        singleReader.Options.Hints.Add(DecodeHintType.PURE_BARCODE, false);
-        singleReader.Options.Hints.Add(DecodeHintType.POSSIBLE_FORMATS, new List<BarcodeFormat> { BarcodeFormat.QR_CODE });
-        
-        
+        singleReader.Options.Hints.Add(DecodeHintType.PURE_BARCODE, true);
+      //  singleReader.Options.Hints.Add(DecodeHintType.POSSIBLE_FORMATS, new List<BarcodeFormat> { BarcodeFormat.QR_CODE });
+       // OpenCvSharp.QRCodeDetector  = new QRCodeDetector();
+  
         // _reader = new BarcodeReaderGeneric
         // {
         //     Options = new DecodingOptions
@@ -234,23 +242,25 @@ public sealed class RvBarcodeMonitor : IDisposable
 
     public void ProcessFrame(Mat frame)
     {
+        Mat _frame = frame.Clone();
         try
         {
-            if (frame.Empty()) return;
+            if (_frame.Empty()) return;
 
-             OnFrameCaptured?.Invoke(frame);
+             OnFrameCaptured?.Invoke(_frame);
 
             // DecodeMultiple: handle 1 or 2 QR codes on screen simultaneously
             // ZXing.Net BarcodeReaderGeneric can decode one at a time.
             // For multi-decode, we use the LuminanceSource + HybridBinarizer approach.
-            var results = DecodeMultiple(frame);
+            var results = DecodeMultiple(_frame);
             if (results == null || results.Length == 0) return;
             foreach (var result in results)
             {
-                if (result?.Text == null) continue;
-
+               // var raw = GetPacketRaw(result);
+                //if (raw == null) continue;
+                if (string.IsNullOrEmpty(result.Text)) continue;  
                 // Filter by "RV" magic prefix — only process RuneReaderVoice packets
-                var packet = RvPacket.TryParse(result.Text);
+                var packet = RvPacket.TryParse(Base45Simple.DecodeUtf8(result.Text));
                 if (packet == null) continue;
 
                 // Discard preview packets
@@ -265,12 +275,13 @@ public sealed class RvBarcodeMonitor : IDisposable
                     _lastRvDecodeTime = DateTime.UtcNow;
                     _sourceGoneSignalled = false;
                 }
-
-                OnPacketDecoded?.Invoke(packet);
+               // This only finds the barcode.  it doesn't process it.
+               // OnPacketDecoded?.Invoke(packet);
             }
         }
         finally
         {
+            _frame.Dispose();
             if (!frame.IsDisposed)
                 frame.Dispose();
             CheckIfWeShouldGC();
@@ -279,30 +290,32 @@ public sealed class RvBarcodeMonitor : IDisposable
 
     public void ProcessFrameRegion(Mat frame)
     {
+        Mat _frame = frame.Clone();
         try
         {
-            if (frame.Empty()) return;
+            if (_frame.Empty()) return;
 
-            OnRegionCaptured?.Invoke(frame);
+            OnRegionCaptured?.Invoke(_frame);
 
             // DecodeMultiple: handle 1 or 2 QR codes on screen simultaneously
             // ZXing.Net BarcodeReaderGeneric can decode one at a time.
             // For multi-decode, we use the LuminanceSource + HybridBinarizer approach.
-            var results = DecodeSingle(frame);  // this needs to be updated as it should only ever return a single barcode.
+            var results = DecodeSingle(_frame);  // this needs to be updated as it should only ever return a single barcode.
             if (results == null || results.Length == 0) return;
-            foreach (var result in results)
-            {
-                if (result?.Text == null) continue;
+//            foreach (var result in results)
+ //           {
+                var raw = GetPacketRaw(results);
+                if (raw == null) return;
 
                 // Filter by "RV" magic prefix — only process RuneReaderVoice packets
-                var packet = RvPacket.TryParse(result.Text);
-                if (packet == null) continue;
+                var packet = RvPacket.TryParse(raw);
+                if (packet == null) return;
 
                 // Discard preview packets
-                if (packet.IsPreview) continue;
+                if (packet.IsPreview) return;
 
                 // Update region lock from barcode bounding box
-                UpdateRegionLock(result);
+             //   UpdateRegionLock(results);
 
                 lock (_gate)
                 {
@@ -312,10 +325,11 @@ public sealed class RvBarcodeMonitor : IDisposable
                 }
 
                 OnPacketDecoded?.Invoke(packet);
-            }
+   //         }
         }
         finally
         {
+            _frame.Dispose();
             if (!frame.IsDisposed)
                 frame.Dispose();
             CheckIfWeShouldGC();
@@ -323,39 +337,74 @@ public sealed class RvBarcodeMonitor : IDisposable
         }
     }
     
+    private static string? GetPacketRaw(Result? result)
+    {
+        if (result == null)
+            return null;
+
+        if (result.RawBytes is { Length: > 0 })
+        {
+            try
+            {
+                return Encoding.Latin1.GetString(result.RawBytes);
+            }
+            catch
+            {
+                // fall back to ZXing text below
+            }
+        }
+
+        return result.Text;
+    }
+
+    private static string? GetPacketRaw(string result)
+    {
+        if (string.IsNullOrEmpty(result))
+            return null;
+
+
+        return result;
+    }
+    
+    
+    private List<string> tempStringHolder = new List<string>();
     // reuseable mem buffer for capture.   better to update mem then buildup/teardown
     private byte[] _fullScanBuffer = new byte[1];
     // May want to use OpenCv's QRDecodeer since its faster than ZXing's
     private Result[]? DecodeMultiple(Mat frame)
     {
+        Mat gray = new Mat();
         try
         {
             // Convert Mat to ZXing LuminanceSource
             // Using grayscale byte array approach
-            using var gray = frame.Channels() == 1 ? frame.Clone() : frame.CvtColor(ColorConversionCodes.BGR2GRAY);
-
+            gray = frame.Channels() == 1 ? frame.Clone() : frame.CvtColor(ColorConversionCodes.BGR2GRAY);
+            Cv2.Threshold(gray, gray, 20, 255, ThresholdTypes.Binary);
 
             if (_fullScanBuffer.Length != gray.Rows * gray.Cols)
             {
                 Array.Clear(_fullScanBuffer);
-                _fullScanBuffer  = new byte[gray.Rows * gray.Cols];
-                
+                _fullScanBuffer = new byte[gray.Rows * gray.Cols];
+
             }
+
             //var bytes  = new byte[gray.Rows * gray.Cols];
             Marshal.Copy(gray.Data, _fullScanBuffer, 0, _fullScanBuffer.Length);
 
-            var luminance  = new ZXing.RGBLuminanceSource(_fullScanBuffer, gray.Cols, gray.Rows,
+            var luminance = new ZXing.RGBLuminanceSource(_fullScanBuffer, gray.Cols, gray.Rows,
                 ZXing.RGBLuminanceSource.BitmapFormat.Gray8);
-            //Array.Clear(bytes);
-            //bytes = null;
-            // ZXing.Net multi-decode via QRCodeMultiReader
+
             var decResult = multiReader.DecodeMultiple(luminance);
-            gray.Dispose();
+           
             return decResult;
         }
         catch
         {
             return null;
+        }
+        finally
+        {
+            gray.Dispose();
         }
     }
     
@@ -363,73 +412,144 @@ public sealed class RvBarcodeMonitor : IDisposable
     private byte[] _singleScanBuffer = new byte[1];
     // this needs to be re done so it doesn't do MultiDecode.  
     // Maybe even use OpenCV's qr decoder since its faster than ZXing.  will need to try it out.
-    private Result[]? DecodeSingle(Mat frame)
+    private string DecodeSingle(Mat frame)
     {
+        Mat gray = new Mat();
         try
         {
             // Convert Mat to ZXing LuminanceSource
             // Using grayscale byte array approach
-            using var gray = frame.Channels() == 1
-                ? frame.Clone()
-                : frame.CvtColor(ColorConversionCodes.BGR2GRAY);
+             gray = frame.Channels() == 1 ? frame.Clone() : frame.CvtColor(ColorConversionCodes.BGR2GRAY);
+            Cv2.Threshold(gray, gray, 20, 255, ThresholdTypes.Binary);
+            
+            // using var scaled = new Mat();
+            // Cv2.Resize(gray, scaled, new Size(), 2.0, 2.0, InterpolationFlags.Nearest);
+            //
+            //
+            using var padded = new Mat();
+            Cv2.CopyMakeBorder(
+                gray,
+                padded,
+                50, 50, 50, 50,
+                BorderTypes.Constant,
+                Scalar.White);
 
-            if (_singleScanBuffer.Length != gray.Rows * gray.Cols)
+
+            if (_singleScanBuffer.Length != padded.Rows * padded.Cols)
             {
                 Array.Clear(_singleScanBuffer);
-                _singleScanBuffer  = new byte[gray.Rows * gray.Cols];
-                
+                _singleScanBuffer = new byte[padded.Rows * padded.Cols];
+            
             }
             
-
-            Marshal.Copy(gray.Data, _singleScanBuffer, 0, _singleScanBuffer.Length);
-
-            var luminance  = new ZXing.RGBLuminanceSource(_singleScanBuffer, gray.Cols, gray.Rows,
+            
+            Marshal.Copy(padded.Data, _singleScanBuffer, 0, _singleScanBuffer.Length);
+            
+            var luminance = new ZXing.RGBLuminanceSource(_singleScanBuffer, padded.Cols, padded.Rows,
                 ZXing.RGBLuminanceSource.BitmapFormat.Gray8);
 
+            //Cv2.ImShow("bmp", padded);
 
-            var result = singleReader.Decode(luminance);
-            return result != null ? new[] { result } : null;
+            var results = singleReader.DecodeMultiple(luminance);
+            //string decodeResult = _QRCodeDetector.DetectAndDecode(padded, out Point2f[] points, null);
+            var result = results != null ?  results.First()  : null;
+            
+            if (result != null && !tempStringHolder.Contains(Base45Simple.DecodeUtf8(result.Text)))
+            {
+                tempStringHolder.Add(Base45Simple.DecodeUtf8(result.Text));
+                Debug.WriteLine($@" {Base45Simple.DecodeUtf8(result.Text)} ");
+            }
+
+            return result != null ? Base45Simple.DecodeUtf8(result.Text) : null;
         }
         catch
         {
             return null;
         }
+        finally
+        {
+            gray.Dispose();
+        }
     }
     
     
+    // private void UpdateRegionLock(Result result)
+    // {
+    //     if (result.ResultPoints == null || result.ResultPoints.Length < 3) return;
+    //
+    //     float minX = result.ResultPoints.Min(p => p.X);
+    //     float minY = result.ResultPoints.Min(p => p.Y);
+    //     float maxX = result.ResultPoints.Max(p => p.X);
+    //     float maxY = result.ResultPoints.Max(p => p.Y);
+    //
+    //     const int Margin = 20;
+    //     var candidate = new Rect(
+    //         Math.Max(0, (int)minX - Margin),
+    //         Math.Max(0, (int)minY - Margin),
+    //         (int)(maxX - minX) + Margin * 2,
+    //         (int)(maxY - minY) + Margin * 2);
+    //
+    //     var clamped = ClampRegionToScreen(candidate);
+    //     if (!clamped.HasValue) return;
+    //
+    //     var changed = false;
+    //     lock (_gate)
+    //     {
+    //         if (!_lockedRegion.HasValue || !_lockedRegion.Value.Equals(clamped.Value))
+    //         {
+    //             _lockedRegion = clamped.Value;
+    //             changed = true;
+    //         }
+    //     }
+    //
+    //     if (changed)
+    //         OnLockedRegionChanged?.Invoke(clamped.Value);
+    // }
+
+    
     private void UpdateRegionLock(Result result)
     {
-        if (result.ResultPoints == null || result.ResultPoints.Length < 3) return;
+        if (result.ResultPoints == null || result.ResultPoints.Length < 3)
+            return;
 
         float minX = result.ResultPoints.Min(p => p.X);
         float minY = result.ResultPoints.Min(p => p.Y);
         float maxX = result.ResultPoints.Max(p => p.X);
         float maxY = result.ResultPoints.Max(p => p.Y);
 
-        const int Margin = 20;
-        var candidate = new Rect(
-            Math.Max(0, (int)minX - Margin),
-            Math.Max(0, (int)minY - Margin),
-            (int)(maxX - minX) + Margin * 2,
-            (int)(maxY - minY) + Margin * 2);
+        const int padding = 30; // 10–20 px is reasonable
 
-        var clamped = ClampRegionToScreen(candidate);
-        if (!clamped.HasValue) return;
+        int screenWidth =   _capture.ScreenWidth; // whatever your actual source is
+        int screenHeight =  _capture.ScreenHeight; // whatever your actual source is
+
+        int left   = Math.Max(0, (int)Math.Floor(minX) - padding);
+        int top    = Math.Max(0, (int)Math.Floor(minY) - padding);
+        int right  = Math.Min(screenWidth,  (int)Math.Ceiling(maxX) + padding);
+        int bottom = Math.Min(screenHeight, (int)Math.Ceiling(maxY) + padding);
+
+        int width = right - left;
+        int height = bottom - top;
+
+        if (width <= 0 || height <= 0)
+            return;
+
+        var clamped = new Rect(left, top, width, height);
 
         var changed = false;
         lock (_gate)
         {
-            if (!_lockedRegion.HasValue || !_lockedRegion.Value.Equals(clamped.Value))
+            if (!_lockedRegion.HasValue || !_lockedRegion.Value.Equals(clamped))
             {
-                _lockedRegion = clamped.Value;
+                _lockedRegion = clamped;
                 changed = true;
             }
         }
 
         if (changed)
-            OnLockedRegionChanged?.Invoke(clamped.Value);
+            OnLockedRegionChanged?.Invoke(clamped);
     }
-
+    
+    
     // ── Full-screen rescan loop ───────────────────────────────────────────────
 
     private async Task ReScanLoopAsync(CancellationToken ct)
