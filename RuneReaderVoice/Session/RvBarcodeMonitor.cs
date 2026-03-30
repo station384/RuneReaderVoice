@@ -89,7 +89,7 @@ public sealed class RvBarcodeMonitor : IDisposable
     private Task? _reScanTask;
     private Task? _sourceGoneTask;
 
-    private bool _rvQrFound;
+    private bool _regionHasRvQr;
     private Rect? _lockedRegion;
     private DateTime _lastRvDecodeTime = DateTime.MinValue;
     private bool _sourceGoneSignalled;
@@ -171,7 +171,7 @@ public sealed class RvBarcodeMonitor : IDisposable
         {
             if (_captureTask is { IsCompleted: false }) return;
             _cts                 = new CancellationTokenSource();
-            _rvQrFound           = false;
+            _regionHasRvQr       = false;
             _sourceGoneSignalled = false;
 
             var token    = _cts.Token;
@@ -220,8 +220,9 @@ public sealed class RvBarcodeMonitor : IDisposable
 
                 if (lockedRegion.HasValue)
                 {
-                    _capture.EnableRegion  = true;
-                    _capture.CaptureRegion = lockedRegion.Value;
+                    _capture.EnableFullScreen = false;
+                    _capture.EnableRegion     = true;
+                    _capture.CaptureRegion    = lockedRegion.Value;
                     _capture.CaptureOnce();
                 }
 
@@ -269,12 +270,8 @@ public sealed class RvBarcodeMonitor : IDisposable
                 // Update region lock from barcode bounding box
                 UpdateRegionLock(result);
 
-                lock (_gate)
-                {
-                    _rvQrFound = true;
-                    _lastRvDecodeTime = DateTime.UtcNow;
-                    _sourceGoneSignalled = false;
-                }
+                // Full-screen scan only relocates the QR; region processing owns
+                // the live-presence flag and packet dispatch.
                // This only finds the barcode.  it doesn't process it.
                // OnPacketDecoded?.Invoke(packet);
             }
@@ -297,35 +294,38 @@ public sealed class RvBarcodeMonitor : IDisposable
 
             OnRegionCaptured?.Invoke(_frame);
 
-            // DecodeMultiple: handle 1 or 2 QR codes on screen simultaneously
-            // ZXing.Net BarcodeReaderGeneric can decode one at a time.
-            // For multi-decode, we use the LuminanceSource + HybridBinarizer approach.
-            var results = DecodeSingle(_frame);  // this needs to be updated as it should only ever return a single barcode.
-            if (results == null || results.Length == 0) return;
-//            foreach (var result in results)
- //           {
-                var raw = GetPacketRaw(results);
-                if (raw == null) return;
-
-                // Filter by "RV" magic prefix — only process RuneReaderVoice packets
-                var packet = RvPacket.TryParse(raw);
-                if (packet == null) return;
-
-                // Discard preview packets
-                if (packet.IsPreview) return;
-
-                // Update region lock from barcode bounding box
-             //   UpdateRegionLock(results);
-
+            var decodedText = DecodeSingle(_frame);
+            if (string.IsNullOrEmpty(decodedText))
+            {
                 lock (_gate)
-                {
-                    _rvQrFound = true;
-                    _lastRvDecodeTime = DateTime.UtcNow;
-                    _sourceGoneSignalled = false;
-                }
+                    _regionHasRvQr = false;
+                return;
+            }
 
-                OnPacketDecoded?.Invoke(packet);
-   //         }
+            var raw = GetPacketRaw(decodedText);
+            if (raw == null)
+            {
+                lock (_gate)
+                    _regionHasRvQr = false;
+                return;
+            }
+
+            var packet = RvPacket.TryParse(raw);
+            if (packet == null || packet.IsPreview)
+            {
+                lock (_gate)
+                    _regionHasRvQr = false;
+                return;
+            }
+
+            lock (_gate)
+            {
+                _regionHasRvQr = true;
+                _lastRvDecodeTime = DateTime.UtcNow;
+                _sourceGoneSignalled = false;
+            }
+
+            OnPacketDecoded?.Invoke(packet);
         }
         finally
         {
@@ -562,12 +562,12 @@ public sealed class RvBarcodeMonitor : IDisposable
 
             bool needsScan;
             lock (_gate) 
-                needsScan = !_rvQrFound;
+                needsScan = !_regionHasRvQr;
 
             if (needsScan)
             {
-                // Force a full-screen capture to search for the QR frame
-                _lockedRegion = null;
+                // Force a full-screen capture to search for the QR frame without
+                // discarding the last known region. Region scanning continues.
                 _capture.EnableFullScreen = true;
                 _capture.EnableRegion     = false;
                 _capture.CaptureOnce();
@@ -589,13 +589,12 @@ public sealed class RvBarcodeMonitor : IDisposable
             lock (_gate)
             {
                 var elapsed = (DateTime.UtcNow - _lastRvDecodeTime).TotalMilliseconds;
-                shouldSignal = _rvQrFound
+                shouldSignal = _lastRvDecodeTime != DateTime.MinValue
                               && !_sourceGoneSignalled
                               && elapsed > SourceGoneThresholdMs;
                 if (shouldSignal)
                 {
-                    _rvQrFound           = false;
-                    _lockedRegion        = null;
+                    _regionHasRvQr       = false;
                     _sourceGoneSignalled = true;
                 }
             }
