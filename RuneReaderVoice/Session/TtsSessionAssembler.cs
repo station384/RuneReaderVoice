@@ -283,10 +283,14 @@ public sealed class TtsSessionAssembler
             {
                 toFire = new List<AssembledSegment>(_seqTotal);
                 for (int i = 0; i < _seqTotal; i++)
-                    toFire.Add(_completedSegments[i]);
+                {
+                    var seg = _completedSegments[i];
+                    if (!string.IsNullOrWhiteSpace(seg.Text))
+                        toFire.Add(seg);
+                }
                 _completedSegments.Clear();
                 System.Diagnostics.Debug.WriteLine(
-                    $"[Assembler] Dialog 0x{_currentDialogId:X4} complete — firing {toFire.Count} segment(s)");
+                    $"[Assembler] Dialog 0x{_currentDialogId:X4} complete — firing {toFire.Count} audible segment(s)");
             }
         }
 
@@ -355,7 +359,6 @@ public sealed class TtsSessionAssembler
         if (_completedKeys.Contains(key)) return;
 
         var text = DecodeAndClean(acc.Subs!);
-        if (string.IsNullOrWhiteSpace(text)) return;
 
         var utteranceKey = MakeUtteranceKey(_currentDialogId, acc.Slot, acc.NpcId, text, acc.SeqIndex);
         if (_completedUtteranceKeys.Contains(utteranceKey)) return;

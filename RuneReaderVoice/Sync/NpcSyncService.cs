@@ -304,22 +304,34 @@ public sealed class NpcSyncService : IDisposable
 
     private Task ApplyVoiceProfilesDefaultsAsync(string json)
     {
-        var export = JsonSerializer.Deserialize<TTS.Providers.VoiceProfileExport>(
-            json, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
-        if (export?.Profiles == null) return Task.CompletedTask;
+        var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
 
-        if (!_settings.PerProviderVoiceProfiles.TryGetValue(export.ProviderId, out var existing))
+        var multi = JsonSerializer.Deserialize<TTS.Providers.MultiProviderVoiceProfileExport>(json, options);
+        if (multi?.Providers != null && multi.Providers.Count > 0)
         {
-            existing = new System.Collections.Generic.Dictionary<string, TTS.Providers.VoiceProfile>(
-                StringComparer.OrdinalIgnoreCase);
-            _settings.PerProviderVoiceProfiles[export.ProviderId] = existing;
+            foreach (var (providerId, incomingProfiles) in multi.Providers)
+            {
+                if (string.IsNullOrWhiteSpace(providerId) || incomingProfiles == null)
+                    continue;
+
+                var replacement = new System.Collections.Generic.Dictionary<string, TTS.Providers.VoiceProfile>(
+                    incomingProfiles,
+                    StringComparer.OrdinalIgnoreCase);
+                _settings.PerProviderVoiceProfiles[providerId] = replacement;
+            }
+
+            VoiceSettingsManager.SaveSettings(_settings);
+            return Task.CompletedTask;
         }
 
-        foreach (var (slot, profile) in export.Profiles)
-        {
-            if (!existing.ContainsKey(slot))
-                existing[slot] = profile;
-        }
+        var single = JsonSerializer.Deserialize<TTS.Providers.VoiceProfileExport>(json, options);
+        if (single?.Profiles == null || string.IsNullOrWhiteSpace(single.ProviderId))
+            return Task.CompletedTask;
+
+        var existing = new System.Collections.Generic.Dictionary<string, TTS.Providers.VoiceProfile>(
+            single.Profiles,
+            StringComparer.OrdinalIgnoreCase);
+        _settings.PerProviderVoiceProfiles[single.ProviderId] = existing;
 
         VoiceSettingsManager.SaveSettings(_settings);
         return Task.CompletedTask;

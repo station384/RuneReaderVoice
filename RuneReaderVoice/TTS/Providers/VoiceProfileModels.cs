@@ -405,3 +405,9 @@ public sealed class VoiceProfileExport
     public string ProviderId { get; set; } = string.Empty;
     public Dictionary<string, VoiceProfile> Profiles { get; set; } = new();
 }
+
+public sealed class MultiProviderVoiceProfileExport
+{
+    public Dictionary<string, Dictionary<string, VoiceProfile>> Providers { get; set; } =
+        new(StringComparer.OrdinalIgnoreCase);
+}

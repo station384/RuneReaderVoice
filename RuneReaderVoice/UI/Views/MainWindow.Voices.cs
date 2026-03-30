@@ -304,13 +304,13 @@ So go quickly, keep your wits about you, and return by the main road if you valu
     {
         try
         {
-            var providerId = AppServices.Provider.ProviderId;
-            AppServices.Settings.PerProviderVoiceProfiles.TryGetValue(providerId, out var dict);
-
-            var export = new VoiceProfileExport
+            var export = new MultiProviderVoiceProfileExport
             {
-                ProviderId = providerId,
-                Profiles   = dict ?? new Dictionary<string, VoiceProfile>(),
+                Providers = AppServices.Settings.PerProviderVoiceProfiles
+                    .ToDictionary(
+                        kvp => kvp.Key,
+                        kvp => new Dictionary<string, VoiceProfile>(kvp.Value, StringComparer.OrdinalIgnoreCase),
+                        StringComparer.OrdinalIgnoreCase),
             };
             var json = JsonSerializer.Serialize(export, _jsonVoiceOptions);
 
@@ -320,7 +320,7 @@ So go quickly, keep your wits about you, and return by the main road if you valu
             var path = await topLevel.StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions
             {
                 Title             = "Export Voice Profiles",
-                SuggestedFileName = $"voice-profiles-{providerId}.json",
+                SuggestedFileName = "voice-profiles-all-providers.json",
                 DefaultExtension  = "json",
                 FileTypeChoices   = new[] { new FilePickerFileType("JSON") { Patterns = new[] { "*.json" } } },
             });
@@ -328,7 +328,9 @@ So go quickly, keep your wits about you, and return by the main road if you valu
             if (path == null) return;
 
             await File.WriteAllTextAsync(path.Path.LocalPath, json);
-            SessionStatus.Text = $"Exported {export.Profiles.Count} voice profiles.";
+            var providerCount = export.Providers.Count;
+            var profileCount = export.Providers.Values.Sum(x => x.Count);
+            SessionStatus.Text = $"Exported {profileCount} voice profiles across {providerCount} providers.";
         }
         catch (Exception ex)
         {
@@ -352,26 +354,72 @@ So go quickly, keep your wits about you, and return by the main road if you valu
 
             if (files.Count == 0) return;
 
-            var json   = await File.ReadAllTextAsync(files[0].Path.LocalPath);
-            var import = JsonSerializer.Deserialize<VoiceProfileExport>(json);
-            if (import?.Profiles == null || import.Profiles.Count == 0)
+            var json = await File.ReadAllTextAsync(files[0].Path.LocalPath);
+
+            var multi = JsonSerializer.Deserialize<MultiProviderVoiceProfileExport>(json);
+            var importedProviders = 0;
+            var importedProfiles = 0;
+
+            if (multi?.Providers != null && multi.Providers.Count > 0)
+            {
+                foreach (var (providerId, profiles) in multi.Providers)
+                {
+                    if (string.IsNullOrWhiteSpace(providerId) || profiles == null)
+                        continue;
+
+                    if (!AppServices.Settings.PerProviderVoiceProfiles.TryGetValue(providerId, out var dict))
+                    {
+                        dict = new Dictionary<string, VoiceProfile>(StringComparer.OrdinalIgnoreCase);
+                        AppServices.Settings.PerProviderVoiceProfiles[providerId] = dict;
+                    }
+
+                    var providerImported = 0;
+                    foreach (var (slotKey, profile) in profiles)
+                    {
+                        if (!VoiceSlot.TryParse(slotKey, out var slot)) continue;
+                        ApplyVoiceProfile(slot, profile, providerId, dict);
+                        providerImported++;
+                    }
+
+                    if (providerImported > 0)
+                    {
+                        importedProviders++;
+                        importedProfiles += providerImported;
+                    }
+                }
+            }
+            else
+            {
+                var import = JsonSerializer.Deserialize<VoiceProfileExport>(json);
+                if (import?.Profiles == null || import.Profiles.Count == 0)
+                {
+                    SessionStatus.Text = "No voice profiles found in file.";
+                    return;
+                }
+
+                var providerId = string.IsNullOrWhiteSpace(import.ProviderId)
+                    ? AppServices.Provider.ProviderId
+                    : import.ProviderId;
+                if (!AppServices.Settings.PerProviderVoiceProfiles.TryGetValue(providerId, out var dict))
+                {
+                    dict = new Dictionary<string, VoiceProfile>(StringComparer.OrdinalIgnoreCase);
+                    AppServices.Settings.PerProviderVoiceProfiles[providerId] = dict;
+                }
+
+                foreach (var (slotKey, profile) in import.Profiles)
+                {
+                    if (!VoiceSlot.TryParse(slotKey, out var slot)) continue;
+                    ApplyVoiceProfile(slot, profile, providerId, dict);
+                    importedProfiles++;
+                }
+
+                importedProviders = importedProfiles > 0 ? 1 : 0;
+            }
+
+            if (importedProfiles == 0)
             {
                 SessionStatus.Text = "No voice profiles found in file.";
                 return;
-            }
-
-            // Always import into the currently active provider's slot dictionary.
-            var providerId = AppServices.Provider.ProviderId;
-            if (!AppServices.Settings.PerProviderVoiceProfiles.TryGetValue(providerId, out var dict))
-            {
-                dict = new Dictionary<string, VoiceProfile>(StringComparer.OrdinalIgnoreCase);
-                AppServices.Settings.PerProviderVoiceProfiles[providerId] = dict;
-            }
-
-            foreach (var (slotKey, profile) in import.Profiles)
-            {
-                if (!VoiceSlot.TryParse(slotKey, out var slot)) continue;
-                ApplyVoiceProfile(slot, profile, providerId, dict);
             }
 
             VoiceSettingsManager.SaveSettings(AppServices.Settings);
@@ -383,7 +431,7 @@ So go quickly, keep your wits about you, and return by the main road if you valu
                     summary.Text = DescribeVoiceProfile(item.Slot);
             }
 
-            SessionStatus.Text = $"Imported {import.Profiles.Count} voice profiles.";
+            SessionStatus.Text = $"Imported {importedProfiles} voice profiles across {importedProviders} providers.";
         }
         catch (Exception ex)
         {
@@ -401,12 +449,13 @@ So go quickly, keep your wits about you, and return by the main road if you valu
 
         try
         {
-            var providerId = AppServices.Provider.ProviderId;
-            AppServices.Settings.PerProviderVoiceProfiles.TryGetValue(providerId, out var dict);
-            var export = new VoiceProfileExport
+            var export = new MultiProviderVoiceProfileExport
             {
-                ProviderId = providerId,
-                Profiles   = dict ?? new System.Collections.Generic.Dictionary<string, VoiceProfile>(),
+                Providers = AppServices.Settings.PerProviderVoiceProfiles
+                    .ToDictionary(
+                        kvp => kvp.Key,
+                        kvp => new Dictionary<string, VoiceProfile>(kvp.Value, StringComparer.OrdinalIgnoreCase),
+                        StringComparer.OrdinalIgnoreCase),
             };
             var json = System.Text.Json.JsonSerializer.Serialize(export, _jsonVoiceOptions);
             var ok   = await AppServices.NpcSync.PushDefaultsAsync("voice-profiles", json);

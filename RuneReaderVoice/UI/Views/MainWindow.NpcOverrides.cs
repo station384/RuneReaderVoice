@@ -78,6 +78,23 @@ public partial class MainWindow
         return null;
     }
 
+    private bool ShouldShowLastNpcSamplePanel()
+    {
+        var descriptor = AppServices.ProviderRegistry.Get(AppServices.Provider.ProviderId);
+        if (descriptor == null)
+            return false;
+
+        if (descriptor.TransportKind != TTS.Providers.ProviderTransportKind.Remote)
+            return false;
+
+        if (descriptor.SupportsVoiceMatching)
+            return true;
+
+        var remoteId = descriptor.RemoteProviderId ?? string.Empty;
+        return remoteId.Contains("chatterbox", StringComparison.OrdinalIgnoreCase)
+            || remoteId.Contains("f5", StringComparison.OrdinalIgnoreCase);
+    }
+
     /// <summary>
     /// Populates the two-level sample picker (base sample + variant dropdowns).
     /// Dropdown 1: distinct base sample IDs.
@@ -96,11 +113,13 @@ public partial class MainWindow
             Tag     = (string?)null,
         });
 
+        var showPanel = ShouldShowLastNpcSamplePanel();
+
         if (AppServices.Provider is TTS.Providers.RemoteTtsProvider remoteProvider)
         {
             var voices = remoteProvider.GetAvailableVoices();
             System.Diagnostics.Debug.WriteLine(
-                $"[NpcPanel] PopulateSampleDropdown: provider={AppServices.Provider.ProviderId} voiceCount={voices.Count}");
+                $"[NpcPanel] PopulateSampleDropdown: provider={AppServices.Provider.ProviderId} voiceCount={voices.Count} showPanel={showPanel}");
 
             // Separate base samples from variants
             var baseSamples = voices
@@ -117,7 +136,7 @@ public partial class MainWindow
                 });
             }
 
-            LastNpcSamplePanel.IsVisible = voices.Count > 0;
+            LastNpcSamplePanel.IsVisible = showPanel;
             System.Diagnostics.Debug.WriteLine(
                 $"[NpcPanel] SamplePanel.IsVisible={LastNpcSamplePanel.IsVisible}");
         }

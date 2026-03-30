@@ -144,6 +144,7 @@
     <Content Include="Models\kokoro-quant.onnx">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
+    <None Remove="Sync\ServerDefaultsClient.cs.bak" />
   </ItemGroup>
 
 </Project>

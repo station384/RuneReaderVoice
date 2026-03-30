@@ -300,7 +300,7 @@ public static class RaceAccentMapping
             return NpcOnlyRaceMap.TryGetValue(raceByte, out var ng) ? ng : AccentGroup.Narrator;
 
         if (raceByte is >= 0x01 and <= 0x7F)
-            return PlayerRaceMap.TryGetValue(raceByte, out var g) ? g : AccentGroup.Human;
+            return PlayerRaceMap.TryGetValue(raceByte, out var g) ? g : AccentGroup.Narrator;
 
         return AccentGroup.Narrator;
     }
