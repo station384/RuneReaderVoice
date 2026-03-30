@@ -58,10 +58,7 @@ public partial class MainWindow
     {
         var userRules = await AppServices.TextSwapRules.LoadUserRulesAsync();
         AppServices.SetTextSwapProcessor(
-            new DialogueTextSwapProcessor(
-                DefaultTextSwapRules.CreateDefault()
-                    .Concat(userRules)
-                    .ToList()));
+            new DialogueTextSwapProcessor(userRules));
     }
 
     private async Task ReloadTextSwapRuleListAsync()
@@ -111,10 +108,9 @@ public partial class MainWindow
                 entries.Add(workingEntry);
         }
 
-        var effectiveRules = DefaultTextSwapRules.CreateDefault()
-            .Concat(entries
-                .Where(r => r.Enabled && !string.IsNullOrEmpty(r.FindText))
-                .Select(r => r.ToRule()))
+        var effectiveRules = entries
+            .Where(r => r.Enabled && !string.IsNullOrEmpty(r.FindText))
+            .Select(r => r.ToRule())
             .ToList();
 
         return new DialogueTextSwapProcessor(effectiveRules);
@@ -291,6 +287,22 @@ public partial class MainWindow
         catch (Exception ex)
         {
             TextSwapRuleStatus.Text = $"Delete failed: {ex.Message}";
+        }
+    }
+
+    private async void OnTextSwapAddDefaultsClicked(object? sender, RoutedEventArgs e)
+    {
+        try
+        {
+            await AppServices.TextSwapRules.AddDefaultRulesAsync();
+            await ReloadTextSwapProcessorAsync();
+            await ReloadTextSwapRuleListAsync();
+            UpdateTextSwapPreview();
+            TextSwapRuleStatus.Text = "Added default text shaping rules to the database.";
+        }
+        catch (Exception ex)
+        {
+            TextSwapRuleStatus.Text = $"Add defaults failed: {ex.Message}";
         }
     }
 

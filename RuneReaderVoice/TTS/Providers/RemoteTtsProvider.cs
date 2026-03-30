@@ -292,7 +292,6 @@ public sealed class RemoteTtsProvider : ITtsProvider
     /// </summary>
     private static string ChatterboxPreprocess(string text)
     {
-        // todo:  verify this is even needed anymore.   these were hacks but may not be needed anymote
         if (string.IsNullOrWhiteSpace(text)) return text;
 
         text = System.Text.RegularExpressions.Regex.Replace(

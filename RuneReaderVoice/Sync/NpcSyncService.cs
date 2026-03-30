@@ -84,7 +84,7 @@ public sealed class NpcSyncService : IDisposable
     public async Task StartAsync()
     {
         if (!_settings.FirstLoadComplete)
-            await DoFirstLoadAsync();
+            await DoFirstLoadAsync().ConfigureAwait(false);
 
         _cts      = new CancellationTokenSource();
         _pollTask = PollLoopAsync(_cts.Token);
@@ -96,12 +96,12 @@ public sealed class NpcSyncService : IDisposable
         SetStatus("First load — pulling server defaults…");
 
         // Pull NPC overrides (full pull: t=0)
-        await PollNpcOverridesAsync(sinceTs: 0.0);
+        await PollNpcOverridesAsync(sinceTs: 0.0).ConfigureAwait(false);
 
         // Pull the three seed types
-        await PullAndApplyDefaultsAsync("voice-profiles");
-        await PullAndApplyDefaultsAsync("pronunciation");
-        await PullAndApplyDefaultsAsync("text-shaping");
+        await PullAndApplyDefaultsAsync("voice-profiles").ConfigureAwait(false);
+        await PullAndApplyDefaultsAsync("pronunciation").ConfigureAwait(false);
+        await PullAndApplyDefaultsAsync("text-shaping").ConfigureAwait(false);
 
         _settings.FirstLoadComplete = true;
         _settings.LastNpcSyncAt     = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() / 1000.0;
@@ -118,8 +118,8 @@ public sealed class NpcSyncService : IDisposable
         {
             try
             {
-                await Task.Delay(PollInterval, ct);
-                await PollNpcOverridesAsync(_settings.LastNpcSyncAt);
+                await Task.Delay(PollInterval, ct).ConfigureAwait(false);
+                await PollNpcOverridesAsync(_settings.LastNpcSyncAt).ConfigureAwait(false);
             }
             catch (OperationCanceledException)
             {
@@ -139,7 +139,7 @@ public sealed class NpcSyncService : IDisposable
     public async Task<int> PollNpcOverridesAsync(double sinceTs)
     {
         System.Diagnostics.Debug.WriteLine($"[NpcSync] Polling since={sinceTs:F0}");
-        var records = await _client.GetNpcOverridesSinceAsync(sinceTs);
+        var records = await _client.GetNpcOverridesSinceAsync(sinceTs).ConfigureAwait(false);
         if (records == null || records.Count == 0)
         {
             System.Diagnostics.Debug.WriteLine("[NpcSync] Poll returned 0 records");
@@ -163,7 +163,7 @@ public sealed class NpcSyncService : IDisposable
             UpdatedAt           = r.UpdatedAt,
         }).ToList();
 
-        int merged = await _npcDb.MergeFromServerAsync(domainRecords);
+        int merged = await _npcDb.MergeFromServerAsync(domainRecords).ConfigureAwait(false);
         System.Diagnostics.Debug.WriteLine($"[NpcSync] Merged {merged}/{domainRecords.Count} records (skipped Local entries)");
 
         if (merged > 0)
@@ -171,7 +171,7 @@ public sealed class NpcSyncService : IDisposable
             // Apply to in-memory assembler store so next dialog picks up new entries
             foreach (var record in domainRecords)
             {
-                _assemblerBridge.ApplyIfNotLocal(
+                await _assemblerBridge.ApplyIfNotLocalAsync(
                     record.NpcId, record.RaceId,
                     record.BespokeSampleId,
                     record.BespokeExaggeration,
@@ -200,7 +200,7 @@ public sealed class NpcSyncService : IDisposable
     {
         try
         {
-            return await _client.ContributeNpcOverrideAsync(entry);
+            return await _client.ContributeNpcOverrideAsync(entry).ConfigureAwait(false);
         }
         catch
         {
@@ -219,7 +219,7 @@ public sealed class NpcSyncService : IDisposable
 
         _ = Task.Run(async () =>
         {
-            var ok = await _client.ContributeNpcOverrideAsync(entry);
+            var ok = await _client.ContributeNpcOverrideAsync(entry).ConfigureAwait(false);
             System.Diagnostics.Debug.WriteLine(
                 ok ? $"[NpcSyncService] Contributed NPC {entry.NpcId}"
                    : $"[NpcSyncService] Contribute failed for NPC {entry.NpcId}");
@@ -236,7 +236,7 @@ public sealed class NpcSyncService : IDisposable
     {
         try
         {
-            return await _client.PutDefaultsJsonAsync(dataType, json);
+            return await _client.PutDefaultsJsonAsync(dataType, json).ConfigureAwait(false);
         }
         catch
         {
@@ -250,7 +250,7 @@ public sealed class NpcSyncService : IDisposable
     /// </summary>
     public async Task<bool> PullAndApplyDefaultsAsync(string dataType)
     {
-        var json = await _client.GetDefaultsJsonAsync(dataType);
+        var json = await _client.GetDefaultsJsonAsync(dataType).ConfigureAwait(false);
         if (json == null)
             return false;
 
@@ -259,7 +259,7 @@ public sealed class NpcSyncService : IDisposable
             switch (dataType)
             {
                 case "npc-overrides":
-                    await ApplyNpcOverridesDefaultsAsync(json);
+                    await ApplyNpcOverridesDefaultsAsync(json).ConfigureAwait(false);
                     break;
 
                 case "voice-profiles":
@@ -267,11 +267,11 @@ public sealed class NpcSyncService : IDisposable
                     break;
 
                 case "pronunciation":
-                    await ApplyPronunciationDefaultsAsync(json);
+                    await ApplyPronunciationDefaultsAsync(json).ConfigureAwait(false);
                     break;
 
                 case "text-shaping":
-                    await ApplyTextShapingDefaultsAsync(json);
+                    await ApplyTextShapingDefaultsAsync(json).ConfigureAwait(false);
                     break;
             }
             return true;
@@ -299,7 +299,7 @@ public sealed class NpcSyncService : IDisposable
             Source              = NpcOverrideSource.CrowdSourced,
         }).ToList();
 
-        await _npcDb.MergeFromServerAsync(records);
+        await _npcDb.MergeFromServerAsync(records).ConfigureAwait(false);
     }
 
     private Task ApplyVoiceProfilesDefaultsAsync(string json)
@@ -332,7 +332,7 @@ public sealed class NpcSyncService : IDisposable
         if (file?.Rules == null) return;
 
         foreach (var entry in file.Rules)
-            await _pronunciationRules.UpsertRuleAsync(entry);
+            await _pronunciationRules.UpsertRuleAsync(entry).ConfigureAwait(false);
     }
 
     private async Task ApplyTextShapingDefaultsAsync(string json)
@@ -342,7 +342,7 @@ public sealed class NpcSyncService : IDisposable
         if (file?.Rules == null) return;
 
         foreach (var entry in file.Rules)
-            await _textSwapRules.UpsertRuleAsync(entry);
+            await _textSwapRules.UpsertRuleAsync(entry).ConfigureAwait(false);
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────
@@ -377,7 +377,7 @@ public sealed class TtsSessionAssemblerBridge
     /// Applies a server record to the in-memory assembler store
     /// only if no Local entry exists for this NpcId.
     /// </summary>
-    public void ApplyIfNotLocal(
+    public async Task ApplyIfNotLocalAsync(
         int npcId, int raceId,
         string? bespokeSampleId,
         float? bespokeExaggeration,
@@ -385,7 +385,7 @@ public sealed class TtsSessionAssemblerBridge
     {
         if (_assembler == null) return;
 
-        var existing = _npcDb.GetOverrideAsync(npcId).GetAwaiter().GetResult();
+        var existing = await _npcDb.GetOverrideAsync(npcId).ConfigureAwait(false);
         if (existing?.Source == NpcOverrideSource.Local)
             return;
 

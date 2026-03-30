@@ -789,7 +789,7 @@ public partial class MainWindow
     private void OnNpcOverridesRefreshClicked(object? sender, RoutedEventArgs e)
         => RefreshNpcOverridesGrid();
 
-    private void OnNpcOverridesPullFromServerClicked(object? sender, RoutedEventArgs e)
+    private async void OnNpcOverridesPullFromServerClicked(object? sender, RoutedEventArgs e)
     {
         if (string.IsNullOrWhiteSpace(AppServices.Settings.RemoteServerUrl))
         {
@@ -800,7 +800,7 @@ public partial class MainWindow
         NpcOverridesStatus.Text = "Pulling from server…";
         try
         {
-            int merged =  AppServices.NpcSync.PollNpcOverridesAsync(sinceTs: 0.0).GetAwaiter().GetResult();;
+            int merged = await AppServices.NpcSync.PollNpcOverridesAsync(sinceTs: 0.0);
             RefreshNpcOverridesGrid();
             NpcOverridesStatus.Text = merged > 0
                 ? $"Pulled {merged} override(s) from server."
@@ -812,7 +812,7 @@ public partial class MainWindow
         }
     }
 
-    private void OnNpcOverridesPushToServerClicked(object? sender, RoutedEventArgs e)
+    private async void OnNpcOverridesPushToServerClicked(object? sender, RoutedEventArgs e)
     {
         if (string.IsNullOrWhiteSpace(AppServices.Settings.RemoteServerUrl))
         {
@@ -823,13 +823,13 @@ public partial class MainWindow
         NpcOverridesStatus.Text = "Pushing to server…";
         try
         {
-            var entries =  AppServices.NpcOverrides.GetAllAsync().GetAwaiter().GetResult();;
+            var entries = await AppServices.NpcOverrides.GetAllAsync();
             var local   = entries.Where(x => x.Source == NpcOverrideSource.Local).ToList();
 
             int ok = 0;
             foreach (var entry in local)
             {
-                if ( AppServices.NpcSync.ContributeOneAsync(entry).GetAwaiter().GetResult())
+                if (await AppServices.NpcSync.ContributeOneAsync(entry))
                     ok++;
             }
 

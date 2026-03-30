@@ -70,6 +70,12 @@ public sealed class TextSwapRuleStore
             .ToList();
     }
 
+    public async Task AddDefaultRulesAsync()
+    {
+        foreach (var entry in DefaultTextSwapRules.CreateDefaultEntries())
+            await UpsertRuleAsync(entry);
+    }
+
     public async Task UpsertRuleAsync(TextSwapRuleEntry entry)
     {
         var existing = await _db.Connection.Table<TextSwapRuleRow>()

@@ -74,11 +74,15 @@ internal static class Program
 
         // ── Unified SQLite DB ─────────────────────────────────────────────────
         var dbPath = Path.Combine(VoiceSettingsManager.GetConfigDirectory(), "runereader-voice.db");
+        var dbExisted = File.Exists(dbPath);
         var db = new RvrDb(dbPath);
         db.InitializeAsync().GetAwaiter().GetResult();
 
         var pronunciationRules = new PronunciationRuleStore(db);
         var textSwapRules      = new TextSwapRuleStore(db);
+
+        if (!dbExisted)
+            textSwapRules.AddDefaultRulesAsync().GetAwaiter().GetResult();
 
         // ── Audio cache ───────────────────────────────────────────────────────
         var cacheDir = !string.IsNullOrWhiteSpace(settings.CacheDirectoryOverride)
@@ -227,11 +231,7 @@ internal static class Program
     private static async Task<DialogueTextSwapProcessor> BuildTextSwapProcessorAsync(TextSwapRuleStore store)
     {
         var userRules = await store.LoadUserRulesAsync();
-        var rules = DefaultTextSwapRules.CreateDefault()
-            .Concat(userRules)
-            .ToList();
-
-        return new DialogueTextSwapProcessor(rules);
+        return new DialogueTextSwapProcessor(userRules);
     }
 
     private static async Task<DialoguePronunciationProcessor> BuildPronunciationProcessorAsync(PronunciationRuleStore store)

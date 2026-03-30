@@ -89,10 +89,22 @@ public sealed class ServerDefaultsClient
     {
         try
         {
-            var response = await _http.GetFromJsonAsync<ServerNpcOverrideSinceResponse>(
-                $"api/v1/npc-overrides/since?t={sinceTs}",
-                _jsonOptions, ct);
-            return response?.Records;
+            using var request = new HttpRequestMessage(
+                HttpMethod.Get,
+                $"api/v1/npc-overrides/since?t={sinceTs}");
+
+            using var response = await _http.SendAsync(
+                request,
+                HttpCompletionOption.ResponseHeadersRead,
+                ct).ConfigureAwait(false);
+
+            response.EnsureSuccessStatusCode();
+
+            var payload = await response.Content.ReadFromJsonAsync<ServerNpcOverrideSinceResponse>(
+                _jsonOptions,
+                ct).ConfigureAwait(false);
+
+            return payload?.Records;
         }
         catch (Exception ex)
         {
@@ -129,7 +141,7 @@ public sealed class ServerDefaultsClient
                 request.Headers.Authorization =
                     new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", _contributeKey);
 
-            var response = await _http.SendAsync(request, ct);
+            var response = await _http.SendAsync(request, ct).ConfigureAwait(false);
             return response.IsSuccessStatusCode;
         }
         catch (Exception ex)
@@ -151,8 +163,17 @@ public sealed class ServerDefaultsClient
     {
         try
         {
-            var response = await _http.GetFromJsonAsync<ServerDefaultsResponse>(
-                $"api/v1/defaults/{dataType}", _jsonOptions, ct);
+            using var request = new HttpRequestMessage(HttpMethod.Get, $"api/v1/defaults/{dataType}");
+            using var responseMessage = await _http.SendAsync(
+                request,
+                HttpCompletionOption.ResponseHeadersRead,
+                ct).ConfigureAwait(false);
+
+            responseMessage.EnsureSuccessStatusCode();
+
+            var response = await responseMessage.Content.ReadFromJsonAsync<ServerDefaultsResponse>(
+                _jsonOptions,
+                ct).ConfigureAwait(false);
 
             if (response == null || !response.Exists || response.Payload == null)
                 return null;
@@ -184,7 +205,7 @@ public sealed class ServerDefaultsClient
                 request.Headers.Authorization =
                     new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", _adminKey);
 
-            var response = await _http.SendAsync(request, ct);
+            var response = await _http.SendAsync(request, ct).ConfigureAwait(false);
             return response.IsSuccessStatusCode;
         }
         catch (Exception ex)

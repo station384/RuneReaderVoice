@@ -820,6 +820,7 @@ along with RuneReaderVoice. If not, see <https://www.gnu.org/licenses/>.
                                 <Button x:Name="TextSwapReloadRulesButton"   Content="Reload Rules"    Click="OnTextSwapReloadRulesClicked"/>
                                 <Button x:Name="TextSwapExportRulesButton"   Content="Export Rules"    Click="OnTextSwapExportRulesClicked"/>
                                 <Button x:Name="TextSwapImportRulesButton"   Content="Import Rules"    Click="OnTextSwapImportRulesClicked"/>
+                                <Button x:Name="TextSwapAddDefaultsButton" Content="Add Defaults" Click="OnTextSwapAddDefaultsClicked"/>
                                 <Button x:Name="TextSwapPushToServerButton"   Content="Push to Server"   Click="OnTextSwapPushToServerClicked"/>
                                 <Button x:Name="TextSwapPullFromServerButton" Content="Pull from Server" Click="OnTextSwapPullFromServerClicked"/>
                             </WrapPanel>
@@ -837,7 +838,7 @@ along with RuneReaderVoice. If not, see <https://www.gnu.org/licenses/>.
                             </Border>
 
                             <TextBlock x:Name="TextSwapRuleStatus"
-                                       Text="Rules save into config/text-swap-rules.json."
+                                       Text="Rules stored in runereader-voice.db. Built-in defaults are normal rules you can delete or disable."
                                        Foreground="#888"
                                        FontSize="11"
                                        TextWrapping="Wrap"/>
