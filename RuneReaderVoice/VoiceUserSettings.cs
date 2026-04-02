@@ -1,3 +1,23 @@
+// SPDX-License-Identifier: GPL-3.0-only
+//
+// This file is part of RuneReaderVoice.
+// Copyright (C) 2026 Michael Sutton
+//
+// RuneReaderVoice is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, version 3 of the License.
+//
+// RuneReaderVoice is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with RuneReaderVoice. If not, see <https://www.gnu.org/licenses/>.
+
+// VoiceUserSettings.cs
+// Portable application settings, persisted voice profiles, and capture preferences.
+
 using System;
 using System.Collections.Generic;
 using System.Text.Json;
@@ -79,10 +99,10 @@ public sealed class VoiceUserSettings
     public bool EnableQuestReward { get; set; } = true;
     public bool EnableBooks { get; set; } = false;
 
-    public int CaptureIntervalMs { get; set; } = 50;
+    public int CaptureIntervalMs { get; set; } = 5;
     public void NormalizeCaptureSettings()
     {
-        CaptureIntervalMs = Math.Clamp(CaptureIntervalMs, 10, 250);
+        CaptureIntervalMs = Math.Clamp(CaptureIntervalMs, 4, 100);
         ReScanIntervalMs = Math.Clamp(ReScanIntervalMs, 1000, 30000);
         SourceGoneThresholdMs = Math.Clamp(SourceGoneThresholdMs, 250, 30000);
     }

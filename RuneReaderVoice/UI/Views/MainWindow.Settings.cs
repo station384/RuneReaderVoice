@@ -1,3 +1,22 @@
+// SPDX-License-Identifier: GPL-3.0-only
+//
+// This file is part of RuneReaderVoice.
+// Copyright (C) 2026 Michael Sutton
+//
+// RuneReaderVoice is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, version 3 of the License.
+//
+// RuneReaderVoice is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with RuneReaderVoice. If not, see <https://www.gnu.org/licenses/>.
+
+
+
 using System;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
@@ -7,7 +26,8 @@ using RuneReaderVoice.Protocol;
 using RuneReaderVoice.TTS.Providers;
 
 namespace RuneReaderVoice.UI.Views;
-
+// MainWindow.Settings.cs
+// Settings tab handlers, provider swapping, and capture/playback preferences.
 public partial class MainWindow
 {
     private void OnProviderChanged(object? sender, SelectionChangedEventArgs e)
@@ -144,7 +164,7 @@ public partial class MainWindow
     {
         if (!e.NewValue.HasValue) return;
 
-        var clamped = Math.Clamp((int)e.NewValue.Value, 10, 250);
+        var clamped = Math.Clamp((int)e.NewValue.Value, 4, 100);
         if (CaptureInterval.Value != clamped)
             CaptureInterval.Value = clamped;
         AppServices.Settings.CaptureIntervalMs = clamped;

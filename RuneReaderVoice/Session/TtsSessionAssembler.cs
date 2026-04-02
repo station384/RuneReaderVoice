@@ -1,12 +1,11 @@
-// SPDX-License-Identifier: GPL-3.0-or-later
+// SPDX-License-Identifier: GPL-3.0-only
 //
 // This file is part of RuneReaderVoice.
 // Copyright (C) 2026 Michael Sutton
 //
 // RuneReaderVoice is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
-// the Free Software Foundation, either version 3 of the License, or
-// (at your option) any later version.
+// the Free Software Foundation, version 3 of the License.
 //
 // RuneReaderVoice is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -15,6 +14,19 @@
 //
 // You should have received a copy of the GNU General Public License
 // along with RuneReaderVoice. If not, see <https://www.gnu.org/licenses/>.
+
+
+
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading;
+using System.Threading.Tasks;
+using RuneReaderVoice.Data;
+using RuneReaderVoice.Protocol;
+
+namespace RuneReaderVoice.Session;
 
 // TtsSessionAssembler.cs
 // Collects QR chunks for a single dialog session and fires OnSegmentComplete
@@ -48,17 +60,6 @@
 //   1. _npcRaceStore (in-memory, pre-loaded from NpcRaceOverrideDb at startup)
 //   2. packet.Race (from QR header — creature type or player race)
 //   3. Falls through to RaceAccentMapping which returns Narrator on unknown values
-
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading;
-using System.Threading.Tasks;
-using RuneReaderVoice.Data;
-using RuneReaderVoice.Protocol;
-
-namespace RuneReaderVoice.Session;
 
 public sealed class AssembledSegment
 {

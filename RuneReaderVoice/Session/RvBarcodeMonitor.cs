@@ -1,12 +1,11 @@
-// SPDX-License-Identifier: GPL-3.0-or-later
+// SPDX-License-Identifier: GPL-3.0-only
 //
 // This file is part of RuneReaderVoice.
 // Copyright (C) 2026 Michael Sutton
 //
 // RuneReaderVoice is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
-// the Free Software Foundation, either version 3 of the License, or
-// (at your option) any later version.
+// the Free Software Foundation, version 3 of the License.
 //
 // RuneReaderVoice is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -15,20 +14,6 @@
 //
 // You should have received a copy of the GNU General Public License
 // along with RuneReaderVoice. If not, see <https://www.gnu.org/licenses/>.
-
-// RvBarcodeMonitor.cs
-// Continuously captures screen frames and scans for RV QR codes.
-//
-// Two QR codes may appear simultaneously on screen:
-//   - RuneReaderVoice TTS QR (identified by "RV" magic prefix)
-//   - RuneReader combat QR (different magic prefix)
-// Uses ZXing DecodeMultiple on all decoded results, filters by "RV" prefix.
-// Single-QR (RV only) is the normal operating path.
-//
-// Region locking:
-//   On first successful RV decode, the bounding box of the QR code is recorded.
-//   Subsequent captures are restricted to that region (with clamping to screen bounds).
-//   A full-screen rescan runs every ReScanIntervalMs when no RV QR is found.
 
 using System;
 using System.Collections.Generic;
@@ -46,10 +31,21 @@ using RuneReaderVoice.Platform;
 using ZXing.QrCode;
 
 
-namespace RuneReaderVoice.Session;
-// Shim for Marshal.Copy — needs using System.Runtime.InteropServices
-using System.Runtime.InteropServices;
 
+namespace RuneReaderVoice.Session;
+// RvBarcodeMonitor.cs
+// Continuously captures screen frames and scans for RV QR codes.
+//
+// Two QR codes may appear simultaneously on screen:
+//   - RuneReaderVoice TTS QR (identified by "RV" magic prefix)
+//   - RuneReader combat QR (different magic prefix)
+// Uses ZXing DecodeMultiple on all decoded results, filters by "RV" prefix.
+// Single-QR (RV only) is the normal operating path.
+//
+// Region locking:
+//   On first successful RV decode, the bounding box of the QR code is recorded.
+//   Subsequent captures are restricted to that region (with clamping to screen bounds).
+//   A full-screen rescan runs every ReScanIntervalMs when no RV QR is found.
 public sealed class RvBarcodeMonitor : IDisposable
 {
     
@@ -181,44 +177,41 @@ public sealed class RvBarcodeMonitor : IDisposable
             _sourceGoneTask = SourceGoneLoopAsync(token);
         }
     }
-    private const int BurstIntervalMs = 5;
-    private const int BurstWindowMs = 3000;
-    private const int CooldownWindowMs = 10000;
+    private const double HotIntervalFactor = 0.5;
+    private const double ColdIntervalFactor = 1.5;
+    private const int HotWindowMs = 250;
+    private const int WarmWindowMs = 20000;
     private const double GcMemoryLoadThreshold = 0.10;
     private const int GcCooldownMs = 1000;
     private DateTime _lastForcedGcUtc = DateTime.MinValue;
 
-    private static int ClampIdleCaptureInterval(int value)
-        => Math.Clamp(value, 10, 250);
+    private static int ClampBaseCaptureInterval(int value)
+        => Math.Clamp(value, 4, 100);
 
     private int GetAdaptiveCaptureIntervalMs()
     {
-        int idleInterval;
+        int baseInterval;
         bool regionHasRvQr;
         DateTime lastRvDecodeTime;
         lock (_gate)
         {
-            idleInterval = ClampIdleCaptureInterval(CaptureIntervalMs);
+            baseInterval = ClampBaseCaptureInterval(CaptureIntervalMs);
             regionHasRvQr = _regionHasRvQr;
             lastRvDecodeTime = _lastRvDecodeTime;
         }
 
         if (regionHasRvQr)
-            return BurstIntervalMs;
+            return Math.Max(2, (int)Math.Round(baseInterval * HotIntervalFactor));
 
         if (lastRvDecodeTime == DateTime.MinValue)
-            return idleInterval;
+            return baseInterval;
 
         var ageMs = (DateTime.UtcNow - lastRvDecodeTime).TotalMilliseconds;
-        if (ageMs <= BurstWindowMs)
-            return BurstIntervalMs;
-
-        if (ageMs >= BurstWindowMs + CooldownWindowMs)
-            return idleInterval;
-
-        var progress = (ageMs - BurstWindowMs) / CooldownWindowMs;
-        var interpolated = BurstIntervalMs + ((idleInterval - BurstIntervalMs) * progress);
-        return Math.Clamp((int)Math.Round(interpolated), BurstIntervalMs, idleInterval);
+        if (ageMs <= HotWindowMs)
+            return Math.Max(2, (int)Math.Round(baseInterval * HotIntervalFactor));
+        if (ageMs <= WarmWindowMs)
+            return baseInterval;
+        return Math.Max(baseInterval + 1, (int)Math.Round(baseInterval * ColdIntervalFactor));
     }
 
     private void CheckIfWeShouldGC()
@@ -693,4 +686,3 @@ public sealed class RvBarcodeMonitor : IDisposable
         }
     }
 }
-

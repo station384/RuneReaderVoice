@@ -1,12 +1,11 @@
-// SPDX-License-Identifier: GPL-3.0-or-later
+// SPDX-License-Identifier: GPL-3.0-only
 //
 // This file is part of RuneReaderVoice.
 // Copyright (C) 2026 Michael Sutton
 //
 // RuneReaderVoice is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
-// the Free Software Foundation, either version 3 of the License, or
-// (at your option) any later version.
+// the Free Software Foundation, version 3 of the License.
 //
 // RuneReaderVoice is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -35,6 +34,18 @@ using System.Linq;
 using RuneReaderVoice.Protocol;
 
 namespace RuneReaderVoice.TTS.Providers;
+
+// SpeakerPresetCatalog.cs
+// Default recommended voice profile for every VoiceSlot.
+// One "recommended" preset per slot — the value applied on first run / reset.
+// Additional alternate presets per slot can be added in a future pass.
+//
+// Voice mix design notes:
+//   - British voices (bm_/bf_) get en-gb lang; American (am_/af_) get en-us.
+//   - Mixed pools use the dominant accent's lang code.
+//   - DisableChunking=true on slow/deliberate races: Tauren, Zandalari, Earthen.
+//   - All races have DSP presets set. The per-group enable/disable in the UI
+//     is the only flag needed here — the field values themselves carry the state.
 
 public sealed class SpeakerPreset
 {

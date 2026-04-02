@@ -1,16 +1,19 @@
-// SPDX-License-Identifier: GPL-3.0-or-later
+// SPDX-License-Identifier: GPL-3.0-only
 //
 // This file is part of RuneReaderVoice.
 // Copyright (C) 2026 Michael Sutton
-
-// Sync/ServerDefaultsClient.cs
-// HTTP client for server-side defaults and NPC override community endpoints.
 //
-// Endpoints used:
-//   GET  /api/v1/defaults/{type}          — pull seed data
-//   PUT  /api/v1/defaults/{type}          — push seed data (admin)
-//   GET  /api/v1/npc-overrides/since?t=   — poll for new NPC override records
-//   POST /api/v1/npc-overrides            — contribute a record
+// RuneReaderVoice is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, version 3 of the License.
+//
+// RuneReaderVoice is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with RuneReaderVoice. If not, see <https://www.gnu.org/licenses/>.
 
 using System;
 using System.Collections.Generic;
@@ -24,6 +27,15 @@ using System.Threading.Tasks;
 using RuneReaderVoice.Data;
 
 namespace RuneReaderVoice.Sync;
+
+// Sync/ServerDefaultsClient.cs
+// HTTP client for server-side defaults and NPC override community endpoints.
+//
+// Endpoints used:
+//   GET  /api/v1/defaults/{type}          — pull seed data
+//   PUT  /api/v1/defaults/{type}          — push seed data (admin)
+//   GET  /api/v1/npc-overrides/since?t=   — poll for new NPC override records
+//   POST /api/v1/npc-overrides            — contribute a record
 
 // ── DTOs ──────────────────────────────────────────────────────────────────────
 

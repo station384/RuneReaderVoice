@@ -1,8 +1,26 @@
-// SPDX-License-Identifier: GPL-3.0-or-later
+// SPDX-License-Identifier: GPL-3.0-only
 //
 // This file is part of RuneReaderVoice.
 // Copyright (C) 2026 Michael Sutton
+//
+// RuneReaderVoice is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, version 3 of the License.
+//
+// RuneReaderVoice is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with RuneReaderVoice. If not, see <https://www.gnu.org/licenses/>.
 
+
+
+using System;
+using RuneReaderVoice.Protocol;
+
+namespace RuneReaderVoice.Data;
 // NpcRaceOverride.cs
 // Model for a user-defined (or crowd-sourced) NPC → race mapping.
 //
@@ -10,13 +28,7 @@
 //   Local > CrowdSourced > Confirmed (server-verified, read-only from client)
 //
 // Confidence is unused locally (always null). Reserved for server-side
-// vote aggregation in the crowd-source path (Phase 5+).
-
-using System;
-using RuneReaderVoice.Protocol;
-
-namespace RuneReaderVoice.Data;
-
+// vote aggregation in the crowd-source path.
 public enum NpcOverrideSource
 {
     Local       = 0,   // User-entered on this machine. Full CRUD.

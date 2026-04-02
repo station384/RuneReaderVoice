@@ -1,12 +1,11 @@
-// SPDX-License-Identifier: GPL-3.0-or-later
+// SPDX-License-Identifier: GPL-3.0-only
 //
 // This file is part of RuneReaderVoice.
 // Copyright (C) 2026 Michael Sutton
 //
 // RuneReaderVoice is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
-// the Free Software Foundation, either version 3 of the License, or
-// (at your option) any later version.
+// the Free Software Foundation, version 3 of the License.
 //
 // RuneReaderVoice is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -16,9 +15,7 @@
 // You should have received a copy of the GNU General Public License
 // along with RuneReaderVoice. If not, see <https://www.gnu.org/licenses/>.
 
-// MainWindow.axaml.cs
-// Code-behind for the main RuneReader Voice window.
-// Binds to AppServices for live status, wires all control events.
+
 
 using System;
 using System.Collections.Generic;
@@ -35,7 +32,9 @@ using RuneReaderVoice.TTS.Pronunciation;
 using RuneReaderVoice.TTS.Providers;
 
 namespace RuneReaderVoice.UI.Views;
-
+// MainWindow.axaml.cs
+// Code-behind for the main RuneReader Voice window.
+// Binds to AppServices for live status, wires all control events.
 public partial class MainWindow : Window
 {
     private readonly DispatcherTimer _statusTimer;
@@ -221,7 +220,7 @@ public partial class MainWindow : Window
         VolumeLabel.Text    = $"{(int)(s.Volume * 100)}%";
         SpeedSlider.Value   = s.PlaybackSpeed * 100;
         SpeedLabel.Text     = $"{s.PlaybackSpeed:F2}×";
-        CaptureInterval.Value = Math.Clamp(s.CaptureIntervalMs, 10, 250);
+        CaptureInterval.Value = Math.Clamp(s.CaptureIntervalMs, 4, 100);
         RescanInterval.Value  = s.ReScanIntervalMs;
         RepeatSuppressionEnabled.IsChecked = s.RepeatSuppressionEnabled;
         RepeatSuppressionWindow.Value = s.RepeatSuppressionWindowSeconds;

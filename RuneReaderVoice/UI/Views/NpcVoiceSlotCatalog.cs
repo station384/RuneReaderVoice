@@ -1,12 +1,11 @@
-// SPDX-License-Identifier: GPL-3.0-or-later
+// SPDX-License-Identifier: GPL-3.0-only
 //
 // This file is part of RuneReaderVoice.
 // Copyright (C) 2026 Michael Sutton
 //
 // RuneReaderVoice is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
-// the Free Software Foundation, either version 3 of the License, or
-// (at your option) any later version.
+// the Free Software Foundation, version 3 of the License.
 //
 // RuneReaderVoice is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -16,18 +15,19 @@
 // You should have received a copy of the GNU General Public License
 // along with RuneReaderVoice. If not, see <https://www.gnu.org/licenses/>.
 
+
+
+
+using System.Collections.Generic;
+using RuneReaderVoice.Protocol;
+
+namespace RuneReaderVoice.UI.Views;
 // NpcVoiceSlotCatalog.cs
 // All voice slots shown in the Voices UI tab.
 // Every playable race has its own slot pair so users can assign distinct voices.
 // Creature-type slots cover non-playable NPC groups.
 // SortOrder groups: 0=Narrator, 10s=Alliance, 100s=Horde, 200s=Neutral/Cross-faction,
 //                   300s=Creature types.
-
-using System.Collections.Generic;
-using RuneReaderVoice.Protocol;
-
-namespace RuneReaderVoice.UI.Views;
-
 public sealed record NpcVoiceSlotCatalogItem(
     VoiceSlot Slot,
     string NpcLabel,

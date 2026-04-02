@@ -1,12 +1,11 @@
-// SPDX-License-Identifier: GPL-3.0-or-later
+// SPDX-License-Identifier: GPL-3.0-only
 //
 // This file is part of RuneReaderVoice.
 // Copyright (C) 2026 Michael Sutton
 //
 // RuneReaderVoice is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
-// the Free Software Foundation, either version 3 of the License, or
-// (at your option) any later version.
+// the Free Software Foundation, version 3 of the License.
 //
 // RuneReaderVoice is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -16,9 +15,7 @@
 // You should have received a copy of the GNU General Public License
 // along with RuneReaderVoice. If not, see <https://www.gnu.org/licenses/>.
 
-// NotImplementedTtsProvider.cs
-// Placeholder provider for Phase 3 AI voice backends (ONNX, cloud, etc.).
-// Exists so the DI wiring compiles and the UI can show the option as "coming soon".
+
 
 using System;
 using System.Collections.Generic;
@@ -28,7 +25,9 @@ using System.Threading.Tasks;
 using RuneReaderVoice.Protocol;
 
 namespace RuneReaderVoice.TTS.Providers;
-
+// NotImplementedTtsProvider.cs
+// Placeholder provider for potental new voice backends (ONNX, cloud, etc.).
+// Exists so the DI wiring compiles and the UI can show the option as "coming soon".
 public sealed class NotImplementedTtsProvider : ITtsProvider
 {
     private readonly string _providerId;

@@ -1,16 +1,21 @@
-// SPDX-License-Identifier: GPL-3.0-or-later
+// SPDX-License-Identifier: GPL-3.0-only
 //
 // This file is part of RuneReaderVoice.
 // Copyright (C) 2026 Michael Sutton
-
-// Sync/NpcSyncService.cs
-// Background service for NPC override crowd-source sync.
 //
-// Responsibilities:
-//   1. On startup: if !FirstLoadComplete, pull all four defaults from server
-//   2. Poll every 5 minutes for new NPC override records (delta since LastNpcSyncAt)
-//   3. Merge new records into local DB (Local entries always win)
-//   4. Contribute local saves to server when ContributeByDefault = true
+// RuneReaderVoice is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, version 3 of the License.
+//
+// RuneReaderVoice is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with RuneReaderVoice. If not, see <https://www.gnu.org/licenses/>.
+
+
 
 using System;
 using System.Collections.Generic;
@@ -23,7 +28,14 @@ using RuneReaderVoice.TTS.Pronunciation;
 using RuneReaderVoice.TTS.TextSwap;
 
 namespace RuneReaderVoice.Sync;
-
+// Sync/NpcSyncService.cs
+// Background service for NPC override crowd-source sync.
+//
+// Responsibilities:
+//   1. On startup: if !FirstLoadComplete, pull all four defaults from server
+//   2. Poll every 5 minutes for new NPC override records (delta since LastNpcSyncAt)
+//   3. Merge new records into local DB (Local entries always win)
+//   4. Contribute local saves to server when ContributeByDefault = true
 public sealed class NpcSyncService : IDisposable
 {
     private readonly VoiceUserSettings       _settings;

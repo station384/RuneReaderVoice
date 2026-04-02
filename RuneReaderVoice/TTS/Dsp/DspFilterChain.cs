@@ -1,13 +1,20 @@
-// SPDX-License-Identifier: GPL-3.0-or-later
+// SPDX-License-Identifier: GPL-3.0-only
 //
 // This file is part of RuneReaderVoice.
 // Copyright (C) 2026 Michael Sutton
-
-// TTS/Dsp/DspFilterChain.cs
 //
-// Post-synthesis DSP pipeline. Iterates DspProfile.Effects in user-defined order.
-// Each DspEffectItem is applied only when Enabled=true.
-// All NWaves effects are instantiated fresh per call (correct for offline buffers).
+// RuneReaderVoice is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, version 3 of the License.
+//
+// RuneReaderVoice is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with RuneReaderVoice. If not, see <https://www.gnu.org/licenses/>.
+
 
 using System;
 using NWaves.Effects;
@@ -19,7 +26,11 @@ using NWaves.Signals;
 using RuneReaderVoice.TTS.Providers;
 
 namespace RuneReaderVoice.TTS.Dsp;
-
+// TTS/Dsp/DspFilterChain.cs
+//
+// Post-synthesis DSP pipeline. Iterates DspProfile.Effects in user-defined order.
+// Each DspEffectItem is applied only when Enabled=true.
+// All NWaves effects are instantiated fresh per call (correct for offline buffers).
 public static class DspFilterChain
 {
     public static PcmAudio Apply(PcmAudio input, DspProfile? profile)
