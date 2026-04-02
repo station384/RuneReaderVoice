@@ -389,9 +389,9 @@ along with RuneReaderVoice. If not, see <https://www.gnu.org/licenses/>.
 
                             <Expander x:Name="ExpanderCapture" Header="Capture" HorizontalAlignment="Stretch" IsExpanded="False">
                                 <StackPanel Margin="0,8,0,0" Spacing="6" HorizontalAlignment="Stretch">
-                                    <TextBlock Text="Capture Interval (ms)" Foreground="#888" FontSize="11"/>
+                                    <TextBlock Text="Idle Scan Rate (ms)" Foreground="#888" FontSize="11"/>
                                     <NumericUpDown x:Name="CaptureInterval"
-                                                   Minimum="4" Maximum="100" Value="5"
+                                                   Minimum="10" Maximum="250" Value="50"
                                                    ValueChanged="OnCaptureIntervalChanged"/>
 
                                     <TextBlock Text="Rescan Interval (ms)" Foreground="#888" FontSize="11"/>

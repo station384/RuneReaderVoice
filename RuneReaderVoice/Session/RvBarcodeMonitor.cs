@@ -181,41 +181,44 @@ public sealed class RvBarcodeMonitor : IDisposable
             _sourceGoneTask = SourceGoneLoopAsync(token);
         }
     }
-    private const double HotIntervalFactor = 0.5;
-    private const double ColdIntervalFactor = 1.5;
-    private const int HotWindowMs = 250;
-    private const int WarmWindowMs = 20000;
+    private const int BurstIntervalMs = 5;
+    private const int BurstWindowMs = 3000;
+    private const int CooldownWindowMs = 10000;
     private const double GcMemoryLoadThreshold = 0.10;
     private const int GcCooldownMs = 1000;
     private DateTime _lastForcedGcUtc = DateTime.MinValue;
 
-    private static int ClampBaseCaptureInterval(int value)
-        => Math.Clamp(value, 4, 100);
+    private static int ClampIdleCaptureInterval(int value)
+        => Math.Clamp(value, 10, 250);
 
     private int GetAdaptiveCaptureIntervalMs()
     {
-        int baseInterval;
+        int idleInterval;
         bool regionHasRvQr;
         DateTime lastRvDecodeTime;
         lock (_gate)
         {
-            baseInterval = ClampBaseCaptureInterval(CaptureIntervalMs);
+            idleInterval = ClampIdleCaptureInterval(CaptureIntervalMs);
             regionHasRvQr = _regionHasRvQr;
             lastRvDecodeTime = _lastRvDecodeTime;
         }
 
         if (regionHasRvQr)
-            return Math.Max(2, (int)Math.Round(baseInterval * HotIntervalFactor));
+            return BurstIntervalMs;
 
         if (lastRvDecodeTime == DateTime.MinValue)
-            return baseInterval;
+            return idleInterval;
 
         var ageMs = (DateTime.UtcNow - lastRvDecodeTime).TotalMilliseconds;
-        if (ageMs <= HotWindowMs)
-            return Math.Max(2, (int)Math.Round(baseInterval * HotIntervalFactor));
-        if (ageMs <= WarmWindowMs)
-            return baseInterval;
-        return Math.Max(baseInterval + 1, (int)Math.Round(baseInterval * ColdIntervalFactor));
+        if (ageMs <= BurstWindowMs)
+            return BurstIntervalMs;
+
+        if (ageMs >= BurstWindowMs + CooldownWindowMs)
+            return idleInterval;
+
+        var progress = (ageMs - BurstWindowMs) / CooldownWindowMs;
+        var interpolated = BurstIntervalMs + ((idleInterval - BurstIntervalMs) * progress);
+        return Math.Clamp((int)Math.Round(interpolated), BurstIntervalMs, idleInterval);
     }
 
     private void CheckIfWeShouldGC()

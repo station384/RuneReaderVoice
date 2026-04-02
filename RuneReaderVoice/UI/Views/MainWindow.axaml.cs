@@ -221,7 +221,7 @@ public partial class MainWindow : Window
         VolumeLabel.Text    = $"{(int)(s.Volume * 100)}%";
         SpeedSlider.Value   = s.PlaybackSpeed * 100;
         SpeedLabel.Text     = $"{s.PlaybackSpeed:F2}×";
-        CaptureInterval.Value = Math.Clamp(s.CaptureIntervalMs, 4, 100);
+        CaptureInterval.Value = Math.Clamp(s.CaptureIntervalMs, 10, 250);
         RescanInterval.Value  = s.ReScanIntervalMs;
         RepeatSuppressionEnabled.IsChecked = s.RepeatSuppressionEnabled;
         RepeatSuppressionWindow.Value = s.RepeatSuppressionWindowSeconds;

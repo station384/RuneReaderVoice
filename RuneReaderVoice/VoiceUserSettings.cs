@@ -79,10 +79,10 @@ public sealed class VoiceUserSettings
     public bool EnableQuestReward { get; set; } = true;
     public bool EnableBooks { get; set; } = false;
 
-    public int CaptureIntervalMs { get; set; } = 5;
+    public int CaptureIntervalMs { get; set; } = 50;
     public void NormalizeCaptureSettings()
     {
-        CaptureIntervalMs = Math.Clamp(CaptureIntervalMs, 4, 100);
+        CaptureIntervalMs = Math.Clamp(CaptureIntervalMs, 10, 250);
         ReScanIntervalMs = Math.Clamp(ReScanIntervalMs, 1000, 30000);
         SourceGoneThresholdMs = Math.Clamp(SourceGoneThresholdMs, 250, 30000);
     }

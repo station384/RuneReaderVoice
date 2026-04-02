@@ -144,7 +144,7 @@ public partial class MainWindow
     {
         if (!e.NewValue.HasValue) return;
 
-        var clamped = Math.Clamp((int)e.NewValue.Value, 4, 100);
+        var clamped = Math.Clamp((int)e.NewValue.Value, 10, 250);
         if (CaptureInterval.Value != clamped)
             CaptureInterval.Value = clamped;
         AppServices.Settings.CaptureIntervalMs = clamped;
