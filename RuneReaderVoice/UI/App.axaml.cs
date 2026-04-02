@@ -45,13 +45,16 @@ public class App : Application
         // Save settings on clean exit
         VoiceSettingsManager.SaveSettings(AppServices.Settings);
 
+        // Shut down background services first so they cannot keep the process alive.
+        try { RuneReaderVoice.AppServices.NpcSync.Dispose(); } catch { }
+        try { RuneReaderVoice.AppServices.Monitor.Dispose(); } catch { }
+
         // Dispose all services
-        
-        RuneReaderVoice.AppServices.Monitor.Dispose();
-        RuneReaderVoice.AppServices.Coordinator.Dispose();
-        RuneReaderVoice.AppServices.Cache.Dispose();
-        RuneReaderVoice.AppServices.Provider.Dispose();
-        RuneReaderVoice.AppServices.Player.Dispose();
-        RuneReaderVoice.AppServices.Platform.Dispose();
+        try { RuneReaderVoice.AppServices.Coordinator.Dispose(); } catch { }
+        try { RuneReaderVoice.AppServices.Cache.Dispose(); } catch { }
+        try { RuneReaderVoice.AppServices.Provider.Dispose(); } catch { }
+        try { RuneReaderVoice.AppServices.Player.Dispose(); } catch { }
+        try { RuneReaderVoice.AppServices.Platform.Dispose(); } catch { }
+        try { RuneReaderVoice.AppServices.Db.Dispose(); } catch { }
     }
 }

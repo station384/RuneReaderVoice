@@ -96,6 +96,7 @@ public sealed class RvBarcodeMonitor : IDisposable
 
     private readonly object _gate = new();
     private bool _disposed;
+    private readonly object _captureIoGate = new();
     //private QRCodeDetector  _QRCodeDetector  = new QRCodeDetector();
     
     public RvBarcodeMonitor(IScreenCaptureProvider capture)
@@ -180,14 +181,61 @@ public sealed class RvBarcodeMonitor : IDisposable
             _sourceGoneTask = SourceGoneLoopAsync(token);
         }
     }
-    private int _frameCount = 0;
+    private const double HotIntervalFactor = 0.5;
+    private const double ColdIntervalFactor = 1.5;
+    private const int HotWindowMs = 250;
+    private const int WarmWindowMs = 20000;
+    private const double GcMemoryLoadThreshold = 0.10;
+    private const int GcCooldownMs = 1000;
+    private DateTime _lastForcedGcUtc = DateTime.MinValue;
+
+    private static int ClampBaseCaptureInterval(int value)
+        => Math.Clamp(value, 4, 100);
+
+    private int GetAdaptiveCaptureIntervalMs()
+    {
+        int baseInterval;
+        bool regionHasRvQr;
+        DateTime lastRvDecodeTime;
+        lock (_gate)
+        {
+            baseInterval = ClampBaseCaptureInterval(CaptureIntervalMs);
+            regionHasRvQr = _regionHasRvQr;
+            lastRvDecodeTime = _lastRvDecodeTime;
+        }
+
+        if (regionHasRvQr)
+            return Math.Max(2, (int)Math.Round(baseInterval * HotIntervalFactor));
+
+        if (lastRvDecodeTime == DateTime.MinValue)
+            return baseInterval;
+
+        var ageMs = (DateTime.UtcNow - lastRvDecodeTime).TotalMilliseconds;
+        if (ageMs <= HotWindowMs)
+            return Math.Max(2, (int)Math.Round(baseInterval * HotIntervalFactor));
+        if (ageMs <= WarmWindowMs)
+            return baseInterval;
+        return Math.Max(baseInterval + 1, (int)Math.Round(baseInterval * ColdIntervalFactor));
+    }
+
     private void CheckIfWeShouldGC()
     {
-        if (_frameCount++ > 10)
-        {
-            GC.Collect();
-            _frameCount = 0;
-        }
+        var now = DateTime.UtcNow;
+        if ((now - _lastForcedGcUtc).TotalMilliseconds < GcCooldownMs)
+            return;
+
+        var process = Process.GetCurrentProcess();
+        var workingSet = process.WorkingSet64;
+        var totalAvailable = GC.GetGCMemoryInfo().TotalAvailableMemoryBytes;
+        if (totalAvailable <= 0)
+            return;
+
+        var load = (double)workingSet / totalAvailable;
+        if (load < GcMemoryLoadThreshold)
+            return;
+
+        GC.Collect();
+        _lastForcedGcUtc = now;
     }
     public async Task StopAsync()
     {
@@ -195,11 +243,11 @@ public sealed class RvBarcodeMonitor : IDisposable
         lock (_gate) { cts = _cts; _cts = null; }
         if (cts == null) return;
 
-        await cts.CancelAsync();
+        await cts.CancelAsync().ConfigureAwait(false);
         var tasks = new[] { _captureTask, _reScanTask, _sourceGoneTask }
             .Where(t => t != null)
             .Select(t => t!);
-        try { await Task.WhenAll(tasks); }
+        try { await Task.WhenAll(tasks).ConfigureAwait(false); }
         catch (OperationCanceledException) { }
         finally { cts.Dispose(); }
     }
@@ -218,12 +266,15 @@ public sealed class RvBarcodeMonitor : IDisposable
                 lock (_gate)
                     lockedRegion = _lockedRegion;
 
-                if (lockedRegion.HasValue)
+                lock (_captureIoGate)
                 {
                     _capture.EnableFullScreen = false;
-                    _capture.EnableRegion     = true;
-                    _capture.CaptureRegion    = lockedRegion.Value;
-                    _capture.CaptureOnce();
+                    _capture.EnableRegion     = lockedRegion.HasValue;
+                    if (lockedRegion.HasValue)
+                    {
+                        _capture.CaptureRegion = lockedRegion.Value;
+                        _capture.CaptureOnce();
+                    }
                 }
 
 
@@ -234,7 +285,8 @@ public sealed class RvBarcodeMonitor : IDisposable
                 System.Diagnostics.Debug.WriteLine($"[RvBarcodeMonitor] Capture error: {ex.Message}");
             }
 
-            try { await Task.Delay(CaptureIntervalMs, ct); }
+            var nextDelayMs = GetAdaptiveCaptureIntervalMs();
+            try { await Task.Delay(nextDelayMs, ct).ConfigureAwait(false); }
             catch (OperationCanceledException) { break; }
         }
     }
@@ -557,21 +609,33 @@ public sealed class RvBarcodeMonitor : IDisposable
         await Task.Yield();
         while (!ct.IsCancellationRequested)
         {
-            try { await Task.Delay(ReScanIntervalMs, ct); }
-            catch (OperationCanceledException) { break; }
-
             bool needsScan;
-            lock (_gate) 
+            lock (_gate)
                 needsScan = !_regionHasRvQr;
 
             if (needsScan)
             {
-                // Force a full-screen capture to search for the QR frame without
-                // discarding the last known region. Region scanning continues.
-                _capture.EnableFullScreen = true;
-                _capture.EnableRegion     = false;
-                _capture.CaptureOnce();
+                Rect? lockedRegion;
+                lock (_gate)
+                    lockedRegion = _lockedRegion;
+
+                // Force a one-shot full-screen capture to search for the QR frame
+                // without ever suppressing region polling. Region scanning remains
+                // continuously owned by the capture loop; full scan only augments it.
+                lock (_captureIoGate)
+                {
+                    _capture.EnableRegion = lockedRegion.HasValue;
+                    if (lockedRegion.HasValue)
+                        _capture.CaptureRegion = lockedRegion.Value;
+
+                    _capture.EnableFullScreen = true;
+                    _capture.CaptureOnce();
+                    _capture.EnableFullScreen = false;
+                }
             }
+
+            try { await Task.Delay(ReScanIntervalMs, ct).ConfigureAwait(false); }
+            catch (OperationCanceledException) { break; }
         }
     }
 
@@ -582,7 +646,7 @@ public sealed class RvBarcodeMonitor : IDisposable
         await Task.Yield();
         while (!ct.IsCancellationRequested)
         {
-            try { await Task.Delay(200, ct); }
+            try { await Task.Delay(200, ct).ConfigureAwait(false); }
             catch (OperationCanceledException) { break; }
 
             bool shouldSignal;
@@ -614,16 +678,16 @@ public sealed class RvBarcodeMonitor : IDisposable
     {
         if (_disposed) return;
         _disposed = true;
-        CancellationTokenSource? cts;
-        lock (_gate) 
-        { cts = _cts; _cts = null; }
-        cts?.Cancel();
-        cts?.Dispose();
-    
-        // Give background tasks a moment to see the cancellation
-        _captureTask?.Wait(500);
-        _reScanTask?.Wait(500);
-        _sourceGoneTask?.Wait(500);
+        try
+        {
+            StopAsync().GetAwaiter().GetResult();
+        }
+        catch (OperationCanceledException)
+        {
+        }
+        catch (AggregateException ae) when (ae.InnerExceptions.All(ex => ex is OperationCanceledException))
+        {
+        }
     }
 }
 

@@ -80,6 +80,12 @@ public sealed class VoiceUserSettings
     public bool EnableBooks { get; set; } = false;
 
     public int CaptureIntervalMs { get; set; } = 5;
+    public void NormalizeCaptureSettings()
+    {
+        CaptureIntervalMs = Math.Clamp(CaptureIntervalMs, 4, 100);
+        ReScanIntervalMs = Math.Clamp(ReScanIntervalMs, 1000, 30000);
+        SourceGoneThresholdMs = Math.Clamp(SourceGoneThresholdMs, 250, 30000);
+    }
     public int ReScanIntervalMs { get; set; } = 5000;
     public int SourceGoneThresholdMs { get; set; } = 2000;
     public SavedBarcodeRegion? LastBarcodeRegion { get; set; } = null;
@@ -233,12 +239,14 @@ public static class VoiceSettingsManager
             {
                 var s = new VoiceUserSettings();
                 s.NormalizeVoiceProfiles();
+                s.NormalizeCaptureSettings();
                 return s;
             }
 
             var json = File.ReadAllText(path);
             var settings = JsonSerializer.Deserialize<VoiceUserSettings>(json) ?? new VoiceUserSettings();
             settings.NormalizeVoiceProfiles();
+            settings.NormalizeCaptureSettings();
             return settings;
         }
         catch (Exception ex)
@@ -246,6 +254,7 @@ public static class VoiceSettingsManager
             Debug.WriteLine($"[VoiceSettingsManager] Load error: {ex.Message}");
             var s = new VoiceUserSettings();
             s.NormalizeVoiceProfiles();
+            s.NormalizeCaptureSettings();
             return s;
         }
     }
@@ -255,6 +264,7 @@ public static class VoiceSettingsManager
         try
         {
             settings.NormalizeVoiceProfiles();
+            settings.NormalizeCaptureSettings();
             var dir = Path.GetDirectoryName(SettingsFilePath)!;
             Directory.CreateDirectory(dir);
             var tmp = SettingsFilePath + ".tmp";
@@ -276,6 +286,7 @@ public static class VoiceSettingsManager
         try
         {
             settings.NormalizeVoiceProfiles();
+            settings.NormalizeCaptureSettings();
             var dir = Path.GetDirectoryName(SettingsFilePath)!;
             Directory.CreateDirectory(dir);
             var tmp = SettingsFilePath + ".tmp";

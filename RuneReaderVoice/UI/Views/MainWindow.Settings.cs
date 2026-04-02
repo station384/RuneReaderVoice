@@ -144,8 +144,11 @@ public partial class MainWindow
     {
         if (!e.NewValue.HasValue) return;
 
-        AppServices.Settings.CaptureIntervalMs = (int)e.NewValue.Value;
-        AppServices.Monitor.CaptureIntervalMs = (int)e.NewValue.Value;
+        var clamped = Math.Clamp((int)e.NewValue.Value, 4, 100);
+        if (CaptureInterval.Value != clamped)
+            CaptureInterval.Value = clamped;
+        AppServices.Settings.CaptureIntervalMs = clamped;
+        AppServices.Monitor.CaptureIntervalMs = clamped;
         VoiceSettingsManager.SaveSettings(AppServices.Settings);
     }
 
