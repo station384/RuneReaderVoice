@@ -243,6 +243,7 @@ public partial class MainWindow
         AppServices.SwapProvider(newProvider);
         PopulateVoiceGrid();
         PopulateLastNpcSampleDropdown();
+        _ = PopulateSampleDefaultsGridAsync();
     }
 
     private void HookProviderStatusCallbacks(ITtsProvider provider)

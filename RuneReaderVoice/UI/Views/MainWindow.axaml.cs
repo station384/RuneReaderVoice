@@ -50,6 +50,7 @@ public partial class MainWindow : Window
         WireExpanderStateSaving();
         PopulateAudioDevices();
         PopulateVoiceGrid();
+        _ = PopulateSampleDefaultsGridAsync();
         PopulateVolumeTrimGrid();
         SetPlatformVisibility();
         PopulatePronunciationWorkbench();
@@ -76,7 +77,11 @@ public partial class MainWindow : Window
                     await remote.RefreshVoiceSourcesAsync(System.Threading.CancellationToken.None);
                     System.Diagnostics.Debug.WriteLine(
                         $"[MainWindow] Voice cache warmed: {remote.GetAvailableVoices().Count} voices");
-                    Avalonia.Threading.Dispatcher.UIThread.Post(PopulateLastNpcSampleDropdown);
+                    Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+                    {
+                        PopulateLastNpcSampleDropdown();
+                        _ = PopulateSampleDefaultsGridAsync();
+                    });
                 }
             }
             catch (Exception ex)

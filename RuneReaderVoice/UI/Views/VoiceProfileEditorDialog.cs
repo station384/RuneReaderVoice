@@ -38,6 +38,8 @@ public sealed class VoiceProfileEditorDialog : Window
 
     private readonly VoiceSlot    _slot;
     private readonly VoiceProfile _workingProfile;
+    private readonly string? _sampleProfileKey;
+    private readonly string? _sampleProviderId;
     private bool _saved;
 
 
@@ -99,13 +101,19 @@ public sealed class VoiceProfileEditorDialog : Window
         bool supportsPresets,
         bool supportsBlend,
         string voiceSourceLabel,
-        IReadOnlyDictionary<string, RemoteControlDescriptor>? controls = null)
+        IReadOnlyDictionary<string, RemoteControlDescriptor>? controls = null,
+        string? sampleProfileKey = null,
+        string? sampleProviderId = null)
     {
-        _slot           = slot;
-        _workingProfile = initialProfile.Clone();
+        _slot             = slot;
+        _workingProfile   = initialProfile.Clone();
+        _sampleProfileKey = sampleProfileKey;
+        _sampleProviderId = sampleProviderId;
         _workingProfile.Dsp ??= new DspProfile();
 
-        Title  = $"Edit NPC Voice Profile — {npcLabel}";
+        Title  = string.IsNullOrWhiteSpace(_sampleProfileKey)
+            ? $"Edit NPC Voice Profile — {npcLabel}"
+            : $"Edit Voice Default — {_sampleProfileKey}";
         Width  = 860;
         Height = 720;
         MinWidth  = 780;
@@ -1087,9 +1095,25 @@ So go quickly, keep your wits about you, and return by the main road if you valu
             return;
 
         var original = provider.ResolveProfile(_slot)?.Clone();
+        VoiceProfile? originalSampleProfile = null;
         try
         {
-            if (provider is KokoroTtsProvider kokoro)
+            if (!string.IsNullOrWhiteSpace(_sampleProfileKey))
+            {
+                if (!AppServices.Settings.PerProviderSampleProfiles.TryGetValue(provider.ProviderId, out var sampleDict))
+                {
+                    sampleDict = new Dictionary<string, VoiceProfile>(StringComparer.OrdinalIgnoreCase);
+                    AppServices.Settings.PerProviderSampleProfiles[provider.ProviderId] = sampleDict;
+                }
+
+                if (sampleDict.TryGetValue(_sampleProfileKey, out var existingSample) && existingSample != null)
+                    originalSampleProfile = existingSample.Clone();
+
+                var sampleProfile = _workingProfile.Clone();
+                sampleProfile.VoiceId = _sampleProfileKey;
+                sampleDict[_sampleProfileKey] = sampleProfile;
+            }
+            else if (provider is KokoroTtsProvider kokoro)
                 kokoro.SetVoiceProfile(_slot, _workingProfile);
             else if (AppServices.Settings.PerProviderVoiceProfiles.TryGetValue(provider.ProviderId, out var dict))
                 dict[_slot.ToString()] = _workingProfile.Clone();
@@ -1099,11 +1123,24 @@ So go quickly, keep your wits about you, and return by the main road if you valu
             if (provider is RemoteTtsProvider remote)
             {
                 AppServices.SetOperationStatus("Requesting preview from server…");
-                var voiceId = provider.ResolveVoiceId(_slot);
+
+                string voiceId;
+                if (!string.IsNullOrWhiteSpace(_sampleProfileKey))
+                {
+                    var effectiveSample = remote.ResolveSampleProfile(_sampleProfileKey, _slot);
+                    voiceId = $"sample:{effectiveSample.BuildIdentityKey()}";
+                }
+                else
+                {
+                    voiceId = provider.ResolveVoiceId(_slot);
+                }
+
                 var cached = await AppServices.Cache.TryGetDecodedAsync(previewText, voiceId, provider.ProviderId, "", ct);
                 if (cached == null)
                 {
-                    var oggBytes = await remote.SynthesizeOggAsync(previewText, _slot, ct);
+                    var oggBytes = !string.IsNullOrWhiteSpace(_sampleProfileKey)
+                        ? await remote.SynthesizeOggAsync(previewText, _slot, ct, bespokeSampleId: _sampleProfileKey)
+                        : await remote.SynthesizeOggAsync(previewText, _slot, ct);
                     await AppServices.Cache.StoreOggAsync(oggBytes, previewText, voiceId, provider.ProviderId, "", ct);
                     AppServices.SetOperationStatus("Decoding preview…");
                     cached = await AppServices.Cache.TryGetDecodedAsync(previewText, voiceId, provider.ProviderId, "", ct);
@@ -1134,7 +1171,15 @@ So go quickly, keep your wits about you, and return by the main road if you valu
             AppServices.ClearOperationStatus();
             if (!_saved)
             {
-                if (provider is KokoroTtsProvider kokoro)
+                if (!string.IsNullOrWhiteSpace(_sampleProfileKey))
+                {
+                    if (AppServices.Settings.PerProviderSampleProfiles.TryGetValue(provider.ProviderId, out var sampleDict))
+                    {
+                        if (originalSampleProfile != null) sampleDict[_sampleProfileKey] = originalSampleProfile;
+                        else sampleDict.Remove(_sampleProfileKey);
+                    }
+                }
+                else if (provider is KokoroTtsProvider kokoro)
                     kokoro.SetVoiceProfile(_slot, original ?? VoiceProfileDefaults.Create(""));
                 else if (AppServices.Settings.PerProviderVoiceProfiles.TryGetValue(provider.ProviderId, out var dict))
                 {

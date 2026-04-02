@@ -30,6 +30,10 @@ public sealed class VoiceUserSettings
     // New structured storage.
     public Dictionary<string, Dictionary<string, VoiceProfile>> PerProviderVoiceProfiles { get; set; } = new();
 
+    // Base/default settings for concrete voice/sample IDs, per provider.
+    // Key1 = provider id, Key2 = voice/sample id.
+    public Dictionary<string, Dictionary<string, VoiceProfile>> PerProviderSampleProfiles { get; set; } = new();
+
     [System.Text.Json.Serialization.JsonIgnore]
     public Dictionary<string, VoiceProfile> VoiceProfiles
     {
@@ -178,6 +182,22 @@ public sealed class VoiceUserSettings
             foreach (var key in keys)
             {
                 var profile = dict[key] ?? new VoiceProfile();
+                if (string.IsNullOrWhiteSpace(profile.LangCode))
+                    profile.LangCode = VoiceProfileDefaults.GetDefaultLangCodeForVoice(profile.VoiceId);
+                if (profile.SpeechRate <= 0f)
+                    profile.SpeechRate = 1.0f;
+                dict[key] = profile;
+            }
+        }
+
+        foreach (var dict in PerProviderSampleProfiles.Values)
+        {
+            var keys = new List<string>(dict.Keys);
+            foreach (var key in keys)
+            {
+                var profile = dict[key] ?? VoiceProfileDefaults.Create(key);
+                if (string.IsNullOrWhiteSpace(profile.VoiceId))
+                    profile.VoiceId = key;
                 if (string.IsNullOrWhiteSpace(profile.LangCode))
                     profile.LangCode = VoiceProfileDefaults.GetDefaultLangCodeForVoice(profile.VoiceId);
                 if (profile.SpeechRate <= 0f)

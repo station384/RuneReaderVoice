@@ -411,3 +411,9 @@ public sealed class MultiProviderVoiceProfileExport
     public Dictionary<string, Dictionary<string, VoiceProfile>> Providers { get; set; } =
         new(StringComparer.OrdinalIgnoreCase);
 }
+
+public sealed class MultiProviderSampleProfileExport
+{
+    public Dictionary<string, Dictionary<string, VoiceProfile>> Providers { get; set; } =
+        new(StringComparer.OrdinalIgnoreCase);
+}

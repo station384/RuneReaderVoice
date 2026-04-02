@@ -271,10 +271,13 @@ public sealed class PlaybackCoordinator : IDisposable
             System.Diagnostics.Debug.WriteLine(
                 $"[PC] Bespoke applied seg={segment.SegmentIndex} sample={segment.BespokeSampleId}");
 
+        var profile = applyBespoke && _provider is RemoteTtsProvider remoteProviderForSample
+            ? remoteProviderForSample.ResolveSampleProfile(segment.BespokeSampleId!, segment.Slot)
+            : _provider.ResolveProfile(segment.Slot);
+
         var voiceId = applyBespoke
-            ? segment.BespokeSampleId!   // bespoke sample IS the voice identity
+            ? $"sample:{profile?.BuildIdentityKey() ?? segment.BespokeSampleId!}"
             : _provider.ResolveVoiceId(segment.Slot);
-        var profile = _provider.ResolveProfile(segment.Slot);
 
         // Cache key includes slot string as namespace prefix so two different slots
         // that happen to share the same sample (e.g. Narrator and Tortollan both

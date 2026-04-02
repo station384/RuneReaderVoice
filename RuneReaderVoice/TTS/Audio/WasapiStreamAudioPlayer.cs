@@ -120,7 +120,7 @@ public sealed class WasapiStreamAudioPlayer : IAudioPlayer
                 // Keep this modest.
                 // Large BufferedWaveProvider durations can cause large retained allocations
                 // and make normal heap growth look like a memory leak during playback.
-                BufferDuration = TimeSpan.FromSeconds(2),
+                BufferDuration = TimeSpan.FromSeconds(3),
             };
 
             _output = CreateOutput(_deviceId);
@@ -253,12 +253,12 @@ public sealed class WasapiStreamAudioPlayer : IAudioPlayer
         if (string.IsNullOrWhiteSpace(deviceId))
         {
             _outputDevice = null;
-            return new WasapiOut(AudioClientShareMode.Shared, true, 100);
+            return new WasapiOut(AudioClientShareMode.Shared, true, 200);
         }
 
         using var enumerator = new MMDeviceEnumerator();
         _outputDevice = enumerator.GetDevice(deviceId);
-        return new WasapiOut(_outputDevice, AudioClientShareMode.Shared, true, 100);
+        return new WasapiOut(_outputDevice, AudioClientShareMode.Shared, true, 200);
     }
 
     private async Task FeedStreamAsync(
@@ -283,7 +283,7 @@ public sealed class WasapiStreamAudioPlayer : IAudioPlayer
                 if (buffer.BufferedBytes <= 0)
                     break;
 
-                await Task.Delay(20, ct).ConfigureAwait(false);
+                await Task.Delay(200, ct).ConfigureAwait(false);
             }
         }
         catch (OperationCanceledException)

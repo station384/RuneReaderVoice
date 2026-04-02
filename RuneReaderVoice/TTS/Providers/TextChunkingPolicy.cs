@@ -264,13 +264,13 @@ public static class TextChunkingPolicy
             TargetChars           = kokoro    ? 850
                                   : f5        ? 575
                                   : turbo     ? 600
-                                  : chatterbox ? 380
+                                  : chatterbox ? 550
                                   : 700,
 
             HardCapChars          = kokoro    ? 1050
                                   : f5        ? 725
                                   : turbo     ? 720
-                                  : chatterbox ? 480
+                                  : chatterbox ? 650
                                   : 850,
 
             // Chatterbox Full fails at ~10 comma-separated items; cap at 7 (was 7, keep)

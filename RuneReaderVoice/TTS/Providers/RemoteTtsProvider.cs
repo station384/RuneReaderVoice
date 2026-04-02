@@ -200,8 +200,7 @@ public sealed class RemoteTtsProvider : ITtsProvider
     {
         if (!string.IsNullOrWhiteSpace(bespokeSampleId))
         {
-            profile          = profile.Clone();
-            profile.VoiceId  = bespokeSampleId;
+            profile = ResolveSampleProfile(bespokeSampleId, slot);
             if (bespokeExaggeration.HasValue) profile.Exaggeration = bespokeExaggeration;
             if (bespokeCfgWeight.HasValue)    profile.CfgWeight    = bespokeCfgWeight;
         }
@@ -339,6 +338,26 @@ public sealed class RemoteTtsProvider : ITtsProvider
             return GetDefaultSampleProfile(slot);
 
         return VoiceProfileDefaults.Create(GetAvailableVoices().FirstOrDefault()?.VoiceId ?? string.Empty);
+    }
+
+    public VoiceProfile ResolveSampleProfile(string sampleId, VoiceSlot? fallbackSlot = null)
+    {
+        if (_settings.PerProviderSampleProfiles.TryGetValue(ProviderId, out var dict) &&
+            dict.TryGetValue(sampleId, out var stored) &&
+            stored != null)
+        {
+            var cloned = stored.Clone();
+            if (string.IsNullOrWhiteSpace(cloned.VoiceId))
+                cloned.VoiceId = sampleId;
+            return cloned;
+        }
+
+        var fallback = fallbackSlot.HasValue ? ResolveProfile(fallbackSlot.Value)?.Clone() : null;
+        fallback ??= VoiceProfileDefaults.Create(sampleId);
+        fallback.VoiceId = sampleId;
+        if (string.IsNullOrWhiteSpace(fallback.LangCode))
+            fallback.LangCode = VoiceProfileDefaults.GetDefaultLangCodeForVoice(sampleId);
+        return fallback;
     }
 
     public async Task<IReadOnlyList<VoiceInfo>> RefreshVoiceSourcesAsync(CancellationToken ct)

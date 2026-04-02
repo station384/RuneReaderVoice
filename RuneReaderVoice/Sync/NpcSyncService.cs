@@ -100,6 +100,7 @@ public sealed class NpcSyncService : IDisposable
 
         // Pull the three seed types
         await PullAndApplyDefaultsAsync("voice-profiles").ConfigureAwait(false);
+        await PullAndApplyDefaultsAsync("voice-sample-profiles").ConfigureAwait(false);
         await PullAndApplyDefaultsAsync("pronunciation").ConfigureAwait(false);
         await PullAndApplyDefaultsAsync("text-shaping").ConfigureAwait(false);
 
@@ -266,6 +267,10 @@ public sealed class NpcSyncService : IDisposable
                     await ApplyVoiceProfilesDefaultsAsync(json);
                     break;
 
+                case "voice-sample-profiles":
+                    await ApplyVoiceSampleProfilesDefaultsAsync(json);
+                    break;
+
                 case "pronunciation":
                     await ApplyPronunciationDefaultsAsync(json).ConfigureAwait(false);
                     break;
@@ -332,6 +337,29 @@ public sealed class NpcSyncService : IDisposable
             single.Profiles,
             StringComparer.OrdinalIgnoreCase);
         _settings.PerProviderVoiceProfiles[single.ProviderId] = existing;
+
+        VoiceSettingsManager.SaveSettings(_settings);
+        return Task.CompletedTask;
+    }
+
+
+    private Task ApplyVoiceSampleProfilesDefaultsAsync(string json)
+    {
+        var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+        var multi = JsonSerializer.Deserialize<TTS.Providers.MultiProviderSampleProfileExport>(json, options);
+        if (multi?.Providers == null || multi.Providers.Count == 0)
+            return Task.CompletedTask;
+
+        foreach (var (providerId, incomingProfiles) in multi.Providers)
+        {
+            if (string.IsNullOrWhiteSpace(providerId) || incomingProfiles == null)
+                continue;
+
+            var replacement = new System.Collections.Generic.Dictionary<string, TTS.Providers.VoiceProfile>(
+                incomingProfiles,
+                StringComparer.OrdinalIgnoreCase);
+            _settings.PerProviderSampleProfiles[providerId] = replacement;
+        }
 
         VoiceSettingsManager.SaveSettings(_settings);
         return Task.CompletedTask;

@@ -317,6 +317,30 @@ along with RuneReaderVoice. If not, see <https://www.gnu.org/licenses/>.
                 </ScrollViewer>
             </TabItem>
 
+
+            <TabItem Header="Voice Defaults">
+                <ScrollViewer>
+                    <StackPanel Margin="12" Spacing="6">
+                        <TextBlock Text="Voice / Sample Default Profiles"
+                                   FontWeight="SemiBold"
+                                   FontSize="16"/>
+                        <TextBlock Text="Base settings saved here apply to the concrete voice or sample itself. NPC bespoke sample assignments use these defaults first, then fall back to Race/Dialect, then Narrator."
+                                   TextWrapping="Wrap"
+                                   Foreground="#888"
+                                   FontSize="11"/>
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <Button Content="Refresh Voices" Click="OnSampleDefaultsRefreshClicked"/>
+                            <Button Content="Export Profiles" Click="OnSampleDefaultsExportClicked"/>
+                            <Button Content="Import Profiles" Click="OnSampleDefaultsImportClicked"/>
+                            <Button Content="Push to Server" FontSize="11" Click="OnSampleDefaultsPushToServerClicked"/>
+                            <Button Content="Pull from Server" FontSize="11" Click="OnSampleDefaultsPullFromServerClicked"/>
+                        </StackPanel>
+                        <TextBlock x:Name="SampleDefaultsStatus" Foreground="#888" FontSize="11"/>
+                        <StackPanel x:Name="SampleDefaultsGrid" Spacing="6"/>
+                    </StackPanel>
+                </ScrollViewer>
+            </TabItem>
+
             <!-- NPC Overrides tab -->
             <TabItem Header="NPC Voices">
                 <ScrollViewer>

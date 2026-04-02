@@ -180,7 +180,7 @@ public static class RaceAccentMapping
     // Creature type IDs (from UnitCreatureType(), mapped to 0x50–0x58 range by the addon).
     private static readonly Dictionary<int, AccentGroup> CreatureTypeMap = new()
     {
-        { 0x50, AccentGroup.Human       },  // Humanoid (non-playable) — neutral fallback
+        { 0x50, AccentGroup.Narrator    },  // Humanoid (non-playable) — unknown NPC fallback
         { 0x51, AccentGroup.Narrator    },  // Beast
         { 0x52, AccentGroup.Dragonkin   },  // Dragonkin
         { 0x53, AccentGroup.Undead      },  // Undead (non-Forsaken)
