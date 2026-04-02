@@ -122,9 +122,12 @@ public partial class MainWindow
                 $"[NpcPanel] PopulateSampleDropdown: provider={AppServices.Provider.ProviderId} voiceCount={voices.Count} showPanel={showPanel}");
 
             // Separate base samples from variants
-            var baseSamples = voices
-                .Where(v => GetVariantSuffix(v.VoiceId) == null)
-                .OrderBy(v => v.VoiceId)
+            var baseSamples = SelectionRecencyHelper.SortByVoiceRecency(
+                    voices.Where(v => GetVariantSuffix(v.VoiceId) == null),
+                    AppServices.Settings,
+                    AppServices.Provider.ProviderId,
+                    v => v.VoiceId,
+                    v => v.VoiceId)
                 .ToList();
 
             foreach (var v in baseSamples)
@@ -170,10 +173,13 @@ public partial class MainWindow
             AppServices.Provider is TTS.Providers.RemoteTtsProvider remoteProvider)
         {
             var allVoices = remoteProvider.GetAvailableVoices();
-            var variants  = allVoices
-                .Where(v => GetBaseSampleId(v.VoiceId) == baseSampleId
-                         && GetVariantSuffix(v.VoiceId) != null)
-                .OrderBy(v => v.VoiceId)
+            var variants  = SelectionRecencyHelper.SortByVoiceRecency(
+                    allVoices.Where(v => GetBaseSampleId(v.VoiceId) == baseSampleId
+                                      && GetVariantSuffix(v.VoiceId) != null),
+                    AppServices.Settings,
+                    AppServices.Provider.ProviderId,
+                    v => v.VoiceId,
+                    v => v.VoiceId)
                 .ToList();
 
             foreach (var v in variants)
@@ -255,6 +261,9 @@ public partial class MainWindow
         var raceId          = (int)(item.Tag ?? 0);
         var notes           = LastNpcNotesBox.Text?.Trim();
         var bespokeSampleId = GetSelectedLastNpcSampleId();
+        SelectionRecencyHelper.BumpRace(AppServices.Settings, raceId);
+        SelectionRecencyHelper.BumpVoice(AppServices.Settings, AppServices.Provider.ProviderId, bespokeSampleId);
+        VoiceSettingsManager.SaveSettings(AppServices.Settings);
 
         _ = Task.Run(async () =>
         {
@@ -276,6 +285,12 @@ public partial class MainWindow
 
             Dispatcher.UIThread.Post(() =>
             {
+                PopulateNpcOverrideRaceDropdown(LastNpcRaceDropdown);
+                SelectDropdownByRaceId(LastNpcRaceDropdown, raceId);
+
+                PopulateLastNpcSampleDropdown();
+                SelectLastNpcSampleDropdown(bespokeSampleId);
+
                 LastNpcClearButton.IsEnabled = true;
                 RefreshNpcOverridesGrid();
             });
@@ -407,6 +422,8 @@ public partial class MainWindow
             {
                 if (dropdown.SelectedItem is not ComboBoxItem item) return;
                 var raceId = (int)(item.Tag ?? 0);
+                SelectionRecencyHelper.BumpRace(AppServices.Settings, raceId);
+                VoiceSettingsManager.SaveSettings(AppServices.Settings);
                 _ = Task.Run(async () =>
                 {
                     await AppServices.NpcOverrides.UpsertAsync(entry.NpcId, raceId, entry.Notes);
@@ -540,7 +557,7 @@ public partial class MainWindow
     /// Label: "{Race name} — {AccentLabel}"  (male entry used as representative).
     /// Tag  : integer raceId stored in NpcOverride records.
     /// </summary>
-    private static void PopulateNpcOverrideRaceDropdown(ComboBox dropdown)
+    private void PopulateNpcOverrideRaceDropdown(ComboBox dropdown)
     {
         dropdown.Items.Clear();
 
@@ -573,15 +590,11 @@ public partial class MainWindow
             // Narrator slot has no race ID — intentionally excluded
         }
 
-        // Sort each group by ID, then append in display order:
-        //   Player races (IDs 1–70) → Creature types (0x50–0x58) → NPC-only (0x0200+)
-        playerEntries.Sort((a, b)  => a.raceId.CompareTo(b.raceId));
-        creatureEntries.Sort((a, b) => a.raceId.CompareTo(b.raceId));
-        npcOnlyEntries.Sort((a, b)  => a.raceId.CompareTo(b.raceId));
+        var sortedEntries = SelectionRecencyHelper.SortRaces(
+            playerEntries.Concat(creatureEntries).Concat(npcOnlyEntries),
+            AppServices.Settings);
 
-        foreach (var (raceId, label) in playerEntries
-            .Concat(creatureEntries)
-            .Concat(npcOnlyEntries))
+        foreach (var (raceId, label) in sortedEntries)
         {
             dropdown.Items.Add(new ComboBoxItem
             {

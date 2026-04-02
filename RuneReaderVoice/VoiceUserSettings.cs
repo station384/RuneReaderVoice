@@ -34,6 +34,12 @@ public sealed class VoiceUserSettings
     // Key1 = provider id, Key2 = voice/sample id.
     public Dictionary<string, Dictionary<string, VoiceProfile>> PerProviderSampleProfiles { get; set; } = new();
 
+
+    // Recency weights (0-10) used to float frequently-saved selections to the top.
+    // For voices: Key = providerId|voiceId. For races: Key = raceId string.
+    public Dictionary<string, byte> RecentVoiceSelectionRanks { get; set; } = new();
+    public Dictionary<string, byte> RecentRaceSelectionRanks { get; set; } = new();
+
     [System.Text.Json.Serialization.JsonIgnore]
     public Dictionary<string, VoiceProfile> VoiceProfiles
     {

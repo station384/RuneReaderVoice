@@ -131,7 +131,8 @@ public partial class MainWindow
             voiceSourceLabel,
             descriptor?.Controls,
             sampleProfileKey: sampleId,
-            sampleProviderId: provider.ProviderId);
+            sampleProviderId: provider.ProviderId,
+            isSampleDefaultsEditor: true);
 
         var updated = await dlg.ShowDialog<VoiceProfile?>(this);
         if (updated == null)

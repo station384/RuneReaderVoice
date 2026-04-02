@@ -62,6 +62,17 @@ public sealed class VoiceProfileEditorDialog : Window
     private readonly Slider      _speechRateSlider;
     private readonly TextBox     _speechRateText;
     private readonly TextBox     _previewText;
+    private readonly string      _previewShortText = "By the Light, keep your blade high and your courage higher.";
+    private readonly string      _previewMediumText = "Champion, the road ahead winds through ruined watchtowers and restless woods. Stay to the lantern path, heed the warding stones, and return before moonrise if you value your hide.";
+    private readonly string      _previewLongText = @"Ehh? You there—yes, you. Come closer. I have a task, and before you ask, no, I cannot do it myself, because the last time I walked that road my knees argued with me for three full days. Listen carefully, because this matters.
+
+Take this satchel to Bramblewatch Hollow, speak to Warden Elira, and make certain she receives it before sunset. On the way, keep to the old stone path, avoid the shallow marsh to the east, and do not, under any circumstances, answer if something in the fog calls your name. It may sound like a friend. It will not be a friend.
+
+Now then, there are three things you must remember. First, the bridge near the hollow looks sturdy, but the center planks are rotten. Second, the crows nesting in the watchtower startle easily, and when they scatter, the bandits nearby take it as a warning. Third—and this is the part people forget—if you find a silver lantern hanging from a branch, leave it where it is and walk the other way.
+
+Years ago, before the road fell quiet, caravans used to pass through Bramblewatch every week. Traders, pilgrims, mercenaries, storytellers—always too loud, always in a hurry, always certain the woods were only woods. Then the disappearances began, and the village learned to keep its fires low and its doors barred after dusk. Some say the land remembers old grief. Some say it is only smugglers and superstition. Me? I say a wise traveler respects both.
+
+So go quickly, keep your wits about you, and return by the main road if you value your skin. And if Warden Elira offers you tea, be polite and decline. Her tea is strong enough to wake the dead, and we have enough restless things wandering about already.";
     private readonly TextBlock   _summaryText;
     private readonly Slider?     _cfgWeightSlider;
     private readonly TextBox?    _cfgWeightText;
@@ -103,7 +114,8 @@ public sealed class VoiceProfileEditorDialog : Window
         string voiceSourceLabel,
         IReadOnlyDictionary<string, RemoteControlDescriptor>? controls = null,
         string? sampleProfileKey = null,
-        string? sampleProviderId = null)
+        string? sampleProviderId = null,
+        bool isSampleDefaultsEditor = false)
     {
         _slot             = slot;
         _workingProfile   = initialProfile.Clone();
@@ -160,8 +172,13 @@ public sealed class VoiceProfileEditorDialog : Window
             return null;
         }
 
-        var allVoiceChoices = availableVoices
-            .OrderBy(v => string.IsNullOrWhiteSpace(v.VoiceId) ? v.Name : v.VoiceId, StringComparer.OrdinalIgnoreCase)
+        var providerForSorting = sampleProviderId ?? AppServices.Provider.ProviderId;
+        var allVoiceChoices = SelectionRecencyHelper.SortByVoiceRecency(
+                availableVoices,
+                AppServices.Settings,
+                providerForSorting,
+                v => v.VoiceId,
+                v => string.IsNullOrWhiteSpace(v.VoiceId) ? v.Name : v.VoiceId)
             .Select(v =>
             {
                 var primary = string.IsNullOrWhiteSpace(v.VoiceId) ? v.Name : v.VoiceId;
@@ -568,19 +585,18 @@ public sealed class VoiceProfileEditorDialog : Window
 
         // ── Preview / Summary ─────────────────────────────────────────────────
 
-        _previewText = new TextBox { AcceptsReturn = true, TextWrapping = TextWrapping.Wrap, MinHeight = 52, Text = @"Ehh? You there—yes, you. Come closer. I have a task, and before you ask, no, I cannot do it myself, because the last time I walked that road my knees argued with me for three full days. Listen carefully, because this matters.
-
-Take this satchel to Bramblewatch Hollow, speak to Warden Elira, and make certain she receives it before sunset. On the way, keep to the old stone path, avoid the shallow marsh to the east, and do not, under any circumstances, answer if something in the fog calls your name. It may sound like a friend. It will not be a friend.
-
-Now then, there are three things you must remember. First, the bridge near the hollow looks sturdy, but the center planks are rotten. Second, the crows nesting in the watchtower startle easily, and when they scatter, the bandits nearby take it as a warning. Third—and this is the part people forget—if you find a silver lantern hanging from a branch, leave it where it is and walk the other way.
-
-Years ago, before the road fell quiet, caravans used to pass through Bramblewatch every week. Traders, pilgrims, mercenaries, storytellers—always too loud, always in a hurry, always certain the woods were only woods. Then the disappearances began, and the village learned to keep its fires low and its doors barred after dusk. Some say the land remembers old grief. Some say it is only smugglers and superstition. Me? I say a wise traveler respects both.
-
-So go quickly, keep your wits about you, and return by the main road if you value your skin. And if Warden Elira offers you tea, be polite and decline. Her tea is strong enough to wake the dead, and we have enough restless things wandering about already." };
+        _previewText = new TextBox { AcceptsReturn = true, TextWrapping = TextWrapping.Wrap, MinHeight = 52, Text = _previewShortText };
         _previewButton = Btn("Preview", 90); _previewButton.Click += PreviewButton_Click;
         _stopPreviewButton = Btn("Stop", 80); _stopPreviewButton.Click += StopPreviewButton_Click; _stopPreviewButton.IsEnabled = false;
         _previewStatusText = new TextBlock { VerticalAlignment = VerticalAlignment.Center, Foreground = Avalonia.Media.Brushes.Gold, FontSize = 12, Text = string.Empty };
-        var saveBtn    = Btn("Save & Close", 120); saveBtn.Click += (_, _) => { _saved = true; Close(_workingProfile.Clone()); };
+        var shortPreviewBtn = Btn("Short Preview", 110); shortPreviewBtn.Click += (_, _) => _previewText.Text = _previewShortText;
+        var mediumPreviewBtn = Btn("Medium Preview", 120); mediumPreviewBtn.Click += (_, _) => _previewText.Text = _previewMediumText;
+        var longPreviewBtn = Btn("Long Preview", 100); longPreviewBtn.Click += (_, _) => _previewText.Text = _previewLongText;
+        var previewPresetButtons = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Children = { shortPreviewBtn, mediumPreviewBtn, longPreviewBtn } };
+        var saveBtn    = Btn("Save & Close", 120); saveBtn.Click += (_, _) => {
+            SelectionRecencyHelper.BumpVoice(AppServices.Settings, providerForSorting, _workingProfile.VoiceId);
+            VoiceSettingsManager.SaveSettings(AppServices.Settings);
+            _saved = true; Close(_workingProfile.Clone()); };
         saveBtn.IsEnabled = true;
         var cancelBtn  = Btn("Cancel", 90);        cancelBtn.Click += (_, _) => Close(null);
         _summaryText   = new TextBlock { TextWrapping = TextWrapping.Wrap };
@@ -603,6 +619,13 @@ So go quickly, keep your wits about you, and return by the main road if you valu
         var presetCard    = Card("Voice Preset", new StackPanel { Spacing = 8, Children = { _presetCombo, _presetDescriptionText, new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Children = { useRecommendedBtn, applyPresetBtn } } } });
         var voiceModeCard = Card("Voice Mode",   new StackPanel { Spacing = 8, Children = { new StackPanel { Orientation = Orientation.Horizontal, Spacing = 16, Children = { _singleVoiceRadio, _blendVoiceRadio } } } });
         var languageCard  = Card("Dialect / Language", new StackPanel { Spacing = 8, Children = { new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Children = { _languageNameText, chooseLangBtn } } } });
+        if (isSampleDefaultsEditor)
+        {
+            presetCard.IsVisible = false;
+            voiceModeCard.IsVisible = false;
+            _singleVoiceSection.IsVisible = false;
+            _blendVoiceSection.IsVisible = false;
+        }
 
         var rateGrid = new Grid { ColumnDefinitions = new ColumnDefinitions("*,80"), ColumnSpacing = 10 };
         rateGrid.Children.Add(_speechRateSlider);
@@ -610,13 +633,29 @@ So go quickly, keep your wits about you, and return by the main road if you valu
         rateGrid.Children.Add(_speechRateText);
         var rateCard = Card("Voice Speech Rate", rateGrid);
 
-        var topGrid = new Grid { ColumnDefinitions = new ColumnDefinitions("*,*"), RowDefinitions = new RowDefinitions("Auto,Auto,Auto"), ColumnSpacing = 10, RowSpacing = 10 };
-        AddToGrid(topGrid, presetCard,          0, 0);
-        AddToGrid(topGrid, _blendVoiceSection,  0, 1);
-        AddToGrid(topGrid, voiceModeCard,       1, 0);
-        AddToGrid(topGrid, languageCard,        1, 1);
-        AddToGrid(topGrid, _singleVoiceSection, 2, 0);
-        AddToGrid(topGrid, rateCard,            2, 1);
+        Grid topGrid;
+        if (isSampleDefaultsEditor)
+        {
+            topGrid = new Grid
+            {
+                ColumnDefinitions = new ColumnDefinitions("*,*"),
+                RowDefinitions = new RowDefinitions("Auto"),
+                ColumnSpacing = 10,
+                RowSpacing = 10
+            };
+            AddToGrid(topGrid, languageCard, 0, 0);
+            AddToGrid(topGrid, rateCard,     0, 1);
+        }
+        else
+        {
+            topGrid = new Grid { ColumnDefinitions = new ColumnDefinitions("*,*"), RowDefinitions = new RowDefinitions("Auto,Auto,Auto"), ColumnSpacing = 10, RowSpacing = 10 };
+            AddToGrid(topGrid, presetCard,          0, 0);
+            AddToGrid(topGrid, _blendVoiceSection,  0, 1);
+            AddToGrid(topGrid, voiceModeCard,       1, 0);
+            AddToGrid(topGrid, languageCard,        1, 1);
+            AddToGrid(topGrid, _singleVoiceSection, 2, 0);
+            AddToGrid(topGrid, rateCard,            2, 1);
+        }
 
         var contentStack = new StackPanel
         {
@@ -631,6 +670,7 @@ So go quickly, keep your wits about you, and return by the main road if you valu
                 dspCard,
                 Card("Live Preview", new StackPanel { Spacing = 8, Children =
                 {
+                    previewPresetButtons,
                     _previewText, new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Children = { _previewButton, _stopPreviewButton, _previewStatusText } },
                     new TextBlock { Text = "Re-synthesizes fresh. Bypasses cache. Includes current DSP.", TextWrapping = TextWrapping.Wrap, Opacity = 0.8 }
                 }}),
