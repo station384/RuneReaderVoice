@@ -25,10 +25,15 @@ along with RuneReaderVoice. If not, see <https://www.gnu.org/licenses/>.
         x:Class="RuneReaderVoice.UI.Views.MainWindow"
         Title="RuneReader Voice"
         Width="600" 
-        MinWidth="480" MinHeight="160"
+        MinWidth="480" 
+        MinHeight="250"
         MaxHeight="900"
+        
+        SizeChanged="Control_OnSizeChanged"
+        CanResize="False"
         SizeToContent="Height"
-        Background="#1A1A2E">
+        Background="#1A1A2E"
+        x:Name="PrimaryDisplayWindow">
 
     <Grid RowDefinitions="Auto,Auto,Auto,Auto,*" >
 
@@ -111,7 +116,7 @@ along with RuneReaderVoice. If not, see <https://www.gnu.org/licenses/>.
                 Grid.Row="3"
                 IsVisible="False"
                 Background="#1A2E1A" Margin="8,8,8,0"
-                CornerRadius="6" Padding="10,8" >
+                CornerRadius="6" Padding="10,8">
             <Grid ColumnDefinitions="Auto,*,Auto,Auto"
                   RowDefinitions="Auto,Auto,Auto"
                   ColumnSpacing="8" RowSpacing="6">
@@ -171,13 +176,19 @@ along with RuneReaderVoice. If not, see <https://www.gnu.org/licenses/>.
                   Grid.Row="4"
                   IsExpanded="False"
                   HorizontalAlignment="Stretch"
-                  VerticalAlignment="Top" 
-                  Margin="8,4,8,8">
+                  VerticalAlignment="Stretch" 
+                  Margin="8,4,8,8"
+                  Collapsed="ExpanderSettings_OnCollapsed"
+                  Expanded="ExpanderSettings_OnExpanded">
             <TabControl
                         x:Name="SettingsTabControl"
                         Margin="0" 
+                        MinHeight="320"
+                
+                        VerticalAlignment="Stretch"
+                        HorizontalAlignment="Stretch"
                         Background="#16213E">
-
+                <!-- MaxHeight="700" -->
             <!-- Basic settings tab -->
             <TabItem Header="Settings" >
                 <ScrollViewer>

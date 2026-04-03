@@ -24,6 +24,7 @@ using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using Avalonia.Controls;
+using Avalonia.Interactivity;
 using Avalonia.Threading;
 using RuneReaderVoice;
 using RuneReaderVoice.Protocol;
@@ -55,12 +56,8 @@ public partial class MainWindow : Window
         PopulatePronunciationWorkbench();
         PopulateTextSwapWorkbench();
 
-        // Sync CanResize with settings expander state on window state changes too.
-        this.PropertyChanged += (_, e) =>
-        {
-            // if (e.Property == Window.WindowStateProperty)
-            //     UpdateSettingsPanelHeight();
-        };
+
+
         InitNpcOverridesUI();
 
         // Warm the voice cache in the background so the NPC sample dropdown
@@ -299,16 +296,7 @@ public partial class MainWindow : Window
         };
     }
 
-    /// <summary>
-    /// The Grid layout handles expand/collapse automatically via the * row.
-    /// This method only needs to manage CanResize so the user can't drag the
-    /// window shorter than the collapsed content when settings is closed.
-    /// </summary>
-    private void UpdateSettingsPanelHeight()
-    {
-        bool expanded = ExpanderSettings.IsExpanded;
-        //CanResize = expanded;
-    }
+
 
     private void PopulateAudioDevices()
     {
@@ -442,5 +430,23 @@ public partial class MainWindow : Window
         _statusTimer.Stop();
         _ = VoiceSettingsManager.SaveSettingsAsync(AppServices.Settings);
         base.OnClosing(e);
+    }
+
+    private void Control_OnSizeChanged(object? sender, SizeChangedEventArgs e)
+    {
+        SizeToContent = SizeToContent.Height;
+    }
+
+
+    private void ExpanderSettings_OnCollapsed(object? sender, RoutedEventArgs e)
+    {
+
+        PrimaryDisplayWindow.CanResize = false;
+    }
+
+    private void ExpanderSettings_OnExpanded(object? sender, RoutedEventArgs e)
+    {
+
+        PrimaryDisplayWindow.CanResize = true;
     }
 }
