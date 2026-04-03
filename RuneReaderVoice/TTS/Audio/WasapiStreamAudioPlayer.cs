@@ -35,6 +35,7 @@ public sealed class WasapiStreamAudioPlayer : IAudioPlayer
     private const int OutputSampleRate = 48000;
     private const int OutputChannels = 2;
     private const int OutputBitsPerSample = 16;
+    private const float DefaultSampleGain = 1.0f;
     private static readonly WaveFormat OutputWaveFormat =
         new(OutputSampleRate, OutputBitsPerSample, OutputChannels);
 
@@ -42,13 +43,14 @@ public sealed class WasapiStreamAudioPlayer : IAudioPlayer
 
     private WasapiOut? _output;
     private BufferedWaveProvider? _buffer;
-    private MMDevice? _outputDevice;        // device handle owned alongside _output
+    private MMDevice? _outputDevice;
+    private SimpleAudioVolume? _sessionVolume;
     private CancellationTokenSource? _playbackCts;
     private Task? _feedTask;
     private TaskCompletionSource<bool>? _playbackTcs;
     private string? _deviceId;
     private bool _disposed;
-    private float _volume = 1.0f;
+    private float _appVolume = 1.0f;
     private float _speed = 1.0f;
 
     public bool IsPlaying
@@ -64,14 +66,13 @@ public sealed class WasapiStreamAudioPlayer : IAudioPlayer
 
     public float Volume
     {
-        get => _volume;
+        get => _appVolume;
         set
         {
-            _volume = Math.Clamp(value, 0f, 1f);
+            _appVolume = Math.Clamp(value, 0f, 1f);
             lock (_sync)
             {
-                if (_output != null)
-                    _output.Volume = _volume;
+                ApplySessionVolumeLocked();
             }
         }
     }
@@ -109,26 +110,18 @@ public sealed class WasapiStreamAudioPlayer : IAudioPlayer
 
         lock (_sync)
         {
+            EnsureOutputLocked();
+
             _playbackCts = linkedCts;
             _playbackTcs = tcs;
 
-            _buffer = new BufferedWaveProvider(OutputWaveFormat)
-            {
-                DiscardOnBufferOverflow = false,
-                ReadFully = true,
-                // Keep this modest.
-                // Large BufferedWaveProvider durations can cause large retained allocations
-                // and make normal heap growth look like a memory leak during playback.
-                BufferDuration = TimeSpan.FromSeconds(3),
-            };
-
-            _output = CreateOutput(_deviceId);
-            _output.Init(_buffer);
-            _output.Volume = _volume;
+            _buffer!.ClearBuffer();
+            _output!.Stop();
+            ApplySessionVolumeLocked();
 
             localBuffer = _buffer;
             localOutput = _output;
-            localPlaybackCts = _playbackCts;
+            localPlaybackCts = linkedCts;
         }
 
         void OnLocalPlaybackStopped(object? sender, StoppedEventArgs e)
@@ -170,7 +163,7 @@ public sealed class WasapiStreamAudioPlayer : IAudioPlayer
         finally
         {
             localOutput.PlaybackStopped -= OnLocalPlaybackStopped;
-            CleanupPlaybackObjects(localOutput, localBuffer, localPlaybackCts, localFeedTask, tcs);
+            CleanupPlaybackRun(localPlaybackCts, localFeedTask, tcs);
         }
     }
 
@@ -178,15 +171,18 @@ public sealed class WasapiStreamAudioPlayer : IAudioPlayer
     {
         CancellationTokenSource? cts;
         WasapiOut? output;
+        BufferedWaveProvider? buffer;
 
         lock (_sync)
         {
             cts = _playbackCts;
             output = _output;
+            buffer = _buffer;
         }
 
         try { cts?.Cancel(); } catch { }
         try { output?.Stop(); } catch { }
+        try { buffer?.ClearBuffer(); } catch { }
 
         lock (_sync)
         {
@@ -196,7 +192,23 @@ public sealed class WasapiStreamAudioPlayer : IAudioPlayer
 
     public void SetOutputDevice(string? deviceId)
     {
-        _deviceId = string.IsNullOrWhiteSpace(deviceId) ? null : deviceId;
+        deviceId = string.IsNullOrWhiteSpace(deviceId) ? null : deviceId;
+
+        bool changed;
+        lock (_sync)
+        {
+            changed = !string.Equals(_deviceId, deviceId, StringComparison.OrdinalIgnoreCase);
+            _deviceId = deviceId;
+        }
+
+        if (changed)
+        {
+            Stop();
+            lock (_sync)
+            {
+                DisposeOutputLocked();
+            }
+        }
     }
 
     public IReadOnlyList<AudioDeviceInfo> GetOutputDevices()
@@ -229,25 +241,51 @@ public sealed class WasapiStreamAudioPlayer : IAudioPlayer
         _disposed = true;
         Stop();
 
-        WasapiOut? output;
-        BufferedWaveProvider? buffer;
         CancellationTokenSource? cts;
         Task? feedTask;
         TaskCompletionSource<bool>? tcs;
 
         lock (_sync)
         {
-            output = _output;
-            buffer = _buffer;
             cts = _playbackCts;
             feedTask = _feedTask;
             tcs = _playbackTcs;
+            _playbackCts = null;
+            _feedTask = null;
+            _playbackTcs = null;
         }
 
-        CleanupPlaybackObjects(output, buffer, cts, feedTask, tcs);
+        CleanupPlaybackRun(cts, feedTask, tcs);
+
+        lock (_sync)
+        {
+            DisposeOutputLocked();
+        }
     }
 
-    private WasapiOut CreateOutput(string? deviceId)
+    private void EnsureOutputLocked()
+    {
+        if (_output != null && _buffer != null)
+        {
+            ApplySessionVolumeLocked();
+            return;
+        }
+
+        _buffer = new BufferedWaveProvider(OutputWaveFormat)
+        {
+            DiscardOnBufferOverflow = false,
+            ReadFully = true,
+            BufferDuration = TimeSpan.FromSeconds(3),
+        };
+
+        _output = CreateOutputLocked(_deviceId);
+        _output.Init(_buffer);
+
+        BindSessionVolumeLocked();
+        ApplySessionVolumeLocked();
+    }
+
+    private WasapiOut CreateOutputLocked(string? deviceId)
     {
         if (string.IsNullOrWhiteSpace(deviceId))
         {
@@ -258,6 +296,45 @@ public sealed class WasapiStreamAudioPlayer : IAudioPlayer
         using var enumerator = new MMDeviceEnumerator();
         _outputDevice = enumerator.GetDevice(deviceId);
         return new WasapiOut(_outputDevice, AudioClientShareMode.Shared, true, 200);
+    }
+
+    private void BindSessionVolumeLocked()
+    {
+        try
+        {
+            _sessionVolume?.Dispose();
+            _sessionVolume = null;
+
+            if (_outputDevice != null)
+            {
+                _sessionVolume = _outputDevice.AudioSessionManager.SimpleAudioVolume;
+                return;
+            }
+
+            using var enumerator = new MMDeviceEnumerator();
+            using var defaultDevice = enumerator.GetDefaultAudioEndpoint(DataFlow.Render, Role.Multimedia);
+            _sessionVolume = defaultDevice.AudioSessionManager.SimpleAudioVolume;
+        }
+        catch
+        {
+            _sessionVolume = null;
+        }
+    }
+
+    private void ApplySessionVolumeLocked()
+    {
+        try
+        {
+            if (_sessionVolume == null)
+                BindSessionVolumeLocked();
+
+            if (_sessionVolume != null)
+                _sessionVolume.Volume = _appVolume;
+        }
+        catch
+        {
+            _sessionVolume = null;
+        }
     }
 
     private async Task FeedStreamAsync(
@@ -332,7 +409,7 @@ public sealed class WasapiStreamAudioPlayer : IAudioPlayer
                 if (readSamples <= 0)
                     break;
 
-                var bytes = ConvertFloatToPcm16(sampleRent, readSamples, byteRent, _volume);
+                var bytes = ConvertFloatToPcm16(sampleRent, readSamples, byteRent, DefaultSampleGain);
                 await WaitForBufferSpaceAsync(buffer, bytes, ct).ConfigureAwait(false);
                 buffer.AddSamples(byteRent, 0, bytes);
             }
@@ -372,21 +449,13 @@ public sealed class WasapiStreamAudioPlayer : IAudioPlayer
         }
     }
 
-    private void CleanupPlaybackObjects(
-        WasapiOut? output,
-        BufferedWaveProvider? buffer,
+    private void CleanupPlaybackRun(
         CancellationTokenSource? cts,
         Task? feedTask,
         TaskCompletionSource<bool>? tcs)
     {
         lock (_sync)
         {
-            if (ReferenceEquals(_output, output))
-                _output = null;
-
-            if (ReferenceEquals(_buffer, buffer))
-                _buffer = null;
-
             if (ReferenceEquals(_playbackCts, cts))
                 _playbackCts = null;
 
@@ -409,23 +478,25 @@ public sealed class WasapiStreamAudioPlayer : IAudioPlayer
             // ignore teardown races
         }
 
+        try { cts?.Dispose(); } catch { }
+    }
+
+    private void DisposeOutputLocked()
+    {
+        var output = _output;
+        var buffer = _buffer;
+        var sessionVolume = _sessionVolume;
+        var outputDevice = _outputDevice;
+
+        _output = null;
+        _buffer = null;
+        _sessionVolume = null;
+        _outputDevice = null;
+
         try { output?.Stop(); } catch { }
         try { output?.Dispose(); } catch { }
-        try
-        {
-            // Dispose the MMDevice handle that was created alongside this output.
-            // Must be disposed AFTER WasapiOut since WasapiOut uses it internally.
-            lock (_sync)
-            {
-                if (_outputDevice != null && output != null && ReferenceEquals(_output, null))
-                {
-                    _outputDevice.Dispose();
-                    _outputDevice = null;
-                }
-            }
-        }
-        catch { }
-        try { cts?.Dispose(); } catch { }
+        try { sessionVolume?.Dispose(); } catch { }
+        try { outputDevice?.Dispose(); } catch { }
     }
 
     private sealed class PcmAudioSampleProvider : ISampleProvider
