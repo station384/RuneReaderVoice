@@ -129,13 +129,9 @@ public partial class MainWindow
         {
             profile = existing.Clone();
         }
-        else if (provider is RemoteTtsProvider remote)
-        {
-            profile = remote.ResolveSampleProfile(sampleId, VoiceSlot.Narrator);
-        }
         else
         {
-            profile = VoiceProfileDefaults.Create(sampleId);
+            profile = CreateDefaultSampleProfile(sampleId);
         }
         profile.VoiceId = sampleId;
 
@@ -168,6 +164,39 @@ public partial class MainWindow
         profiles[sampleId] = updated.Clone();
         VoiceSettingsManager.SaveSettings(AppServices.Settings);
         await PopulateSampleDefaultsGridAsync();
+    }
+
+    private static VoiceProfile CreateDefaultSampleProfile(string sampleId)
+    {
+        var profile = VoiceProfileDefaults.Create(sampleId);
+        profile.Dsp = new DspProfile
+        {
+            Enabled = true,
+            Effects = new List<DspEffectItem>
+            {
+                new()
+                {
+                    Kind = DspEffectKind.Air,
+                    Enabled = true,
+                    Params = new Dictionary<string, float>(StringComparer.OrdinalIgnoreCase)
+                    {
+                        ["amount"] = 0.6f,
+                    }
+                },
+                new()
+                {
+                    Kind = DspEffectKind.Room,
+                    Enabled = true,
+                    Params = new Dictionary<string, float>(StringComparer.OrdinalIgnoreCase)
+                    {
+                        ["roomSize"] = 0.1125f,
+                        ["damping"] = 0.9f,
+                        ["wet"] = 0.1f,
+                    }
+                }
+            }
+        };
+        return profile;
     }
 
     private async void OnSampleDefaultsRefreshClicked(object? sender, RoutedEventArgs e)

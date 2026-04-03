@@ -349,11 +349,6 @@ along with RuneReaderVoice. If not, see <https://www.gnu.org/licenses/>.
                         <TextBlock Text="Assign a specific voice accent to any NPC by ID. Local overrides take priority over everything else. Server-sourced entries are read-only but can be shadowed with a local override."
                                    Foreground="#888" FontSize="11" TextWrapping="Wrap"/>
 
-                        <!-- Rows populated in code-behind -->
-                        <Grid x:Name="NpcOverridesGrid"
-                              ColumnDefinitions="70,*,180,80,60,60"
-                              HorizontalAlignment="Stretch"/>
-
                         <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,4,0,0">
                             <Button Content="Export JSON"
                                     FontSize="11"
@@ -374,6 +369,11 @@ along with RuneReaderVoice. If not, see <https://www.gnu.org/licenses/>.
                                        FontSize="11" Foreground="#888"
                                        VerticalAlignment="Center"/>
                         </StackPanel>
+
+                        <!-- Rows populated in code-behind -->
+                        <Grid x:Name="NpcOverridesGrid"
+                              ColumnDefinitions="70,*,180,80,60,60"
+                              HorizontalAlignment="Stretch"/>
                     </StackPanel>
                 </ScrollViewer>
             </TabItem>

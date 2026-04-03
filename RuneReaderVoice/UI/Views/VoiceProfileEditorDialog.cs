@@ -1304,11 +1304,11 @@ So go quickly, keep your wits about you, and return by the main road if you valu
         float min, float max, float initial,
         string fmt, string suffix, Action<float> onChange, bool displayAsPercent = false)
     {
-        var valLabel = new TextBlock { Width = 60, VerticalAlignment = VerticalAlignment.Center, TextAlignment = TextAlignment.Right, FontSize = 11 };
+        var valLabel = new TextBlock { Width = 72, VerticalAlignment = VerticalAlignment.Center, TextAlignment = TextAlignment.Right, FontSize = 11 };
         void Upd(float v) => valLabel.Text = displayAsPercent ? FormatPercent(v) : v.ToString(fmt, Inv) + suffix;
         Upd(initial);
 
-        var slider = new Slider { Minimum = min, Maximum = max, Value = initial, Width = 100, TickFrequency = (max - min) / 50f };
+        var slider = new Slider { Minimum = min, Maximum = max, Value = initial, HorizontalAlignment = HorizontalAlignment.Stretch, TickFrequency = (max - min) / 50f };
         slider.PropertyChanged += (_, e) =>
         {
             if (e.Property != Slider.ValueProperty) return;
@@ -1321,7 +1321,7 @@ So go quickly, keep your wits about you, and return by the main road if you valu
 
     private static Grid DspRow(string rowLabel, (Slider s, TextBlock l) ctrl, string tooltip)
     {
-        var g   = new Grid { ColumnDefinitions = new ColumnDefinitions("55,100,*"), ColumnSpacing = 4, Margin = new Avalonia.Thickness(0, 1, 0, 1) };
+        var g   = new Grid { ColumnDefinitions = new ColumnDefinitions("70,*,72"), ColumnSpacing = 8, Margin = new Avalonia.Thickness(0, 2, 0, 2), HorizontalAlignment = HorizontalAlignment.Stretch };
         var lbl = new TextBlock { Text = rowLabel, FontSize = 11, VerticalAlignment = VerticalAlignment.Center };
         ToolTip.SetTip(lbl, tooltip); ToolTip.SetTip(ctrl.s, tooltip);
         Grid.SetColumn(ctrl.s, 1); Grid.SetColumn(ctrl.l, 2);
