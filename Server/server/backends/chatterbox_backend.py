@@ -16,30 +16,42 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with RuneReader Voice Server. If not, see <https://www.gnu.org/licenses/>.
+#
 # server/backends/chatterbox_backend.py
 #
 # Chatterbox Turbo backend by Resemble AI.
 # MIT licensed — safe for all use cases.
 #
-# Requires: pip install chatterbox-tts --no-deps
-#           pip install conformer diffusers pykakasi pyloudnorm resemble-perth \
-#                       s3tokenizer spacy-pkuseg onnx ml_dtypes --no-deps
+# Install (chatterbox-tts 0.1.7+, Python 3.11):
+#   pip install chatterbox-tts
+#   pip install --no-deps s3tokenizer
+#   pip install onnx>=1.16.0
 #
-# Model files are downloaded from HuggingFace on first use via from_pretrained().
-# For air-gapped deployments, pre-place model files — see MODELS.txt for details.
+# Model files — place in data/models/chatterbox/:
+#   Download from: https://huggingface.co/ResembleAI/chatterbox-turbo
 #
 # Supports:
 #   - Zero-shot voice cloning from a reference audio clip
-#   - Paralinguistic tags in text: [laugh], [chuckle], [cough], [sigh] etc.
-#   - English (primary); multilingual via ChatterboxMultilingualTTS (future)
-#   - 350M parameters — lighter than F5-TTS, faster inference
+#   - Paralinguistic tags: [laugh], [chuckle], [cough], [sigh] etc.
+#   - 350M parameters — 1-step diffusion, faster than full model
 #   - CPU (slow) or CUDA/ROCm GPU
+#
+# Conditionals caching (Turbo-specific):
+#   Turbo's exaggeration parameter is applied during prepare_conditionals(),
+#   NOT during generate(). This means the cache key must include both the
+#   sample file hash AND the exaggeration value — if exaggeration changes
+#   between chunks, the conditionals must be re-prepared.
+#
+#   For consistent voice across a dialog batch, keep exaggeration constant
+#   for all chunks of the same NPC. The cache ensures the identical voice
+#   embedding is reused for every chunk without re-reading the audio file.
 
 from __future__ import annotations
 
 import asyncio
-import io
 import logging
+import os
+import tempfile
 from pathlib import Path
 
 from .base import AbstractTtsBackend, SynthesisRequest, SynthesisResult, VoiceInfo
@@ -51,25 +63,26 @@ log = logging.getLogger(__name__)
 
 class ChatterboxBackend(AbstractTtsBackend):
 
-    # Maximum concurrent synthesis requests — prevents GPU memory pressure
-    # from unbounded parallel generation. 2 allows reasonable throughput
-    # while keeping memory usage predictable.
-    _MAX_CONCURRENT = 2
-
     def __init__(self, models_dir: Path, torch_device: str, max_concurrent: int = 2) -> None:
-        self._models_dir    = models_dir
-        self._torch_device  = torch_device
-        self._model         = None
-        self._model_version = ""
+        self._models_dir     = models_dir
+        self._torch_device   = torch_device
+        self._model          = None
+        self._model_version  = ""
         self._MAX_CONCURRENT = max_concurrent
-        self._voice_cond    = asyncio.Condition()
+        self._voice_cond     = asyncio.Condition()
         self._active_voice_key: str | None = None
-        self._active_count  = 0
+        self._active_count   = 0
 
+        # Conditionals cache.
+        # Turbo bakes exaggeration into the conditionals during prepare_conditionals(),
+        # so the cache key includes both sample hash and exaggeration value.
+        # The temp WAV stays alive for the cache entry lifetime.
+        self._cond_cache_key: str = ""     # "{sample_hash}|{exaggeration}"
+        self._cond_tmp_wav: str   = ""     # path to current PCM_16 temp WAV
 
     def _voice_group_key(self, request: SynthesisRequest) -> str:
         sample_key = str(request.sample_path.resolve()) if request.sample_path is not None else ""
-        lang_key = request.lang_code or ""
+        lang_key   = request.lang_code or ""
         return f"{sample_key}|{lang_key}"
 
     async def _acquire_voice_slot(self, voice_key: str) -> None:
@@ -104,7 +117,7 @@ class ChatterboxBackend(AbstractTtsBackend):
 
     @property
     def supports_base_voices(self) -> bool:
-        return False   # Turbo requires a reference clip
+        return False
 
     @property
     def supports_voice_matching(self) -> bool:
@@ -129,18 +142,18 @@ class ChatterboxBackend(AbstractTtsBackend):
     def extra_controls(self) -> dict:
         return {
             "cfg_weight": {
-                "type": "float",
-                "default": 0.0,
-                "min": 0.0,
-                "max": 3.0,
+                "type":        "float",
+                "default":     0.0,
+                "min":         0.0,
+                "max":         3.0,
                 "description": "Classifier-free guidance weight for prompt adherence.",
             },
             "exaggeration": {
-                "type": "float",
-                "default": 0.0,
-                "min": 0.0,
-                "max": 3.0,
-                "description": "Emotion and expressiveness control. 0.0=monotone, 0.5=natural, 1.0+=dramatic.",
+                "type":        "float",
+                "default":     0.0,
+                "min":         0.0,
+                "max":         3.0,
+                "description": "Emotion/expressiveness control. Not supported by Turbo — ignored.",
             },
         }
 
@@ -155,33 +168,29 @@ class ChatterboxBackend(AbstractTtsBackend):
         )
 
     def _load_sync(self) -> None:
-        # Patch librosa.load BEFORE importing Chatterbox. tts_turbo.py calls
-        # librosa.load() directly in prepare_conditionals() — patching the module
-        # attribute here intercepts that call because Python looks up librosa.load
-        # at call time, not at import time.
         import librosa
         import numpy as np
+
         if not getattr(librosa, '_rrv_patched', False):
-            _original_load = librosa.load
-            def _float32_load(path, *args, **kwargs):
-                y, sr = _original_load(path, *args, **kwargs)
+            _orig = librosa.load
+            def _f32(path, *a, **kw):
+                y, sr = _orig(path, *a, **kw)
                 return y.astype(np.float32), sr
-            librosa.load = _float32_load
+            librosa.load = _f32
             librosa._rrv_patched = True
-            log.info("Chatterbox: patched librosa.load to always return float32")
+            log.info("Chatterbox Turbo: patched librosa.load -> float32")
 
         try:
             from chatterbox.tts_turbo import ChatterboxTurboTTS
         except ImportError:
             raise RuntimeError(
-                "chatterbox-tts is not installed. "
-                "Run: pip install chatterbox-tts --no-deps"
+                "chatterbox-tts is not installed. Run: pip install chatterbox-tts"
             )
 
         local_model_dir = self._models_dir / "chatterbox"
 
         if local_model_dir.exists() and any(local_model_dir.iterdir()):
-            log.info("Chatterbox Turbo: loading from local models dir: %s", local_model_dir)
+            log.info("Chatterbox Turbo: loading from %s", local_model_dir)
             self._model = ChatterboxTurboTTS.from_local(
                 str(local_model_dir),
                 self._torch_device,
@@ -189,9 +198,10 @@ class ChatterboxBackend(AbstractTtsBackend):
             self._patch_mel_filters()
             import hashlib
             files = sorted(str(p) for p in local_model_dir.rglob("*.safetensors"))
-            self._model_version = hashlib.sha256(
-                "\n".join(files).encode()
-            ).hexdigest()[:8] if files else "local"
+            self._model_version = (
+                hashlib.sha256("\n".join(files).encode()).hexdigest()[:8]
+                if files else "local"
+            )
         else:
             raise RuntimeError(
                 f"Chatterbox Turbo model files not found: {local_model_dir}\n"
@@ -199,57 +209,43 @@ class ChatterboxBackend(AbstractTtsBackend):
                 f"Place all files in: {local_model_dir}"
             )
 
-    # ── Voices ────────────────────────────────────────────────────────────────
+    # ── Patches ───────────────────────────────────────────────────────────────
 
     def _patch_mel_filters(self) -> None:
-        """
-        Patch Chatterbox for CPU float32 compatibility.
-
-        On CPU, librosa.load() returns float64 numpy arrays. Chatterbox was only
-        ever tested on CUDA where float16/32 is enforced by the driver. On CPU the
-        float64 propagates through torch.stft() and hits hard dtype assertions in
-        multiple places deep in the model (s3tokenizer, decoder, etc.).
-
-        The cleanest fix is to patch librosa.load at the module level so it always
-        returns float32, which is what all of Chatterbox's internal code expects.
-        """
+        """Force float32 through Chatterbox's pipeline. See chatterbox_full_backend.py for explanation."""
         import librosa
         import numpy as np
 
         if not getattr(librosa, '_rrv_patched', False):
-            _original_load = librosa.load
-
-            def _patched_load(path, *args, **kwargs):
-                y, sr = _original_load(path, *args, **kwargs)
+            _orig = librosa.load
+            def _f32(path, *a, **kw):
+                y, sr = _orig(path, *a, **kw)
                 return y.astype(np.float32), sr
-
-            librosa.load = _patched_load
+            librosa.load = _f32
             librosa._rrv_patched = True
-            log.info("Chatterbox: patched librosa.load to return float32 for CPU compatibility")
 
-        # Also patch S3Tokenizer.log_mel_spectrogram as belt-and-suspenders
         try:
             import torch
             import torch.nn.functional as F
             from chatterbox.models.s3tokenizer.s3tokenizer import S3Tokenizer
 
             if not getattr(S3Tokenizer, '_rrv_patched', False):
-                original_log_mel = S3Tokenizer.log_mel_spectrogram
+                orig_log_mel = S3Tokenizer.log_mel_spectrogram
 
-                def _patched_log_mel(self_tokzr, audio, padding=0):
+                def _patched_log_mel(self_t, audio, padding=0):
                     if not torch.is_tensor(audio):
                         audio = torch.from_numpy(audio)
-                    audio = audio.to(self_tokzr.device)
+                    audio = audio.to(self_t.device)
                     if padding > 0:
                         audio = F.pad(audio, (0, padding))
                     stft = torch.stft(
-                        audio, self_tokzr.n_fft,
-                        original_log_mel.__globals__.get('S3_HOP', 160),
-                        window=self_tokzr.window.to(self_tokzr.device),
+                        audio, self_t.n_fft,
+                        orig_log_mel.__globals__.get('S3_HOP', 160),
+                        window=self_t.window.to(self_t.device),
                         return_complex=True,
                     )
                     magnitudes = stft[..., :-1].abs() ** 2
-                    mel_filters = self_tokzr._mel_filters.to(self_tokzr.device)
+                    mel_filters = self_t._mel_filters.to(self_t.device)
                     magnitudes = magnitudes.to(dtype=mel_filters.dtype)
                     mel_spec = mel_filters @ magnitudes
                     log_spec = torch.clamp(mel_spec, min=1e-10).log10()
@@ -259,34 +255,30 @@ class ChatterboxBackend(AbstractTtsBackend):
 
                 S3Tokenizer.log_mel_spectrogram = _patched_log_mel
                 S3Tokenizer._rrv_patched = True
-                log.debug("Chatterbox: patched S3Tokenizer.log_mel_spectrogram")
+                log.debug("Chatterbox Turbo: patched S3Tokenizer.log_mel_spectrogram")
         except Exception as e:
-            log.warning("Chatterbox: could not patch S3Tokenizer: %s", e)
+            log.warning("Chatterbox Turbo: could not patch S3Tokenizer: %s", e)
 
-        # Patch VoiceEncoder.embeds_from_wavs to cast wavs to float32 before
-        # melspectrogram. librosa.resample() returns float64 on CPU which causes
-        # the LSTM to fail. This patch is belt-and-suspenders alongside the
-        # librosa.load patch since resample() is a separate call path.
         try:
-            import numpy as np
             from chatterbox.models.voice_encoder.voice_encoder import VoiceEncoder
 
             if not getattr(VoiceEncoder, '_rrv_patched', False):
-                _original_embeds_from_wavs = VoiceEncoder.embeds_from_wavs
+                _orig_embeds = VoiceEncoder.embeds_from_wavs
 
-                def _patched_embeds_from_wavs(self_ve, wavs, *args, **kwargs):
+                def _patched_embeds(self_ve, wavs, *args, **kwargs):
                     wavs = [w.astype(np.float32) if hasattr(w, 'astype') else w for w in wavs]
-                    return _original_embeds_from_wavs(self_ve, wavs, *args, **kwargs)
+                    return _orig_embeds(self_ve, wavs, *args, **kwargs)
 
-                VoiceEncoder.embeds_from_wavs = _patched_embeds_from_wavs
+                VoiceEncoder.embeds_from_wavs = _patched_embeds
                 VoiceEncoder._rrv_patched = True
-                log.info("Chatterbox: patched VoiceEncoder.embeds_from_wavs for CPU float32 compatibility")
+                log.debug("Chatterbox Turbo: patched VoiceEncoder.embeds_from_wavs -> float32")
         except Exception as e:
-            log.warning("Chatterbox: could not patch VoiceEncoder: %s", e)
+            log.warning("Chatterbox Turbo: could not patch VoiceEncoder: %s", e)
 
+    # ── Voices ────────────────────────────────────────────────────────────────
 
     def get_voices(self) -> list[VoiceInfo]:
-        return []  # Turbo requires a reference clip — no built-in named voices
+        return []
 
     # ── Synthesize ────────────────────────────────────────────────────────────
 
@@ -310,56 +302,91 @@ class ChatterboxBackend(AbstractTtsBackend):
             ogg_bytes = await loop.run_in_executor(None, self._synthesize_sync, request)
         finally:
             await self._release_voice_slot(voice_key)
+
         duration = estimate_duration(ogg_bytes)
         return SynthesisResult(ogg_bytes=ogg_bytes, duration_sec=duration)
 
-    def _synthesize_sync(self, request: SynthesisRequest) -> bytes:
-        import torchaudio
-        import torch
+    def _make_cond_cache_key(self, sample_hash: str, exaggeration: float) -> str:
+        # Turbo does not accept exaggeration in prepare_conditionals() —
+        # the cache key is just the sample hash. The exaggeration parameter
+        # is kept in the signature for symmetry with the full model but unused.
+        return sample_hash
 
-        # Load and validate reference clip
+    def _ensure_conditionals(self, sample_path: Path, sample_hash: str, exaggeration: float) -> None:
+        """
+        Prepare voice conditionals for the given sample if not already cached.
+
+        Cache hit: same sample hash as last call — model's internal conds is
+        already correct, skip prepare_conditionals entirely.
+
+        Cache miss: new sample — write PCM_16 temp WAV, call prepare_conditionals(),
+        update cache, delete old temp WAV.
+
+        Note: Turbo does NOT accept exaggeration in prepare_conditionals() —
+        that parameter only applies to the full and multilingual models.
+        """
+        cache_key = self._make_cond_cache_key(sample_hash, exaggeration)
+
+        if cache_key == self._cond_cache_key:
+            log.debug(
+                "Chatterbox Turbo: conditionals cache HIT — reusing voice embedding hash=%s",
+                sample_hash[:8],
+            )
+            return
+
         import soundfile as sf
-        info = sf.info(str(request.sample_path))
+
+        log.info(
+            "Chatterbox Turbo: conditionals cache MISS — preparing new voice embedding "
+            "hash=%s (was %s)",
+            sample_hash[:8],
+            self._cond_cache_key[:8] if self._cond_cache_key else "none",
+        )
+
+        info = sf.info(str(sample_path))
         if info.duration < 5.0:
             raise ValueError(
                 f"Chatterbox Turbo requires a reference clip of at least 5 seconds. "
-                f"'{request.sample_path.name}' is only {info.duration:.1f}s."
+                f"'{sample_path.name}' is only {info.duration:.1f}s."
             )
 
-        # Chatterbox internally calls librosa.load() on the reference audio which
-        # returns float64 on CPU. This propagates through the entire pipeline causing
-        # dtype assertion failures deep in the model. The fix is to write the
-        # reference as a 16-bit PCM WAV — librosa.load() will then return float32.
-        import tempfile, os
-        import numpy as np
-        import soundfile as sf
-
-        audio_data, sr = sf.read(str(request.sample_path), dtype='float32')
+        # Write PCM_16 WAV — guarantees librosa returns float32 on load
+        audio_data, sr = sf.read(str(sample_path), dtype='float32')
         with tempfile.NamedTemporaryFile(suffix='.wav', delete=False) as tmp:
-            tmp_path = tmp.name
-        try:
-            # PCM_16 forces librosa to return float32 on load
-            sf.write(tmp_path, audio_data, sr, subtype='PCM_16')
-            wav = self._model.generate(
-                text=request.text,
-                audio_prompt_path=tmp_path,
-                cfg_weight=request.cfg_weight if request.cfg_weight is not None else 0.0,
-                exaggeration=request.exaggeration if request.exaggeration is not None else 0.0,
-            )
-        finally:
-            os.unlink(tmp_path)
+            new_tmp_path = tmp.name
+        sf.write(new_tmp_path, audio_data, sr, subtype='PCM_16')
 
-        # wav is a torch tensor — convert to numpy
-        if hasattr(wav, 'numpy'):
-            samples = wav.squeeze().numpy()
-        else:
-            samples = np.array(wav).squeeze()
+        # Turbo's prepare_conditionals does not accept exaggeration
+        self._model.prepare_conditionals(new_tmp_path)
 
+        # Evict previous temp WAV
+        if self._cond_tmp_wav and os.path.exists(self._cond_tmp_wav):
+            try:
+                os.unlink(self._cond_tmp_wav)
+            except Exception as e:
+                log.warning("Chatterbox Turbo: failed to delete old temp WAV %s: %s",
+                            self._cond_tmp_wav, e)
+
+        self._cond_cache_key = cache_key
+        self._cond_tmp_wav   = new_tmp_path
+
+    def _synthesize_sync(self, request: SynthesisRequest) -> bytes:
+        import numpy as np
+
+        exaggeration = request.exaggeration if request.exaggeration is not None else 0.0
+        sample_hash  = compute_file_hash(request.sample_path)
+
+        # Ensure model's internal conditionals match this speaker + exaggeration.
+        # Cache hit = no-op. Cache miss = prepare_conditionals().
+        self._ensure_conditionals(request.sample_path, sample_hash, exaggeration)
+
+        # Generate without audio_prompt_path — model reuses self.conds.
+        # exaggeration is intentionally omitted here: Turbo applies it during
+        # prepare_conditionals(), not generate(). Passing it to generate() is a no-op.
+        wav = self._model.generate(
+            text=request.text,
+            cfg_weight=request.cfg_weight if request.cfg_weight is not None else 0.0,
+        )
+
+        samples = wav.squeeze().numpy() if hasattr(wav, 'numpy') else np.array(wav).squeeze()
         return pcm_to_ogg(samples, self._model.sr)
-
-
-# ── Helpers ───────────────────────────────────────────────────────────────────
-# OGG encoding — see backends/audio.py
-
-
-
