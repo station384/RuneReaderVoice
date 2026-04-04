@@ -45,7 +45,7 @@ from typing import Optional
 
 from .base import AbstractTtsBackend, SynthesisRequest, SynthesisResult, VoiceInfo
 from .audio import pcm_to_ogg, estimate_duration
-from ..cache import compute_file_hash
+from ..utils import compute_file_hash
 
 log = logging.getLogger(__name__)
 

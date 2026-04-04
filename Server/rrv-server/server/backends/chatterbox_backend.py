@@ -17,9 +17,9 @@
 # You should have received a copy of the GNU General Public License
 # along with RuneReader Voice Server. If not, see <https://www.gnu.org/licenses/>.
 #
-# server/backends/chatterbox_full_backend.py
+# server/backends/chatterbox_backend.py
 #
-# Chatterbox (full) backend by Resemble AI.
+# Chatterbox Turbo backend by Resemble AI.
 # MIT licensed — safe for all use cases.
 #
 # Install (chatterbox-tts 0.1.7+, Python 3.11):
@@ -27,27 +27,24 @@
 #   pip install --no-deps s3tokenizer
 #   pip install onnx>=1.16.0
 #
-# Model files — place in data/models/chatterbox-hf/:
-#   Download from: https://huggingface.co/ResembleAI/chatterbox-hf
+# Model files — place in data/models/chatterbox/:
+#   Download from: https://huggingface.co/ResembleAI/chatterbox-turbo
 #
 # Supports:
 #   - Zero-shot voice cloning from a reference audio clip
-#   - 0.5B parameters — original Chatterbox model with CFG/exaggeration tuning
+#   - Paralinguistic tags: [laugh], [chuckle], [cough], [sigh] etc.
+#   - 350M parameters — 1-step diffusion, faster than full model
 #   - CPU (slow) or CUDA/ROCm GPU
 #
-# Conditionals caching:
-#   Chatterbox separates voice conditioning (prepare_conditionals) from text
-#   generation. This backend caches the conditionals for the last-used sample
-#   so that consecutive chunks for the same NPC voice reuse the identical voice
-#   embedding rather than re-deriving it from the audio file each time. This
-#   produces more consistent voice character across dialog chunks.
+# Conditionals caching (Turbo-specific):
+#   Turbo's exaggeration parameter is applied during prepare_conditionals(),
+#   NOT during generate(). This means the cache key must include both the
+#   sample file hash AND the exaggeration value — if exaggeration changes
+#   between chunks, the conditionals must be re-prepared.
 #
-#   The voice slot serialization (same speaker runs concurrently, different
-#   speakers are serialized) guarantees the cached conditionals always belong
-#   to the speaker currently being synthesized — no cross-speaker contamination.
-#
-#   Cache invalidates when a different sample hash is seen. The PCM_16 temp WAV
-#   is kept alive for the lifetime of the cache entry and deleted when evicted.
+#   For consistent voice across a dialog batch, keep exaggeration constant
+#   for all chunks of the same NPC. The cache ensures the identical voice
+#   embedding is reused for every chunk without re-reading the audio file.
 
 from __future__ import annotations
 
@@ -59,12 +56,12 @@ from pathlib import Path
 
 from .base import AbstractTtsBackend, SynthesisRequest, SynthesisResult, VoiceInfo
 from .audio import pcm_to_ogg, estimate_duration
-from ..cache import compute_file_hash
+from ..utils import compute_file_hash
 
 log = logging.getLogger(__name__)
 
 
-class ChatterboxFullBackend(AbstractTtsBackend):
+class ChatterboxBackend(AbstractTtsBackend):
 
     def __init__(self, models_dir: Path, torch_device: str, max_concurrent: int = 2) -> None:
         self._models_dir     = models_dir
@@ -76,13 +73,12 @@ class ChatterboxFullBackend(AbstractTtsBackend):
         self._active_voice_key: str | None = None
         self._active_count   = 0
 
-        # Conditionals cache — keyed by sample file hash.
-        # Stores the hash of the last sample whose conditionals are loaded into
-        # self._model.conds, plus the path of the PCM_16 temp WAV we wrote for
-        # it. The temp WAV must stay on disk for the lifetime of the cache entry
-        # because prepare_conditionals() may read it again if exaggeration changes.
-        self._cond_sample_hash: str = ""
-        self._cond_tmp_wav: str = ""       # path to the current PCM_16 temp WAV
+        # Conditionals cache.
+        # Turbo bakes exaggeration into the conditionals during prepare_conditionals(),
+        # so the cache key includes both sample hash and exaggeration value.
+        # The temp WAV stays alive for the cache entry lifetime.
+        self._cond_cache_key: str = ""     # "{sample_hash}|{exaggeration}"
+        self._cond_tmp_wav: str   = ""     # path to current PCM_16 temp WAV
 
     def _voice_group_key(self, request: SynthesisRequest) -> str:
         sample_key = str(request.sample_path.resolve()) if request.sample_path is not None else ""
@@ -113,11 +109,11 @@ class ChatterboxFullBackend(AbstractTtsBackend):
 
     @property
     def provider_id(self) -> str:
-        return "chatterbox_full"
+        return "chatterbox"
 
     @property
     def display_name(self) -> str:
-        return "Chatterbox"
+        return "Chatterbox Turbo"
 
     @property
     def supports_base_voices(self) -> bool:
@@ -147,17 +143,17 @@ class ChatterboxFullBackend(AbstractTtsBackend):
         return {
             "cfg_weight": {
                 "type":        "float",
-                "default":     0.5,
+                "default":     0.0,
                 "min":         0.0,
                 "max":         3.0,
                 "description": "Classifier-free guidance weight for prompt adherence.",
             },
             "exaggeration": {
                 "type":        "float",
-                "default":     0.5,
+                "default":     0.0,
                 "min":         0.0,
                 "max":         3.0,
-                "description": "Emotion and expressiveness control. 0.0=monotone, 0.5=natural, 1.0+=dramatic.",
+                "description": "Emotion/expressiveness control. Not supported by Turbo — ignored.",
             },
         }
 
@@ -167,7 +163,7 @@ class ChatterboxFullBackend(AbstractTtsBackend):
         loop = asyncio.get_event_loop()
         await loop.run_in_executor(None, self._load_sync)
         log.info(
-            "Chatterbox loaded: model_version=%s device=%s",
+            "Chatterbox Turbo loaded: model_version=%s device=%s",
             self._model_version, self._torch_device,
         )
 
@@ -176,30 +172,31 @@ class ChatterboxFullBackend(AbstractTtsBackend):
         import numpy as np
 
         if not getattr(librosa, '_rrv_patched', False):
-            _original_load = librosa.load
-            def _float32_load(path, *args, **kwargs):
-                y, sr = _original_load(path, *args, **kwargs)
+            _orig = librosa.load
+            def _f32(path, *a, **kw):
+                y, sr = _orig(path, *a, **kw)
                 return y.astype(np.float32), sr
-            librosa.load = _float32_load
+            librosa.load = _f32
             librosa._rrv_patched = True
-            log.info("Chatterbox: patched librosa.load -> float32")
+            log.info("Chatterbox Turbo: patched librosa.load -> float32")
 
         try:
-            from chatterbox.tts import ChatterboxTTS
+            from chatterbox.tts_turbo import ChatterboxTurboTTS
         except ImportError:
             raise RuntimeError(
                 "chatterbox-tts is not installed. Run: pip install chatterbox-tts"
             )
 
-        local_model_dir = self._models_dir / "chatterbox-hf"
+        local_model_dir = self._models_dir / "chatterbox"
 
         if local_model_dir.exists() and any(local_model_dir.iterdir()):
-            log.info("Chatterbox: loading from %s", local_model_dir)
-            self._model = ChatterboxTTS.from_local(
+            log.info("Chatterbox Turbo: loading from %s", local_model_dir)
+            self._model = ChatterboxTurboTTS.from_local(
                 str(local_model_dir),
                 self._torch_device,
             )
             self._patch_mel_filters()
+            self._patch_t3_hidden_states()
             import hashlib
             files = sorted(str(p) for p in local_model_dir.rglob("*.safetensors"))
             self._model_version = (
@@ -208,15 +205,15 @@ class ChatterboxFullBackend(AbstractTtsBackend):
             )
         else:
             raise RuntimeError(
-                f"Chatterbox model files not found: {local_model_dir}\n"
-                f"Download from: https://huggingface.co/ResembleAI/chatterbox-hf/tree/main\n"
+                f"Chatterbox Turbo model files not found: {local_model_dir}\n"
+                f"Download from: https://huggingface.co/ResembleAI/chatterbox-turbo\n"
                 f"Place all files in: {local_model_dir}"
             )
 
     # ── Patches ───────────────────────────────────────────────────────────────
 
     def _patch_mel_filters(self) -> None:
-        """Force float32 through Chatterbox's pipeline. See chatterbox_backend.py for full explanation."""
+        """Force float32 through Chatterbox's pipeline. See chatterbox_full_backend.py for explanation."""
         import librosa
         import numpy as np
 
@@ -259,13 +256,12 @@ class ChatterboxFullBackend(AbstractTtsBackend):
 
                 S3Tokenizer.log_mel_spectrogram = _patched_log_mel
                 S3Tokenizer._rrv_patched = True
-                log.debug("Chatterbox: patched S3Tokenizer.log_mel_spectrogram")
+                log.debug("Chatterbox Turbo: patched S3Tokenizer.log_mel_spectrogram")
         except Exception as e:
-            log.warning("Chatterbox: could not patch S3Tokenizer: %s", e)
+            log.warning("Chatterbox Turbo: could not patch S3Tokenizer: %s", e)
 
         try:
             from chatterbox.models.voice_encoder.voice_encoder import VoiceEncoder
-            import numpy as np
 
             if not getattr(VoiceEncoder, '_rrv_patched', False):
                 _orig_embeds = VoiceEncoder.embeds_from_wavs
@@ -276,9 +272,57 @@ class ChatterboxFullBackend(AbstractTtsBackend):
 
                 VoiceEncoder.embeds_from_wavs = _patched_embeds
                 VoiceEncoder._rrv_patched = True
-                log.debug("Chatterbox: patched VoiceEncoder.embeds_from_wavs -> float32")
+                log.debug("Chatterbox Turbo: patched VoiceEncoder.embeds_from_wavs -> float32")
         except Exception as e:
-            log.warning("Chatterbox: could not patch VoiceEncoder: %s", e)
+            log.warning("Chatterbox Turbo: could not patch VoiceEncoder: %s", e)
+
+    def _patch_t3_hidden_states(self) -> None:
+        """
+        Patch T3HuggingfaceBackend.forward for transformers 4.57.x compatibility.
+        See chatterbox_full_backend.py for full explanation.
+        Uses a class-level sentinel so the patch is applied exactly once even
+        when both Turbo and Full backends are loaded simultaneously.
+        """
+        try:
+            from chatterbox.models.t3.inference.t3_hf_backend import T3HuggingfaceBackend
+            from transformers.modeling_outputs import CausalLMOutputWithCrossAttentions
+
+            if getattr(T3HuggingfaceBackend, '_rrv_hidden_states_patched', False):
+                log.debug("Chatterbox Turbo: T3HuggingfaceBackend already patched, skipping")
+                return
+
+            def _patched_forward(self_t3, inputs_embeds, past_key_values=None,
+                                 use_cache=True, output_attentions=False,
+                                 output_hidden_states=True, return_dict=True):
+                tfmr_out = self_t3.model(
+                    inputs_embeds=inputs_embeds,
+                    past_key_values=past_key_values,
+                    use_cache=use_cache,
+                    output_attentions=output_attentions,
+                    output_hidden_states=output_hidden_states,
+                    return_dict=True,
+                )
+                if tfmr_out.hidden_states is not None:
+                    hidden_states = tfmr_out.hidden_states[-1]
+                else:
+                    hidden_states = tfmr_out.last_hidden_state
+                    log.debug("Chatterbox Turbo T3: hidden_states was None, using last_hidden_state "
+                              "(transformers 4.57.x compatibility)")
+
+                logits = self_t3.speech_head(hidden_states)
+                return CausalLMOutputWithCrossAttentions(
+                    logits=logits,
+                    past_key_values=tfmr_out.past_key_values,
+                    hidden_states=tfmr_out.hidden_states,
+                    attentions=tfmr_out.attentions,
+                )
+
+            T3HuggingfaceBackend.forward = _patched_forward
+            T3HuggingfaceBackend._rrv_hidden_states_patched = True
+            log.info("Chatterbox Turbo: patched T3HuggingfaceBackend.forward for transformers 4.57.x compatibility")
+
+        except Exception as e:
+            log.warning("Chatterbox Turbo: could not patch T3HuggingfaceBackend.forward: %s", e)
 
     # ── Voices ────────────────────────────────────────────────────────────────
 
@@ -289,16 +333,16 @@ class ChatterboxFullBackend(AbstractTtsBackend):
 
     async def synthesize(self, request: SynthesisRequest) -> SynthesisResult:
         if self._model is None:
-            raise RuntimeError("Chatterbox backend is not loaded")
+            raise RuntimeError("Chatterbox Turbo backend is not loaded")
 
         if request.sample_path is None:
             raise ValueError(
-                "Chatterbox requires a reference audio clip. "
+                "Chatterbox Turbo requires a reference audio clip. "
                 "Provide sample_id in the request."
             )
 
         if request.blend:
-            raise ValueError("Chatterbox does not support voice blending.")
+            raise ValueError("Chatterbox Turbo does not support voice blending.")
 
         loop = asyncio.get_event_loop()
         voice_key = self._voice_group_key(request)
@@ -311,23 +355,30 @@ class ChatterboxFullBackend(AbstractTtsBackend):
         duration = estimate_duration(ogg_bytes)
         return SynthesisResult(ogg_bytes=ogg_bytes, duration_sec=duration)
 
-    def _ensure_conditionals(self, sample_path: Path, sample_hash: str) -> None:
+    def _make_cond_cache_key(self, sample_hash: str, exaggeration: float) -> str:
+        # Turbo does not accept exaggeration in prepare_conditionals() —
+        # the cache key is just the sample hash. The exaggeration parameter
+        # is kept in the signature for symmetry with the full model but unused.
+        return sample_hash
+
+    def _ensure_conditionals(self, sample_path: Path, sample_hash: str, exaggeration: float) -> None:
         """
         Prepare voice conditionals for the given sample if not already cached.
 
-        On a cache hit (same sample hash as last call), the model's internal
-        self.conds is already correct and we skip prepare_conditionals entirely.
-        This is safe because the voice slot serialization guarantees only one
-        speaker is active at a time — the cached conditionals always belong to
-        the current speaker.
+        Cache hit: same sample hash as last call — model's internal conds is
+        already correct, skip prepare_conditionals entirely.
 
-        On a cache miss (new speaker), we write a PCM_16 temp WAV (so librosa
-        returns float32), call prepare_conditionals(), cache the new hash, and
-        clean up the previous temp WAV.
+        Cache miss: new sample — write PCM_16 temp WAV, call prepare_conditionals(),
+        update cache, delete old temp WAV.
+
+        Note: Turbo does NOT accept exaggeration in prepare_conditionals() —
+        that parameter only applies to the full and multilingual models.
         """
-        if sample_hash == self._cond_sample_hash:
+        cache_key = self._make_cond_cache_key(sample_hash, exaggeration)
+
+        if cache_key == self._cond_cache_key:
             log.debug(
-                "Chatterbox: conditionals cache HIT — reusing voice embedding for hash=%s",
+                "Chatterbox Turbo: conditionals cache HIT — reusing voice embedding hash=%s",
                 sample_hash[:8],
             )
             return
@@ -335,27 +386,26 @@ class ChatterboxFullBackend(AbstractTtsBackend):
         import soundfile as sf
 
         log.info(
-            "Chatterbox: conditionals cache MISS — preparing new voice embedding "
+            "Chatterbox Turbo: conditionals cache MISS — preparing new voice embedding "
             "hash=%s (was %s)",
             sample_hash[:8],
-            self._cond_sample_hash[:8] if self._cond_sample_hash else "none",
+            self._cond_cache_key[:8] if self._cond_cache_key else "none",
         )
 
-        # Validate minimum reference clip length
         info = sf.info(str(sample_path))
         if info.duration < 5.0:
             raise ValueError(
-                f"Chatterbox requires a reference clip of at least 5 seconds. "
+                f"Chatterbox Turbo requires a reference clip of at least 5 seconds. "
                 f"'{sample_path.name}' is only {info.duration:.1f}s."
             )
 
-        # Write a PCM_16 WAV — guarantees librosa returns float32 on load
+        # Write PCM_16 WAV — guarantees librosa returns float32 on load
         audio_data, sr = sf.read(str(sample_path), dtype='float32')
         with tempfile.NamedTemporaryFile(suffix='.wav', delete=False) as tmp:
             new_tmp_path = tmp.name
         sf.write(new_tmp_path, audio_data, sr, subtype='PCM_16')
 
-        # Prepare conditionals into model.conds
+        # Turbo's prepare_conditionals does not accept exaggeration
         self._model.prepare_conditionals(new_tmp_path)
 
         # Evict previous temp WAV
@@ -363,29 +413,28 @@ class ChatterboxFullBackend(AbstractTtsBackend):
             try:
                 os.unlink(self._cond_tmp_wav)
             except Exception as e:
-                log.warning("Chatterbox: failed to delete old temp WAV %s: %s",
+                log.warning("Chatterbox Turbo: failed to delete old temp WAV %s: %s",
                             self._cond_tmp_wav, e)
 
-        self._cond_sample_hash = sample_hash
-        self._cond_tmp_wav     = new_tmp_path
-        log.debug("Chatterbox: new temp WAV at %s", new_tmp_path)
+        self._cond_cache_key = cache_key
+        self._cond_tmp_wav   = new_tmp_path
 
     def _synthesize_sync(self, request: SynthesisRequest) -> bytes:
         import numpy as np
 
-        sample_hash = compute_file_hash(request.sample_path)
+        exaggeration = request.exaggeration if request.exaggeration is not None else 0.0
+        sample_hash  = compute_file_hash(request.sample_path)
 
-        # Ensure the model's internal conditionals match this speaker.
-        # On the first call for a sample this writes the temp WAV and calls
-        # prepare_conditionals(). On subsequent calls for the same sample it
-        # is a no-op — the identical voice embedding is already loaded.
-        self._ensure_conditionals(request.sample_path, sample_hash)
+        # Ensure model's internal conditionals match this speaker + exaggeration.
+        # Cache hit = no-op. Cache miss = prepare_conditionals().
+        self._ensure_conditionals(request.sample_path, sample_hash, exaggeration)
 
-        # Generate without audio_prompt_path — model reuses self.conds
+        # Generate without audio_prompt_path — model reuses self.conds.
+        # exaggeration is intentionally omitted here: Turbo applies it during
+        # prepare_conditionals(), not generate(). Passing it to generate() is a no-op.
         wav = self._model.generate(
             text=request.text,
-            cfg_weight=request.cfg_weight   if request.cfg_weight   is not None else 0.5,
-            exaggeration=request.exaggeration if request.exaggeration is not None else 0.5,
+            cfg_weight=request.cfg_weight if request.cfg_weight is not None else 0.0,
         )
 
         samples = wav.squeeze().numpy() if hasattr(wav, 'numpy') else np.array(wav).squeeze()

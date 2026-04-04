@@ -41,7 +41,8 @@ from fastapi.responses import Response
 from pydantic import BaseModel, Field, field_validator
 
 from ..backends.base import SynthesisRequest
-from ..cache import compute_cache_key, compute_file_hash, blend_voice_identity
+from ..cache import compute_cache_key, blend_voice_identity
+from ..utils import compute_file_hash
 from ..samples import (resolve_sample_path, resolve_sample,
                         resolve_sample_path_for_provider, resolve_sample_for_provider)
 
@@ -156,7 +157,6 @@ async def synthesize(body: SynthesizeRequest, request: Request) -> Response:
     cache_key = compute_cache_key(
         text=body.text,
         provider_id=body.provider_id,
-        model_version=backend.model_version,
         voice_identity=voice_identity,
         lang_code=body.lang_code,
         speech_rate=body.speech_rate,

@@ -134,6 +134,15 @@ async def lifespan(app: FastAPI):
         except asyncio.CancelledError:
             pass
 
+    # Shut down any worker subprocess backends before closing cache/db
+    from .backends.worker_backend import WorkerBackend as _WorkerBackend
+    for _backend in registry.all():
+        if isinstance(_backend, _WorkerBackend):
+            try:
+                _backend.shutdown()
+            except Exception as _exc:
+                log.warning("Error shutting down worker '%s': %s", _backend.provider_id, _exc)
+
     await cache.close()
     await community_db.close()
     log.info("Server shut down cleanly")

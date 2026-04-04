@@ -58,7 +58,7 @@ def _env_set(key: str, default: str) -> FrozenSet[str]:
 
 # ── Valid values ──────────────────────────────────────────────────────────────
 
-VALID_BACKENDS: FrozenSet[str] = frozenset({"kokoro", "f5tts", "chatterbox", "chatterbox_full", "chatterbox_multilingual"})
+VALID_BACKENDS: FrozenSet[str] = frozenset({"kokoro", "f5tts", "chatterbox", "chatterbox_full", "chatterbox_multilingual", "qwen"})
 VALID_GPU_MODES: FrozenSet[str] = frozenset({"auto", "cuda", "rocm", "cpu"})
 VALID_LOG_LEVELS: FrozenSet[str] = frozenset({"debug", "info", "warning", "error"})
 
@@ -106,8 +106,8 @@ class Settings:
             raise ValueError("RRV_CHATTERBOX_MAX_CONCURRENT must be at least 1")
 
         # Community / sync
-        self.community_db_path: Path = Path(_env_str("RRV_COMMUNITY_DB_PATH", "./data/community.db"))
-        self.defaults_dir:      Path = Path(_env_str("RRV_DEFAULTS_DIR",      "./data/defaults"))
+        self.community_db_path: Path = Path(_env_str("RRV_COMMUNITY_DB_PATH", "../data/community.db"))
+        self.defaults_dir:      Path = Path(_env_str("RRV_DEFAULTS_DIR",      "../data/defaults"))
         # Contribute key — low-friction shared secret for crowd-source contributions.
         # Good-citizen gate: empty = open contributions (trusted LAN/guild mode).
         self.contribute_key: str = _env_str("RRV_CONTRIBUTE_KEY", "")
@@ -154,6 +154,24 @@ class Settings:
                 f"Valid values: {sorted(VALID_LOG_LEVELS)}"
             )
         self.log_level: str = log_level
+
+        # Worker venvs — optional per-backend subprocess isolation.
+        # Scans for RRV_WORKER_VENV_<backend_name> env vars.
+        # Any backend with a configured venv path is run as a worker subprocess
+        # instead of being imported directly into the host process.
+        # This allows backends with conflicting dependencies (e.g. different
+        # transformers versions) to coexist.
+        # Example:
+        #   RRV_WORKER_VENV_kokoro=/home/mike/rrvserver/rrv-kokoro/.venv
+        #   RRV_WORKER_VENV_chatterbox=/home/mike/rrvserver/rrv-chatterbox/.venv
+        self.worker_venvs: dict[str, Path] = {}
+        _wv_prefix = "RRV_WORKER_VENV_"
+        for _wv_key, _wv_val in os.environ.items():
+            if _wv_key.startswith(_wv_prefix):
+                _wv_backend = _wv_key[len(_wv_prefix):].lower()
+                _wv_path = _wv_val.strip()
+                if _wv_path:
+                    self.worker_venvs[_wv_backend] = Path(_wv_path)
 
     def override(self, **kwargs) -> None:
         """
@@ -240,7 +258,8 @@ class Settings:
             f"auth_enabled={self.auth_enabled}, "
             f"contribute_key_set={bool(self.contribute_key)}, "
             f"admin_key_set={bool(self.admin_key)}, "
-            f"log_level={self.log_level!r}"
+            f"log_level={self.log_level!r}, "
+            f"worker_backends={sorted(self.worker_venvs)}"
             f")"
         )
 

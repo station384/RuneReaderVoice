@@ -21,10 +21,12 @@
 # Server-side audio cache.
 #
 # Storage model:
-#   - OGG files stored under RRV_CACHE_DIR as <32-hex-key>.ogg
-#   - SQLite manifest in RRV_DB_PATH tracks key → file metadata
-#   - Atomic writes: synthesize → write <key>.ogg.tmp → rename to <key>.ogg → insert DB row
-#   - LRU eviction: remove least-recently-accessed files when cache_max_bytes exceeded
+#   - OGG files stored under RRV_CACHE_DIR/{provider_id}/{key}.ogg
+#   - One subdirectory per provider — allows clearing a single provider's
+#     cache without affecting others (rm -rf data/cache/kokoro/ etc.)
+#   - SQLite manifest in RRV_DB_PATH tracks key -> file metadata
+#   - Atomic writes: synthesize -> write {key}.ogg.tmp -> rename to {key}.ogg -> insert DB row
+#   - LRU eviction: removes least-recently-accessed files when cache_max_bytes exceeded
 #
 # Startup integrity:
 #   1. Delete any leftover .tmp files from a previous interrupted write
@@ -51,7 +53,7 @@ log = logging.getLogger(__name__)
 _CREATE_TABLE = """
 CREATE TABLE IF NOT EXISTS cache_manifest (
     key             TEXT PRIMARY KEY,
-    filename        TEXT NOT NULL,
+    filename        TEXT NOT NULL,      -- relative path: {provider_id}/{key}.ogg
     provider_id     TEXT NOT NULL,
     size_bytes      INTEGER NOT NULL,
     duration_sec    REAL NOT NULL,
@@ -64,10 +66,21 @@ _CREATE_INDEX = """
 CREATE INDEX IF NOT EXISTS idx_last_accessed ON cache_manifest (last_accessed)
 """
 
+_CREATE_PROVIDER_INDEX = """
+CREATE INDEX IF NOT EXISTS idx_provider ON cache_manifest (provider_id)
+"""
+
 
 class AudioCache:
     """
     Manages the server-side OGG cache directory and SQLite manifest.
+
+    OGG files are stored in per-provider subdirectories:
+        {cache_dir}/{provider_id}/{key}.ogg
+
+    This lets you wipe a single provider's cache without touching others:
+        rm -rf data/cache/kokoro/
+
     Call initialize() once before use.
     """
 
@@ -79,7 +92,6 @@ class AudioCache:
 
         # Per-key locks: prevents duplicate synthesis for the same cache key
         self._key_locks: dict[str, asyncio.Lock] = {}
-        self._key_locks_mutex = asyncio.Lock()
 
     # ── Lifecycle ─────────────────────────────────────────────────────────────
 
@@ -96,11 +108,14 @@ class AudioCache:
         await self._db.execute("PRAGMA synchronous=NORMAL")
         await self._db.execute(_CREATE_TABLE)
         await self._db.execute(_CREATE_INDEX)
+        await self._db.execute(_CREATE_PROVIDER_INDEX)
         await self._db.commit()
 
         await self._startup_integrity_check()
-        log.info("Cache initialized: dir=%s db=%s max=%d MB",
-                 self._cache_dir, self._db_path, self._max_bytes // (1024 * 1024))
+        log.info(
+            "Cache initialized: dir=%s db=%s max=%d MB",
+            self._cache_dir, self._db_path, self._max_bytes // (1024 * 1024),
+        )
 
     async def close(self) -> None:
         if self._db:
@@ -145,19 +160,22 @@ class AudioCache:
     async def store(self, key: str, provider_id: str, ogg_bytes: bytes,
                     duration_sec: float) -> None:
         """
-        Write OGG bytes to the cache atomically.
-        Uses .tmp → rename pattern to prevent partially-written files.
+        Write OGG bytes to the cache atomically under {cache_dir}/{provider_id}/.
+        Uses .tmp -> rename pattern to prevent partially-written files.
         Triggers LRU eviction after storing if the cache is over the size limit.
         """
         assert self._db is not None
 
-        filename = f"{key}.ogg"
-        final_path = self._cache_dir / filename
-        tmp_path   = self._cache_dir / f"{key}.ogg.tmp"
+        # Ensure provider subdir exists
+        provider_dir = self._cache_dir / provider_id
+        provider_dir.mkdir(parents=True, exist_ok=True)
 
-        # Write to .tmp first
+        filename   = f"{provider_id}/{key}.ogg"
+        final_path = self._cache_dir / filename
+        tmp_path   = provider_dir / f"{key}.ogg.tmp"
+
+        # Write to .tmp first, then atomic rename
         tmp_path.write_bytes(ogg_bytes)
-        # Atomic rename
         tmp_path.rename(final_path)
 
         now = int(time.time())
@@ -171,7 +189,7 @@ class AudioCache:
         )
         await self._db.commit()
 
-        log.debug("Cached %s: %d bytes, %.2fs", key, len(ogg_bytes), duration_sec)
+        log.debug("Cached %s/%s: %d bytes, %.2fs", provider_id, key, len(ogg_bytes), duration_sec)
         await self._evict_if_needed()
 
     def key_lock(self, key: str) -> asyncio.Lock:
@@ -179,13 +197,7 @@ class AudioCache:
         Returns a per-key asyncio.Lock. Acquiring this before synthesis ensures
         that only one coroutine synthesizes a given key at a time; subsequent
         callers waiting on the lock will find a cache hit when they proceed.
-        Locks are created lazily and never explicitly cleaned up — they are small
-        and the number of distinct keys in a session is bounded.
         """
-        # Note: This is called from async context but the dict access is sync.
-        # The _key_locks_mutex guards concurrent creation; however since we're
-        # in a single-threaded asyncio event loop the dict access itself is safe.
-        # We still check-and-create to avoid overwriting an existing lock.
         if key not in self._key_locks:
             self._key_locks[key] = asyncio.Lock()
         return self._key_locks[key]
@@ -201,20 +213,71 @@ class AudioCache:
 
         count = row["cnt"] or 0
         total = row["total"] or 0
+
+        # Per-provider breakdown
+        provider_stats = {}
+        async with self._db.execute(
+            """
+            SELECT provider_id, COUNT(*) as cnt, SUM(size_bytes) as total
+            FROM cache_manifest
+            GROUP BY provider_id
+            """
+        ) as cur:
+            async for prow in cur:
+                provider_stats[prow["provider_id"]] = {
+                    "entry_count": prow["cnt"],
+                    "total_mb":    round((prow["total"] or 0) / (1024 * 1024), 2),
+                }
+
         return {
-            "entry_count":  count,
-            "total_bytes":  total,
-            "total_mb":     round(total / (1024 * 1024), 2),
-            "max_mb":       self._max_bytes // (1024 * 1024),
+            "entry_count":    count,
+            "total_bytes":    total,
+            "total_mb":       round(total / (1024 * 1024), 2),
+            "max_mb":         self._max_bytes // (1024 * 1024),
+            "by_provider":    provider_stats,
         }
+
+    async def clear_provider(self, provider_id: str) -> int:
+        """
+        Delete all cached OGG files and manifest rows for a single provider.
+        Returns the number of entries cleared.
+        Equivalent to: rm -rf {cache_dir}/{provider_id}/
+        """
+        assert self._db is not None
+
+        async with self._db.execute(
+            "SELECT key, filename FROM cache_manifest WHERE provider_id = ?", (provider_id,)
+        ) as cur:
+            rows = await cur.fetchall()
+
+        count = 0
+        for row in rows:
+            path = self._cache_dir / row["filename"]
+            path.unlink(missing_ok=True)
+            count += 1
+
+        await self._db.execute(
+            "DELETE FROM cache_manifest WHERE provider_id = ?", (provider_id,)
+        )
+        await self._db.commit()
+
+        # Remove the now-empty provider subdir if it exists
+        provider_dir = self._cache_dir / provider_id
+        try:
+            provider_dir.rmdir()
+        except OSError:
+            pass  # not empty or doesn't exist — fine either way
+
+        log.info("Cleared %d cache entries for provider '%s'", count, provider_id)
+        return count
 
     # ── Startup integrity ─────────────────────────────────────────────────────
 
     async def _startup_integrity_check(self) -> None:
         assert self._db is not None
 
-        # 1. Delete leftover .tmp files from interrupted writes
-        tmp_files = list(self._cache_dir.glob("*.ogg.tmp"))
+        # 1. Delete leftover .tmp files from interrupted writes (all subdirs)
+        tmp_files = list(self._cache_dir.rglob("*.ogg.tmp"))
         for f in tmp_files:
             log.warning("Startup: removing leftover temp file: %s", f)
             f.unlink(missing_ok=True)
@@ -297,7 +360,6 @@ class AudioCache:
 def compute_cache_key(
     text: str,
     provider_id: str,
-    model_version: str,
     voice_identity: str,
     lang_code: str,
     speech_rate: float,
@@ -313,15 +375,17 @@ def compute_cache_key(
     Compute the 32-char hex server cache key.
 
     Fields are joined with null-byte separators to prevent collisions
-    from adjacent field concatenation. This must match the algorithm
-    documented in the design spec (Section 21.9).
+    from adjacent field concatenation.
+
+    model_version has been removed from the cache key — provider subdirectories
+    (data/cache/{provider_id}/) give per-provider isolation. If you need to
+    invalidate a provider's cache after a model change, clear its subdir.
 
     voice_identity:
       - base voice:   the voice_id string
       - reference:    SHA-256 of the sample file contents (8 hex chars)
       - blend:        canonical sorted "voice_id:weight" pairs joined by "|"
     """
-    # Normalize control values for consistent hashing
     rate_str  = f"{speech_rate:.2f}"
     cfg_str   = "" if cfg_weight          is None else f"{cfg_weight:.3f}"
     exag_str  = "" if exaggeration        is None else f"{exaggeration:.3f}"
@@ -329,31 +393,17 @@ def compute_cache_key(
     nfe_str   = "" if nfe_step            is None else str(nfe_step)
     xfade_str = "" if cross_fade_duration is None else f"{cross_fade_duration:.3f}"
     sway_str  = "" if sway_sampling_coef  is None else f"{sway_sampling_coef:.3f}"
-
-    ctx_str = voice_context or ""
+    ctx_str   = voice_context or ""
 
     parts = [
-        text, provider_id, model_version, voice_identity,
+        text, provider_id, voice_identity,
         lang_code, rate_str, cfg_str, exag_str,
         cfs_str, nfe_str, xfade_str, sway_str,
-        ctx_str,  # slot identity — prevents narrator/NPC cache collisions on same sample+text
+        ctx_str,
     ]
     joined = "\x00".join(parts)
     digest = hashlib.sha256(joined.encode("utf-8")).hexdigest()
     return digest[:32]
-
-
-def compute_file_hash(path: Path) -> str:
-    """
-    SHA-256 hash of a file's contents, truncated to 8 hex characters.
-    Used as the voice_identity component for reference-based synthesis.
-    Replacing the file changes the hash, automatically invalidating cache entries.
-    """
-    h = hashlib.sha256()
-    with open(path, "rb") as f:
-        for chunk in iter(lambda: f.read(65536), b""):
-            h.update(chunk)
-    return h.hexdigest()[:8]
 
 
 def blend_voice_identity(blend: list[dict]) -> str:
@@ -361,7 +411,7 @@ def blend_voice_identity(blend: list[dict]) -> str:
     Canonical voice identity string for a blend request.
     Sorts by voice_id for stability, normalizes weights to 2 decimal places.
     Example: [{"voice_id": "bm_lewis", "weight": 0.6}, {"voice_id": "am_adam", "weight": 0.4}]
-             → "am_adam:0.40|bm_lewis:0.60"
+             -> "am_adam:0.40|bm_lewis:0.60"
     """
     pairs = sorted(
         (f"{entry['voice_id']}:{entry['weight']:.2f}" for entry in blend)

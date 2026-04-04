@@ -56,7 +56,8 @@ class SynthesizeRequest(_SynthesizeRequestBase):
     batch_id:    _Opt[str] = None   # client-generated UUID grouping related segments
     batch_total: _Opt[int] = None   # total segments in this batch (required if batch_id set)
 from ..backends.base import SynthesisRequest
-from ..cache import compute_cache_key, compute_file_hash, blend_voice_identity
+from ..cache import compute_cache_key, blend_voice_identity
+from ..utils import compute_file_hash
 from ..samples import (resolve_sample_path, resolve_sample, _base_stem,
                         resolve_sample_path_for_provider, resolve_sample_for_provider)
 
@@ -217,7 +218,6 @@ async def synthesize_v2(body: SynthesizeRequest, request: Request) -> dict:
     cache_key = compute_cache_key(
         text=body.text,
         provider_id=body.provider_id,
-        model_version=backend.model_version,
         voice_identity=voice_identity,
         lang_code=body.lang_code,
         speech_rate=body.speech_rate,

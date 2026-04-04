@@ -27,6 +27,7 @@ import logging
 from typing import Optional
 
 from .base import AbstractTtsBackend
+from .worker_backend import WorkerBackend
 from ..gpu_detect import GpuInfo
 
 log = logging.getLogger(__name__)
@@ -102,7 +103,30 @@ async def load_backends(
 
 
 def _create_backend(name: str, models_dir, gpu: GpuInfo, settings=None) -> AbstractTtsBackend:
-    """Instantiate the backend class for the given name."""
+    """Instantiate the backend class for the given name.
+
+    If settings.worker_venvs contains an entry for this backend name, a
+    WorkerBackend proxy is returned instead of a direct class instance.
+    The proxy spawns the backend as an isolated subprocess in its own venv.
+    Fall-through: backends with no venv configured are loaded in-process as before.
+    """
+    # Worker venv check — highest priority
+    worker_venvs: dict = getattr(settings, "worker_venvs", {})
+    if name in worker_venvs:
+        chatterbox_max_concurrent = getattr(settings, "chatterbox_max_concurrent", 2)
+        log_level = getattr(settings, "log_level", "info")
+        log.info("Backend '%s' configured as worker subprocess (venv: %s)", name, worker_venvs[name])
+        samples_dir = getattr(settings, "samples_dir", models_dir.parent / "samples")
+        return WorkerBackend(
+            backend_name=name,
+            venv_path=worker_venvs[name],
+            models_dir=models_dir,
+            samples_dir=samples_dir,
+            gpu=getattr(settings, "gpu", "auto"),
+            max_concurrent=chatterbox_max_concurrent,
+            log_level=log_level,
+        )
+
     chatterbox_max_concurrent = getattr(settings, "chatterbox_max_concurrent", 2)
 
     if name == "kokoro":
@@ -143,6 +167,13 @@ def _create_backend(name: str, models_dir, gpu: GpuInfo, settings=None) -> Abstr
             # Multilingual model does not support concurrent synthesis safely —
             # always serial regardless of RRV_CHATTERBOX_MAX_CONCURRENT.
             max_concurrent=1,
+        )
+
+    elif name == "qwen":
+        from .qwen_backend import QwenBackend
+        return QwenBackend(
+            models_dir=models_dir,
+            torch_device=gpu.torch_device,
         )
 
     else:

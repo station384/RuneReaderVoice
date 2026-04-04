@@ -55,7 +55,7 @@ from pathlib import Path
 from typing import Optional
 
 from .base import AbstractTtsBackend, SynthesisRequest, SynthesisResult, VoiceInfo
-from ..cache import compute_file_hash
+from ..utils import compute_file_hash
 from ..samples import resolve_sample_for_provider
 from .audio import pcm_to_ogg, estimate_duration
 
