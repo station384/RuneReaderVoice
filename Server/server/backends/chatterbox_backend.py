@@ -56,11 +56,12 @@ class ChatterboxBackend(AbstractTtsBackend):
     # while keeping memory usage predictable.
     _MAX_CONCURRENT = 2
 
-    def __init__(self, models_dir: Path, torch_device: str) -> None:
+    def __init__(self, models_dir: Path, torch_device: str, max_concurrent: int = 2) -> None:
         self._models_dir    = models_dir
         self._torch_device  = torch_device
         self._model         = None
         self._model_version = ""
+        self._MAX_CONCURRENT = max_concurrent
         self._voice_cond    = asyncio.Condition()
         self._active_voice_key: str | None = None
         self._active_count  = 0

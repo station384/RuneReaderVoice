@@ -56,8 +56,9 @@ public sealed class ProviderDescriptor
 public sealed class RemoteControlDescriptor
 {
     public string Type { get; init; } = "float";
-    public float? Default { get; init; }
+    public string? Default { get; init; }   // string to handle both numeric and string defaults
     public float? Min { get; init; }
     public float? Max { get; init; }
     public string Description { get; init; } = string.Empty;
+    public IReadOnlyList<string> Options { get; init; } = Array.Empty<string>();
 }

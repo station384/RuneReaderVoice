@@ -930,7 +930,7 @@ class TranscriptionService:
 
             model = AutoModelForSpeechSeq2Seq.from_pretrained(
                 str(self._whisper_dir),
-                dtype=torch_dtype,           # 'dtype' replaces deprecated 'torch_dtype'
+                torch_dtype=torch_dtype,
                 low_cpu_mem_usage=True,
                 use_safetensors=True,
                 local_files_only=True,       # NEVER download from HuggingFace
@@ -947,7 +947,7 @@ class TranscriptionService:
                 model=model,
                 tokenizer=processor.tokenizer,
                 feature_extractor=processor.feature_extractor,
-                dtype=torch_dtype,       # 'dtype' replaces deprecated 'torch_dtype'
+                torch_dtype=torch_dtype,
                 device=device,
             )
 

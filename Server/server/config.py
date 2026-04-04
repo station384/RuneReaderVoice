@@ -58,7 +58,7 @@ def _env_set(key: str, default: str) -> FrozenSet[str]:
 
 # ── Valid values ──────────────────────────────────────────────────────────────
 
-VALID_BACKENDS: FrozenSet[str] = frozenset({"kokoro", "f5tts", "chatterbox", "chatterbox_full"})
+VALID_BACKENDS: FrozenSet[str] = frozenset({"kokoro", "f5tts", "chatterbox", "chatterbox_full", "chatterbox_multilingual"})
 VALID_GPU_MODES: FrozenSet[str] = frozenset({"auto", "cuda", "rocm", "cpu"})
 VALID_LOG_LEVELS: FrozenSet[str] = frozenset({"debug", "info", "warning", "error"})
 
@@ -97,6 +97,13 @@ class Settings:
             raise ValueError("RRV_F5_SAMPLE_RATE must be a positive integer")
         if self.chatterbox_sample_rate <= 0:
             raise ValueError("RRV_CHATTERBOX_SAMPLE_RATE must be a positive integer")
+
+        # Maximum concurrent synthesis requests for Chatterbox Turbo and Full backends.
+        # Chatterbox Multilingual is always limited to 1 regardless of this setting.
+        # Lower values reduce VRAM pressure when running alongside other GPU workloads.
+        self.chatterbox_max_concurrent: int = _env_int("RRV_CHATTERBOX_MAX_CONCURRENT", 2)
+        if self.chatterbox_max_concurrent < 1:
+            raise ValueError("RRV_CHATTERBOX_MAX_CONCURRENT must be at least 1")
 
         # Community / sync
         self.community_db_path: Path = Path(_env_str("RRV_COMMUNITY_DB_PATH", "./data/community.db"))
@@ -191,10 +198,13 @@ class Settings:
                          "whisper_model_dir"):
                 value = Path(value)
 
-            elif key in ("port", "cache_max_mb", "sample_scan_interval", "f5_sample_channels", "chatterbox_sample_channels"):
+            elif key in ("port", "cache_max_mb", "sample_scan_interval", "f5_sample_channels",
+                         "chatterbox_sample_channels", "chatterbox_max_concurrent"):
                 value = int(value)
                 if key in ("f5_sample_channels", "chatterbox_sample_channels") and value not in (1, 2):
                     raise ValueError(f"{key} must be 1 or 2")
+                if key == "chatterbox_max_concurrent" and value < 1:
+                    raise ValueError("chatterbox_max_concurrent must be at least 1")
 
             setattr(self, key, value)
 
@@ -224,6 +234,7 @@ class Settings:
             f"samples_dir={self.samples_dir}, "
             f"f5_sample_channels={self.f5_sample_channels}, "
             f"chatterbox_sample_channels={self.chatterbox_sample_channels}, "
+            f"chatterbox_max_concurrent={self.chatterbox_max_concurrent}, "
             f"cache_max_mb={self.cache_max_mb}, "
             f"f5_vocoder={self.f5_vocoder}, "
             f"auth_enabled={self.auth_enabled}, "

@@ -63,6 +63,7 @@ async def load_backends(
     backend_names: frozenset[str],
     models_dir,
     gpu: GpuInfo,
+    settings=None,
 ) -> BackendRegistry:
     """
     Instantiate and load each requested backend.
@@ -76,7 +77,7 @@ async def load_backends(
 
     for name in sorted(backend_names):
         try:
-            backend = _create_backend(name, Path(models_dir), gpu)
+            backend = _create_backend(name, Path(models_dir), gpu, settings)
             await backend.load()
             registry.register(backend)
         except RuntimeError as e:
@@ -100,8 +101,10 @@ async def load_backends(
     return registry
 
 
-def _create_backend(name: str, models_dir, gpu: GpuInfo) -> AbstractTtsBackend:
+def _create_backend(name: str, models_dir, gpu: GpuInfo, settings=None) -> AbstractTtsBackend:
     """Instantiate the backend class for the given name."""
+    chatterbox_max_concurrent = getattr(settings, "chatterbox_max_concurrent", 2)
+
     if name == "kokoro":
         from .kokoro_backend import KokoroBackend
         return KokoroBackend(
@@ -121,6 +124,7 @@ def _create_backend(name: str, models_dir, gpu: GpuInfo) -> AbstractTtsBackend:
         return ChatterboxBackend(
             models_dir=models_dir,
             torch_device=gpu.torch_device,
+            max_concurrent=chatterbox_max_concurrent,
         )
 
     elif name == "chatterbox_full":
@@ -128,6 +132,17 @@ def _create_backend(name: str, models_dir, gpu: GpuInfo) -> AbstractTtsBackend:
         return ChatterboxFullBackend(
             models_dir=models_dir,
             torch_device=gpu.torch_device,
+            max_concurrent=chatterbox_max_concurrent,
+        )
+
+    elif name == "chatterbox_multilingual":
+        from .chatterbox_multilingual_backend import ChatterboxMultilingualBackend
+        return ChatterboxMultilingualBackend(
+            models_dir=models_dir,
+            torch_device=gpu.torch_device,
+            # Multilingual model does not support concurrent synthesis safely —
+            # always serial regardless of RRV_CHATTERBOX_MAX_CONCURRENT.
+            max_concurrent=1,
         )
 
     else:

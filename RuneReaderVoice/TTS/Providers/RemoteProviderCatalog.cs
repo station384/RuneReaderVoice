@@ -76,10 +76,15 @@ public static class RemoteProviderCatalog
                 .ToDictionary(k => k.Key,
                               v => new RemoteControlDescriptor
                               {
-                                  Type = v.Value.Type ?? "float",
-                                  Default = v.Value.Default,
-                                  Min = v.Value.Min,
-                                  Max = v.Value.Max,
+                                  Type        = v.Value.Type ?? "float",
+                                  Default     = v.Value.Default.HasValue
+                                                ? v.Value.Default.Value.ValueKind == JsonValueKind.String
+                                                    ? v.Value.Default.Value.GetString()
+                                                    : v.Value.Default.Value.ToString()
+                                                : null,
+                                  Min         = v.Value.Min,
+                                  Max         = v.Value.Max,
+                                  Options     = (IReadOnlyList<string>?)v.Value.Options ?? Array.Empty<string>(),
                                   Description = v.Value.Description ?? string.Empty,
                               },
                               StringComparer.OrdinalIgnoreCase),
@@ -102,8 +107,9 @@ public sealed class RemoteProviderInfoDto
 public sealed class RemoteControlDescriptorDto
 {
     [JsonPropertyName("type")] public string? Type { get; set; }
-    [JsonPropertyName("default")] public float? Default { get; set; }
+    [JsonPropertyName("default")] public JsonElement? Default { get; set; }  // float or string
     [JsonPropertyName("min")] public float? Min { get; set; }
     [JsonPropertyName("max")] public float? Max { get; set; }
+    [JsonPropertyName("options")] public List<string>? Options { get; set; }
     [JsonPropertyName("description")] public string? Description { get; set; }
 }

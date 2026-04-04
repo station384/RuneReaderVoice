@@ -46,14 +46,12 @@ f5tts = [
     "torchaudio>=2.0.0",
 ]
 
-# Chatterbox Turbo — install with care due to numpy pin conflict.
-# Use: pip install chatterbox-tts --no-deps
-# Then: pip install conformer diffusers pykakasi pyloudnorm resemble-perth
-#                   s3tokenizer spacy-pkuseg onnx ml_dtypes --no-deps
-# The package pins numpy<1.26.0 which conflicts with kokoro-onnx>=2.0.
-# Installing --no-deps bypasses this; the package runs fine on numpy 2.x.
+# Chatterbox backends (Turbo, Full, Multilingual) — chatterbox-tts 0.1.7+.
+# s3tokenizer still needs --no-deps: pip install --no-deps s3tokenizer
+# All three provider backends (chatterbox, chatterbox_full,
+# chatterbox_multilingual) are enabled by this single package install.
 chatterbox = [
-    "chatterbox-tts",
+    "chatterbox-tts>=0.1.7",
     "conformer",
     "diffusers",
     "pykakasi",
@@ -61,7 +59,7 @@ chatterbox = [
     "resemble-perth",
     "s3tokenizer",
     "spacy-pkuseg",
-    "onnx",
+    "onnx>=1.16.0",
     "ml_dtypes",
 ]
 

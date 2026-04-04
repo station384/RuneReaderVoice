@@ -301,10 +301,10 @@ So go quickly, keep your wits about you, and return by the main road if you valu
         {
             float cfgMin = cfgControl?.Min ?? 0f;
             float cfgMax = cfgControl?.Max ?? 3f;
-            float cfgDefault = cfgControl?.Default ?? 0f;
+            float cfgDefault = ParseFloatDefault(cfgControl?.Default, 0f);
             float exMin = exagControl?.Min ?? 0f;
             float exMax = exagControl?.Max ?? 3f;
-            float exDefault = exagControl?.Default ?? 0f;
+            float exDefault = ParseFloatDefault(exagControl?.Default, 0f);
 
             if (!_workingProfile.CfgWeight.HasValue)
                 _workingProfile.CfgWeight = cfgDefault;
@@ -414,7 +414,7 @@ So go quickly, keep your wits about you, and return by the main road if you valu
             {
                 float min = cfgStrControl.Min ?? 0.5f;
                 float max = cfgStrControl.Max ?? 5.0f;
-                float def = cfgStrControl.Default ?? 2.0f;
+                float def = ParseFloatDefault(cfgStrControl.Default, 2.0f);
                 if (!_workingProfile.CfgStrength.HasValue) _workingProfile.CfgStrength = def;
                 float cur = _workingProfile.CfgStrength ?? def;
 
@@ -449,7 +449,7 @@ So go quickly, keep your wits about you, and return by the main road if you valu
             {
                 float min = nfeControl.Min ?? 8f;
                 float max = nfeControl.Max ?? 64f;
-                float def = nfeControl.Default ?? 48f;
+                float def = ParseFloatDefault(nfeControl.Default, 48f);
                 if (!_workingProfile.NfeStep.HasValue) _workingProfile.NfeStep = (int)def;
                 float cur = _workingProfile.NfeStep ?? (int)def;
 
@@ -485,7 +485,7 @@ So go quickly, keep your wits about you, and return by the main road if you valu
             {
                 float min = swayControl.Min ?? -1.0f;
                 float max = swayControl.Max ?? 1.0f;
-                float def = swayControl.Default ?? -1.0f;
+                float def = ParseFloatDefault(swayControl.Default, -1.0f);
                 if (!_workingProfile.SwaysamplingCoef.HasValue) _workingProfile.SwaysamplingCoef = def;
                 float cur = _workingProfile.SwaysamplingCoef ?? def;
 
@@ -1264,6 +1264,15 @@ So go quickly, keep your wits about you, and return by the main road if you valu
     // ─────────────────────────────────────────────────────────────────────────
 
     private static readonly System.Globalization.CultureInfo Inv = System.Globalization.CultureInfo.InvariantCulture;
+
+    /// <summary>
+    /// Parse a control default value that may be a numeric string ("0.5") or
+    /// a non-numeric string ("en"). Returns fallback for non-numeric values.
+    /// Needed because RemoteControlDescriptor.Default is now string? to support
+    /// both float and string defaults from the server capability response.
+    /// </summary>
+    private static float ParseFloatDefault(string? value, float fallback)
+        => float.TryParse(value, System.Globalization.NumberStyles.Float, Inv, out var f) ? f : fallback;
 
     private static Button Btn(string label, double width) => new() { Content = label, Width = width };
 

@@ -85,6 +85,7 @@ async def lifespan(app: FastAPI):
         backend_names=settings.backends,
         models_dir=settings.models_dir,
         gpu=gpu,
+        settings=settings,
     )
     app.state.registry = registry
 

@@ -107,15 +107,22 @@ pip install f5-tts
 
 ---
 
-## Step 7 — Install Chatterbox Turbo
+## Step 7 — Install Chatterbox
 
-Must use --no-deps to avoid numpy downgrade conflict with kokoro-onnx.
+chatterbox-tts 0.1.7+ replaces the old `pkuseg` dependency with `spacy-pkuseg`,
+resolving the numpy/distutils conflicts from earlier versions. `s3tokenizer`
+still needs `--no-deps` to avoid pulling in conflicting transitive deps.
 
 ```bash
-pip install chatterbox-tts --no-deps
-pip install conformer diffusers pykakasi pyloudnorm resemble-perth \
-            s3tokenizer spacy-pkuseg onnx ml_dtypes --no-deps
+pip install chatterbox-tts
+pip install --no-deps s3tokenizer
+pip install "onnx>=1.16.0"
 ```
+
+This installs support for all three Chatterbox backends:
+- `chatterbox` — Chatterbox Turbo (English, fast, paralinguistic tags)
+- `chatterbox_full` — Chatterbox original (English, higher quality)
+- `chatterbox_multilingual` — Chatterbox Multilingual (23 languages)
 
 ---
 
@@ -130,16 +137,20 @@ print(f'GPU: {torch.cuda.get_device_name(0)}')
 import numpy; print(f'numpy: {numpy.__version__}')
 from kokoro_onnx import Kokoro; print('kokoro ok')
 from f5_tts.api import F5TTS; print('f5tts ok')
-from chatterbox.tts_turbo import ChatterboxTurboTTS; print('chatterbox ok')
+from chatterbox.tts_turbo import ChatterboxTurboTTS; print('chatterbox turbo ok')
+from chatterbox.tts import ChatterboxTTS; print('chatterbox full ok')
+from chatterbox.mtl_tts import ChatterboxMultilingualTTS; print('chatterbox multilingual ok')
 "
-# Confirmed output on Ubuntu 24.04 / RTX 3080 Laptop:
+# Expected output on Ubuntu 24.04 / RTX 3080 Laptop:
 # PyTorch: 2.6.0+cu124
 # CUDA available: True
 # GPU: NVIDIA GeForce RTX 3080 Laptop GPU
-# numpy: 2.4.3
+# numpy: 2.x.x
 # kokoro ok
 # f5tts ok
-# chatterbox ok
+# chatterbox turbo ok
+# chatterbox full ok
+# chatterbox multilingual ok
 ```
 
 ---
@@ -158,6 +169,10 @@ data/models/
       model_1250000.safetensors
   chatterbox/
     (all files from HuggingFace ResembleAI/chatterbox-turbo)
+  chatterbox-hf/
+    (all files from HuggingFace ResembleAI/chatterbox-hf)
+  chatterbox-ml/
+    (all files from HuggingFace ResembleAI/chatterbox-multilingual)
   whisper/
     v3-turbo/   (all files from HuggingFace openai/whisper-large-v3-turbo)
     tiny/       (all files from HuggingFace openai/whisper-tiny)
