@@ -120,6 +120,7 @@ class WorkerBackend(AbstractTtsBackend):
         gpu: str = "auto",
         max_concurrent: int = 2,
         log_level: str = "info",
+        qwen_size: str = "large",
     ) -> None:
         self._backend_name = backend_name
         self._venv_path = Path(venv_path)
@@ -128,6 +129,7 @@ class WorkerBackend(AbstractTtsBackend):
         self._gpu = gpu
         self._max_concurrent = max_concurrent
         self._log_level = log_level
+        self._qwen_size = qwen_size
 
         # Set after load()
         self._process: Optional[subprocess.Popen] = None
@@ -166,6 +168,14 @@ class WorkerBackend(AbstractTtsBackend):
     @property
     def supports_inline_pronunciation(self) -> bool:
         return self._capabilities.get("supports_inline_pronunciation", False)
+
+    @property
+    def supports_voice_instruct(self) -> bool:
+        return self._capabilities.get("supports_voice_instruct", False)
+
+    @property
+    def supports_voice_design(self) -> bool:
+        return self._capabilities.get("supports_voice_design", False)
 
     @property
     def languages(self) -> list[str]:
@@ -225,6 +235,7 @@ class WorkerBackend(AbstractTtsBackend):
             "--samples-dir", str(self._samples_dir),
             "--gpu",         self._gpu,
             "--max-concurrent", str(self._max_concurrent),
+            "--qwen-size",   self._qwen_size,
             "--log-level",   self._log_level,
         ]
 
@@ -485,5 +496,9 @@ def _request_to_dict(request: SynthesisRequest) -> dict:
         d["cross_fade_duration"] = request.cross_fade_duration
     if request.sway_sampling_coef is not None:
         d["sway_sampling_coef"] = request.sway_sampling_coef
+    if request.voice_instruct is not None:
+        d["voice_instruct"] = request.voice_instruct
+    if request.voice_description is not None:
+        d["voice_description"] = request.voice_description
     # progress_callback is not serializable — skip it; host handles progress
     return d

@@ -210,6 +210,8 @@ def _build_request(msg: dict):
         cross_fade_duration=_opt_float(msg, "cross_fade_duration"),
         sway_sampling_coef=_opt_float(msg, "sway_sampling_coef"),
         # progress_callback is never set cross-process — host handles progress
+        voice_instruct=msg.get("voice_instruct"),
+        voice_description=msg.get("voice_description"),
         progress_callback=None,
     )
 
@@ -350,9 +352,19 @@ def _instantiate_backend(name: str, models_dir: Path, samples_dir: Path, gpu_inf
             max_concurrent=1,  # always serial
         )
 
-    elif name == "qwen":
-        from .backends.qwen_backend import QwenBackend
-        return QwenBackend(models_dir=models_dir, torch_device=gpu_info.torch_device)
+    elif name == "qwen_natural":
+        from .backends.qwen_backend import QwenNaturalBackend
+        size = getattr(args, "qwen_size", "large") or "large"
+        return QwenNaturalBackend(models_dir=models_dir, torch_device=gpu_info.torch_device, size=size)
+
+    elif name == "qwen_custom":
+        from .backends.qwen_backend import QwenCustomBackend
+        size = getattr(args, "qwen_size", "large") or "large"
+        return QwenCustomBackend(models_dir=models_dir, torch_device=gpu_info.torch_device, size=size)
+
+    elif name == "qwen_design":
+        from .backends.qwen_backend import QwenDesignBackend
+        return QwenDesignBackend(models_dir=models_dir, torch_device=gpu_info.torch_device)
 
     else:
         raise ValueError(f"Unknown backend: {name!r}")
@@ -372,6 +384,9 @@ def _parse_args() -> argparse.Namespace:
                         help="GPU execution provider (default: auto)")
     parser.add_argument("--max-concurrent", dest="max_concurrent", type=int, default=2,
                         help="Max concurrent synthesis (Chatterbox backends only; default: 2)")
+    parser.add_argument("--qwen-size", dest="qwen_size", default="large",
+                        choices=["large", "small"],
+                        help="Qwen model size: large=1.7B, small=0.6B (default: large)")
     parser.add_argument("--log-level", dest="log_level", default="info",
                         choices=["debug", "info", "warning", "error"])
     return parser.parse_args()

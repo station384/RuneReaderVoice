@@ -58,15 +58,16 @@ class BlendEntry(BaseModel):
 
 
 class VoiceSpec(BaseModel):
-    type:      str                    # "base" | "reference" | "blend"
-    voice_id:  Optional[str] = None   # for type="base"
-    sample_id: Optional[str] = None   # for type="reference"
-    blend:     list[BlendEntry] = []  # for type="blend"
+    type:             str                    # "base" | "reference" | "blend" | "description"
+    voice_id:         Optional[str] = None   # for type="base"
+    sample_id:        Optional[str] = None   # for type="reference"
+    blend:            list[BlendEntry] = []  # for type="blend"
+    voice_description: Optional[str] = None  # for type="description" (qwen_design)
 
     @field_validator("type")
     @classmethod
     def validate_type(cls, v: str) -> str:
-        valid = {"base", "reference", "blend"}
+        valid = {"base", "reference", "blend", "description"}
         if v not in valid:
             raise ValueError(f"voice.type must be one of {sorted(valid)}, got: {v!r}")
         return v
@@ -86,6 +87,8 @@ class SynthesizeRequest(BaseModel):
     cross_fade_duration: float | None = Field(default=None, ge=0.0, le=1.0)
     sway_sampling_coef:  float | None = Field(default=None, ge=-1.0, le=1.0)
     voice_context:       str   | None = None   # slot identity (e.g. "NightElf/Female") for cache discrimination
+    # Qwen-specific
+    voice_instruct:      str   | None = None   # qwen_custom: style instruction e.g. "speak angrily"
 
 
 # ── Endpoint ──────────────────────────────────────────────────────────────────
@@ -148,12 +151,23 @@ async def synthesize(body: SynthesizeRequest, request: Request) -> Response:
         voice_identity = body.voice.voice_id or ""
     elif body.voice.type == "reference":
         voice_identity = sample_file_hash
+    elif body.voice.type == "description":
+        # Voice identity is the description text itself — different descriptions = different cache entries
+        import hashlib
+        voice_identity = hashlib.sha256(
+            (body.voice.voice_description or "").encode("utf-8")
+        ).hexdigest()[:16]
     else:  # blend
         voice_identity = blend_voice_identity(
             [{"voice_id": e.voice_id, "weight": e.weight} for e in body.voice.blend]
         )
 
     # 5. Compute cache key
+    # voice_instruct affects output — include in cache key via voice_context
+    effective_voice_context = body.voice_context or ""
+    if body.voice_instruct:
+        effective_voice_context = f"{effective_voice_context}|instruct:{body.voice_instruct}"
+
     cache_key = compute_cache_key(
         text=body.text,
         provider_id=body.provider_id,
@@ -166,7 +180,7 @@ async def synthesize(body: SynthesizeRequest, request: Request) -> Response:
         nfe_step=body.nfe_step,
         cross_fade_duration=body.cross_fade_duration,
         sway_sampling_coef=body.sway_sampling_coef,
-        voice_context=body.voice_context,
+        voice_context=effective_voice_context,
     )
 
     # 6. Cache hit check (no lock needed for reads)
@@ -220,6 +234,8 @@ async def synthesize(body: SynthesizeRequest, request: Request) -> Response:
             nfe_step=body.nfe_step,
             cross_fade_duration=body.cross_fade_duration,
             sway_sampling_coef=body.sway_sampling_coef,
+            voice_instruct=body.voice_instruct,
+            voice_description=body.voice.voice_description,
         )
 
         try:
@@ -274,6 +290,16 @@ def _validate_voice_type(voice: VoiceSpec, backend) -> None:
         raise HTTPException(
             status_code=400,
             detail=f"Provider '{backend.provider_id}' does not support voice matching.",
+        )
+    if voice.type == "description" and not backend.supports_voice_design:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Provider '{backend.provider_id}' does not support voice design.",
+        )
+    if voice.type == "description" and not voice.voice_description:
+        raise HTTPException(
+            status_code=400,
+            detail="voice.voice_description is required for type='description'.",
         )
     if voice.type == "blend" and not backend.supports_voice_blending:
         raise HTTPException(

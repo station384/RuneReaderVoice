@@ -68,6 +68,10 @@ class SynthesisRequest:
     nfe_step:            Optional[int]   = None   # F5-TTS: ODE solver steps (default 64 vocos, 32 bigvgan)
     cross_fade_duration: Optional[float] = None   # F5-TTS: internal chunk stitch duration (default 0.15)
     sway_sampling_coef:  Optional[float] = None   # F5-TTS: ODE time step distribution (-1.0=sway optimal, 0=uniform)
+    # Qwen-specific controls
+    voice_instruct:    Optional[str] = None  # qwen_custom: natural language style instruction
+    voice_description: Optional[str] = None  # qwen_design: natural language voice persona description
+
     # Progress callback — called by backend as each chunk completes.
     # Signature: callback(chunk: int, total: int) -> None
     # None = no progress reporting (v1 endpoint)
@@ -121,6 +125,16 @@ class AbstractTtsBackend(ABC):
     def supports_inline_pronunciation(self) -> bool:
         """True if the backend supports Kokoro/Misaki IPA phoneme markup."""
         ...
+
+    @property
+    def supports_voice_instruct(self) -> bool:
+        """True if the backend supports natural language style instructions (qwen_custom)."""
+        return False
+
+    @property
+    def supports_voice_design(self) -> bool:
+        """True if the backend supports text-description-based voice creation (qwen_design)."""
+        return False
 
     @property
     @abstractmethod
@@ -184,6 +198,8 @@ class AbstractTtsBackend(ABC):
             "supports_voice_matching":    self.supports_voice_matching,
             "supports_voice_blending":    self.supports_voice_blending,
             "supports_inline_pronunciation": self.supports_inline_pronunciation,
+            "supports_voice_instruct":    self.supports_voice_instruct,
+            "supports_voice_design":      self.supports_voice_design,
             "languages":                  self.languages,
         }
         controls = self.extra_controls()

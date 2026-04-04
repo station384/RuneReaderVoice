@@ -58,7 +58,7 @@ def _env_set(key: str, default: str) -> FrozenSet[str]:
 
 # ── Valid values ──────────────────────────────────────────────────────────────
 
-VALID_BACKENDS: FrozenSet[str] = frozenset({"kokoro", "f5tts", "chatterbox", "chatterbox_full", "chatterbox_multilingual", "qwen"})
+VALID_BACKENDS: FrozenSet[str] = frozenset({"kokoro", "f5tts", "chatterbox", "chatterbox_full", "chatterbox_multilingual", "qwen_natural", "qwen_custom", "qwen_design"})
 VALID_GPU_MODES: FrozenSet[str] = frozenset({"auto", "cuda", "rocm", "cpu"})
 VALID_LOG_LEVELS: FrozenSet[str] = frozenset({"debug", "info", "warning", "error"})
 
@@ -172,6 +172,24 @@ class Settings:
                 _wv_path = _wv_val.strip()
                 if _wv_path:
                     self.worker_venvs[_wv_backend] = Path(_wv_path)
+
+        # ── Qwen model configuration ──────────────────────────────────────────
+        # Size of the model to use for qwen_natural and qwen_custom backends.
+        # "large" = 1.7B checkpoint, "small" = 0.6B checkpoint.
+        # qwen_design always uses the large (1.7B) checkpoint.
+        qwen_natural_size = _env_str("RRV_QWEN_NATURAL_SIZE", "large").lower()
+        if qwen_natural_size not in ("large", "small"):
+            raise ValueError("RRV_QWEN_NATURAL_SIZE must be 'large' or 'small'")
+        self.qwen_natural_size: str = qwen_natural_size
+
+        qwen_custom_size = _env_str("RRV_QWEN_CUSTOM_SIZE", "large").lower()
+        if qwen_custom_size not in ("large", "small"):
+            raise ValueError("RRV_QWEN_CUSTOM_SIZE must be 'large' or 'small'")
+        self.qwen_custom_size: str = qwen_custom_size
+
+        # Root directory for all Qwen model files
+        self.qwen_models_dir: Path = Path(_env_str("RRV_QWEN_MODELS_DIR",
+                                                    "../data/models/qwen"))
 
     def override(self, **kwargs) -> None:
         """

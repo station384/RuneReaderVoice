@@ -210,10 +210,19 @@ async def synthesize_v2(body: SynthesizeRequest, request: Request) -> dict:
         voice_identity = body.voice.voice_id or ""
     elif body.voice.type == "reference":
         voice_identity = sample_file_hash
+    elif body.voice.type == "description":
+        import hashlib
+        voice_identity = hashlib.sha256(
+            (body.voice.voice_description or "").encode("utf-8")
+        ).hexdigest()[:16]
     else:
         voice_identity = blend_voice_identity(
             [{"voice_id": e.voice_id, "weight": e.weight} for e in body.voice.blend]
         )
+
+    effective_voice_context = body.voice_context or ""
+    if body.voice_instruct:
+        effective_voice_context = f"{effective_voice_context}|instruct:{body.voice_instruct}"
 
     cache_key = compute_cache_key(
         text=body.text,
@@ -227,7 +236,7 @@ async def synthesize_v2(body: SynthesizeRequest, request: Request) -> dict:
         nfe_step=body.nfe_step,
         cross_fade_duration=body.cross_fade_duration,
         sway_sampling_coef=body.sway_sampling_coef,
-        voice_context=body.voice_context,
+        voice_context=effective_voice_context,
     )
 
     # 4. Check cache — if hit, job completes immediately
@@ -279,6 +288,8 @@ async def synthesize_v2(body: SynthesizeRequest, request: Request) -> dict:
         nfe_step=body.nfe_step,
         cross_fade_duration=body.cross_fade_duration,
         sway_sampling_coef=body.sway_sampling_coef,
+        voice_instruct=body.voice_instruct,
+        voice_description=body.voice.voice_description,
     )
 
     # 6. Start background synthesis task

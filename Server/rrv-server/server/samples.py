@@ -326,15 +326,20 @@ def _sample_search_paths(samples_dir: Path, sample_id: str):
     Yield candidate audio file paths for a sample_id, checking the
     subdirectory layout first then the flat layout for compatibility.
 
-    Master:  samples_dir/<sample_id>/<sample_id>.<ext>
-    Variant: samples_dir/<base_stem>/<sample_id>.<ext>  (variants live in base subdir)
-    Flat:    samples_dir/<sample_id>.<ext>               (legacy)
+    Master (subdir):  samples_dir/<base>/<base>-master.<ext>
+    Plain (subdir):   samples_dir/<base>/<sample_id>.<ext>
+    Flat master:      samples_dir/<base>-master.<ext>
+    Flat plain:       samples_dir/<sample_id>.<ext>  (legacy)
     """
     base = _base_stem(sample_id)
-    # Base subdirectory (covers both master and variant files)
+    # Subdirectory layout — master file first, then plain name
+    for ext in (".wav", ".mp3", ".flac", ".ogg"):
+        yield samples_dir / base / f"{base}-master{ext}"
     for ext in (".wav", ".mp3", ".flac", ".ogg"):
         yield samples_dir / base / f"{sample_id}{ext}"
-    # Flat fallback
+    # Flat layout — master file first, then plain name
+    for ext in (".wav", ".mp3", ".flac", ".ogg"):
+        yield samples_dir / f"{base}-master{ext}"
     for ext in (".wav", ".mp3", ".flac", ".ogg"):
         yield samples_dir / f"{sample_id}{ext}"
 

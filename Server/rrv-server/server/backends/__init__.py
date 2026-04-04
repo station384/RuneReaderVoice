@@ -117,6 +117,12 @@ def _create_backend(name: str, models_dir, gpu: GpuInfo, settings=None) -> Abstr
         log_level = getattr(settings, "log_level", "info")
         log.info("Backend '%s' configured as worker subprocess (venv: %s)", name, worker_venvs[name])
         samples_dir = getattr(settings, "samples_dir", models_dir.parent / "samples")
+        # Qwen backends need to know which model size to load
+        qwen_size = "large"
+        if name == "qwen_natural":
+            qwen_size = getattr(settings, "qwen_natural_size", "large")
+        elif name == "qwen_custom":
+            qwen_size = getattr(settings, "qwen_custom_size", "large")
         return WorkerBackend(
             backend_name=name,
             venv_path=worker_venvs[name],
@@ -125,6 +131,7 @@ def _create_backend(name: str, models_dir, gpu: GpuInfo, settings=None) -> Abstr
             gpu=getattr(settings, "gpu", "auto"),
             max_concurrent=chatterbox_max_concurrent,
             log_level=log_level,
+            qwen_size=qwen_size,
         )
 
     chatterbox_max_concurrent = getattr(settings, "chatterbox_max_concurrent", 2)
@@ -169,9 +176,27 @@ def _create_backend(name: str, models_dir, gpu: GpuInfo, settings=None) -> Abstr
             max_concurrent=1,
         )
 
-    elif name == "qwen":
-        from .qwen_backend import QwenBackend
-        return QwenBackend(
+    elif name == "qwen_natural":
+        from .qwen_backend import QwenNaturalBackend
+        qwen_size = getattr(settings, "qwen_natural_size", "large")
+        return QwenNaturalBackend(
+            models_dir=models_dir,
+            torch_device=gpu.torch_device,
+            size=qwen_size,
+        )
+
+    elif name == "qwen_custom":
+        from .qwen_backend import QwenCustomBackend
+        qwen_size = getattr(settings, "qwen_custom_size", "large")
+        return QwenCustomBackend(
+            models_dir=models_dir,
+            torch_device=gpu.torch_device,
+            size=qwen_size,
+        )
+
+    elif name == "qwen_design":
+        from .qwen_backend import QwenDesignBackend
+        return QwenDesignBackend(
             models_dir=models_dir,
             torch_device=gpu.torch_device,
         )

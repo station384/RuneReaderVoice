@@ -72,7 +72,9 @@ class ChatterboxFullBackend(AbstractTtsBackend):
         self._model          = None
         self._model_version  = ""
         self._MAX_CONCURRENT = max_concurrent
-        self._voice_cond     = asyncio.Condition()
+        # asyncio.Condition must be created inside a running event loop.
+        # Initialized lazily in load() which runs inside asyncio.run().
+        self._voice_cond: asyncio.Condition | None = None
         self._active_voice_key: str | None = None
         self._active_count   = 0
 
@@ -90,6 +92,8 @@ class ChatterboxFullBackend(AbstractTtsBackend):
         return f"{sample_key}|{lang_key}"
 
     async def _acquire_voice_slot(self, voice_key: str) -> None:
+        if self._voice_cond is None:
+            self._voice_cond = asyncio.Condition()
         async with self._voice_cond:
             while True:
                 if self._active_voice_key is None:
@@ -164,6 +168,9 @@ class ChatterboxFullBackend(AbstractTtsBackend):
     # ── Load ──────────────────────────────────────────────────────────────────
 
     async def load(self) -> None:
+        # Create asyncio primitives here — inside the running event loop
+        if self._voice_cond is None:
+            self._voice_cond = asyncio.Condition()
         loop = asyncio.get_event_loop()
         await loop.run_in_executor(None, self._load_sync)
         log.info(
