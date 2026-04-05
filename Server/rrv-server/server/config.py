@@ -58,7 +58,7 @@ def _env_set(key: str, default: str) -> FrozenSet[str]:
 
 # ── Valid values ──────────────────────────────────────────────────────────────
 
-VALID_BACKENDS: FrozenSet[str] = frozenset({"kokoro", "f5tts", "chatterbox", "chatterbox_full", "chatterbox_multilingual", "qwen_natural", "qwen_custom", "qwen_design", "lux", "cosyvoice"})
+VALID_BACKENDS: FrozenSet[str] = frozenset({"kokoro", "f5tts", "chatterbox", "chatterbox_full", "chatterbox_multilingual", "qwen_natural", "qwen_custom", "qwen_design", "lux", "cosyvoice", "cosyvoice_vllm"})
 VALID_GPU_MODES: FrozenSet[str] = frozenset({"auto", "cuda", "rocm", "cpu"})
 VALID_LOG_LEVELS: FrozenSet[str] = frozenset({"debug", "info", "warning", "error"})
 
@@ -193,6 +193,9 @@ class Settings:
 
         # ── CosyVoice configuration ───────────────────────────────────────────
         self.cosyvoice_src_dir: str = _env_str("RRV_COSYVOICE_SRC_DIR", "")
+        self.cosyvoice_vllm_max_concurrent: int = _env_int("RRV_COSYVOICE_VLLM_MAX_CONCURRENT", 6)
+        if self.cosyvoice_vllm_max_concurrent < 1:
+            self.cosyvoice_vllm_max_concurrent = 1
 
         # ── LuxTTS sample format ─────────────────────────────────────────────
         self.lux_sample_channels: int = _env_int("RRV_LUX_SAMPLE_CHANNELS", 1)
@@ -281,6 +284,7 @@ class Settings:
             f"f5_sample_channels={self.f5_sample_channels}, "
             f"chatterbox_sample_channels={self.chatterbox_sample_channels}, "
             f"chatterbox_max_concurrent={self.chatterbox_max_concurrent}, "
+            f"cosyvoice_vllm_max_concurrent={self.cosyvoice_vllm_max_concurrent}, "
             f"cache_max_mb={self.cache_max_mb}, "
             f"f5_vocoder={self.f5_vocoder}, "
             f"auth_enabled={self.auth_enabled}, "

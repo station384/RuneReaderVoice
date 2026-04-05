@@ -234,7 +234,7 @@ def _opt_int(d: dict, key: str):
 
 async def _main(args: argparse.Namespace) -> None:
     # For CosyVoice backend: add cosyvoice-src and Matcha-TTS to sys.path
-    if args.backend == "cosyvoice":
+    if args.backend in ("cosyvoice", "cosyvoice_vllm"):
         import os as _os
         cosy_src = _os.environ.get("RRV_COSYVOICE_SRC_DIR", "")
         if cosy_src:
@@ -391,6 +391,12 @@ def _instantiate_backend(name: str, models_dir: Path, samples_dir: Path, gpu_inf
     elif name == "cosyvoice":
         from .backends.cosyvoice_backend import CosyVoiceBackend
         return CosyVoiceBackend(models_dir=models_dir, torch_device=gpu_info.torch_device)
+
+    elif name == "cosyvoice_vllm":
+        from .backends.cosyvoice_vllm_backend import CosyVoiceVllmBackend
+        import os as _os
+        _max = int(_os.environ.get("RRV_COSYVOICE_VLLM_MAX_CONCURRENT", "6"))
+        return CosyVoiceVllmBackend(models_dir=models_dir, torch_device=gpu_info.torch_device, max_concurrent=_max)
 
     else:
         raise ValueError(f"Unknown backend: {name!r}")

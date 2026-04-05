@@ -2,64 +2,244 @@
   "Version": 1,
   "Rules": [
     {
-      "FindText": "-",
-      "ReplaceText": "... ",
-      "ReplaceWithCrLf": false,
-      "WholeWord": true,
-      "CaseSensitive": false,
-      "Enabled": true,
-      "Priority": 99,
-      "Notes": ""
-    },
-    {
-      "FindText": "- -",
-      "ReplaceText": ".. ",
-      "ReplaceWithCrLf": false,
-      "WholeWord": true,
-      "CaseSensitive": false,
-      "Enabled": true,
-      "Priority": 100,
-      "Notes": ""
-    },
-    {
-      "FindText": ", ",
-      "ReplaceText": ",,",
+      "FindText": "...",
+      "ReplaceText": ",",
       "ReplaceWithCrLf": false,
       "WholeWord": false,
-      "CaseSensitive": false,
+      "CaseSensitive": true,
       "Enabled": true,
-      "Priority": 50,
-      "Notes": ""
+      "Priority": 3,
+      "Notes": "Built-in default"
     },
     {
-      "FindText": "! ",
-      "ReplaceText": "! , ",
+      "FindText": " -- ",
+      "ReplaceText": " , ",
       "ReplaceWithCrLf": false,
       "WholeWord": false,
-      "CaseSensitive": false,
-      "Enabled": true,
-      "Priority": 50,
-      "Notes": ""
+      "CaseSensitive": true,
+      "Enabled": false,
+      "Priority": 3,
+      "Notes": "Built-in default"
     },
     {
-      "FindText": ": ",
-      "ReplaceText": "., ",
-      "ReplaceWithCrLf": true,
+      "FindText": "\u2014",
+      "ReplaceText": ", ",
+      "ReplaceWithCrLf": false,
       "WholeWord": false,
-      "CaseSensitive": false,
+      "CaseSensitive": true,
+      "Enabled": false,
+      "Priority": 2,
+      "Notes": "Built-in default"
+    },
+    {
+      "FindText": "\u2013",
+      "ReplaceText": ", ",
+      "ReplaceWithCrLf": false,
+      "WholeWord": false,
+      "CaseSensitive": true,
+      "Enabled": false,
+      "Priority": 2,
+      "Notes": "Built-in default"
+    },
+    {
+      "FindText": ";",
+      "ReplaceText": ". ",
+      "ReplaceWithCrLf": false,
+      "WholeWord": false,
+      "CaseSensitive": true,
+      "Enabled": false,
+      "Priority": 1,
+      "Notes": "Built-in default"
+    },
+    {
+      "FindText": ",",
+      "ReplaceText": ", ",
+      "ReplaceWithCrLf": false,
+      "WholeWord": false,
+      "CaseSensitive": true,
       "Enabled": true,
-      "Priority": 49,
-      "Notes": ""
+      "Priority": 1,
+      "Notes": "Built-in default"
+    },
+    {
+      "FindText": "!",
+      "ReplaceText": "! ",
+      "ReplaceWithCrLf": false,
+      "WholeWord": false,
+      "CaseSensitive": true,
+      "Enabled": true,
+      "Priority": 1,
+      "Notes": "Built-in default"
     },
     {
       "FindText": "?",
-      "ReplaceText": "?,",
+      "ReplaceText": "? ",
       "ReplaceWithCrLf": false,
       "WholeWord": false,
-      "CaseSensitive": false,
+      "CaseSensitive": true,
       "Enabled": true,
-      "Priority": 35,
-      "Notes": ""
+      "Priority": 1,
+      "Notes": "Built-in default"
+    },
+    {
+      "FindText": "\u003C",
+      "ReplaceText": " \u003C ",
+      "ReplaceWithCrLf": false,
+      "WholeWord": false,
+      "CaseSensitive": true,
+      "Enabled": true,
+      "Priority": 4,
+      "Notes": "Built-in default"
+    },
+    {
+      "FindText": "\u003E",
+      "ReplaceText": " \u003E ",
+      "ReplaceWithCrLf": false,
+      "WholeWord": false,
+      "CaseSensitive": true,
+      "Enabled": true,
+      "Priority": 4,
+      "Notes": "Built-in default"
+    },
+    {
+      "FindText": "fel",
+      "ReplaceText": "fell",
+      "ReplaceWithCrLf": false,
+      "WholeWord": true,
+      "CaseSensitive": true,
+      "Enabled": true,
+      "Priority": 100,
+      "Notes": "Built-in default"
+    },
+    {
+      "FindText": "10:",
+      "ReplaceText": "Ten : ",
+      "ReplaceWithCrLf": false,
+      "WholeWord": false,
+      "CaseSensitive": true,
+      "Enabled": true,
+      "Priority": 10,
+      "Notes": "Built-in default"
+    },
+    {
+      "FindText": "12:",
+      "ReplaceText": "Twelve : ",
+      "ReplaceWithCrLf": false,
+      "WholeWord": false,
+      "CaseSensitive": true,
+      "Enabled": true,
+      "Priority": 10,
+      "Notes": "Built-in default"
+    },
+    {
+      "FindText": "11:",
+      "ReplaceText": "Eleven : ",
+      "ReplaceWithCrLf": false,
+      "WholeWord": false,
+      "CaseSensitive": true,
+      "Enabled": true,
+      "Priority": 10,
+      "Notes": "Built-in default"
+    },
+    {
+      "FindText": " 04:",
+      "ReplaceText": " Four : ",
+      "ReplaceWithCrLf": false,
+      "WholeWord": false,
+      "CaseSensitive": true,
+      "Enabled": true,
+      "Priority": 10,
+      "Notes": "Built-in default"
+    },
+    {
+      "FindText": " 05:",
+      "ReplaceText": " Five : ",
+      "ReplaceWithCrLf": false,
+      "WholeWord": false,
+      "CaseSensitive": true,
+      "Enabled": true,
+      "Priority": 10,
+      "Notes": "Built-in default"
+    },
+    {
+      "FindText": " 06:",
+      "ReplaceText": " Six : ",
+      "ReplaceWithCrLf": false,
+      "WholeWord": false,
+      "CaseSensitive": true,
+      "Enabled": true,
+      "Priority": 10,
+      "Notes": "Built-in default"
+    },
+    {
+      "FindText": " 07:",
+      "ReplaceText": " Seven : ",
+      "ReplaceWithCrLf": false,
+      "WholeWord": false,
+      "CaseSensitive": true,
+      "Enabled": true,
+      "Priority": 10,
+      "Notes": "Built-in default"
+    },
+    {
+      "FindText": " 08:",
+      "ReplaceText": " Eight : ",
+      "ReplaceWithCrLf": false,
+      "WholeWord": false,
+      "CaseSensitive": true,
+      "Enabled": true,
+      "Priority": 10,
+      "Notes": "Built-in default"
+    },
+    {
+      "FindText": " 09:",
+      "ReplaceText": " Nine : ",
+      "ReplaceWithCrLf": false,
+      "WholeWord": false,
+      "CaseSensitive": true,
+      "Enabled": true,
+      "Priority": 10,
+      "Notes": "Built-in default"
+    },
+    {
+      "FindText": " 03:",
+      "ReplaceText": " Three : ",
+      "ReplaceWithCrLf": false,
+      "WholeWord": false,
+      "CaseSensitive": true,
+      "Enabled": true,
+      "Priority": 10,
+      "Notes": "Built-in default"
+    },
+    {
+      "FindText": " 02:",
+      "ReplaceText": " Two : ",
+      "ReplaceWithCrLf": false,
+      "WholeWord": false,
+      "CaseSensitive": true,
+      "Enabled": true,
+      "Priority": 10,
+      "Notes": "Built-in default"
+    },
+    {
+      "FindText": " 01:",
+      "ReplaceText": " One : ",
+      "ReplaceWithCrLf": false,
+      "WholeWord": false,
+      "CaseSensitive": true,
+      "Enabled": true,
+      "Priority": 10,
+      "Notes": "Built-in default"
+    },
+    {
+      "FindText": " 00:",
+      "ReplaceText": " Zero : ",
+      "ReplaceWithCrLf": false,
+      "WholeWord": false,
+      "CaseSensitive": true,
+      "Enabled": true,
+      "Priority": 10,
+      "Notes": "Built-in default"
     }
   ]
 }

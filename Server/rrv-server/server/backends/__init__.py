@@ -124,13 +124,18 @@ def _create_backend(name: str, models_dir, gpu: GpuInfo, settings=None) -> Abstr
         elif name == "qwen_custom":
             qwen_size = getattr(settings, "qwen_custom_size", "large")
         lux_num_steps = getattr(settings, "lux_num_steps", 10)
+        # Use backend-specific max_concurrent where defined
+        if name == "cosyvoice_vllm":
+            effective_max_concurrent = getattr(settings, "cosyvoice_vllm_max_concurrent", 6)
+        else:
+            effective_max_concurrent = chatterbox_max_concurrent
         return WorkerBackend(
             backend_name=name,
             venv_path=worker_venvs[name],
             models_dir=models_dir,
             samples_dir=samples_dir,
             gpu=getattr(settings, "gpu", "auto"),
-            max_concurrent=chatterbox_max_concurrent,
+            max_concurrent=effective_max_concurrent,
             log_level=log_level,
             qwen_size=qwen_size,
             lux_num_steps=lux_num_steps,
@@ -201,6 +206,15 @@ def _create_backend(name: str, models_dir, gpu: GpuInfo, settings=None) -> Abstr
         return QwenDesignBackend(
             models_dir=models_dir,
             torch_device=gpu.torch_device,
+        )
+
+    elif name == "cosyvoice_vllm":
+        from .cosyvoice_vllm_backend import CosyVoiceVllmBackend
+        cosyvoice_vllm_max = getattr(settings, "cosyvoice_vllm_max_concurrent", 6)
+        return CosyVoiceVllmBackend(
+            models_dir=models_dir,
+            torch_device=gpu.torch_device,
+            max_concurrent=cosyvoice_vllm_max,
         )
 
     else:

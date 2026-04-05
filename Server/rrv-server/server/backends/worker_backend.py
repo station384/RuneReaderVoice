@@ -247,6 +247,24 @@ class WorkerBackend(AbstractTtsBackend):
             self._backend_name, launcher,
         )
 
+        # Build subprocess environment — inherit host env, then inject any
+        # backend-specific overrides that must be set before the dynamic linker
+        # loads shared libraries (e.g. LD_LIBRARY_PATH for vLLM/ONNX CUDA EP).
+        spawn_env = os.environ.copy()
+        if self._backend_name == "cosyvoice_vllm":
+            venv_lib = self._venv_path / "lib" / "python3.11" / "site-packages"
+            nvidia_dirs = [
+                str(venv_lib / "nvidia" / "cudnn"        / "lib"),
+                str(venv_lib / "nvidia" / "cublas"       / "lib"),
+                str(venv_lib / "nvidia" / "cuda_runtime" / "lib"),
+                str(venv_lib / "nvidia" / "cuda_nvrtc"   / "lib"),
+            ]
+            existing = spawn_env.get("LD_LIBRARY_PATH", "")
+            spawn_env["LD_LIBRARY_PATH"] = ":".join(
+                nvidia_dirs + ([existing] if existing else [])
+            )
+            log.info("cosyvoice_vllm: injecting LD_LIBRARY_PATH for NVIDIA libs")
+
         # Spawn the worker.
         # stdout is piped so we can read the READY line.
         # stderr is inherited so worker log output appears in the host log stream.
@@ -254,6 +272,7 @@ class WorkerBackend(AbstractTtsBackend):
             cmd,
             stdout=subprocess.PIPE,
             stderr=None,
+            env=spawn_env,
         )
 
 

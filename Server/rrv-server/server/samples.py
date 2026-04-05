@@ -389,6 +389,8 @@ def _provider_suffix(provider_id: str) -> Optional[str]:
         return "lux"
     elif pid == "cosyvoice":
         return "cosyvoice"
+    elif pid == "cosyvoice_vllm":
+        return "cosyvoice"
     return None
 
 
