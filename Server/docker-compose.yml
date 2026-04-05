@@ -1,0 +1,160 @@
+# RuneReader Voice Server — docker-compose.yml
+#
+# Profiles:
+#   default  — Kokoro CPU only (no GPU required)
+#   cuda     — Kokoro + XTTS v2 + F5-TTS on NVIDIA CUDA
+#   rocm     — Kokoro + XTTS v2 + F5-TTS on AMD ROCm
+#
+# Usage:
+#   CPU only (default):
+#     docker compose up
+#
+#   CUDA:
+#     docker compose --profile cuda up
+#
+#   ROCm:
+#     docker compose --profile rocm up
+#
+# First run:
+#   Copy .env.example to .env and edit as needed.
+#   docker compose build
+#   docker compose up
+
+name: rrv-server
+
+# ── Shared volume definitions ─────────────────────────────────────────────────
+volumes:
+  rrv-cache:
+    driver: local
+  rrv-data:
+    driver: local
+
+# ── Services ──────────────────────────────────────────────────────────────────
+services:
+
+  # ── CPU / Kokoro only (default profile) ────────────────────────────────────
+  rrv-server:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        BACKENDS: kokoro
+        GPU: none
+    image: rrv-server:cpu
+    container_name: rrv-server
+    restart: unless-stopped
+    ports:
+      - "${RRV_PORT:-8765}:8765"
+    environment:
+      RRV_HOST:          "0.0.0.0"
+      RRV_PORT:          "8765"
+      RRV_BACKENDS:      "${RRV_BACKENDS:-kokoro}"
+      RRV_GPU:           "${RRV_GPU:-auto}"
+      RRV_CACHE_MAX_MB:  "${RRV_CACHE_MAX_MB:-2048}"
+      RRV_API_KEY:       "${RRV_API_KEY:-}"
+      RRV_LOG_LEVEL:     "${RRV_LOG_LEVEL:-info}"
+    volumes:
+      # Models: mount your local models directory (read-only)
+      - "${RRV_MODELS_DIR:-./models}:/app/models:ro"
+      # Samples: mount your local samples directory (read-only)
+      - "${RRV_SAMPLES_DIR:-./samples}:/app/samples:ro"
+      # Cache: named volume so OGG files persist across container restarts
+      - rrv-cache:/app/cache
+      # Data: named volume so the SQLite manifest persists
+      - rrv-data:/app/data
+    healthcheck:
+      test: ["CMD", "python", "-c",
+             "import urllib.request; urllib.request.urlopen('http://localhost:8765/api/v1/health')"]
+      interval: 30s
+      timeout: 5s
+      start_period: 60s
+      retries: 3
+
+  # ── CUDA (NVIDIA GPU) ───────────────────────────────────────────────────────
+  rrv-server-cuda:
+    profiles: [cuda]
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        # PyTorch CUDA must be installed separately — the base cuda image
+        # provides the CUDA runtime, pip installs torch with CUDA support.
+        # Use nvidia/cuda base image for CUDA runtime availability.
+        BASE_IMAGE: "nvidia/cuda:12.4.1-cudnn-runtime-ubuntu22.04"
+        BACKENDS: "kokoro,xtts,f5tts"
+        GPU: "gpu-cuda"
+    image: rrv-server:cuda
+    container_name: rrv-server-cuda
+    restart: unless-stopped
+    ports:
+      - "${RRV_PORT:-8765}:8765"
+    environment:
+      RRV_HOST:         "0.0.0.0"
+      RRV_PORT:         "8765"
+      RRV_BACKENDS:     "${RRV_BACKENDS:-kokoro,xtts,f5tts}"
+      RRV_GPU:          "cuda"
+      RRV_CACHE_MAX_MB: "${RRV_CACHE_MAX_MB:-2048}"
+      RRV_API_KEY:      "${RRV_API_KEY:-}"
+      RRV_LOG_LEVEL:    "${RRV_LOG_LEVEL:-info}"
+      NVIDIA_VISIBLE_DEVICES: all
+      NVIDIA_DRIVER_CAPABILITIES: compute,utility
+    volumes:
+      - "${RRV_MODELS_DIR:-./models}:/app/models:ro"
+      - "${RRV_SAMPLES_DIR:-./samples}:/app/samples:ro"
+      - rrv-cache:/app/cache
+      - rrv-data:/app/data
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    healthcheck:
+      test: ["CMD", "python", "-c",
+             "import urllib.request; urllib.request.urlopen('http://localhost:8765/api/v1/health')"]
+      interval: 30s
+      timeout: 5s
+      start_period: 120s
+      retries: 3
+
+  # ── ROCm (AMD GPU) ──────────────────────────────────────────────────────────
+  rrv-server-rocm:
+    profiles: [rocm]
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        BASE_IMAGE: "rocm/pytorch:rocm6.1_ubuntu22.04_py3.10_pytorch_2.1.2"
+        BACKENDS: "kokoro,xtts,f5tts"
+        GPU: "gpu-rocm"
+    image: rrv-server:rocm
+    container_name: rrv-server-rocm
+    restart: unless-stopped
+    ports:
+      - "${RRV_PORT:-8765}:8765"
+    environment:
+      RRV_HOST:         "0.0.0.0"
+      RRV_PORT:         "8765"
+      RRV_BACKENDS:     "${RRV_BACKENDS:-kokoro,xtts,f5tts}"
+      RRV_GPU:          "rocm"
+      RRV_CACHE_MAX_MB: "${RRV_CACHE_MAX_MB:-2048}"
+      RRV_API_KEY:      "${RRV_API_KEY:-}"
+      RRV_LOG_LEVEL:    "${RRV_LOG_LEVEL:-info}"
+    volumes:
+      - "${RRV_MODELS_DIR:-./models}:/app/models:ro"
+      - "${RRV_SAMPLES_DIR:-./samples}:/app/samples:ro"
+      - rrv-cache:/app/cache
+      - rrv-data:/app/data
+    devices:
+      - /dev/kfd
+      - /dev/dri
+    group_add:
+      - video
+    healthcheck:
+      test: ["CMD", "python", "-c",
+             "import urllib.request; urllib.request.urlopen('http://localhost:8765/api/v1/health')"]
+      interval: 30s
+      timeout: 5s
+      start_period: 120s
+      retries: 3
