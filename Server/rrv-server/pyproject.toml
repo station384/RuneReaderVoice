@@ -17,6 +17,7 @@ dependencies = [
     "aiosqlite>=0.20.0",
     "soundfile>=0.12.1",
     "numpy>=1.26.0",
+    "wetext>=1.0.0",       # English text normalization (optional, loads gracefully if missing)
 ]
 
 [project.optional-dependencies]

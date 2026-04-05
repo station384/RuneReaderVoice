@@ -123,6 +123,7 @@ def _create_backend(name: str, models_dir, gpu: GpuInfo, settings=None) -> Abstr
             qwen_size = getattr(settings, "qwen_natural_size", "large")
         elif name == "qwen_custom":
             qwen_size = getattr(settings, "qwen_custom_size", "large")
+        lux_num_steps = getattr(settings, "lux_num_steps", 10)
         return WorkerBackend(
             backend_name=name,
             venv_path=worker_venvs[name],
@@ -132,6 +133,7 @@ def _create_backend(name: str, models_dir, gpu: GpuInfo, settings=None) -> Abstr
             max_concurrent=chatterbox_max_concurrent,
             log_level=log_level,
             qwen_size=qwen_size,
+            lux_num_steps=lux_num_steps,
         )
 
     chatterbox_max_concurrent = getattr(settings, "chatterbox_max_concurrent", 2)

@@ -32,6 +32,15 @@
 
 from __future__ import annotations
 
+import os as _os
+import pathlib as _pathlib
+# Redirect HuggingFace hub downloads (wetext FSTs, model internals)
+# into the managed data directory instead of ~/.cache/huggingface/.
+# Must be set before any huggingface_hub import.
+_hf_cache = _pathlib.Path(__file__).parent.parent.parent / "data" / "models" / "hf-cache"
+_hf_cache.mkdir(parents=True, exist_ok=True)
+_os.environ.setdefault("HF_HUB_CACHE", str(_hf_cache))
+
 import argparse
 import asyncio
 import logging

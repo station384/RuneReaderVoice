@@ -121,6 +121,7 @@ class WorkerBackend(AbstractTtsBackend):
         max_concurrent: int = 2,
         log_level: str = "info",
         qwen_size: str = "large",
+        lux_num_steps: int = 10,
     ) -> None:
         self._backend_name = backend_name
         self._venv_path = Path(venv_path)
@@ -130,6 +131,7 @@ class WorkerBackend(AbstractTtsBackend):
         self._max_concurrent = max_concurrent
         self._log_level = log_level
         self._qwen_size = qwen_size
+        self._lux_num_steps = lux_num_steps
 
         # Set after load()
         self._process: Optional[subprocess.Popen] = None
@@ -236,6 +238,7 @@ class WorkerBackend(AbstractTtsBackend):
             "--gpu",         self._gpu,
             "--max-concurrent", str(self._max_concurrent),
             "--qwen-size",   self._qwen_size,
+            "--lux-num-steps", str(self._lux_num_steps),
             "--log-level",   self._log_level,
         ]
 
@@ -500,5 +503,13 @@ def _request_to_dict(request: SynthesisRequest) -> dict:
         d["voice_instruct"] = request.voice_instruct
     if request.voice_description is not None:
         d["voice_description"] = request.voice_description
+    if request.lux_num_steps is not None:
+        d["lux_num_steps"] = request.lux_num_steps
+    if request.lux_t_shift is not None:
+        d["lux_t_shift"] = request.lux_t_shift
+    if request.lux_return_smooth is not None:
+        d["lux_return_smooth"] = request.lux_return_smooth
+    if request.cosy_instruct is not None:
+        d["cosy_instruct"] = request.cosy_instruct
     # progress_callback is not serializable — skip it; host handles progress
     return d

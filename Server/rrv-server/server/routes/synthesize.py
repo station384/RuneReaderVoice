@@ -41,6 +41,7 @@ from fastapi.responses import Response
 from pydantic import BaseModel, Field, field_validator
 
 from ..backends.base import SynthesisRequest
+from ..text_normalize import normalize as normalize_text
 from ..cache import compute_cache_key, blend_voice_identity
 from ..utils import compute_file_hash
 from ..samples import (resolve_sample_path, resolve_sample,
@@ -89,6 +90,12 @@ class SynthesizeRequest(BaseModel):
     voice_context:       str   | None = None   # slot identity (e.g. "NightElf/Female") for cache discrimination
     # Qwen-specific
     voice_instruct:      str   | None = None   # qwen_custom: style instruction e.g. "speak angrily"
+    # LuxTTS controls
+    lux_num_steps:       int   | None = Field(default=None, ge=4, le=32)
+    lux_t_shift:         float | None = Field(default=None, ge=0.1, le=1.0)
+    lux_return_smooth:   bool  | None = None
+    # CosyVoice3 controls
+    cosy_instruct:       str   | None = None
 
 
 # ── Endpoint ──────────────────────────────────────────────────────────────────
@@ -162,14 +169,27 @@ async def synthesize(body: SynthesizeRequest, request: Request) -> Response:
             [{"voice_id": e.voice_id, "weight": e.weight} for e in body.voice.blend]
         )
 
+    # 4b. Normalize text for TTS (WoW-specific + wetext English TN)
+    normalized_text = normalize_text(body.text)
+    if normalized_text != body.text:
+        log.debug("text_normalize: %r -> %r", body.text[:80], normalized_text[:80])
+
     # 5. Compute cache key
     # voice_instruct affects output — include in cache key via voice_context
     effective_voice_context = body.voice_context or ""
     if body.voice_instruct:
         effective_voice_context = f"{effective_voice_context}|instruct:{body.voice_instruct}"
+    if body.lux_num_steps is not None:
+        effective_voice_context = f"{effective_voice_context}|lux_steps:{body.lux_num_steps}"
+    if body.lux_t_shift is not None:
+        effective_voice_context = f"{effective_voice_context}|lux_t:{body.lux_t_shift:.2f}"
+    if body.lux_return_smooth is not None:
+        effective_voice_context = f"{effective_voice_context}|lux_smooth:{int(body.lux_return_smooth)}"
+    if body.cosy_instruct:
+        effective_voice_context = f"{effective_voice_context}|cosy_instruct:{body.cosy_instruct}"
 
     cache_key = compute_cache_key(
-        text=body.text,
+        text=normalized_text,
         provider_id=body.provider_id,
         voice_identity=voice_identity,
         lang_code=body.lang_code,
@@ -218,7 +238,7 @@ async def synthesize(body: SynthesizeRequest, request: Request) -> Response:
         )
 
         synth_request = SynthesisRequest(
-            text=body.text,
+            text=normalized_text,
             lang_code=body.lang_code,
             speech_rate=body.speech_rate,
             voice_id=body.voice.voice_id,
@@ -235,6 +255,10 @@ async def synthesize(body: SynthesizeRequest, request: Request) -> Response:
             cross_fade_duration=body.cross_fade_duration,
             sway_sampling_coef=body.sway_sampling_coef,
             voice_instruct=body.voice_instruct,
+            lux_num_steps=body.lux_num_steps,
+            lux_t_shift=body.lux_t_shift,
+            lux_return_smooth=body.lux_return_smooth,
+            cosy_instruct=body.cosy_instruct,
             voice_description=body.voice.voice_description,
         )
 

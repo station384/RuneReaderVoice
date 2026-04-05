@@ -212,6 +212,10 @@ def _build_request(msg: dict):
         # progress_callback is never set cross-process — host handles progress
         voice_instruct=msg.get("voice_instruct"),
         voice_description=msg.get("voice_description"),
+        lux_num_steps=_opt_int(msg, "lux_num_steps"),
+        lux_t_shift=_opt_float(msg, "lux_t_shift"),
+        lux_return_smooth=msg.get("lux_return_smooth"),
+        cosy_instruct=msg.get("cosy_instruct"),
         progress_callback=None,
     )
 
@@ -229,6 +233,19 @@ def _opt_int(d: dict, key: str):
 # ── Main ──────────────────────────────────────────────────────────────────────
 
 async def _main(args: argparse.Namespace) -> None:
+    # For CosyVoice backend: add cosyvoice-src and Matcha-TTS to sys.path
+    if args.backend == "cosyvoice":
+        import os as _os
+        cosy_src = _os.environ.get("RRV_COSYVOICE_SRC_DIR", "")
+        if cosy_src:
+            matcha = _os.path.join(cosy_src, "third_party", "Matcha-TTS")
+            for _p in [cosy_src, matcha]:
+                if _p not in sys.path:
+                    sys.path.insert(0, _p)
+            log.info("CosyVoice: added to sys.path: %s, %s", cosy_src, matcha)
+        else:
+            log.warning("CosyVoice: RRV_COSYVOICE_SRC_DIR not set")
+
     # Configure logging — write to stdout so WorkerBackend can forward it
     logging.basicConfig(
         level=args.log_level.upper(),
@@ -366,6 +383,15 @@ def _instantiate_backend(name: str, models_dir: Path, samples_dir: Path, gpu_inf
         from .backends.qwen_backend import QwenDesignBackend
         return QwenDesignBackend(models_dir=models_dir, torch_device=gpu_info.torch_device)
 
+    elif name == "lux":
+        from .backends.lux_backend import LuxBackend
+        num_steps = getattr(args, "lux_num_steps", 10) or 10
+        return LuxBackend(models_dir=models_dir, torch_device=gpu_info.torch_device, num_steps=num_steps)
+
+    elif name == "cosyvoice":
+        from .backends.cosyvoice_backend import CosyVoiceBackend
+        return CosyVoiceBackend(models_dir=models_dir, torch_device=gpu_info.torch_device)
+
     else:
         raise ValueError(f"Unknown backend: {name!r}")
 
@@ -387,6 +413,8 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument("--qwen-size", dest="qwen_size", default="large",
                         choices=["large", "small"],
                         help="Qwen model size: large=1.7B, small=0.6B (default: large)")
+    parser.add_argument("--lux-num-steps", dest="lux_num_steps", type=int, default=10,
+                        help="LuxTTS ODE solver steps — higher = better quality (default: 10)")
     parser.add_argument("--log-level", dest="log_level", default="info",
                         choices=["debug", "info", "warning", "error"])
     return parser.parse_args()

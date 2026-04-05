@@ -58,7 +58,7 @@ def _env_set(key: str, default: str) -> FrozenSet[str]:
 
 # ── Valid values ──────────────────────────────────────────────────────────────
 
-VALID_BACKENDS: FrozenSet[str] = frozenset({"kokoro", "f5tts", "chatterbox", "chatterbox_full", "chatterbox_multilingual", "qwen_natural", "qwen_custom", "qwen_design"})
+VALID_BACKENDS: FrozenSet[str] = frozenset({"kokoro", "f5tts", "chatterbox", "chatterbox_full", "chatterbox_multilingual", "qwen_natural", "qwen_custom", "qwen_design", "lux", "cosyvoice"})
 VALID_GPU_MODES: FrozenSet[str] = frozenset({"auto", "cuda", "rocm", "cpu"})
 VALID_LOG_LEVELS: FrozenSet[str] = frozenset({"debug", "info", "warning", "error"})
 
@@ -190,6 +190,16 @@ class Settings:
         # Root directory for all Qwen model files
         self.qwen_models_dir: Path = Path(_env_str("RRV_QWEN_MODELS_DIR",
                                                     "../data/models/qwen"))
+
+        # ── CosyVoice configuration ───────────────────────────────────────────
+        self.cosyvoice_src_dir: str = _env_str("RRV_COSYVOICE_SRC_DIR", "")
+
+        # ── LuxTTS sample format ─────────────────────────────────────────────
+        self.lux_sample_channels: int = _env_int("RRV_LUX_SAMPLE_CHANNELS", 1)
+        self.lux_sample_rate: int = _env_int("RRV_LUX_SAMPLE_RATE", 48000)
+        # Number of ODE solver steps — higher = better quality, slightly slower.
+        # LuxTTS is fast enough that 10-20 steps are practical. Default: 10.
+        self.lux_num_steps: int = _env_int("RRV_LUX_NUM_STEPS", 10)
 
     def override(self, **kwargs) -> None:
         """

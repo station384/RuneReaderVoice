@@ -56,6 +56,7 @@ class SynthesizeRequest(_SynthesizeRequestBase):
     batch_id:    _Opt[str] = None   # client-generated UUID grouping related segments
     batch_total: _Opt[int] = None   # total segments in this batch (required if batch_id set)
 from ..backends.base import SynthesisRequest
+from ..text_normalize import normalize as normalize_text
 from ..cache import compute_cache_key, blend_voice_identity
 from ..utils import compute_file_hash
 from ..samples import (resolve_sample_path, resolve_sample, _base_stem,
@@ -223,9 +224,20 @@ async def synthesize_v2(body: SynthesizeRequest, request: Request) -> dict:
     effective_voice_context = body.voice_context or ""
     if body.voice_instruct:
         effective_voice_context = f"{effective_voice_context}|instruct:{body.voice_instruct}"
+    if body.lux_num_steps is not None:
+        effective_voice_context = f"{effective_voice_context}|lux_steps:{body.lux_num_steps}"
+    if body.lux_t_shift is not None:
+        effective_voice_context = f"{effective_voice_context}|lux_t:{body.lux_t_shift:.2f}"
+    if body.lux_return_smooth is not None:
+        effective_voice_context = f"{effective_voice_context}|lux_smooth:{int(body.lux_return_smooth)}"
+    if body.cosy_instruct:
+        effective_voice_context = f"{effective_voice_context}|cosy_instruct:{body.cosy_instruct}"
+
+    # Normalize text for TTS (WoW-specific + wetext English TN)
+    normalized_text = normalize_text(body.text)
 
     cache_key = compute_cache_key(
-        text=body.text,
+        text=normalized_text,
         provider_id=body.provider_id,
         voice_identity=voice_identity,
         lang_code=body.lang_code,
@@ -273,7 +285,7 @@ async def synthesize_v2(body: SynthesizeRequest, request: Request) -> dict:
 
     # 5. Build synthesis request
     synth_request = SynthesisRequest(
-        text=body.text,
+        text=normalized_text,
         lang_code=body.lang_code,
         speech_rate=body.speech_rate,
         voice_id=body.voice.voice_id,
@@ -290,6 +302,10 @@ async def synthesize_v2(body: SynthesizeRequest, request: Request) -> dict:
         sway_sampling_coef=body.sway_sampling_coef,
         voice_instruct=body.voice_instruct,
         voice_description=body.voice.voice_description,
+        lux_num_steps=body.lux_num_steps,
+        lux_t_shift=body.lux_t_shift,
+        lux_return_smooth=body.lux_return_smooth,
+        cosy_instruct=body.cosy_instruct,
     )
 
     # 6. Start background synthesis task

@@ -20,6 +20,13 @@ from pathlib import Path
 _server_root = Path(__file__).parent.parent / "rrv-server"
 sys.path.insert(0, str(_server_root))
 
+import os as _os
+# Redirect HuggingFace hub downloads into the managed data directory
+# instead of ~/.cache/huggingface/
+_hf_cache = Path(__file__).parent.parent / "data" / "models" / "hf-cache"
+_hf_cache.mkdir(parents=True, exist_ok=True)
+_os.environ.setdefault("HF_HUB_CACHE", str(_hf_cache))
+
 from server.worker import _parse_args, _main  # noqa: E402
 
 if __name__ == "__main__":

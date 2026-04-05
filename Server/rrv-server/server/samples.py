@@ -385,6 +385,10 @@ def _provider_suffix(provider_id: str) -> Optional[str]:
         return "f5"
     elif pid.startswith("chatterbox"):
         return "chatterbox"
+    elif pid == "lux":
+        return "lux"
+    elif pid == "cosyvoice":
+        return "cosyvoice"
     return None
 
 

@@ -5,64 +5,198 @@ In a container deployment, mount this directory as a read-only volume.
 The server NEVER downloads from HuggingFace at runtime — all files must be
 pre-placed by the admin before the server starts.
 
-── Kokoro ────────────────────────────────────────────────────────────────────
-Required files:
+All snapshot_download() commands below require huggingface_hub:
+  pip install huggingface_hub
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+── Kokoro (kokoro) ───────────────────────────────────────────────────────────
+Backend: rrv-kokoro | Size: ~320 MB | Speed: very fast (ONNX)
+
+Required files (place directly in data/models/):
   kokoro-v1.0.onnx        (~310 MB)
   voices-v1.0.bin         (~10 MB)
 
 Download from: https://github.com/thewh1teagle/kokoro-onnx/releases
 
-These files are shared with the RuneReader Voice C# desktop client.
-If both run on the same machine, point RRV_MODELS_DIR at the same directory.
+Note: These files are shared with the RuneReader Voice C# desktop client.
+If both run on the same machine, point RRV_MODELS_DIR at the shared directory.
 
-── F5-TTS ────────────────────────────────────────────────────────────────────
-Place files under: models/f5tts/F5TTS_v1_Base/
-  model_1250000.safetensors   (~1.2 GB)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-Download from: https://huggingface.co/SWivid/F5-TTS
-  File path in repo: ckpts/F5TTS_v1_Base/model_1250000.safetensors
+── F5-TTS (f5tts) ────────────────────────────────────────────────────────────
+Backend: rrv-f5 | Size: ~1.2 GB | Speed: realtime on GPU
 
-── Chatterbox Turbo ──────────────────────────────────────────────────────────
-Place files under: models/chatterbox/
-  (model files downloaded by from_pretrained() on first use)
+Place files under: data/models/f5tts/F5TTS_v1_Base/
 
-For air-gapped deployments, pre-download using:
   python3 -c "
-  from chatterbox.tts_turbo import ChatterboxTurboTTS
-  model = ChatterboxTurboTTS.from_pretrained(device='cpu')
-  model.save_pretrained('data/models/chatterbox/')
+  from huggingface_hub import hf_hub_download
+  hf_hub_download(
+      repo_id='SWivid/F5-TTS',
+      filename='ckpts/F5TTS_v1_Base/model_1250000.safetensors',
+      local_dir='data/models/f5tts'
+  )
   "
-  (run this once on an internet-connected machine, then copy the directory)
 
-Download from: https://huggingface.co/ResembleAI/chatterbox-turbo
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-Note: Chatterbox audio output includes an imperceptible PerTh watermark
-embedded by Resemble AI. This is a feature of the MIT-licensed model and
-cannot be disabled. The watermark does not affect audio quality.
+── Chatterbox Turbo (chatterbox) ─────────────────────────────────────────────
+Backend: rrv-chatterbox | Size: ~1.5 GB | Speed: ~3x realtime on GPU
 
-── Whisper (Auto-transcription for reference samples) ───────────────────────
-Used to automatically generate .ref.txt transcript sidecars for new reference
-audio samples. Only loaded when a voice-matching backend (f5tts, chatterbox)
-is active. Loaded lazily on demand and unloaded after transcription.
+Place files under: data/models/chatterbox/
 
-Two variants supported:
-  data/models/whisper/v3-turbo/    (~1.6 GB, recommended — best accuracy)
-  data/models/whisper/tiny/        (~150 MB, fastest)
+  python3 -c "
+  from huggingface_hub import snapshot_download
+  snapshot_download('ResembleAI/chatterbox',
+      local_dir='data/models/chatterbox')
+  "
 
-Set RRV_WHISPER_MODEL_DIR in .env to select which variant to use.
+Note: Audio includes an imperceptible PerTh watermark by Resemble AI.
 
-Download v3-turbo from: https://huggingface.co/openai/whisper-large-v3-turbo
-Download tiny from:     https://huggingface.co/openai/whisper-tiny
+── Chatterbox Full (chatterbox_full) ─────────────────────────────────────────
+Backend: rrv-chatterbox | Size: ~2 GB | Speed: ~2x realtime on GPU
 
-Files required (same list for both):
-  model.safetensors
-  config.json
-  generation_config.json
-  tokenizer.json
-  tokenizer_config.json
-  vocab.json
-  merges.txt
-  normalizer.json
-  added_tokens.json
-  special_tokens_map.json
-  preprocessor_config.json
+Place files under: data/models/chatterbox-hf/
+
+  python3 -c "
+  from huggingface_hub import snapshot_download
+  snapshot_download('ResembleAI/chatterbox-hf',
+      local_dir='data/models/chatterbox-hf')
+  "
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+── Qwen3-TTS — Natural (qwen_natural) ────────────────────────────────────────
+Backend: rrv-qwen | Size: ~7 GB (large) / ~2.5 GB (small)
+Speed: slower than realtime — best for offline voice library seeding
+
+Tokenizer (shared by all Qwen backends — download ONCE):
+  python3 -c "
+  from huggingface_hub import snapshot_download
+  snapshot_download('Qwen/Qwen3-TTS-Tokenizer-12Hz',
+      local_dir='data/models/qwen/tokenizer')
+  "
+
+Large model (1.7B — RRV_QWEN_NATURAL_SIZE=large):
+  python3 -c "
+  from huggingface_hub import snapshot_download
+  snapshot_download('Qwen/Qwen3-TTS-12Hz-1.7B-Base',
+      local_dir='data/models/qwen/natural-large')
+  "
+
+Small model (0.6B — RRV_QWEN_NATURAL_SIZE=small):
+  python3 -c "
+  from huggingface_hub import snapshot_download
+  snapshot_download('Qwen/Qwen3-TTS-12Hz-0.6B-Base',
+      local_dir='data/models/qwen/natural-small')
+  "
+
+── Qwen3-TTS — Custom Voice (qwen_custom) ────────────────────────────────────
+Backend: rrv-qwen | Size: ~7 GB (large) / ~2.5 GB (small)
+
+Large model (1.7B — RRV_QWEN_CUSTOM_SIZE=large):
+  python3 -c "
+  from huggingface_hub import snapshot_download
+  snapshot_download('Qwen/Qwen3-TTS-12Hz-1.7B-CustomVoice',
+      local_dir='data/models/qwen/custom-large')
+  "
+
+Small model (0.6B — RRV_QWEN_CUSTOM_SIZE=small):
+  python3 -c "
+  from huggingface_hub import snapshot_download
+  snapshot_download('Qwen/Qwen3-TTS-12Hz-0.6B-CustomVoice',
+      local_dir='data/models/qwen/custom-small')
+  "
+
+── Qwen3-TTS — Voice Design (qwen_design) ────────────────────────────────────
+Backend: rrv-qwen | Size: ~7 GB | Always 1.7B (no small variant)
+
+  python3 -c "
+  from huggingface_hub import snapshot_download
+  snapshot_download('Qwen/Qwen3-TTS-12Hz-1.7B-VoiceDesign',
+      local_dir='data/models/qwen/design')
+  "
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+── LuxTTS (lux) ──────────────────────────────────────────────────────────────
+Backend: rrv-lux | Size: ~500 MB | Speed: ~150x realtime on GPU
+ZipVoice-based flow matching, 4-step distilled. 48kHz output.
+
+Place files under: data/models/lux/
+Run inside rrv-lux/.venv:
+
+  python3 -c "
+  from huggingface_hub import snapshot_download
+  snapshot_download('YatharthS/LuxTTS',
+      local_dir='data/models/lux')
+  "
+
+If not pre-staged, the backend will auto-download on first load (not recommended
+for airgapped deployments).
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+── CosyVoice3 (cosyvoice) ────────────────────────────────────────────────────
+Backend: rrv-cosyvoice | Size: ~1.5 GB | Speed: 2-5x realtime on GPU
+Fun-CosyVoice3-0.5B — zero-shot multilingual voice cloning. Apache 2.0.
+
+Place files under: data/models/cosyvoice/cosyvoice3/
+Run inside rrv-cosyvoice/.venv:
+
+  python3 -c "
+  from huggingface_hub import snapshot_download
+  snapshot_download('FunAudioLLM/Fun-CosyVoice3-0.5B-2512',
+      local_dir='data/models/cosyvoice/cosyvoice3')
+  "
+
+Also requires:
+  - cosyvoice-src cloned with --recursive in rrv-cosyvoice/
+  - RRV_COSYVOICE_SRC_DIR set in .env pointing to that directory
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+── Whisper (auto-transcription for reference samples) ────────────────────────
+Generates .ref.txt transcript sidecars for new audio dropped in data/samples/.
+Loaded lazily, unloaded after each transcription pass.
+Set RRV_WHISPER_MODEL_DIR in .env.
+
+v3-turbo (~1.6 GB, recommended — best accuracy):
+  python3 -c "
+  from huggingface_hub import snapshot_download
+  snapshot_download('openai/whisper-large-v3-turbo',
+      local_dir='data/models/whisper/v3-turbo')
+  "
+
+tiny (~150 MB — fastest):
+  python3 -c "
+  from huggingface_hub import snapshot_download
+  snapshot_download('openai/whisper-tiny',
+      local_dir='data/models/whisper/tiny')
+  "
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+── Expected directory layout after all downloads ─────────────────────────────
+
+data/models/
+  kokoro-v1.0.onnx
+  voices-v1.0.bin
+  f5tts/
+    F5TTS_v1_Base/
+      model_1250000.safetensors
+  chatterbox/            ← Chatterbox Turbo
+  chatterbox-hf/         ← Chatterbox Full
+  qwen/
+    tokenizer/           ← shared by all Qwen backends
+    natural-large/       ← qwen_natural 1.7B
+    natural-small/       ← qwen_natural 0.6B
+    custom-large/        ← qwen_custom 1.7B
+    custom-small/        ← qwen_custom 0.6B
+    design/              ← qwen_design 1.7B
+  lux/                   ← LuxTTS
+  cosyvoice/
+    cosyvoice3/          ← Fun-CosyVoice3-0.5B-2512
+  whisper/
+    v3-turbo/            ← recommended
+    tiny/                ← lightweight alternative

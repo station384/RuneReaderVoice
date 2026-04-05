@@ -72,6 +72,14 @@ class SynthesisRequest:
     voice_instruct:    Optional[str] = None  # qwen_custom: natural language style instruction
     voice_description: Optional[str] = None  # qwen_design: natural language voice persona description
 
+    # LuxTTS-specific controls
+    lux_num_steps:     Optional[int]   = None  # ODE solver steps (default 10, range 4-32)
+    lux_t_shift:       Optional[float] = None  # time shift (default 0.7, range 0.1-1.0)
+    lux_return_smooth: Optional[bool]  = None  # smoothing to reduce raspy artifacts
+
+    # CosyVoice3-specific controls
+    cosy_instruct:     Optional[str]   = None  # natural language style instruction for inference_instruct2()
+
     # Progress callback — called by backend as each chunk completes.
     # Signature: callback(chunk: int, total: int) -> None
     # None = no progress reporting (v1 endpoint)
