@@ -259,8 +259,8 @@ public sealed class VoiceProfile
     public float? CrossFadeDuration { get; set; } = null;
     public float? SwaysamplingCoef  { get; set; } = null;
 
-    public bool       DisableChunking { get; set; } = false;
-    public DspProfile? Dsp            { get; set; } = null;
+    public bool        DisableChunking { get; set; } = false;
+    public DspProfile? Dsp             { get; set; } = null;
 
     public VoiceProfile Clone() => new()
     {
@@ -276,6 +276,38 @@ public sealed class VoiceProfile
         DisableChunking   = DisableChunking,
         Dsp               = Dsp?.Clone(),
     };
+
+    public void CopyCacheAffectingFieldsFrom(VoiceProfile source)
+    {
+        if (source == null) throw new ArgumentNullException(nameof(source));
+
+        VoiceId           = source.VoiceId;
+        LangCode          = source.LangCode;
+        SpeechRate        = source.SpeechRate;
+        CfgWeight         = source.CfgWeight;
+        Exaggeration      = source.Exaggeration;
+        CfgStrength       = source.CfgStrength;
+        NfeStep           = source.NfeStep;
+        CrossFadeDuration = source.CrossFadeDuration;
+        SwaysamplingCoef  = source.SwaysamplingCoef;
+        DisableChunking   = source.DisableChunking;
+    }
+
+    public bool CacheAffectingEquals(VoiceProfile? other)
+    {
+        if (other == null) return false;
+
+        return string.Equals(VoiceId, other.VoiceId, StringComparison.OrdinalIgnoreCase)
+            && string.Equals(LangCode, other.LangCode, StringComparison.OrdinalIgnoreCase)
+            && Math.Abs(SpeechRate - other.SpeechRate) < 0.0001f
+            && Nullable.Equals(CfgWeight, other.CfgWeight)
+            && Nullable.Equals(Exaggeration, other.Exaggeration)
+            && Nullable.Equals(CfgStrength, other.CfgStrength)
+            && Nullable.Equals(NfeStep, other.NfeStep)
+            && Nullable.Equals(CrossFadeDuration, other.CrossFadeDuration)
+            && Nullable.Equals(SwaysamplingCoef, other.SwaysamplingCoef)
+            && DisableChunking == other.DisableChunking;
+    }
 
     public string BuildIdentityKey()
     {

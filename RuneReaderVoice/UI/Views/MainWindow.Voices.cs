@@ -173,15 +173,10 @@ public partial class MainWindow
             : ResolveVoiceDisplayName(provider, profile.VoiceId);
 
         var accentText = NpcVoiceSlotCatalog.All.FirstOrDefault(x => x.Slot.Equals(slot))?.AccentLabel ?? slot.Group.ToString();
-        var preset     = SpeakerPresetCatalog.GetRecommendedForSlot(slot);
+        var standard   = StandardVoiceProfileCatalog.TryGetVoiceStandard(providerId, slot);
 
-        if (preset != null &&
-            string.Equals(profile.VoiceId,   preset.Profile.VoiceId,  StringComparison.OrdinalIgnoreCase) &&
-            string.Equals(profile.LangCode,  preset.Profile.LangCode, StringComparison.OrdinalIgnoreCase) &&
-            Math.Abs(profile.SpeechRate - preset.Profile.SpeechRate) < 0.001f)
-        {
-            return $"{preset.DisplayName} · {lang} · {profile.SpeechRate * 100:0.#}%";
-        }
+        if (standard != null && profile.CacheAffectingEquals(standard))
+            return $"Standard Setup · {lang} · {profile.SpeechRate * 100:0.#}%";
 
         return $"{voiceText} · {lang} · {profile.SpeechRate * 100:0.#}% · {accentText}";
     }

@@ -61,6 +61,8 @@ public sealed class VoiceProfileEditorDialog : Window
 
     private readonly ComboBox    _presetCombo;
     private readonly TextBlock   _presetDescriptionText;
+    private readonly TextBlock   _standardStateText;
+    private readonly VoiceProfile? _standardProfile;
     private readonly RadioButton _singleVoiceRadio;
     private readonly RadioButton _blendVoiceRadio;
     private readonly Border      _singleVoiceSection;
@@ -150,15 +152,13 @@ So go quickly, keep your wits about you, and return by the main road if you valu
 
         // ── Presets ───────────────────────────────────────────────────────────
 
-        var presetItems = SpeakerPresetCatalog.GetForSlot(slot).ToArray();
-        var isKokoroProvider = supportsPresets;
         _voiceSourceLabel = string.IsNullOrWhiteSpace(voiceSourceLabel) ? "voice" : voiceSourceLabel;
-        _presetCombo = new ComboBox { HorizontalAlignment = HorizontalAlignment.Stretch, ItemsSource = presetItems };
-        _presetCombo.SelectionChanged += PresetCombo_SelectionChanged;
+        _presetCombo = new ComboBox { IsVisible = false };
         _presetDescriptionText = new TextBlock { Foreground = Brushes.Gray, FontSize = 11, TextWrapping = TextWrapping.Wrap };
-
-        var useRecommendedBtn = Btn("Use Recommended", 130); useRecommendedBtn.Click += UseRecommendedButton_Click; useRecommendedBtn.IsEnabled = isKokoroProvider;
-        var applyPresetBtn    = Btn("Apply Preset",    110); applyPresetBtn.Click    += ApplyPresetButton_Click; applyPresetBtn.IsEnabled = isKokoroProvider;
+        _standardStateText = new TextBlock { Foreground = Brushes.Gray, FontSize = 11, TextWrapping = TextWrapping.Wrap };
+        _standardProfile = ResolveStandardProfile(sampleProviderId ?? AppServices.Provider.ProviderId, slot, sampleProfileKey, availableVoices);
+        _presetDescriptionText.Text = BuildStandardSummary();
+        var restoreStandardBtn = Btn("Restore Standard", 140); restoreStandardBtn.Click += RestoreStandardButton_Click;
 
         // ── Voice mode ────────────────────────────────────────────────────────
 
@@ -628,12 +628,11 @@ So go quickly, keep your wits about you, and return by the main road if you valu
         }});
         _blendVoiceSection  = Card("Blend Voices", new StackPanel { Spacing = 8, Children = { _blendSummaryText, editBlendBtn } });
 
-        var presetCard    = Card("Voice Preset", new StackPanel { Spacing = 8, Children = { _presetCombo, _presetDescriptionText, new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Children = { useRecommendedBtn, applyPresetBtn } } } });
+        var presetCard    = Card("Standard Setup", new StackPanel { Spacing = 8, Children = { _presetDescriptionText, _standardStateText, new TextBlock { Text = "Restore Standard resets cache-affecting voice settings for this entry. DSP is left as-is.", Opacity = 0.8, TextWrapping = TextWrapping.Wrap }, new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Children = { restoreStandardBtn } } } });
         var voiceModeCard = Card("Voice Mode",   new StackPanel { Spacing = 8, Children = { new StackPanel { Orientation = Orientation.Horizontal, Spacing = 16, Children = { _singleVoiceRadio, _blendVoiceRadio } } } });
         var languageCard  = Card("Dialect / Language", new StackPanel { Spacing = 8, Children = { new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Children = { _languageNameText, chooseLangBtn } } } });
         if (isSampleDefaultsEditor)
         {
-            presetCard.IsVisible = false;
             voiceModeCard.IsVisible = false;
             _singleVoiceSection.IsVisible = false;
             _blendVoiceSection.IsVisible = false;
@@ -651,12 +650,13 @@ So go quickly, keep your wits about you, and return by the main road if you valu
             topGrid = new Grid
             {
                 ColumnDefinitions = new ColumnDefinitions("*,*"),
-                RowDefinitions = new RowDefinitions("Auto"),
+                RowDefinitions = new RowDefinitions("Auto,Auto"),
                 ColumnSpacing = 10,
                 RowSpacing = 10
             };
-            AddToGrid(topGrid, languageCard, 0, 0);
-            AddToGrid(topGrid, rateCard,     0, 1);
+            AddToGrid(topGrid, presetCard,   0, 0);
+            AddToGrid(topGrid, languageCard, 0, 1);
+            AddToGrid(topGrid, rateCard,     1, 1);
         }
         else
         {
@@ -701,7 +701,7 @@ So go quickly, keep your wits about you, and return by the main road if you valu
         };
 
         ApplyProfileToControls();
-        TrySelectMatchingPreset();
+        RefreshStandardStatus();
         RefreshVoiceModeUi();
         RefreshSingleVoiceSummary();
         RefreshBlendSummary();
@@ -915,27 +915,17 @@ So go quickly, keep your wits about you, and return by the main road if you valu
     // Voice logic (unchanged from original)
     // ─────────────────────────────────────────────────────────────────────────
 
-    private void PresetCombo_SelectionChanged(object? sender, SelectionChangedEventArgs e)
-        => _presetDescriptionText.Text = _presetCombo.SelectedItem is SpeakerPreset p ? p.Description : "";
-
-    private void UseRecommendedButton_Click(object? sender, RoutedEventArgs e) { var p = SpeakerPresetCatalog.GetRecommendedForSlot(_slot); if (p != null) ApplyPreset(p); }
-    private void ApplyPresetButton_Click(object? sender, RoutedEventArgs e)    { if (_presetCombo.SelectedItem is SpeakerPreset p) ApplyPreset(p); }
-
-    private void ApplyPreset(SpeakerPreset preset)
+    private void RestoreStandardButton_Click(object? sender, RoutedEventArgs e)
     {
-        _workingProfile.VoiceId    = preset.Profile.VoiceId;
-        _workingProfile.LangCode   = preset.Profile.LangCode;
-        _workingProfile.SpeechRate = preset.Profile.SpeechRate;
-        ApplyProfileToControls(); RefreshVoiceModeUi(); RefreshSingleVoiceSummary(); RefreshBlendSummary(); RefreshSummary();
-    }
+        if (_standardProfile == null)
+            return;
 
-    private void TrySelectMatchingPreset()
-    {
-        var match = SpeakerPresetCatalog.GetForSlot(_slot).FirstOrDefault(p =>
-            string.Equals(p.Profile.VoiceId, _workingProfile.VoiceId, StringComparison.OrdinalIgnoreCase) &&
-            string.Equals(p.Profile.LangCode, _workingProfile.LangCode, StringComparison.OrdinalIgnoreCase) &&
-            Math.Abs(p.Profile.SpeechRate - _workingProfile.SpeechRate) < 0.001f);
-        _presetCombo.SelectedItem = match ?? SpeakerPresetCatalog.GetRecommendedForSlot(_slot);
+        _workingProfile.CopyCacheAffectingFieldsFrom(_standardProfile);
+        ApplyProfileToControls();
+        RefreshVoiceModeUi();
+        RefreshSingleVoiceSummary();
+        RefreshBlendSummary();
+        RefreshSummary();
     }
 
     private void ApplyProfileToControls()
@@ -1098,6 +1088,46 @@ So go quickly, keep your wits about you, and return by the main road if you valu
         var voiceText = _blendVoiceRadio.IsChecked == true ? _blendSummaryText.Text : _voiceSummaryText.Text;
         _summaryText.Text    = $"Mode: {mode}\nVoice: {voiceText}\nDialect / Language: {lang}\nSpeech Rate: {FormatPercent(_workingProfile.SpeechRate)}\nEffects: {BuildDspSummary()}";
         _dspSummaryLine.Text = BuildDspSummary();
+        RefreshStandardStatus();
+    }
+
+    private void RefreshStandardStatus()
+    {
+        if (_standardProfile == null)
+        {
+            _standardStateText.Text = "No standard setup is defined for this entry yet.";
+            return;
+        }
+
+        _standardStateText.Text = _workingProfile.CacheAffectingEquals(_standardProfile)
+            ? "Using Standard Setup"
+            : "Customized";
+    }
+
+    private string BuildStandardSummary()
+    {
+        if (_standardProfile == null)
+            return "No standard setup is defined for this entry yet.";
+
+        var lang = EspeakLanguageCatalog.All.FirstOrDefault(x => string.Equals(x.Code, _standardProfile.LangCode, StringComparison.OrdinalIgnoreCase))?.DisplayName ?? _standardProfile.LangCode;
+        var voiceText = string.IsNullOrWhiteSpace(_standardProfile.VoiceId)
+            ? "(not selected)"
+            : _standardProfile.VoiceId;
+        return $"Standard voice: {voiceText}\nStandard dialect / language: {lang}\nStandard speech rate: {FormatPercent(_standardProfile.SpeechRate)}";
+    }
+
+    private static VoiceProfile? ResolveStandardProfile(string providerId, VoiceSlot slot, string? sampleProfileKey, IReadOnlyList<VoiceInfo> availableVoices)
+    {
+        if (!string.IsNullOrWhiteSpace(sampleProfileKey))
+            return StandardVoiceProfileCatalog.TryGetSampleStandard(providerId, sampleProfileKey)
+                ?? VoiceProfileDefaults.Create(sampleProfileKey);
+
+        var standard = StandardVoiceProfileCatalog.TryGetVoiceStandard(providerId, slot);
+        if (standard != null)
+            return standard;
+
+        var fallbackVoiceId = availableVoices.FirstOrDefault()?.VoiceId ?? string.Empty;
+        return VoiceProfileDefaults.Create(fallbackVoiceId);
     }
 
     private async void EditBlendButton_Click(object? sender, RoutedEventArgs e)
