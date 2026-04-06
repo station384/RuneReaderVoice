@@ -260,6 +260,7 @@ public sealed class VoiceProfile
     public float? SwaysamplingCoef  { get; set; } = null;
 
     public bool        DisableChunking { get; set; } = false;
+    public string?     CosyInstruct    { get; set; } = null;
     public DspProfile? Dsp             { get; set; } = null;
 
     public VoiceProfile Clone() => new()
@@ -274,6 +275,7 @@ public sealed class VoiceProfile
         CrossFadeDuration = CrossFadeDuration,
         SwaysamplingCoef  = SwaysamplingCoef,
         DisableChunking   = DisableChunking,
+        CosyInstruct      = CosyInstruct,
         Dsp               = Dsp?.Clone(),
     };
 
@@ -291,6 +293,7 @@ public sealed class VoiceProfile
         CrossFadeDuration = source.CrossFadeDuration;
         SwaysamplingCoef  = source.SwaysamplingCoef;
         DisableChunking   = source.DisableChunking;
+        CosyInstruct      = source.CosyInstruct;
     }
 
     public bool CacheAffectingEquals(VoiceProfile? other)
@@ -306,7 +309,8 @@ public sealed class VoiceProfile
             && Nullable.Equals(NfeStep, other.NfeStep)
             && Nullable.Equals(CrossFadeDuration, other.CrossFadeDuration)
             && Nullable.Equals(SwaysamplingCoef, other.SwaysamplingCoef)
-            && DisableChunking == other.DisableChunking;
+            && DisableChunking == other.DisableChunking
+            && string.Equals((CosyInstruct ?? string.Empty).Trim(), (other.CosyInstruct ?? string.Empty).Trim(), StringComparison.Ordinal);
     }
 
     public string BuildIdentityKey()
@@ -316,7 +320,8 @@ public sealed class VoiceProfile
         var cfs  = CfgStrength.HasValue      ? CfgStrength.Value.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture) : "-";
         var nfe  = NfeStep.HasValue          ? NfeStep.Value.ToString() : "-";
         var sway = SwaysamplingCoef.HasValue ? SwaysamplingCoef.Value.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture) : "-";
-        return $"{VoiceId}|{LangCode}|{SpeechRate:0.00}|cfg:{cfg}|ex:{exg}|cfs:{cfs}|nfe:{nfe}|sway:{sway}";
+        var instruct = string.IsNullOrWhiteSpace(CosyInstruct) ? "-" : CosyInstruct.Trim().Replace("|", "/");
+        return $"{VoiceId}|{LangCode}|{SpeechRate:0.00}|cfg:{cfg}|ex:{exg}|cfs:{cfs}|nfe:{nfe}|sway:{sway}|instr:{instruct}";
     }
 }
 

@@ -13,6 +13,7 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [
@@ -39,14 +40,15 @@
       "Human/Female": {
         "VoiceId": "F_Human_1",
         "LangCode": "en-us",
-        "SpeechRate": 0.72,
-        "CfgWeight": 0.73,
-        "Exaggeration": 0.83076924,
+        "SpeechRate": 1,
+        "CfgWeight": 0.62,
+        "Exaggeration": 0.77307695,
         "CfgStrength": null,
         "NfeStep": null,
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [
@@ -81,6 +83,7 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [
@@ -115,6 +118,7 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [
@@ -149,6 +153,7 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [
@@ -175,14 +180,15 @@
       "NightElf/Male": {
         "VoiceId": "M_NightElf",
         "LangCode": "en-us",
-        "SpeechRate": 0.7,
-        "CfgWeight": 1.9673077,
-        "Exaggeration": 0.61,
+        "SpeechRate": 1,
+        "CfgWeight": 1.3788462,
+        "Exaggeration": 0.49,
         "CfgStrength": null,
         "NfeStep": null,
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [
@@ -217,6 +223,7 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [
@@ -243,7 +250,7 @@
       "Draenei/Male": {
         "VoiceId": "M_Draenei_4",
         "LangCode": "hi",
-        "SpeechRate": 0.57,
+        "SpeechRate": 1,
         "CfgWeight": 0.43,
         "Exaggeration": 0.73,
         "CfgStrength": null,
@@ -251,6 +258,7 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [
@@ -277,7 +285,7 @@
       "Draenei/Female": {
         "VoiceId": "F_Draenei_1",
         "LangCode": "hi",
-        "SpeechRate": 0.81,
+        "SpeechRate": 1,
         "CfgWeight": 0.99,
         "Exaggeration": 0.55,
         "CfgStrength": null,
@@ -285,6 +293,7 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [
@@ -319,6 +328,7 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [
@@ -353,6 +363,7 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [
@@ -380,13 +391,14 @@
         "VoiceId": "F_Troll_2",
         "LangCode": "en-029",
         "SpeechRate": 1,
-        "CfgWeight": 0.06,
-        "Exaggeration": 0.46,
+        "CfgWeight": 0.5,
+        "Exaggeration": 0.5,
         "CfgStrength": null,
         "NfeStep": null,
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [
@@ -414,13 +426,14 @@
         "VoiceId": "M_Troll_1",
         "LangCode": "en-us",
         "SpeechRate": 1,
-        "CfgWeight": 0.11,
-        "Exaggeration": 0.5,
+        "CfgWeight": 0.5,
+        "Exaggeration": 0.70384616,
         "CfgStrength": null,
         "NfeStep": null,
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [
@@ -448,13 +461,14 @@
         "VoiceId": "M_Haranir_1",
         "LangCode": "en-us",
         "SpeechRate": 0.95699996,
-        "CfgWeight": 1.1019231,
-        "Exaggeration": 0.4846154,
+        "CfgWeight": 1.1,
+        "Exaggeration": 0.48,
         "CfgStrength": null,
         "NfeStep": null,
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [
@@ -482,13 +496,14 @@
         "VoiceId": "F_Haranir_3",
         "LangCode": "en-us",
         "SpeechRate": 0.997,
-        "CfgWeight": 0.8942308,
+        "CfgWeight": 0.89,
         "Exaggeration": 0.53,
         "CfgStrength": null,
         "NfeStep": null,
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [
@@ -523,6 +538,7 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [
@@ -557,6 +573,7 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [
@@ -581,16 +598,17 @@
         }
       },
       "Nightborne/Female": {
-        "VoiceId": "F_Nightborne_1",
+        "VoiceId": "F_Nightborne_5",
         "LangCode": "en-gb",
-        "SpeechRate": 1.678,
-        "CfgWeight": 0.99,
-        "Exaggeration": 0.5,
+        "SpeechRate": 0.95699996,
+        "CfgWeight": 0.93,
+        "Exaggeration": 0.6230769,
         "CfgStrength": null,
         "NfeStep": null,
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [
@@ -598,16 +616,25 @@
               "Kind": 8,
               "Enabled": true,
               "Params": {
-                "amount": 0.6875
+                "amount": 1
+              }
+            },
+            {
+              "Kind": 12,
+              "Enabled": true,
+              "Params": {
+                "wet": 0.1875,
+                "rate": 1.5,
+                "width": 0.02
               }
             },
             {
               "Kind": 18,
               "Enabled": true,
               "Params": {
-                "wet": 0.1,
-                "roomSize": 0.1,
-                "damping": 0.9125
+                "wet": 0.275,
+                "roomSize": 0.2625,
+                "damping": 0.8375
               }
             }
           ],
@@ -615,16 +642,17 @@
         }
       },
       "Tauren/Male": {
-        "VoiceId": "M_Christopher_Walken",
+        "VoiceId": "M_Narrator",
         "LangCode": "en-us-nyc",
-        "SpeechRate": 0.597,
-        "CfgWeight": 0.22,
-        "Exaggeration": 1.01,
+        "SpeechRate": 1,
+        "CfgWeight": 0.5,
+        "Exaggeration": 0.5,
         "CfgStrength": null,
         "NfeStep": null,
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [
@@ -649,9 +677,9 @@
         }
       },
       "Tauren/Female": {
-        "VoiceId": "F_WWZ_3",
+        "VoiceId": "M_Narrator",
         "LangCode": "en-us",
-        "SpeechRate": 0.8,
+        "SpeechRate": 1,
         "CfgWeight": 0.5,
         "Exaggeration": 0.5,
         "CfgStrength": null,
@@ -659,6 +687,7 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [
@@ -695,13 +724,14 @@
         "VoiceId": "M_VoidElf-fast",
         "LangCode": "en-gb",
         "SpeechRate": 1.011,
-        "CfgWeight": 0.5480769,
+        "CfgWeight": 0.55,
         "Exaggeration": 0.5,
         "CfgStrength": null,
         "NfeStep": null,
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [
@@ -730,12 +760,13 @@
         "LangCode": "en-gb",
         "SpeechRate": 1.037,
         "CfgWeight": 0.58,
-        "Exaggeration": 0.5,
+        "Exaggeration": 0.63,
         "CfgStrength": null,
         "NfeStep": null,
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [
@@ -761,15 +792,16 @@
       },
       "Dwarf/Female": {
         "VoiceId": "F_Dwarf_2",
-        "LangCode": "en-gb",
-        "SpeechRate": 0.89,
-        "CfgWeight": 0.74,
-        "Exaggeration": 0.5,
+        "LangCode": "en-gb-scotland",
+        "SpeechRate": 1,
+        "CfgWeight": 0.9980769,
+        "Exaggeration": 0.70384616,
         "CfgStrength": null,
         "NfeStep": null,
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [
@@ -804,6 +836,7 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [
@@ -830,14 +863,15 @@
       "DarkIronDwarf/Female": {
         "VoiceId": "F_DarkIronDwarf_1",
         "LangCode": "en-gb",
-        "SpeechRate": 0.90213525,
-        "CfgWeight": 1.0038462,
-        "Exaggeration": 0.5,
+        "SpeechRate": 0.90199995,
+        "CfgWeight": 0.91,
+        "Exaggeration": 0.72115386,
         "CfgStrength": null,
         "NfeStep": null,
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [
@@ -865,13 +899,14 @@
         "VoiceId": "M_Gnome_3",
         "LangCode": "en-us",
         "SpeechRate": 1,
-        "CfgWeight": 0.5,
-        "Exaggeration": 0.5,
+        "CfgWeight": 1.0038462,
+        "Exaggeration": 0.62884617,
         "CfgStrength": null,
         "NfeStep": null,
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [
@@ -906,6 +941,7 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [
@@ -940,6 +976,7 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [
@@ -974,6 +1011,7 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [
@@ -1001,13 +1039,14 @@
         "VoiceId": "M_Lightforged_2",
         "LangCode": "hi",
         "SpeechRate": 1,
-        "CfgWeight": 0.20769231,
+        "CfgWeight": 0.93,
         "Exaggeration": 0.5,
         "CfgStrength": null,
         "NfeStep": null,
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [
@@ -1032,16 +1071,17 @@
         }
       },
       "LightforgedDraenei/Female": {
-        "VoiceId": "F_Lightforged_2",
+        "VoiceId": "F_Lightforged_1",
         "LangCode": "hi",
-        "SpeechRate": 1,
-        "CfgWeight": 0.225,
-        "Exaggeration": 0.5,
+        "SpeechRate": 0.9,
+        "CfgWeight": 0.99,
+        "Exaggeration": 0.72,
         "CfgStrength": null,
         "NfeStep": null,
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [
@@ -1069,13 +1109,14 @@
         "VoiceId": "M_Worgen_1",
         "LangCode": "en-gb",
         "SpeechRate": 1,
-        "CfgWeight": 0.9980769,
+        "CfgWeight": 1,
         "Exaggeration": 0.5,
         "CfgStrength": null,
         "NfeStep": null,
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [
@@ -1103,13 +1144,14 @@
         "VoiceId": "F_Worgen_1",
         "LangCode": "en-gb",
         "SpeechRate": 1,
-        "CfgWeight": 1.0269231,
+        "CfgWeight": 1.03,
         "Exaggeration": 0.5,
         "CfgStrength": null,
         "NfeStep": null,
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [
@@ -1136,7 +1178,7 @@
       "KulTiran/Female": {
         "VoiceId": "F_Kultiran_4",
         "LangCode": "en-gb",
-        "SpeechRate": 0.8594306,
+        "SpeechRate": 0.859,
         "CfgWeight": 1,
         "Exaggeration": 0.5,
         "CfgStrength": null,
@@ -1144,6 +1186,7 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [
@@ -1178,6 +1221,7 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [
@@ -1205,13 +1249,14 @@
         "VoiceId": "M_Orc_1",
         "LangCode": "en-us",
         "SpeechRate": 1,
-        "CfgWeight": 0.9980769,
-        "Exaggeration": 0.5,
+        "CfgWeight": 0.8,
+        "Exaggeration": 0.61153847,
         "CfgStrength": null,
         "NfeStep": null,
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [
@@ -1236,16 +1281,17 @@
         }
       },
       "Orc/Female": {
-        "VoiceId": "F_Orc_1",
+        "VoiceId": "F_Orc_3",
         "LangCode": "en-us",
         "SpeechRate": 1,
-        "CfgWeight": 1.0038462,
+        "CfgWeight": 1,
         "Exaggeration": 0.5,
         "CfgStrength": null,
         "NfeStep": null,
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [
@@ -1254,6 +1300,13 @@
               "Enabled": true,
               "Params": {
                 "amount": 0.6
+              }
+            },
+            {
+              "Kind": 2,
+              "Enabled": true,
+              "Params": {
+                "semitones": -1.8
               }
             },
             {
@@ -1273,13 +1326,14 @@
         "VoiceId": "F_Maghar_1",
         "LangCode": "en-us",
         "SpeechRate": 1,
-        "CfgWeight": 1.0038462,
+        "CfgWeight": 1,
         "Exaggeration": 0.5,
         "CfgStrength": null,
         "NfeStep": null,
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [
@@ -1306,14 +1360,15 @@
       "Amani/Male": {
         "VoiceId": "M_Amani_2",
         "LangCode": "en-029",
-        "SpeechRate": 1.238,
-        "CfgWeight": 0.5,
-        "Exaggeration": 0.5,
+        "SpeechRate": 1.6110001,
+        "CfgWeight": 0.975,
+        "Exaggeration": 0.63,
         "CfgStrength": null,
         "NfeStep": null,
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [
@@ -1348,6 +1403,7 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [
@@ -1382,6 +1438,7 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [
@@ -1416,6 +1473,7 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [
@@ -1450,6 +1508,7 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [
@@ -1484,6 +1543,7 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [
@@ -1518,6 +1578,7 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [
@@ -1552,6 +1613,7 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [
@@ -1586,6 +1648,7 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [
@@ -1620,6 +1683,7 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [
@@ -1654,6 +1718,7 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [
@@ -1688,6 +1753,7 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [
@@ -1722,6 +1788,7 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [
@@ -1746,7 +1813,7 @@
         }
       },
       "Earthen/Male": {
-        "VoiceId": "M_Nightborne_1",
+        "VoiceId": "M_Narrator",
         "LangCode": "en-us",
         "SpeechRate": 1,
         "CfgWeight": 0.5,
@@ -1756,6 +1823,7 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [
@@ -1790,6 +1858,7 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [
@@ -1824,6 +1893,7 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [
@@ -1858,6 +1928,7 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [
@@ -1892,6 +1963,7 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [
@@ -1926,6 +1998,7 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [
@@ -1948,6 +2021,940 @@
           ],
           "IsNeutral": false
         }
+      },
+      "Elemental/Male": {
+        "VoiceId": "M_Narrator",
+        "LangCode": "en-us",
+        "SpeechRate": 1,
+        "CfgWeight": 0.5,
+        "Exaggeration": 0.5,
+        "CfgStrength": null,
+        "NfeStep": null,
+        "CrossFadeDuration": null,
+        "SwaysamplingCoef": null,
+        "DisableChunking": false,
+        "CosyInstruct": null,
+        "Dsp": {
+          "Enabled": true,
+          "Effects": [
+            {
+              "Kind": 8,
+              "Enabled": true,
+              "Params": {
+                "amount": 1
+              }
+            },
+            {
+              "Kind": 12,
+              "Enabled": true,
+              "Params": {
+                "wet": 0.8375,
+                "rate": 1.5,
+                "width": 0.030375
+              }
+            },
+            {
+              "Kind": 18,
+              "Enabled": true,
+              "Params": {
+                "wet": 0.2125,
+                "roomSize": 0.15,
+                "damping": 0.2875
+              }
+            }
+          ],
+          "IsNeutral": false
+        }
+      },
+      "Elemental/Female": {
+        "VoiceId": "M_Narrator",
+        "LangCode": "en-us",
+        "SpeechRate": 1,
+        "CfgWeight": 0.5,
+        "Exaggeration": 0.5,
+        "CfgStrength": null,
+        "NfeStep": null,
+        "CrossFadeDuration": null,
+        "SwaysamplingCoef": null,
+        "DisableChunking": false,
+        "CosyInstruct": null,
+        "Dsp": {
+          "Enabled": true,
+          "Effects": [
+            {
+              "Kind": 8,
+              "Enabled": true,
+              "Params": {
+                "amount": 1
+              }
+            },
+            {
+              "Kind": 12,
+              "Enabled": true,
+              "Params": {
+                "wet": 0.5,
+                "rate": 1.5,
+                "width": 0.032125
+              }
+            },
+            {
+              "Kind": 18,
+              "Enabled": true,
+              "Params": {
+                "wet": 0.3,
+                "roomSize": 0.25,
+                "damping": 0.5
+              }
+            }
+          ],
+          "IsNeutral": false
+        }
+      },
+      "Giant/Male": {
+        "VoiceId": "M_Narrator",
+        "LangCode": "en-us",
+        "SpeechRate": 1,
+        "CfgWeight": 0.5,
+        "Exaggeration": 0.5,
+        "CfgStrength": null,
+        "NfeStep": null,
+        "CrossFadeDuration": null,
+        "SwaysamplingCoef": null,
+        "DisableChunking": false,
+        "CosyInstruct": null,
+        "Dsp": {
+          "Enabled": true,
+          "Effects": [],
+          "IsNeutral": true
+        }
+      },
+      "Giant/Female": {
+        "VoiceId": "M_Narrator",
+        "LangCode": "en-us",
+        "SpeechRate": 1,
+        "CfgWeight": 0.5,
+        "Exaggeration": 0.5,
+        "CfgStrength": null,
+        "NfeStep": null,
+        "CrossFadeDuration": null,
+        "SwaysamplingCoef": null,
+        "DisableChunking": false,
+        "CosyInstruct": null,
+        "Dsp": {
+          "Enabled": true,
+          "Effects": [],
+          "IsNeutral": true
+        }
+      },
+      "Mechanical/Male": {
+        "VoiceId": "M_Narrator",
+        "LangCode": "en-us",
+        "SpeechRate": 1,
+        "CfgWeight": 0.5,
+        "Exaggeration": 0.5,
+        "CfgStrength": null,
+        "NfeStep": null,
+        "CrossFadeDuration": null,
+        "SwaysamplingCoef": null,
+        "DisableChunking": false,
+        "CosyInstruct": null,
+        "Dsp": {
+          "Enabled": true,
+          "Effects": [],
+          "IsNeutral": true
+        }
+      },
+      "Mechanical/Female": {
+        "VoiceId": "M_Narrator",
+        "LangCode": "en-us",
+        "SpeechRate": 1,
+        "CfgWeight": 0.5,
+        "Exaggeration": 0.5,
+        "CfgStrength": null,
+        "NfeStep": null,
+        "CrossFadeDuration": null,
+        "SwaysamplingCoef": null,
+        "DisableChunking": false,
+        "CosyInstruct": null,
+        "Dsp": {
+          "Enabled": true,
+          "Effects": [],
+          "IsNeutral": true
+        }
+      },
+      "Illidari/Male": {
+        "VoiceId": "M_Narrator",
+        "LangCode": "en-us",
+        "SpeechRate": 1,
+        "CfgWeight": 0.5,
+        "Exaggeration": 0.5,
+        "CfgStrength": null,
+        "NfeStep": null,
+        "CrossFadeDuration": null,
+        "SwaysamplingCoef": null,
+        "DisableChunking": false,
+        "CosyInstruct": null,
+        "Dsp": {
+          "Enabled": true,
+          "Effects": [],
+          "IsNeutral": true
+        }
+      },
+      "Illidari/Female": {
+        "VoiceId": "M_Narrator",
+        "LangCode": "en-us",
+        "SpeechRate": 1,
+        "CfgWeight": 0.5,
+        "Exaggeration": 0.5,
+        "CfgStrength": null,
+        "NfeStep": null,
+        "CrossFadeDuration": null,
+        "SwaysamplingCoef": null,
+        "DisableChunking": false,
+        "CosyInstruct": null,
+        "Dsp": {
+          "Enabled": true,
+          "Effects": [],
+          "IsNeutral": true
+        }
+      },
+      "Arathi/Male": {
+        "VoiceId": "M_Narrator",
+        "LangCode": "en-gb",
+        "SpeechRate": 1,
+        "CfgWeight": 0.5,
+        "Exaggeration": 0.5,
+        "CfgStrength": null,
+        "NfeStep": null,
+        "CrossFadeDuration": null,
+        "SwaysamplingCoef": null,
+        "DisableChunking": false,
+        "CosyInstruct": null,
+        "Dsp": {
+          "Enabled": true,
+          "Effects": [],
+          "IsNeutral": true
+        }
+      },
+      "Arathi/Female": {
+        "VoiceId": "M_Narrator",
+        "LangCode": "en-gb",
+        "SpeechRate": 1,
+        "CfgWeight": 0.5,
+        "Exaggeration": 0.5,
+        "CfgStrength": null,
+        "NfeStep": null,
+        "CrossFadeDuration": null,
+        "SwaysamplingCoef": null,
+        "DisableChunking": false,
+        "CosyInstruct": null,
+        "Dsp": {
+          "Enabled": true,
+          "Effects": [],
+          "IsNeutral": true
+        }
+      },
+      "Broken/Male": {
+        "VoiceId": "M_Narrator",
+        "LangCode": "en-gb",
+        "SpeechRate": 1,
+        "CfgWeight": 0.5,
+        "Exaggeration": 0.5,
+        "CfgStrength": null,
+        "NfeStep": null,
+        "CrossFadeDuration": null,
+        "SwaysamplingCoef": null,
+        "DisableChunking": false,
+        "CosyInstruct": null,
+        "Dsp": {
+          "Enabled": true,
+          "Effects": [],
+          "IsNeutral": true
+        }
+      },
+      "Broken/Female": {
+        "VoiceId": "M_Narrator",
+        "LangCode": "en-gb",
+        "SpeechRate": 1,
+        "CfgWeight": 0.5,
+        "Exaggeration": 0.5,
+        "CfgStrength": null,
+        "NfeStep": null,
+        "CrossFadeDuration": null,
+        "SwaysamplingCoef": null,
+        "DisableChunking": false,
+        "CosyInstruct": null,
+        "Dsp": {
+          "Enabled": true,
+          "Effects": [],
+          "IsNeutral": true
+        }
+      },
+      "Centaur/Male": {
+        "VoiceId": "M_Narrator",
+        "LangCode": "en-us",
+        "SpeechRate": 1,
+        "CfgWeight": 0.5,
+        "Exaggeration": 0.5,
+        "CfgStrength": null,
+        "NfeStep": null,
+        "CrossFadeDuration": null,
+        "SwaysamplingCoef": null,
+        "DisableChunking": false,
+        "CosyInstruct": null,
+        "Dsp": {
+          "Enabled": true,
+          "Effects": [],
+          "IsNeutral": true
+        }
+      },
+      "Centaur/Female": {
+        "VoiceId": "M_Narrator",
+        "LangCode": "en-us",
+        "SpeechRate": 1,
+        "CfgWeight": 0.5,
+        "Exaggeration": 0.5,
+        "CfgStrength": null,
+        "NfeStep": null,
+        "CrossFadeDuration": null,
+        "SwaysamplingCoef": null,
+        "DisableChunking": false,
+        "CosyInstruct": null,
+        "Dsp": {
+          "Enabled": true,
+          "Effects": [],
+          "IsNeutral": true
+        }
+      },
+      "DarkTroll/Male": {
+        "VoiceId": "M_Narrator",
+        "LangCode": "en-us",
+        "SpeechRate": 1,
+        "CfgWeight": 0.5,
+        "Exaggeration": 0.5,
+        "CfgStrength": null,
+        "NfeStep": null,
+        "CrossFadeDuration": null,
+        "SwaysamplingCoef": null,
+        "DisableChunking": false,
+        "CosyInstruct": null,
+        "Dsp": {
+          "Enabled": true,
+          "Effects": [],
+          "IsNeutral": true
+        }
+      },
+      "DarkTroll/Female": {
+        "VoiceId": "M_Narrator",
+        "LangCode": "en-us",
+        "SpeechRate": 1,
+        "CfgWeight": 0.5,
+        "Exaggeration": 0.5,
+        "CfgStrength": null,
+        "NfeStep": null,
+        "CrossFadeDuration": null,
+        "SwaysamplingCoef": null,
+        "DisableChunking": false,
+        "CosyInstruct": null,
+        "Dsp": {
+          "Enabled": true,
+          "Effects": [],
+          "IsNeutral": true
+        }
+      },
+      "Dredger/Male": {
+        "VoiceId": "M_Narrator",
+        "LangCode": "en-us",
+        "SpeechRate": 1,
+        "CfgWeight": 0.5,
+        "Exaggeration": 0.5,
+        "CfgStrength": null,
+        "NfeStep": null,
+        "CrossFadeDuration": null,
+        "SwaysamplingCoef": null,
+        "DisableChunking": false,
+        "CosyInstruct": null,
+        "Dsp": {
+          "Enabled": true,
+          "Effects": [],
+          "IsNeutral": true
+        }
+      },
+      "Dredger/Female": {
+        "VoiceId": "M_Narrator",
+        "LangCode": "en-us",
+        "SpeechRate": 1,
+        "CfgWeight": 0.5,
+        "Exaggeration": 0.5,
+        "CfgStrength": null,
+        "NfeStep": null,
+        "CrossFadeDuration": null,
+        "SwaysamplingCoef": null,
+        "DisableChunking": false,
+        "CosyInstruct": null,
+        "Dsp": {
+          "Enabled": true,
+          "Effects": [],
+          "IsNeutral": true
+        }
+      },
+      "Dryad/Male": {
+        "VoiceId": "M_Narrator",
+        "LangCode": "en-gb",
+        "SpeechRate": 1,
+        "CfgWeight": 0.5,
+        "Exaggeration": 0.5,
+        "CfgStrength": null,
+        "NfeStep": null,
+        "CrossFadeDuration": null,
+        "SwaysamplingCoef": null,
+        "DisableChunking": false,
+        "CosyInstruct": null,
+        "Dsp": {
+          "Enabled": true,
+          "Effects": [],
+          "IsNeutral": true
+        }
+      },
+      "Dryad/Female": {
+        "VoiceId": "M_Narrator",
+        "LangCode": "en-gb",
+        "SpeechRate": 1,
+        "CfgWeight": 0.5,
+        "Exaggeration": 0.5,
+        "CfgStrength": null,
+        "NfeStep": null,
+        "CrossFadeDuration": null,
+        "SwaysamplingCoef": null,
+        "DisableChunking": false,
+        "CosyInstruct": null,
+        "Dsp": {
+          "Enabled": true,
+          "Effects": [],
+          "IsNeutral": true
+        }
+      },
+      "Faerie/Male": {
+        "VoiceId": "M_Narrator",
+        "LangCode": "en-us",
+        "SpeechRate": 1,
+        "CfgWeight": 0.5,
+        "Exaggeration": 0.5,
+        "CfgStrength": null,
+        "NfeStep": null,
+        "CrossFadeDuration": null,
+        "SwaysamplingCoef": null,
+        "DisableChunking": false,
+        "CosyInstruct": null,
+        "Dsp": {
+          "Enabled": true,
+          "Effects": [],
+          "IsNeutral": true
+        }
+      },
+      "Faerie/Female": {
+        "VoiceId": "M_Narrator",
+        "LangCode": "en-us",
+        "SpeechRate": 1,
+        "CfgWeight": 0.5,
+        "Exaggeration": 0.5,
+        "CfgStrength": null,
+        "NfeStep": null,
+        "CrossFadeDuration": null,
+        "SwaysamplingCoef": null,
+        "DisableChunking": false,
+        "CosyInstruct": null,
+        "Dsp": {
+          "Enabled": true,
+          "Effects": [],
+          "IsNeutral": true
+        }
+      },
+      "Fungarian/Male": {
+        "VoiceId": "M_Narrator",
+        "LangCode": "en-us",
+        "SpeechRate": 1,
+        "CfgWeight": 0.5,
+        "Exaggeration": 0.5,
+        "CfgStrength": null,
+        "NfeStep": null,
+        "CrossFadeDuration": null,
+        "SwaysamplingCoef": null,
+        "DisableChunking": false,
+        "CosyInstruct": null,
+        "Dsp": {
+          "Enabled": true,
+          "Effects": [],
+          "IsNeutral": true
+        }
+      },
+      "Fungarian/Female": {
+        "VoiceId": "M_Narrator",
+        "LangCode": "en-us",
+        "SpeechRate": 1,
+        "CfgWeight": 0.5,
+        "Exaggeration": 0.5,
+        "CfgStrength": null,
+        "NfeStep": null,
+        "CrossFadeDuration": null,
+        "SwaysamplingCoef": null,
+        "DisableChunking": false,
+        "CosyInstruct": null,
+        "Dsp": {
+          "Enabled": true,
+          "Effects": [],
+          "IsNeutral": true
+        }
+      },
+      "Grummle/Male": {
+        "VoiceId": "M_Narrator",
+        "LangCode": "en-us",
+        "SpeechRate": 1,
+        "CfgWeight": 0.5,
+        "Exaggeration": 0.5,
+        "CfgStrength": null,
+        "NfeStep": null,
+        "CrossFadeDuration": null,
+        "SwaysamplingCoef": null,
+        "DisableChunking": false,
+        "CosyInstruct": null,
+        "Dsp": {
+          "Enabled": true,
+          "Effects": [],
+          "IsNeutral": true
+        }
+      },
+      "Hobgoblin/Male": {
+        "VoiceId": "M_Narrator",
+        "LangCode": "en-us",
+        "SpeechRate": 1,
+        "CfgWeight": 0.5,
+        "Exaggeration": 0.5,
+        "CfgStrength": null,
+        "NfeStep": null,
+        "CrossFadeDuration": null,
+        "SwaysamplingCoef": null,
+        "DisableChunking": false,
+        "CosyInstruct": null,
+        "Dsp": {
+          "Enabled": true,
+          "Effects": [],
+          "IsNeutral": true
+        }
+      },
+      "Hobgoblin/Female": {
+        "VoiceId": "M_Narrator",
+        "LangCode": "en-us",
+        "SpeechRate": 1,
+        "CfgWeight": 0.5,
+        "Exaggeration": 0.5,
+        "CfgStrength": null,
+        "NfeStep": null,
+        "CrossFadeDuration": null,
+        "SwaysamplingCoef": null,
+        "DisableChunking": false,
+        "CosyInstruct": null,
+        "Dsp": {
+          "Enabled": true,
+          "Effects": [],
+          "IsNeutral": true
+        }
+      },
+      "Kyrian/Male": {
+        "VoiceId": "M_Narrator",
+        "LangCode": "en-gb",
+        "SpeechRate": 1,
+        "CfgWeight": 0.5,
+        "Exaggeration": 0.5,
+        "CfgStrength": null,
+        "NfeStep": null,
+        "CrossFadeDuration": null,
+        "SwaysamplingCoef": null,
+        "DisableChunking": false,
+        "CosyInstruct": null,
+        "Dsp": {
+          "Enabled": true,
+          "Effects": [],
+          "IsNeutral": true
+        }
+      },
+      "Kyrian/Female": {
+        "VoiceId": "M_Narrator",
+        "LangCode": "en-gb",
+        "SpeechRate": 1,
+        "CfgWeight": 0.5,
+        "Exaggeration": 0.5,
+        "CfgStrength": null,
+        "NfeStep": null,
+        "CrossFadeDuration": null,
+        "SwaysamplingCoef": null,
+        "DisableChunking": false,
+        "CosyInstruct": null,
+        "Dsp": {
+          "Enabled": true,
+          "Effects": [],
+          "IsNeutral": true
+        }
+      },
+      "Nerubian/Male": {
+        "VoiceId": "M_Narrator",
+        "LangCode": "en-us",
+        "SpeechRate": 1,
+        "CfgWeight": 0.5,
+        "Exaggeration": 0.5,
+        "CfgStrength": null,
+        "NfeStep": null,
+        "CrossFadeDuration": null,
+        "SwaysamplingCoef": null,
+        "DisableChunking": false,
+        "CosyInstruct": null,
+        "Dsp": {
+          "Enabled": true,
+          "Effects": [],
+          "IsNeutral": true
+        }
+      },
+      "Nerubian/Female": {
+        "VoiceId": "M_Narrator",
+        "LangCode": "en-us",
+        "SpeechRate": 1,
+        "CfgWeight": 0.5,
+        "Exaggeration": 0.5,
+        "CfgStrength": null,
+        "NfeStep": null,
+        "CrossFadeDuration": null,
+        "SwaysamplingCoef": null,
+        "DisableChunking": false,
+        "CosyInstruct": null,
+        "Dsp": {
+          "Enabled": true,
+          "Effects": [],
+          "IsNeutral": true
+        }
+      },
+      "Refti/Male": {
+        "VoiceId": "M_Narrator",
+        "LangCode": "en-us",
+        "SpeechRate": 1,
+        "CfgWeight": 0.5,
+        "Exaggeration": 0.5,
+        "CfgStrength": null,
+        "NfeStep": null,
+        "CrossFadeDuration": null,
+        "SwaysamplingCoef": null,
+        "DisableChunking": false,
+        "CosyInstruct": null,
+        "Dsp": {
+          "Enabled": true,
+          "Effects": [],
+          "IsNeutral": true
+        }
+      },
+      "Refti/Female": {
+        "VoiceId": "M_Narrator",
+        "LangCode": "en-us",
+        "SpeechRate": 1,
+        "CfgWeight": 0.5,
+        "Exaggeration": 0.5,
+        "CfgStrength": null,
+        "NfeStep": null,
+        "CrossFadeDuration": null,
+        "SwaysamplingCoef": null,
+        "DisableChunking": false,
+        "CosyInstruct": null,
+        "Dsp": {
+          "Enabled": true,
+          "Effects": [],
+          "IsNeutral": true
+        }
+      },
+      "Revantusk/Male": {
+        "VoiceId": "M_Narrator",
+        "LangCode": "en-us",
+        "SpeechRate": 1,
+        "CfgWeight": 0.5,
+        "Exaggeration": 0.5,
+        "CfgStrength": null,
+        "NfeStep": null,
+        "CrossFadeDuration": null,
+        "SwaysamplingCoef": null,
+        "DisableChunking": false,
+        "CosyInstruct": null,
+        "Dsp": {
+          "Enabled": true,
+          "Effects": [],
+          "IsNeutral": true
+        }
+      },
+      "Revantusk/Female": {
+        "VoiceId": "M_Narrator",
+        "LangCode": "en-us",
+        "SpeechRate": 1,
+        "CfgWeight": 0.5,
+        "Exaggeration": 0.5,
+        "CfgStrength": null,
+        "NfeStep": null,
+        "CrossFadeDuration": null,
+        "SwaysamplingCoef": null,
+        "DisableChunking": false,
+        "CosyInstruct": null,
+        "Dsp": {
+          "Enabled": true,
+          "Effects": [],
+          "IsNeutral": true
+        }
+      },
+      "Rutaani/Male": {
+        "VoiceId": "M_Narrator",
+        "LangCode": "en-us",
+        "SpeechRate": 1,
+        "CfgWeight": 0.5,
+        "Exaggeration": 0.5,
+        "CfgStrength": null,
+        "NfeStep": null,
+        "CrossFadeDuration": null,
+        "SwaysamplingCoef": null,
+        "DisableChunking": false,
+        "CosyInstruct": null,
+        "Dsp": {
+          "Enabled": true,
+          "Effects": [],
+          "IsNeutral": true
+        }
+      },
+      "Rutaani/Female": {
+        "VoiceId": "M_Narrator",
+        "LangCode": "en-us",
+        "SpeechRate": 1,
+        "CfgWeight": 0.5,
+        "Exaggeration": 0.5,
+        "CfgStrength": null,
+        "NfeStep": null,
+        "CrossFadeDuration": null,
+        "SwaysamplingCoef": null,
+        "DisableChunking": false,
+        "CosyInstruct": null,
+        "Dsp": {
+          "Enabled": true,
+          "Effects": [],
+          "IsNeutral": true
+        }
+      },
+      "Shadowpine/Male": {
+        "VoiceId": "M_Narrator",
+        "LangCode": "en-us",
+        "SpeechRate": 1,
+        "CfgWeight": 0.5,
+        "Exaggeration": 0.5,
+        "CfgStrength": null,
+        "NfeStep": null,
+        "CrossFadeDuration": null,
+        "SwaysamplingCoef": null,
+        "DisableChunking": false,
+        "CosyInstruct": null,
+        "Dsp": {
+          "Enabled": true,
+          "Effects": [],
+          "IsNeutral": true
+        }
+      },
+      "Shadowpine/Female": {
+        "VoiceId": "M_Narrator",
+        "LangCode": "en-us",
+        "SpeechRate": 1,
+        "CfgWeight": 0.5,
+        "Exaggeration": 0.5,
+        "CfgStrength": null,
+        "NfeStep": null,
+        "CrossFadeDuration": null,
+        "SwaysamplingCoef": null,
+        "DisableChunking": false,
+        "CosyInstruct": null,
+        "Dsp": {
+          "Enabled": true,
+          "Effects": [],
+          "IsNeutral": true
+        }
+      },
+      "Titan/Male": {
+        "VoiceId": "M_Narrator",
+        "LangCode": "en-us",
+        "SpeechRate": 1,
+        "CfgWeight": 0.5,
+        "Exaggeration": 0.5,
+        "CfgStrength": null,
+        "NfeStep": null,
+        "CrossFadeDuration": null,
+        "SwaysamplingCoef": null,
+        "DisableChunking": false,
+        "CosyInstruct": null,
+        "Dsp": {
+          "Enabled": true,
+          "Effects": [],
+          "IsNeutral": true
+        }
+      },
+      "Titan/Female": {
+        "VoiceId": "M_Narrator",
+        "LangCode": "en-us",
+        "SpeechRate": 1,
+        "CfgWeight": 0.5,
+        "Exaggeration": 0.5,
+        "CfgStrength": null,
+        "NfeStep": null,
+        "CrossFadeDuration": null,
+        "SwaysamplingCoef": null,
+        "DisableChunking": false,
+        "CosyInstruct": null,
+        "Dsp": {
+          "Enabled": true,
+          "Effects": [],
+          "IsNeutral": true
+        }
+      },
+      "Tortollan/Male": {
+        "VoiceId": "M_Narrator",
+        "LangCode": "en-us",
+        "SpeechRate": 1,
+        "CfgWeight": 0.5,
+        "Exaggeration": 0.5,
+        "CfgStrength": null,
+        "NfeStep": null,
+        "CrossFadeDuration": null,
+        "SwaysamplingCoef": null,
+        "DisableChunking": false,
+        "CosyInstruct": null,
+        "Dsp": {
+          "Enabled": true,
+          "Effects": [],
+          "IsNeutral": true
+        }
+      },
+      "Tortollan/Female": {
+        "VoiceId": "M_Narrator",
+        "LangCode": "en-us",
+        "SpeechRate": 1,
+        "CfgWeight": 0.5,
+        "Exaggeration": 0.5,
+        "CfgStrength": null,
+        "NfeStep": null,
+        "CrossFadeDuration": null,
+        "SwaysamplingCoef": null,
+        "DisableChunking": false,
+        "CosyInstruct": null,
+        "Dsp": {
+          "Enabled": true,
+          "Effects": [],
+          "IsNeutral": true
+        }
+      },
+      "Tuskarr/Male": {
+        "VoiceId": "M_Narrator",
+        "LangCode": "en-us",
+        "SpeechRate": 1,
+        "CfgWeight": 0.5,
+        "Exaggeration": 0.5,
+        "CfgStrength": null,
+        "NfeStep": null,
+        "CrossFadeDuration": null,
+        "SwaysamplingCoef": null,
+        "DisableChunking": false,
+        "CosyInstruct": null,
+        "Dsp": {
+          "Enabled": true,
+          "Effects": [],
+          "IsNeutral": true
+        }
+      },
+      "Tuskarr/Female": {
+        "VoiceId": "M_Narrator",
+        "LangCode": "en-us",
+        "SpeechRate": 1,
+        "CfgWeight": 0.5,
+        "Exaggeration": 0.5,
+        "CfgStrength": null,
+        "NfeStep": null,
+        "CrossFadeDuration": null,
+        "SwaysamplingCoef": null,
+        "DisableChunking": false,
+        "CosyInstruct": null,
+        "Dsp": {
+          "Enabled": true,
+          "Effects": [],
+          "IsNeutral": true
+        }
+      },
+      "Venthyr/Male": {
+        "VoiceId": "M_Narrator",
+        "LangCode": "en-gb",
+        "SpeechRate": 1,
+        "CfgWeight": 0.5,
+        "Exaggeration": 0.5,
+        "CfgStrength": null,
+        "NfeStep": null,
+        "CrossFadeDuration": null,
+        "SwaysamplingCoef": null,
+        "DisableChunking": false,
+        "CosyInstruct": null,
+        "Dsp": {
+          "Enabled": true,
+          "Effects": [],
+          "IsNeutral": true
+        }
+      },
+      "Venthyr/Female": {
+        "VoiceId": "M_Narrator",
+        "LangCode": "en-gb",
+        "SpeechRate": 1,
+        "CfgWeight": 0.5,
+        "Exaggeration": 0.5,
+        "CfgStrength": null,
+        "NfeStep": null,
+        "CrossFadeDuration": null,
+        "SwaysamplingCoef": null,
+        "DisableChunking": false,
+        "CosyInstruct": null,
+        "Dsp": {
+          "Enabled": true,
+          "Effects": [],
+          "IsNeutral": true
+        }
+      },
+      "ZulAman/Male": {
+        "VoiceId": "M_Narrator",
+        "LangCode": "en-us",
+        "SpeechRate": 1,
+        "CfgWeight": 0.5,
+        "Exaggeration": 0.5,
+        "CfgStrength": null,
+        "NfeStep": null,
+        "CrossFadeDuration": null,
+        "SwaysamplingCoef": null,
+        "DisableChunking": false,
+        "CosyInstruct": null,
+        "Dsp": {
+          "Enabled": true,
+          "Effects": [],
+          "IsNeutral": true
+        }
+      },
+      "ZulAman/Female": {
+        "VoiceId": "M_Narrator",
+        "LangCode": "en-us",
+        "SpeechRate": 1,
+        "CfgWeight": 0.5,
+        "Exaggeration": 0.5,
+        "CfgStrength": null,
+        "NfeStep": null,
+        "CrossFadeDuration": null,
+        "SwaysamplingCoef": null,
+        "DisableChunking": false,
+        "CosyInstruct": null,
+        "Dsp": {
+          "Enabled": true,
+          "Effects": [],
+          "IsNeutral": true
+        }
       }
     },
     "kokoro": {},
@@ -1963,6 +2970,7 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [
@@ -1997,6 +3005,7 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [
@@ -2023,14 +3032,15 @@
       "Human/Female": {
         "VoiceId": "F_Human_1",
         "LangCode": "en-us",
-        "SpeechRate": 0.61032027,
-        "CfgWeight": 0.46,
-        "Exaggeration": 0.91,
+        "SpeechRate": 1,
+        "CfgWeight": 0.5,
+        "Exaggeration": 0.62,
         "CfgStrength": null,
         "NfeStep": null,
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [
@@ -2065,6 +3075,7 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [
@@ -2099,6 +3110,7 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -2116,6 +3128,7 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [
@@ -2150,6 +3163,7 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [
@@ -2184,6 +3198,7 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [
@@ -2218,6 +3233,7 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [
@@ -2252,6 +3268,7 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [
@@ -2286,6 +3303,7 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [
@@ -2320,6 +3338,7 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [
@@ -2354,6 +3373,7 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [
@@ -2388,6 +3408,7 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [
@@ -2422,6 +3443,7 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [
@@ -2456,6 +3478,7 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [
@@ -2490,6 +3513,7 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [
@@ -2524,6 +3548,7 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [
@@ -2558,6 +3583,7 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [
@@ -2592,6 +3618,7 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [
@@ -2626,6 +3653,7 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [
@@ -2660,6 +3688,7 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [
@@ -2694,6 +3723,7 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [
@@ -2728,6 +3758,7 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [
@@ -2762,6 +3793,7 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [
@@ -2796,6 +3828,7 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [
@@ -2830,6 +3863,7 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [
@@ -2864,6 +3898,7 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [
@@ -2898,6 +3933,7 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [
@@ -2932,6 +3968,7 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -2949,6 +3986,7 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -2966,6 +4004,7 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -2983,6 +4022,7 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -3000,6 +4040,7 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -3017,6 +4058,7 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -3034,6 +4076,7 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -3051,6 +4094,7 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -3068,6 +4112,7 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -3085,6 +4130,7 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -3102,6 +4148,7 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -3119,6 +4166,7 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -3126,9 +4174,9 @@
         }
       },
       "Nightborne/Male": {
-        "VoiceId": "M_Narrator",
-        "LangCode": "en-gb",
-        "SpeechRate": 1,
+        "VoiceId": "M_Nightborne_1",
+        "LangCode": "en-us",
+        "SpeechRate": 0.997,
         "CfgWeight": 0,
         "Exaggeration": 0,
         "CfgStrength": null,
@@ -3136,16 +4184,34 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
-          "Effects": [],
-          "IsNeutral": true
+          "Effects": [
+            {
+              "Kind": 8,
+              "Enabled": true,
+              "Params": {
+                "amount": 0.625
+              }
+            },
+            {
+              "Kind": 12,
+              "Enabled": true,
+              "Params": {
+                "wet": 0.1125,
+                "rate": 1.5,
+                "width": 0.02
+              }
+            }
+          ],
+          "IsNeutral": false
         }
       },
       "Nightborne/Female": {
-        "VoiceId": "M_Narrator",
+        "VoiceId": "F_Nightborne_5-slow",
         "LangCode": "en-gb",
-        "SpeechRate": 1,
+        "SpeechRate": 0.891,
         "CfgWeight": 0,
         "Exaggeration": 0,
         "CfgStrength": null,
@@ -3153,10 +4219,28 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
-          "Effects": [],
-          "IsNeutral": true
+          "Effects": [
+            {
+              "Kind": 8,
+              "Enabled": true,
+              "Params": {
+                "amount": 0.5625
+              }
+            },
+            {
+              "Kind": 18,
+              "Enabled": true,
+              "Params": {
+                "wet": 0.1,
+                "roomSize": 0.1,
+                "damping": 0.9125
+              }
+            }
+          ],
+          "IsNeutral": false
         }
       },
       "Vulpera/Male": {
@@ -3170,6 +4254,7 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -3187,6 +4272,7 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -3204,6 +4290,7 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -3221,6 +4308,7 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -3238,6 +4326,7 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -3255,6 +4344,7 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -3272,6 +4362,7 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -3289,6 +4380,7 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -3306,6 +4398,7 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -3323,6 +4416,7 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -3340,6 +4434,7 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -3357,6 +4452,7 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -3374,6 +4470,7 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -3391,6 +4488,7 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -3408,6 +4506,7 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -3425,6 +4524,7 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -3442,6 +4542,7 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -3459,6 +4560,7 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -3476,6 +4578,7 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -3493,6 +4596,7 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -3510,6 +4614,7 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [
@@ -3544,6 +4649,7 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -3561,6 +4667,7 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [
@@ -3595,6 +4702,7 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -3612,6 +4720,7 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -3629,6 +4738,7 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -3646,6 +4756,7 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -3663,6 +4774,7 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -3680,6 +4792,7 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -3697,6 +4810,7 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -3714,6 +4828,7 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -3731,6 +4846,7 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -3748,6 +4864,7 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -3765,6 +4882,7 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -3782,6 +4900,7 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -3799,6 +4918,7 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -3816,6 +4936,7 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -3833,6 +4954,7 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -3850,6 +4972,7 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -3867,6 +4990,7 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -3884,6 +5008,7 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -3901,6 +5026,7 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -3918,6 +5044,7 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -3935,6 +5062,7 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -3952,6 +5080,7 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -3969,6 +5098,7 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -3986,6 +5116,7 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -4003,6 +5134,7 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -4020,6 +5152,7 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -4037,6 +5170,7 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -4054,6 +5188,7 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -4071,6 +5206,7 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -4088,6 +5224,7 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -4105,6 +5242,7 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -4122,6 +5260,7 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -4139,6 +5278,7 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -4156,6 +5296,7 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -4173,6 +5314,7 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -4190,6 +5332,7 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -4207,6 +5350,7 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -4224,6 +5368,7 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -4241,6 +5386,7 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -4258,6 +5404,7 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -4275,6 +5422,7 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -4294,6 +5442,7 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -4311,6 +5460,7 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -4328,6 +5478,7 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -4345,6 +5496,7 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -4362,6 +5514,7 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": false,
           "Effects": [],
@@ -4379,6 +5532,7 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -4396,6 +5550,7 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -4413,11 +5568,26 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
           "IsNeutral": true
         }
+      },
+      "Nightborne/Female": {
+        "VoiceId": "af_alloy",
+        "LangCode": "en-us",
+        "SpeechRate": 1,
+        "CfgWeight": null,
+        "Exaggeration": null,
+        "CfgStrength": null,
+        "NfeStep": null,
+        "CrossFadeDuration": null,
+        "SwaysamplingCoef": null,
+        "DisableChunking": false,
+        "CosyInstruct": null,
+        "Dsp": null
       }
     },
     "remote:f5tts": {
@@ -4432,6 +5602,7 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": -1,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [
@@ -4466,6 +5637,7 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": -1,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [
@@ -4500,6 +5672,7 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": -1,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [
@@ -4534,6 +5707,7 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": -1,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [
@@ -4568,6 +5742,7 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": -1,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [
@@ -4602,6 +5777,7 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": -1,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [
@@ -4636,6 +5812,7 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": -1,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [
@@ -4670,6 +5847,7 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": -1,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [
@@ -4704,6 +5882,7 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": -1,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [
@@ -4738,6 +5917,7 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": -1,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [
@@ -4772,6 +5952,7 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": -1,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [
@@ -4806,6 +5987,7 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": -1,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [
@@ -4840,6 +6022,7 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": -1,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -4857,6 +6040,7 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": -1,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -4864,7 +6048,7 @@
         }
       },
       "Nightborne/Female": {
-        "VoiceId": "M_Narrator",
+        "VoiceId": "F_Nightborne_1",
         "LangCode": "en-us",
         "SpeechRate": 1,
         "CfgWeight": null,
@@ -4874,6 +6058,7 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": -1,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [
@@ -4922,6 +6107,7 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": -1,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [
@@ -4956,6 +6142,7 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": -1,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [
@@ -4990,6 +6177,7 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": -1,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [
@@ -5024,6 +6212,7 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": -1,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [
@@ -5058,6 +6247,7 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": -1,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [
@@ -5092,6 +6282,7 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": -1,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [
@@ -5126,6 +6317,7 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": -1,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [
@@ -5160,6 +6352,7 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": -1,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [
@@ -5194,6 +6387,7 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": -1,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [
@@ -5228,6 +6422,7 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": -1,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [
@@ -5253,6 +6448,7 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": -1,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -5270,6 +6466,7 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": -1,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [
@@ -5304,6 +6501,7 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": -1,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [
@@ -5338,6 +6536,7 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": -1,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -5355,6 +6554,7 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": -1,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [
@@ -5389,6 +6589,7 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": -1,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [
@@ -5423,6 +6624,7 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": -1,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [
@@ -5457,6 +6659,7 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": -1,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [
@@ -5491,6 +6694,7 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": -1,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [
@@ -5525,6 +6729,7 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": -1,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -5542,6 +6747,7 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": -1,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -5559,6 +6765,7 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": -1,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -5576,6 +6783,7 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": -1,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -5593,6 +6801,7 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": -1,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -5610,6 +6819,7 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": -1,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -5627,6 +6837,7 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": -1,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -5644,6 +6855,7 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": -1,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -5661,6 +6873,7 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": -1,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -5678,6 +6891,7 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": -1,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -5695,6 +6909,7 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": -1,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -5712,6 +6927,7 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": -1,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -5729,6 +6945,7 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": -1,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -5746,6 +6963,7 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": -1,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -5763,6 +6981,7 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": -1,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -5780,6 +6999,7 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": -1,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -5797,6 +7017,7 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": -1,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -5814,6 +7035,7 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": -1,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -5831,6 +7053,7 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": -1,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -5848,6 +7071,7 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": -1,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -5865,6 +7089,7 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": -1,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -5882,6 +7107,7 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": -1,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -5899,6 +7125,7 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": -1,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -5916,6 +7143,7 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": -1,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -5933,6 +7161,7 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": -1,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -5950,6 +7179,7 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": -1,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -5967,6 +7197,7 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": -1,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -5984,6 +7215,7 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": -1,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -6001,6 +7233,7 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": -1,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -6018,6 +7251,7 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": -1,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -6035,6 +7269,7 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": -1,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -6052,6 +7287,7 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": -1,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -6069,6 +7305,7 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": -1,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -6086,6 +7323,7 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": -1,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -6103,6 +7341,7 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": -1,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -6120,6 +7359,7 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": -1,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -6137,6 +7377,7 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": -1,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -6154,6 +7395,7 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": -1,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -6171,6 +7413,7 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": -1,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -6188,6 +7431,7 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": -1,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -6205,6 +7449,7 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": -1,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -6222,6 +7467,7 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": -1,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -6239,6 +7485,7 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": -1,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -6256,6 +7503,7 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": -1,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -6273,6 +7521,7 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": -1,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -6290,6 +7539,7 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": -1,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -6307,6 +7557,7 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": -1,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -6324,6 +7575,7 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": -1,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -6341,6 +7593,7 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": -1,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -6358,6 +7611,7 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": -1,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -6375,6 +7629,7 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": -1,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -6392,6 +7647,7 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": -1,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -6409,6 +7665,7 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": -1,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -6426,6 +7683,7 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": -1,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -6443,6 +7701,7 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": -1,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -6460,6 +7719,7 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": -1,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -6477,6 +7737,7 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": -1,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -6494,6 +7755,7 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": -1,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -6511,6 +7773,7 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": -1,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -6528,6 +7791,7 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": -1,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -6545,6 +7809,7 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": -1,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -6562,6 +7827,7 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": -1,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -6579,6 +7845,7 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": -1,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -6596,6 +7863,7 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": -1,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -6613,6 +7881,7 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": -1,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -6630,6 +7899,7 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": -1,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -6647,6 +7917,7 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": -1,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -6664,6 +7935,7 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": -1,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -6681,6 +7953,7 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": -1,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -6698,6 +7971,7 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": -1,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -6715,6 +7989,7 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": -1,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -6732,6 +8007,7 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": -1,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -6749,10 +8025,178 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": -1,
         "DisableChunking": false,
+        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
           "IsNeutral": true
+        }
+      }
+    },
+    "remote:chatterbox_multilingual": {
+      "Narrator": {
+        "VoiceId": "am_adam-en-us",
+        "LangCode": "en-us",
+        "SpeechRate": 1,
+        "CfgWeight": null,
+        "Exaggeration": null,
+        "CfgStrength": null,
+        "NfeStep": null,
+        "CrossFadeDuration": null,
+        "SwaysamplingCoef": null,
+        "DisableChunking": false,
+        "CosyInstruct": null,
+        "Dsp": null
+      }
+    },
+    "remote:qwen_natural": {
+      "Human/Female": {
+        "VoiceId": "F_Human_1",
+        "LangCode": "en-us",
+        "SpeechRate": 1,
+        "CfgWeight": null,
+        "Exaggeration": null,
+        "CfgStrength": null,
+        "NfeStep": null,
+        "CrossFadeDuration": null,
+        "SwaysamplingCoef": null,
+        "DisableChunking": false,
+        "CosyInstruct": null,
+        "Dsp": {
+          "Enabled": true,
+          "Effects": [],
+          "IsNeutral": true
+        }
+      },
+      "Narrator": {
+        "VoiceId": "M_Narrator",
+        "LangCode": "en-us",
+        "SpeechRate": 1,
+        "CfgWeight": null,
+        "Exaggeration": null,
+        "CfgStrength": null,
+        "NfeStep": null,
+        "CrossFadeDuration": null,
+        "SwaysamplingCoef": null,
+        "DisableChunking": false,
+        "CosyInstruct": null,
+        "Dsp": {
+          "Enabled": true,
+          "Effects": [],
+          "IsNeutral": true
+        }
+      },
+      "Dwarf/Male": {
+        "VoiceId": "M_Dwarf_1",
+        "LangCode": "en-gb",
+        "SpeechRate": 1,
+        "CfgWeight": null,
+        "Exaggeration": null,
+        "CfgStrength": null,
+        "NfeStep": null,
+        "CrossFadeDuration": null,
+        "SwaysamplingCoef": null,
+        "DisableChunking": false,
+        "CosyInstruct": null,
+        "Dsp": {
+          "Enabled": true,
+          "Effects": [],
+          "IsNeutral": true
+        }
+      },
+      "Human/Male": {
+        "VoiceId": "M_Human_1",
+        "LangCode": "en-us",
+        "SpeechRate": 1,
+        "CfgWeight": null,
+        "Exaggeration": null,
+        "CfgStrength": null,
+        "NfeStep": null,
+        "CrossFadeDuration": null,
+        "SwaysamplingCoef": null,
+        "DisableChunking": false,
+        "CosyInstruct": null,
+        "Dsp": {
+          "Enabled": true,
+          "Effects": [],
+          "IsNeutral": true
+        }
+      }
+    },
+    "remote:lux": {
+      "Narrator": {
+        "VoiceId": "F_Amani_1",
+        "LangCode": "en-us",
+        "SpeechRate": 1,
+        "CfgWeight": null,
+        "Exaggeration": null,
+        "CfgStrength": null,
+        "NfeStep": null,
+        "CrossFadeDuration": null,
+        "SwaysamplingCoef": null,
+        "DisableChunking": false,
+        "CosyInstruct": null,
+        "Dsp": {
+          "Enabled": true,
+          "Effects": [],
+          "IsNeutral": true
+        }
+      }
+    },
+    "remote:cosyvoice": {
+      "Narrator": {
+        "VoiceId": "M_Narrator",
+        "LangCode": "en-us",
+        "SpeechRate": 1,
+        "CfgWeight": null,
+        "Exaggeration": null,
+        "CfgStrength": null,
+        "NfeStep": null,
+        "CrossFadeDuration": null,
+        "SwaysamplingCoef": null,
+        "DisableChunking": false,
+        "CosyInstruct": null,
+        "Dsp": {
+          "Enabled": true,
+          "Effects": [],
+          "IsNeutral": true
+        }
+      }
+    },
+    "remote:cosyvoice_vllm": {
+      "Narrator": {
+        "VoiceId": "M_Narrator",
+        "LangCode": "en-us",
+        "SpeechRate": 1,
+        "CfgWeight": null,
+        "Exaggeration": null,
+        "CfgStrength": null,
+        "NfeStep": null,
+        "CrossFadeDuration": null,
+        "SwaysamplingCoef": null,
+        "DisableChunking": false,
+        "CosyInstruct": null,
+        "Dsp": {
+          "Enabled": true,
+          "Effects": [
+            {
+              "Kind": 8,
+              "Enabled": true,
+              "Params": {
+                "amount": 0.6086262
+              }
+            },
+            {
+              "Kind": 18,
+              "Enabled": true,
+              "Params": {
+                "wet": 0.04313099,
+                "roomSize": 0.09904154,
+                "damping": 0.92492014
+              }
+            }
+          ],
+          "IsNeutral": false
         }
       }
     }

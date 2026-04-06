@@ -100,6 +100,14 @@ So go quickly, keep your wits about you, and return by the main road if you valu
     private readonly TextBox?    _nfeStepText;
     private readonly Slider?     _swaySlider;
     private readonly TextBox?    _swayText;
+    private readonly ComboBox?   _stylePaceCombo;
+    private readonly ComboBox?   _styleToneCombo;
+    private readonly ComboBox?   _styleVolumeCombo;
+    private readonly ComboBox?   _styleEmotionCombo;
+    private readonly TextBox?    _styleInstructionText;
+    private readonly TextBlock?  _styleHelpText;
+    private bool                 _suppressStyleSync;
+    private string               _lastBuiltStyleInstruction = string.Empty;
     private readonly Button      _previewButton;
     private readonly Button      _stopPreviewButton;
     private readonly TextBlock   _previewStatusText;
@@ -519,6 +527,144 @@ So go quickly, keep your wits about you, and return by the main road if you valu
             f5ControlsCard = Card("F5-TTS Synthesis Controls", f5Rows);
         }
 
+        controls.TryGetValue("cosy_instruct", out var styleInstructionControl);
+        Border? styleInstructionCard = null;
+        _stylePaceCombo = null;
+        _styleToneCombo = null;
+        _styleVolumeCombo = null;
+        _styleEmotionCombo = null;
+        _styleInstructionText = null;
+        _styleHelpText = null;
+
+        if (styleInstructionControl != null)
+        {
+            _workingProfile.CosyInstruct ??= string.Empty;
+
+            static ComboBox StyleCombo(IEnumerable<string> items) => new()
+            {
+                ItemsSource = items.ToArray(),
+                SelectedIndex = 0,
+                MinWidth = 180,
+                HorizontalAlignment = HorizontalAlignment.Stretch
+            };
+
+            _stylePaceCombo = StyleCombo(new[] { "Normal", "Slow and deliberate", "Fast and urgent", "Custom" });
+            _styleToneCombo = StyleCombo(new[] { "Neutral", "Gravitas", "Weary", "Reverent", "Commanding", "Mysterious", "Excited", "Fearful", "Custom" });
+            _styleVolumeCombo = StyleCombo(new[] { "Normal", "Quiet and soft", "Loud and booming", "Custom" });
+            _styleEmotionCombo = StyleCombo(new[] { "Neutral", "Angry", "Sad", "Joyful", "Tense", "Custom" });
+            _styleInstructionText = new TextBox
+            {
+                Text = _workingProfile.CosyInstruct ?? string.Empty,
+                AcceptsReturn = false,
+                TextWrapping = TextWrapping.Wrap,
+                Watermark = "Describe how this voice should speak...",
+                MinWidth = 320
+            };
+            _styleHelpText = new TextBlock
+            {
+                Text = string.IsNullOrWhiteSpace(styleInstructionControl.Description)
+                    ? "Optional natural-language speaking style. Leave blank to use normal zero-shot voice cloning."
+                    : styleInstructionControl.Description,
+                Opacity = 0.8,
+                TextWrapping = TextWrapping.Wrap
+            };
+
+            void RebuildInstructionFromPresets()
+            {
+                if (_suppressStyleSync || _styleInstructionText == null || _stylePaceCombo == null || _styleToneCombo == null || _styleVolumeCombo == null || _styleEmotionCombo == null)
+                    return;
+
+                string pace = _stylePaceCombo.SelectedItem as string ?? "Normal";
+                string tone = _styleToneCombo.SelectedItem as string ?? "Neutral";
+                string volume = _styleVolumeCombo.SelectedItem as string ?? "Normal";
+                string emotion = _styleEmotionCombo.SelectedItem as string ?? "Neutral";
+
+                string built = BuildStyleInstruction(pace, tone, volume, emotion);
+                _lastBuiltStyleInstruction = built;
+                _workingProfile.CosyInstruct = built;
+                _styleInstructionText.Text = built;
+                RefreshSummary();
+            }
+
+            void MarkCustomFromManualText()
+            {
+                if (_suppressStyleSync || _styleInstructionText == null || _stylePaceCombo == null || _styleToneCombo == null || _styleVolumeCombo == null || _styleEmotionCombo == null)
+                    return;
+
+                var text = (_styleInstructionText.Text ?? string.Empty).Trim();
+                _workingProfile.CosyInstruct = text;
+                if (string.Equals(text, _lastBuiltStyleInstruction, StringComparison.Ordinal))
+                {
+                    RefreshSummary();
+                    return;
+                }
+
+                _suppressStyleSync = true;
+                _stylePaceCombo.SelectedItem = "Custom";
+                _styleToneCombo.SelectedItem = "Custom";
+                _styleVolumeCombo.SelectedItem = "Custom";
+                _styleEmotionCombo.SelectedItem = "Custom";
+                _suppressStyleSync = false;
+                RefreshSummary();
+            }
+
+            _stylePaceCombo.SelectionChanged += (_, _) => RebuildInstructionFromPresets();
+            _styleToneCombo.SelectionChanged += (_, _) => RebuildInstructionFromPresets();
+            _styleVolumeCombo.SelectionChanged += (_, _) => RebuildInstructionFromPresets();
+            _styleEmotionCombo.SelectionChanged += (_, _) => RebuildInstructionFromPresets();
+            _styleInstructionText.TextChanged += (_, _) => MarkCustomFromManualText();
+
+            var resetStyleBtn = Btn("Reset to Presets", 130);
+            resetStyleBtn.Click += (_, _) =>
+            {
+                if (_styleInstructionText == null || _stylePaceCombo == null || _styleToneCombo == null || _styleVolumeCombo == null || _styleEmotionCombo == null)
+                    return;
+                _suppressStyleSync = true;
+                _stylePaceCombo.SelectedItem = "Normal";
+                _styleToneCombo.SelectedItem = "Neutral";
+                _styleVolumeCombo.SelectedItem = "Normal";
+                _styleEmotionCombo.SelectedItem = "Neutral";
+                _suppressStyleSync = false;
+                _lastBuiltStyleInstruction = string.Empty;
+                _styleInstructionText.Text = string.Empty;
+                _workingProfile.CosyInstruct = string.Empty;
+                RefreshSummary();
+            };
+
+            var clearStyleBtn = Btn("Clear", 80);
+            clearStyleBtn.Click += (_, _) =>
+            {
+                if (_styleInstructionText == null) return;
+                _styleInstructionText.Text = string.Empty;
+            };
+
+            var presetsGrid = new Grid
+            {
+                ColumnDefinitions = new ColumnDefinitions("Auto,*"),
+                RowDefinitions = new RowDefinitions("Auto,Auto,Auto,Auto"),
+                ColumnSpacing = 8,
+                RowSpacing = 8
+            };
+            AddLabeledRow(presetsGrid, 0, "Pace", _stylePaceCombo);
+            AddLabeledRow(presetsGrid, 1, "Tone", _styleToneCombo);
+            AddLabeledRow(presetsGrid, 2, "Volume", _styleVolumeCombo);
+            AddLabeledRow(presetsGrid, 3, "Emotion", _styleEmotionCombo);
+
+            styleInstructionCard = Card("Speech Style", new StackPanel
+            {
+                Spacing = 8,
+                Children =
+                {
+                    _styleHelpText,
+                    presetsGrid,
+                    new TextBlock { Text = "Style Instruction", FontWeight = FontWeight.SemiBold },
+                    _styleInstructionText,
+                    new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Children = { resetStyleBtn, clearStyleBtn } },
+                    new TextBlock { Text = "Empty text disables style instruction and uses the provider's normal voice generation path.", Opacity = 0.8, TextWrapping = TextWrapping.Wrap }
+                }
+            });
+        }
+
         // ── DSP chain ─────────────────────────────────────────────────────────
 
         _workingProfile.Dsp ??= new DspProfile();
@@ -690,10 +836,19 @@ So go quickly, keep your wits about you, and return by the main road if you valu
                 new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right, Spacing = 8, Children = { cancelBtn, saveBtn } }
             }
         };
+        var insertIndex = 4;
         if (chatterboxControlsCard != null)
-            contentStack.Children.Insert(4, chatterboxControlsCard);
+        {
+            contentStack.Children.Insert(insertIndex, chatterboxControlsCard);
+            insertIndex++;
+        }
         if (f5ControlsCard != null)
-            contentStack.Children.Insert(chatterboxControlsCard != null ? 5 : 4, f5ControlsCard);
+        {
+            contentStack.Children.Insert(insertIndex, f5ControlsCard);
+            insertIndex++;
+        }
+        if (styleInstructionCard != null)
+            contentStack.Children.Insert(insertIndex, styleInstructionCard);
 
         Content = new ScrollViewer
         {
@@ -967,6 +1122,13 @@ So go quickly, keep your wits about you, and return by the main road if you valu
             var v = _workingProfile.SwaysamplingCoef ?? (float)_swaySlider.Value;
             _swaySlider.Value = v;
             if (_swayText != null) _swayText.Text = v.ToString("0.00", Inv);
+        }
+        if (_styleInstructionText != null)
+        {
+            _suppressStyleSync = true;
+            _styleInstructionText.Text = _workingProfile.CosyInstruct ?? string.Empty;
+            ApplyStyleInstructionToPresetControls(_workingProfile.CosyInstruct ?? string.Empty);
+            _suppressStyleSync = false;
         }
         // Rebuild DSP chain to reflect any preset changes
         RebuildChainPanel();
@@ -1368,7 +1530,66 @@ So go quickly, keep your wits about you, and return by the main road if you valu
         return g;
     }
 
-        private static void AddToGrid(Grid g, Control c, int row, int col)
+    private static void AddLabeledRow(Grid grid, int row, string label, Control control)
+    {
+        var lbl = new TextBlock { Text = label, VerticalAlignment = VerticalAlignment.Center, FontWeight = FontWeight.SemiBold };
+        Grid.SetRow(lbl, row);
+        Grid.SetColumn(lbl, 0);
+        grid.Children.Add(lbl);
+        Grid.SetRow(control, row);
+        Grid.SetColumn(control, 1);
+        grid.Children.Add(control);
+    }
+
+    private static string BuildStyleInstruction(string pace, string tone, string volume, string emotion)
+    {
+        var parts = new List<string>();
+
+        if (pace == "Slow and deliberate") parts.Add("speak slowly and deliberately");
+        else if (pace == "Fast and urgent") parts.Add("speak quickly with urgency");
+
+        if (tone == "Gravitas") parts.Add("with weight and gravitas");
+        else if (tone == "Weary") parts.Add("with a tired and weary tone");
+        else if (tone == "Reverent") parts.Add("with reverence and solemnity");
+        else if (tone == "Commanding") parts.Add("with authority and command");
+        else if (tone == "Mysterious") parts.Add("with a mysterious and hushed quality");
+        else if (tone == "Excited") parts.Add("with excitement and energy");
+        else if (tone == "Fearful") parts.Add("with tension and barely concealed fear");
+
+        if (volume == "Quiet and soft") parts.Add("speak softly and quietly");
+        else if (volume == "Loud and booming") parts.Add("speak with full volume and projection");
+
+        if (emotion == "Angry") parts.Add("with barely contained anger");
+        else if (emotion == "Sad") parts.Add("with sorrow and heaviness");
+        else if (emotion == "Joyful") parts.Add("with warmth and joy");
+        else if (emotion == "Tense") parts.Add("with palpable tension");
+
+        return parts.Count == 0 ? string.Empty : string.Join(", ", parts);
+    }
+
+    private void ApplyStyleInstructionToPresetControls(string text)
+    {
+        if (_stylePaceCombo == null || _styleToneCombo == null || _styleVolumeCombo == null || _styleEmotionCombo == null)
+            return;
+
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            _stylePaceCombo.SelectedItem = "Normal";
+            _styleToneCombo.SelectedItem = "Neutral";
+            _styleVolumeCombo.SelectedItem = "Normal";
+            _styleEmotionCombo.SelectedItem = "Neutral";
+            _lastBuiltStyleInstruction = string.Empty;
+            return;
+        }
+
+        _stylePaceCombo.SelectedItem = "Custom";
+        _styleToneCombo.SelectedItem = "Custom";
+        _styleVolumeCombo.SelectedItem = "Custom";
+        _styleEmotionCombo.SelectedItem = "Custom";
+        _lastBuiltStyleInstruction = text.Trim();
+    }
+
+    private static void AddToGrid(Grid g, Control c, int row, int col)
     { Grid.SetRow(c, row); Grid.SetColumn(c, col); g.Children.Add(c); }
 
     // ─────────────────────────────────────────────────────────────────────────

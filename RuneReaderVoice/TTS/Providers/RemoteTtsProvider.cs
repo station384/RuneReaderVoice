@@ -239,6 +239,7 @@ public sealed class RemoteTtsProvider : ITtsProvider
             SpeechRate        = profile.SpeechRate <= 0f ? 1.0f : profile.SpeechRate,
             CfgWeight         = profile.CfgWeight,
             Exaggeration      = profile.Exaggeration,
+            CosyInstruct      = string.IsNullOrWhiteSpace(profile.CosyInstruct) ? null : profile.CosyInstruct.Trim(),
             BatchId           = batchId,
             BatchTotal        = batchTotal,
             CfgStrength       = profile.CfgStrength,
