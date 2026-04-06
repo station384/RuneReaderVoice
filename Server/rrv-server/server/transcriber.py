@@ -529,6 +529,7 @@ class TranscriptionService:
         # Optional ASR registry — when provided, master transcription delegates
         # to the active ASR provider instead of loading Whisper directly.
         self._asr_registry = asr_registry
+        self._asr_loop = None  # captured in set_asr_registry
 
     def cleanup_tmp_sidecars(self) -> None:
         """Remove any leftover .ref.txt.tmp and .txt.tmp files from interrupted writes."""
@@ -578,6 +579,12 @@ class TranscriptionService:
     def set_asr_registry(self, asr_registry) -> None:
         """Set the ASR registry after construction. Called from main.py after ASR loads."""
         self._asr_registry = asr_registry
+        # Capture the running event loop so thread pool executors can
+        # submit coroutines to it via run_coroutine_threadsafe.
+        try:
+            self._asr_loop = asyncio.get_event_loop()
+        except RuntimeError:
+            self._asr_loop = None
         # If the registry has a provider, auto-transcription is available
         # regardless of whether Whisper itself was found.
         if asr_registry is not None and asr_registry.available:
@@ -1040,9 +1047,14 @@ class TranscriptionService:
                     language_hint="en",
                     return_timestamps=False,
                 )
-                # We're in a thread pool executor — run the async transcribe
-                # in a fresh event loop to avoid conflicts with the host loop.
-                result = asyncio.run(asr_provider.transcribe(request))
+                # We're in a thread pool executor — use the main event loop
+                # via run_coroutine_threadsafe to avoid creating a new loop.
+                import concurrent.futures
+                future = asyncio.run_coroutine_threadsafe(
+                    asr_provider.transcribe(request),
+                    self._asr_loop,
+                )
+                result = future.result(timeout=300)
 
                 if result.is_empty():
                     log.warning(
@@ -1154,6 +1166,24 @@ class TranscriptionService:
                             torch.cuda.empty_cache()
                     except Exception:
                         pass
+
+        # Unload ASR provider after batch completes to free GPU memory.
+        # It will reload on demand when the next transcription is needed.
+        # This mirrors the Whisper pattern of load/transcribe/unload per pass.
+        if hasattr(asr_provider, "unload") and asr_provider.is_loaded:
+            try:
+                loop = self._asr_loop
+                if loop is not None:
+                    future = asyncio.run_coroutine_threadsafe(
+                        asr_provider.unload(), loop
+                    )
+                    future.result(timeout=30)
+                    log.info(
+                        "Transcription: ASR provider '%s' unloaded after batch",
+                        asr_provider.display_name
+                    )
+            except Exception as e:
+                log.warning("Transcription: failed to unload ASR provider: %s", e)
 
         log.info(
             "Transcription: completed %d file(s) via %s",

@@ -140,10 +140,58 @@ class WorkerBackend(AbstractTtsBackend):
         self._writer: Optional[asyncio.StreamWriter] = None
         self._lock = asyncio.Lock()
 
+        # Usage tracking for ResourceManager
+        self._last_used: float = 0.0
+        self._use_count: int = 0
+        self._is_loaded: bool = False
+        self._manager = None  # set by main.py after ResourceManager is created
+
         # Cached from worker after handshake
         self._capabilities: dict = {}
         self._voices: list[VoiceInfo] = []
         self._model_version_str: str = ""
+
+    # ── AbstractTtsBackend properties ─────────────────────────────────────────
+
+    # ── ManagedResource protocol ─────────────────────────────────────────────
+
+    @property
+    def resource_id(self) -> str:
+        return self._backend_name
+
+    @property
+    def requires_gpu(self) -> bool:
+        """All worker backends are assumed to use GPU."""
+        return True
+
+    @property
+    def last_used(self) -> float:
+        return self._last_used
+
+    @property
+    def use_count(self) -> int:
+        return self._use_count
+
+    @property
+    def vram_used_mib(self) -> float:
+        """Self-reported VRAM usage in MiB from the worker subprocess capabilities.
+        0.0 if not loaded or not reported. Used by ResourceManager for eviction ordering.
+        """
+        return float(self._capabilities.get("vram_used_mib", 0.0))
+
+    @property
+    def is_loaded(self) -> bool:
+        return self._is_loaded and self._process is not None and self._process.poll() is None
+
+    async def unload(self) -> None:
+        """
+        Gracefully shut down the worker subprocess to free GPU memory.
+        The worker can be reloaded on demand by calling load() again.
+        Called by ResourceManager during eviction.
+        """
+        log.info("Unloading worker '%s' to free GPU memory", self._backend_name)
+        await asyncio.get_event_loop().run_in_executor(None, self.shutdown)
+        self._is_loaded = False
 
     # ── AbstractTtsBackend properties ─────────────────────────────────────────
 
@@ -334,6 +382,7 @@ class WorkerBackend(AbstractTtsBackend):
                 for v in resp.get("voices", [])
             ]
 
+        self._is_loaded = True
         log.info(
             "Worker '%s' ready — model_version=%s capabilities=%s",
             self._backend_name,
@@ -387,8 +436,16 @@ class WorkerBackend(AbstractTtsBackend):
         return list(self._voices)
 
     async def synthesize(self, request: SynthesisRequest) -> SynthesisResult:
-        if self._writer is None or self._reader is None:
-            raise RuntimeError(f"Worker '{self._backend_name}' is not loaded")
+        # On-demand reload — if evicted by ResourceManager, reload before synthesizing
+        if not self.is_loaded:
+            if self._manager is not None:
+                await self._manager.request_load(self)
+            log.info("Worker '%s' is unloaded — reloading on demand", self._backend_name)
+            await self.load()
+        if not self.is_loaded:
+            raise RuntimeError(
+                f"Worker '{self._backend_name}' failed to reload after eviction"
+            )
         if self._process is not None and self._process.poll() is not None:
             raise RuntimeError(
                 f"Worker '{self._backend_name}' has exited unexpectedly "
@@ -424,6 +481,8 @@ class WorkerBackend(AbstractTtsBackend):
                 timeout=30.0,
             )
 
+        self._last_used = time.monotonic()
+        self._use_count += 1
         return SynthesisResult(
             ogg_bytes=ogg_bytes,
             duration_sec=header.get("duration_sec", 0.0),
@@ -440,6 +499,7 @@ class WorkerBackend(AbstractTtsBackend):
         if self._process is None:
             return
 
+        self._is_loaded = False
         if self._writer is not None:
             try:
                 self._writer.close()

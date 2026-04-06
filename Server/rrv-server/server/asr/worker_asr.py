@@ -91,6 +91,7 @@ class WorkerAsr(AbstractAsrProvider):
         # Usage tracking for resource manager
         self._last_used: float = 0.0
         self._use_count: int = 0
+        self._manager = None  # set by AsrRegistry after registration
 
     @property
     def provider_id(self) -> str:
@@ -109,12 +110,30 @@ class WorkerAsr(AbstractAsrProvider):
         return self._loaded_flag and self._process is not None and self._process.poll() is None
 
     @property
+    def vram_used_mib(self) -> float:
+        return float(self._capabilities.get("vram_used_mib", 0.0))
+
+    @property
+    def resource_id(self) -> str:
+        return self._provider_name
+
+    @property
     def last_used(self) -> float:
         return self._last_used
 
     @property
     def use_count(self) -> int:
         return self._use_count
+
+    async def unload(self) -> None:
+        """
+        Shut down the worker subprocess to free GPU memory.
+        Can be reloaded on demand by calling load() again.
+        Called by ResourceManager during eviction.
+        """
+        log.info("Unloading ASR worker '%s' to free GPU memory", self._provider_name)
+        import asyncio
+        await asyncio.get_event_loop().run_in_executor(None, self.shutdown)
 
     def _venv_python(self) -> Path:
         candidate = self._venv_path / "bin" / "python"
@@ -130,7 +149,7 @@ class WorkerAsr(AbstractAsrProvider):
             if line.startswith("READY:"):
                 log.debug("ASR worker stdout: %s", line)
                 return
-            log.debug("[asr_worker:%s] %s", self._provider_name, line)
+            log.info("[asr_worker:%s] %s", self._provider_name, line)
         rc = self._process.wait()
         raise RuntimeError(
             f"ASR worker '{self._provider_name}' exited with code {rc} before becoming ready"
@@ -231,8 +250,14 @@ class WorkerAsr(AbstractAsrProvider):
             raise RuntimeError(f"ASR worker ping failed: {resp!r}")
 
     async def transcribe(self, request: TranscriptionRequest) -> TranscriptionResult:
+        # If unloaded, request resources from manager then reload
         if not self.is_loaded:
-            raise RuntimeError(f"ASR worker '{self._provider_name}' is not loaded")
+            if self._manager is not None:
+                await self._manager.request_load(self)
+            log.info("ASR worker '%s' is unloaded — reloading on demand", self._provider_name)
+            await self.load()
+        if not self.is_loaded:
+            raise RuntimeError(f"ASR worker '{self._provider_name}' failed to reload")
 
         msg = {
             "cmd": "transcribe",

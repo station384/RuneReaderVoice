@@ -136,6 +136,18 @@ async def _handle_connection(
 
             elif cmd == "capabilities":
                 caps = backend.capability_dict(execution_provider=gpu_provider)
+                # Self-report VRAM usage — vendor-agnostic so the host
+                # resource manager can evict by size without nvidia-smi.
+                try:
+                    import torch
+                    if torch.cuda.is_available():
+                        caps["vram_used_mib"] = torch.cuda.memory_reserved(0) / (1024 * 1024)
+                    elif hasattr(torch, "hip") and torch.hip.is_available():
+                        caps["vram_used_mib"] = torch.cuda.memory_reserved(0) / (1024 * 1024)
+                    else:
+                        caps["vram_used_mib"] = 0.0
+                except Exception:
+                    caps["vram_used_mib"] = 0.0
                 await _send_message(writer, {"status": "ok", "capabilities": caps})
 
             elif cmd == "voices":

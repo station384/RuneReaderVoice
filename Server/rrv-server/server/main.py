@@ -57,6 +57,7 @@ from .cache import AudioCache
 from .backends import load_backends
 from .transcriber import TranscriptionService
 from .asr import load_asr_provider, AsrRegistry
+from .manager import create_manager
 from .community_db import CommunityDb
 
 log = logging.getLogger(__name__)
@@ -99,6 +100,15 @@ async def lifespan(app: FastAPI):
     )
     app.state.registry = registry
 
+    # Resource manager — tracks GPU usage across all backends and ASR providers
+    manager = create_manager(settings)
+    app.state.manager = manager
+    from .backends.worker_backend import WorkerBackend as _WB
+    for _b in registry.all():
+        if isinstance(_b, _WB):
+            manager.register(_b)
+            _b._manager = manager  # enable on-demand reload via manager
+
     # Transcription service — only started when a voice-matching backend is loaded.
     # Handles both ffmpeg audio/video conversion AND Whisper transcription.
     # ffmpeg conversion runs regardless of Whisper availability — a file can be
@@ -115,7 +125,20 @@ async def lifespan(app: FastAPI):
         transcriber.cleanup_tmp_sidecars()  # remove leftover .tmp sidecars from interrupted writes
         transcriber.check_availability()   # checks both ffmpeg and Whisper, logs results
 
-        # Load ASR provider — may be whisper (in-process) or a worker subprocess
+        # Load ASR provider — may be whisper (in-process) or a worker subprocess.
+        # If the provider requires GPU, ask the resource manager to evict an
+        # idle backend first so there is enough VRAM to load.
+        if settings.asr_provider != "whisper":
+            # Create a lightweight sentinel so the manager knows what's requesting
+            class _AsrLoadRequest:
+                resource_id = settings.asr_provider
+                requires_gpu = True
+                is_loaded = False
+                last_used = 0.0
+                use_count = 0
+                async def load(self): pass
+                async def unload(self): pass
+            await manager.request_load(_AsrLoadRequest())
         asr_registry = await load_asr_provider(
             provider_name=settings.asr_provider,
             models_dir=settings.models_dir,
@@ -125,6 +148,13 @@ async def lifespan(app: FastAPI):
         )
         app.state.asr_registry = asr_registry
         transcriber.set_asr_registry(asr_registry)
+        # Register ASR provider with resource manager and give it a manager reference
+        if asr_registry.available:
+            from .asr.worker_asr import WorkerAsr as _WA
+            _asr = asr_registry.provider
+            if isinstance(_asr, _WA):
+                manager.register(_asr)
+                _asr._manager = manager
 
         # Initial scan at startup — convert + transcribe any pending files
         await transcriber.scan_and_transcribe()

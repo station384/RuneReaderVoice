@@ -87,6 +87,11 @@ class Settings:
         # ASR provider selection.
         # Options: whisper (default, in-process), qwen_asr, crisper_whisper, cohere_transcribe
         self.asr_provider: str = _env_str("RRV_ASR_PROVIDER", "whisper").lower()
+        # Resource manager eviction window — backends idle longer than this
+        # are eligible for eviction when a new backend needs to load.
+        self.backend_recent_use_window: float = float(
+            _env_str("RRV_BACKEND_RECENT_USE_WINDOW", "60")
+        )
         # Optional per-provider ASR venv path overrides (RRV_ASR_VENV_<provider>)
         self.asr_worker_venvs: dict = {}
         _asr_venv_prefix = "RRV_ASR_VENV_"

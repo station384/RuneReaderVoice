@@ -5,16 +5,20 @@
 # server/asr/qwen_asr_provider.py
 #
 # QwenAsrProvider — ASR provider using Qwen3-ASR-1.7B or Qwen3-ASR-0.6B.
-# Runs inside the rrv-qwen-asr worker subprocess.
+# Uses the official qwen-asr package with vLLM backend for KV-cache
+# accelerated inference. Without vLLM the model is impractically slow.
 #
-# Model expected at: models/qwen-asr/Qwen3-ASR-1.7B/ or Qwen3-ASR-0.6B/
-# Download: huggingface-cli download Qwen/Qwen3-ASR-1.7B --local-dir models/qwen-asr/Qwen3-ASR-1.7B
+# Timestamps require Qwen3-ForcedAligner-0.6B loaded alongside the ASR model.
+# Model paths:
+#   models/qwen-asr/Qwen3-ASR-1.7B/
+#   models/qwen-asr/Qwen3-ForcedAligner-0.6B/  (optional, for timestamps)
 #
 # Apache 2.0 license.
 
 from __future__ import annotations
 
 import logging
+import os
 from pathlib import Path
 from typing import Optional
 
@@ -27,12 +31,20 @@ _MODEL_DIRS = {
     "0.6b": "Qwen3-ASR-0.6B",
 }
 
+_ALIGNER_DIR = "Qwen3-ForcedAligner-0.6B"
+
+_GPU_MEMORY_UTILIZATION = float(os.environ.get("RRV_QWEN_ASR_GPU_MEMORY_UTILIZATION", "0.4"))
+
 
 class QwenAsrProvider(AbstractAsrProvider):
     """
-    Qwen3-ASR ASR provider.
-    State-of-the-art open ASR model, Apache 2.0.
-    Supports 52 languages and dialects.
+    Qwen3-ASR provider using the qwen-asr package with vLLM backend.
+    vLLM KV cache is required for practical inference speed.
+
+    Word-level timestamps are produced by Qwen3-ForcedAligner-0.6B when
+    present at models/qwen-asr/Qwen3-ForcedAligner-0.6B/. Without it,
+    transcription still works but no chunks are returned, which means
+    smart clip extraction is skipped.
     """
 
     def __init__(self, models_dir: Path, gpu_provider: str = "cpu", size: str = "1.7b") -> None:
@@ -40,7 +52,7 @@ class QwenAsrProvider(AbstractAsrProvider):
         self._gpu_provider = gpu_provider
         self._size = size.lower()
         self._model_dir: Optional[Path] = None
-        self._processor = None
+        self._aligner_dir: Optional[Path] = None
         self._model = None
         self._loaded = False
 
@@ -71,99 +83,126 @@ class QwenAsrProvider(AbstractAsrProvider):
                 f"--local-dir {self._model_dir}"
             )
 
-        log.info("Loading Qwen3-ASR from %s (gpu=%s)", self._model_dir, self._gpu_provider)
+        # ForcedAligner is optional — enables word-level timestamps for clip extraction
+        aligner_path = self._models_dir / "qwen-asr" / _ALIGNER_DIR
+        if aligner_path.exists() and (aligner_path / "config.json").exists():
+            self._aligner_dir = aligner_path
+            log.info("Qwen3-ForcedAligner found at %s — timestamps enabled", aligner_path)
+        else:
+            self._aligner_dir = None
+            log.warning(
+                "Qwen3-ForcedAligner not found at %s — timestamps disabled, "
+                "clip extraction will be skipped. "
+                "Download: huggingface-cli download Qwen/Qwen3-ForcedAligner-0.6B "
+                "--local-dir %s",
+                aligner_path, aligner_path
+            )
 
+        import asyncio
+        loop = asyncio.get_running_loop()
+        await loop.run_in_executor(None, self._load_sync)
+
+    def _load_sync(self) -> None:
+        log.info(
+            "Loading Qwen3-ASR via qwen-asr package (vLLM backend) — "
+            "model=%s gpu_memory_utilization=%.2f aligner=%s",
+            self._model_dir, _GPU_MEMORY_UTILIZATION,
+            self._aligner_dir.name if self._aligner_dir else "none"
+        )
         try:
-            import torch
-            from transformers import AutoModelForSpeechSeq2Seq, AutoProcessor
+            from qwen_asr import Qwen3ASRModel
 
-            device = "cuda" if self._gpu_provider == "cuda" else "cpu"
-            torch_dtype = torch.float16 if device == "cuda" else torch.float32
+            kwargs = dict(
+                model=str(self._model_dir),
+                gpu_memory_utilization=_GPU_MEMORY_UTILIZATION,
+                max_inference_batch_size=1,
+                max_new_tokens=1024,
+                max_model_len=2048,
+            )
 
-            self._processor = AutoProcessor.from_pretrained(
-                str(self._model_dir),
-                local_files_only=True,
-                trust_remote_code=True,
-            )
-            self._model = AutoModelForSpeechSeq2Seq.from_pretrained(
-                str(self._model_dir),
-                torch_dtype=torch_dtype,
-                low_cpu_mem_usage=True,
-                local_files_only=True,
-                trust_remote_code=True,
-            )
-            self._model.to(device)
-            self._model.eval()
+            if self._aligner_dir is not None:
+                import torch
+                kwargs["forced_aligner"] = str(self._aligner_dir)
+                kwargs["forced_aligner_kwargs"] = dict(
+                    dtype=torch.bfloat16,
+                    device_map="cuda" if self._gpu_provider == "cuda" else "cpu",
+                )
+
+            self._model = Qwen3ASRModel.LLM(**kwargs)
             self._loaded = True
-            log.info("Qwen3-ASR loaded successfully on %s", device)
-
+            log.info(
+                "Qwen3-ASR loaded successfully (timestamps=%s)",
+                "enabled" if self._aligner_dir else "disabled"
+            )
         except Exception as e:
             raise RuntimeError(f"Failed to load Qwen3-ASR: {e}") from e
 
     async def transcribe(self, request: TranscriptionRequest) -> TranscriptionResult:
         import asyncio
-        loop = asyncio.get_event_loop()
+        loop = asyncio.get_running_loop()
         return await loop.run_in_executor(None, self._transcribe_sync, request)
 
     def _transcribe_sync(self, request: TranscriptionRequest) -> TranscriptionResult:
-        import soundfile as sf
-        import torch
+        if self._model is None:
+            raise RuntimeError("Qwen3-ASR model not loaded")
 
-        raw_audio, sample_rate = sf.read(str(request.audio_path), dtype="float32")
-        if len(raw_audio.shape) > 1:
-            audio_data = raw_audio.mean(axis=1)
-        else:
-            audio_data = raw_audio
+        log.info("Qwen3-ASR transcribing: '%s'", request.audio_path.name)
 
-        log.info(
-            "Qwen3-ASR transcribing: '%s' sample_rate=%d samples=%d",
-            request.audio_path.name, sample_rate, len(audio_data)
-        )
-
-        inputs = self._processor(
-            audio_data,
-            sampling_rate=sample_rate,
-            return_tensors="pt",
-            language=request.language_hint,
-        )
-
-        device = next(self._model.parameters()).device
-        inputs = {k: v.to(device) for k, v in inputs.items()}
-
-        with torch.no_grad():
-            generated_ids = self._model.generate(
-                **inputs,
-                max_new_tokens=512,
-                return_timestamps=request.return_timestamps,
+        try:
+            transcribe_kwargs = dict(
+                audio=[str(request.audio_path)],
+                language=request.language_hint if request.language_hint != "en" else None,
             )
+            if self._aligner_dir is not None:
+                transcribe_kwargs["return_time_stamps"] = True
 
-        transcription = self._processor.batch_decode(
-            generated_ids,
-            skip_special_tokens=True,
-            decode_with_timestamps=request.return_timestamps,
-        )[0].strip()
+            results = self._model.transcribe(**transcribe_kwargs)
+        except Exception as e:
+            raise RuntimeError(f"Qwen3-ASR transcription failed: {e}") from e
+
+        if not results:
+            return TranscriptionResult(text="", language=request.language_hint, chunks=[])
+
+        result = results[0]
+
+        # Extract text
+        if hasattr(result, "text"):
+            text = result.text.strip()
+        elif isinstance(result, str):
+            text = result.strip()
+        elif isinstance(result, dict):
+            text = result.get("text", "").strip()
+        else:
+            text = str(result).strip()
+
+        # Extract word-level timestamps from ForcedAligner output
+        # result.time_stamps is a list of {word, start, end} dicts
+        chunks = []
+        time_stamps = getattr(result, "time_stamps", None) or []
+        for ts in time_stamps:
+            if isinstance(ts, dict):
+                word = ts.get("word", ts.get("text", ""))
+                start = ts.get("start")
+                end = ts.get("end")
+            else:
+                word = getattr(ts, "word", getattr(ts, "text", ""))
+                start = getattr(ts, "start", None)
+                end = getattr(ts, "end", None)
+            if word:
+                chunks.append(TranscriptionChunk(text=word, start=start, end=end))
 
         log.info(
-            "Qwen3-ASR output: '%s' chars=%d text='%s'",
-            request.audio_path.name, len(transcription),
-            transcription[:80] + ("..." if len(transcription) > 80 else "")
+            "Qwen3-ASR output: '%s' chars=%d chunks=%d text='%s'",
+            request.audio_path.name, len(text), len(chunks),
+            text[:80] + ("..." if len(text) > 80 else "")
         )
 
-        return TranscriptionResult(
-            text=transcription,
-            language=request.language_hint,
-            chunks=[],  # Qwen3-ASR timestamp support varies by version
-        )
+        return TranscriptionResult(text=text, language=request.language_hint, chunks=chunks)
 
     def shutdown(self) -> None:
         try:
-            import torch
             del self._model
-            del self._processor
             self._model = None
-            self._processor = None
-            if torch.cuda.is_available():
-                torch.cuda.empty_cache()
             self._loaded = False
             log.info("Qwen3-ASR unloaded")
         except Exception as e:

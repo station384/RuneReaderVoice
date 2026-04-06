@@ -82,6 +82,17 @@ async def _handle_connection(
                     "requires_gpu":  provider.requires_gpu,
                     "loaded":        True,
                 }
+                # Self-report VRAM usage — vendor-agnostic
+                try:
+                    import torch
+                    if torch.cuda.is_available():
+                        caps["vram_used_mib"] = torch.cuda.memory_reserved(0) / (1024 * 1024)
+                    elif hasattr(torch, "hip") and torch.hip.is_available():
+                        caps["vram_used_mib"] = torch.cuda.memory_reserved(0) / (1024 * 1024)
+                    else:
+                        caps["vram_used_mib"] = 0.0
+                except Exception:
+                    caps["vram_used_mib"] = 0.0
                 await _send_message(writer, {"status": "ok", "capabilities": caps})
 
             elif cmd == "transcribe":
