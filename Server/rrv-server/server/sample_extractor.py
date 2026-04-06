@@ -126,6 +126,11 @@ _CHATTERBOX_OUTPUT_CHANNELS = _env_clip_channels("RRV_CHATTERBOX_SAMPLE_CHANNELS
 _F5_OUTPUT_SAMPLE_RATE = _env_clip_rate("RRV_F5_SAMPLE_RATE", 22050)
 _CHATTERBOX_OUTPUT_SAMPLE_RATE = _env_clip_rate("RRV_CHATTERBOX_SAMPLE_RATE", 44100)
 
+_COSYVOICE_OUTPUT_CHANNELS = _env_clip_channels("RRV_COSYVOICE_SAMPLE_CHANNELS", 1)
+_COSYVOICE_OUTPUT_SAMPLE_RATE = _env_clip_rate("RRV_COSYVOICE_SAMPLE_RATE", 24000)
+_LUX_OUTPUT_CHANNELS = _env_clip_channels("RRV_LUX_SAMPLE_CHANNELS", 1)
+_LUX_OUTPUT_SAMPLE_RATE = _env_clip_rate("RRV_LUX_SAMPLE_RATE", 48000)
+
 _CLIP_PREROLL_SEC = max(0.0, float(os.getenv("RRV_SAMPLE_CLIP_PREROLL_SEC", "0.08") or "0.08"))
 _CLIP_POSTROLL_SEC = max(0.0, float(os.getenv("RRV_SAMPLE_CLIP_POSTROLL_SEC", "0.18") or "0.18"))
 
@@ -136,6 +141,10 @@ def _provider_output_channels(label: str) -> int:
         return _F5_OUTPUT_CHANNELS
     if label.startswith("chatterbox"):
         return _CHATTERBOX_OUTPUT_CHANNELS
+    if label.startswith("cosyvoice"):
+        return _COSYVOICE_OUTPUT_CHANNELS
+    if label.startswith("lux"):
+        return _LUX_OUTPUT_CHANNELS
     return 2
 
 
@@ -145,6 +154,10 @@ def _provider_output_sample_rate(label: str) -> int:
         return _F5_OUTPUT_SAMPLE_RATE
     if label.startswith("chatterbox"):
         return _CHATTERBOX_OUTPUT_SAMPLE_RATE
+    if label.startswith("cosyvoice"):
+        return _COSYVOICE_OUTPUT_SAMPLE_RATE
+    if label.startswith("lux"):
+        return _LUX_OUTPUT_SAMPLE_RATE
     return 44100
 
 
@@ -154,6 +167,10 @@ F5_TARGET_SEC          = 8.0    # ideal F5 clip length — leaves room for silen
 F5_MAX_SEC             = 9.0    # hard upper bound for F5 (silence pad added after)
 CHATTERBOX_TARGET_SEC  = 35.0   # ideal Chatterbox clip length
 CHATTERBOX_MAX_SEC     = 38.0   # hard upper bound for Chatterbox
+COSYVOICE_TARGET_SEC   = 25.0   # ideal CosyVoice3 clip length (28s hard max)
+COSYVOICE_MAX_SEC      = 28.0   # hard upper bound for CosyVoice3
+LUX_TARGET_SEC         = 8.0    # LuxTTS — same range as F5
+LUX_MAX_SEC            = 9.0    # hard upper bound for LuxTTS
 
 # ── Variant detection thresholds ──────────────────────────────────────────────
 
@@ -342,6 +359,44 @@ def extract_clips(
         )
 
     # ── Variant detection ─────────────────────────────────────────────────────
+    # ── CosyVoice3 default clip ──────────────────────────────────────────────
+    normal_cosyvoice_region = _find_best_region(
+        windows, wchunks, COSYVOICE_TARGET_SEC, COSYVOICE_MAX_SEC,
+        mode="normal", baseline_rms=baseline_rms, baseline_wpm=baseline_wpm,
+    )
+    if normal_cosyvoice_region is None:
+        normal_cosyvoice_region = _find_best_region(
+            windows, wchunks, min(master_duration, COSYVOICE_TARGET_SEC),
+            min(master_duration, COSYVOICE_MAX_SEC),
+            mode="normal", baseline_rms=baseline_rms, baseline_wpm=baseline_wpm,
+        )
+    if normal_cosyvoice_region:
+        cv_clip = _write_clip(master_path, normal_cosyvoice_region, wchunks, "cosyvoice", y_stereo, sr)
+        if cv_clip:
+            result.clips.append(cv_clip)
+            log.info(
+                "extract_clips: wrote CosyVoice default '%s' (%.1f-%.1fs)",
+                cv_clip.path.name, cv_clip.start, cv_clip.end
+            )
+    else:
+        log.warning("extract_clips: could not find CosyVoice region for '%s' — skipping", master_path.name)
+
+    # ── LuxTTS default clip ───────────────────────────────────────────────────
+    normal_lux_region = _find_best_region(
+        windows, wchunks, LUX_TARGET_SEC, LUX_MAX_SEC,
+        mode="normal", baseline_rms=baseline_rms, baseline_wpm=baseline_wpm,
+    )
+    if normal_lux_region:
+        lux_clip = _write_clip(master_path, normal_lux_region, wchunks, "lux", y_stereo, sr)
+        if lux_clip:
+            result.clips.append(lux_clip)
+            log.info(
+                "extract_clips: wrote LuxTTS default '%s' (%.1f-%.1fs)",
+                lux_clip.path.name, lux_clip.start, lux_clip.end
+            )
+    else:
+        log.warning("extract_clips: could not find LuxTTS region for '%s' — skipping", master_path.name)
+
     # For each detected speech mode, write BOTH a Chatterbox variant (-mode-chatterbox)
     # and an F5 variant (-mode-f5). Both are extracted directly from the master.
     # Variant names must carry the provider suffix so the server resolves correctly.
@@ -426,6 +481,47 @@ def extract_clips(
                 "extract_clips: wrote Chatterbox variant '%s' (%.1f–%.1fs)",
                 cb_var.path.name, cb_var.start, cb_var.end
             )
+
+        # ── CosyVoice variant ─────────────────────────────────────────────────
+        cv_var_region = _find_best_region(
+            variant_windows, wchunks, COSYVOICE_TARGET_SEC, COSYVOICE_MAX_SEC,
+            mode=mode, baseline_rms=baseline_rms, baseline_wpm=baseline_wpm,
+        )
+        if cv_var_region is None:
+            cv_var_region = _find_best_region(
+                variant_windows, wchunks, F5_TARGET_SEC, F5_MAX_SEC,
+                mode=mode, baseline_rms=baseline_rms, baseline_wpm=baseline_wpm,
+            )
+        if cv_var_region and normal_cosyvoice_region:
+            overlap = _region_overlap(normal_cosyvoice_region, cv_var_region)
+            if overlap > 0.5:
+                cv_var_region = None
+        if cv_var_region:
+            cv_var = _write_clip(master_path, cv_var_region, wchunks, f"cosyvoice-{mode}", y_stereo, sr)
+            if cv_var:
+                result.clips.append(cv_var)
+                log.info(
+                    "extract_clips: wrote CosyVoice variant '%s' (%.1f–%.1fs)",
+                    cv_var.path.name, cv_var.start, cv_var.end
+                )
+
+        # ── LuxTTS variant ────────────────────────────────────────────────────
+        lux_var_region = _find_best_region(
+            variant_windows, wchunks, LUX_TARGET_SEC, LUX_MAX_SEC,
+            mode=mode, baseline_rms=baseline_rms, baseline_wpm=baseline_wpm,
+        )
+        if lux_var_region and normal_lux_region:
+            overlap = _region_overlap(normal_lux_region, lux_var_region)
+            if overlap > 0.5:
+                lux_var_region = None
+        if lux_var_region:
+            lux_var = _write_clip(master_path, lux_var_region, wchunks, f"lux-{mode}", y_stereo, sr)
+            if lux_var:
+                result.clips.append(lux_var)
+                log.info(
+                    "extract_clips: wrote LuxTTS variant '%s' (%.1f–%.1fs)",
+                    lux_var.path.name, lux_var.start, lux_var.end
+                )
 
     # ── Rename master to hide from client sample lists ────────────────────────
     # The master WAV has served its purpose. Renaming to -master.wav keeps it

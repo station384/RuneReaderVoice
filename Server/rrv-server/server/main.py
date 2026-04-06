@@ -110,6 +110,7 @@ async def lifespan(app: FastAPI):
             whisper_model_dir=settings.whisper_model_dir,
             samples_dir=settings.samples_dir,
         )
+        transcriber.cleanup_tmp_sidecars()  # remove leftover .tmp sidecars from interrupted writes
         transcriber.check_availability()   # checks both ffmpeg and Whisper, logs results
 
         # Initial scan at startup — convert + transcribe any pending files

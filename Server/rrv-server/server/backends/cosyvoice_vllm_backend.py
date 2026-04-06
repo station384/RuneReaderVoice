@@ -200,6 +200,9 @@ class CosyVoiceVllmBackend(AbstractTtsBackend):
 
         log.info("CosyVoice3-vLLM: loading from %s (load_vllm=True)", model_dir)
 
+        log.info("CosyVoice3-vLLM: loading with load_vllm=True")
+        # max_model_len is patched directly in cosyvoice-src/cosyvoice/cli/model.py
+        # load_vllm() via RRV_COSYVOICE_VLLM_MAX_CTX env var.
         self._model = AutoModel(
             model_dir=str(model_dir),
             load_trt=False,

@@ -246,8 +246,18 @@ def _pad_wav_silence(wav_path: Path) -> None:
 
 
 def _write_sidecar_with_debug(sidecar_path: Path, text: str, *, kind: str, source_audio: Path | None = None) -> None:
-    """Write a sidecar file and emit a debug log with exact path details."""
-    sidecar_path.write_text(text, encoding="utf-8")
+    """Write a sidecar file atomically and emit a debug log with exact path details.
+    Uses a .tmp intermediate file to prevent partial writes from being mistaken
+    for complete sidecars on the next scan cycle.
+    """
+    tmp_path = sidecar_path.with_suffix(sidecar_path.suffix + ".tmp")
+    try:
+        tmp_path.write_text(text, encoding="utf-8")
+        tmp_path.rename(sidecar_path)
+    except Exception:
+        try: tmp_path.unlink(missing_ok=True)
+        except Exception: pass
+        raise
     if source_audio is not None:
         log.info(
             "Sidecar write: kind=%s audio='%s' sidecar='%s' chars=%d",
@@ -371,10 +381,30 @@ def _transcribe_batched_clips(pipe, clips: list, language_hint: str, *, batch_si
                 continue
 
             clip = batch[0]
-            log.warning(
-                "%s failed: audio='%s' error=%s",
-                queue_name, clip.path, e
-            )
+            if _is_cuda_oom_error(e):
+                log.warning(
+                    "%s hit CUDA OOM on single clip '%s' — retrying on CPU",
+                    queue_name, clip.path.name
+                )
+                try:
+                    import torch
+                    if torch.cuda.is_available():
+                        torch.cuda.empty_cache()
+                    transcript, _cl, _ch = self._transcribe_one_cpu(clip.path, language_hint)
+                    if transcript:
+                        _write_sidecar_with_debug(
+                            clip.ref_path, transcript,
+                            kind=sidecar_kind, source_audio=clip.path,
+                        )
+                    else:
+                        log.warning("%s CPU fallback returned empty for '%s'", queue_name, clip.path.name)
+                except Exception as cpu_e:
+                    log.error("%s CPU fallback also failed for '%s': %s", queue_name, clip.path.name, cpu_e)
+            else:
+                log.warning(
+                    "%s failed: audio='%s' error=%s",
+                    queue_name, clip.path, e
+                )
             index += 1
 
 
@@ -497,6 +527,18 @@ class TranscriptionService:
         self._available    = False   # True once we've confirmed the model dir exists
         self._ffmpeg_ok    = False   # Set by check_availability()
 
+    def cleanup_tmp_sidecars(self) -> None:
+        """Remove any leftover .ref.txt.tmp and .txt.tmp files from interrupted writes."""
+        count = 0
+        for tmp in self._samples_dir.rglob("*.tmp"):
+            try:
+                tmp.unlink()
+                count += 1
+            except Exception as e:
+                log.warning("Could not remove tmp sidecar '%s': %s", tmp, e)
+        if count:
+            log.info("Cleaned up %d leftover .tmp sidecar file(s)", count)
+
     def check_availability(self) -> bool:
         """
         Check ffmpeg and Whisper availability.
@@ -611,6 +653,11 @@ class TranscriptionService:
         dst = src.parent / (clean_stem + ".wav")
         self._originals_dir.mkdir(parents=True, exist_ok=True)
 
+        # When src is already a .wav, dst == src. Write to a temp file
+        # first so we don't overwrite the source before archiving it.
+        same_file = dst.resolve() == src.resolve()
+        ffmpeg_dst = dst.with_suffix(".converting.wav") if same_file else dst
+
         log.info("Converting '%s' → '%s'", src.name, dst.name)
 
         try:
@@ -622,7 +669,7 @@ class TranscriptionService:
                     "-ac", str(_WAV_CHANNELS),
                     "-ar", str(_WAV_SAMPLE_RATE),
                     "-acodec", _WAV_CODEC,
-                    str(dst),
+                    str(ffmpeg_dst),
                 ],
                 capture_output=True,
                 text=True,
@@ -634,14 +681,22 @@ class TranscriptionService:
                     "ffmpeg conversion failed for '%s': %s",
                     src.name, result.stderr[-500:] if result.stderr else "no output"
                 )
+                try: ffmpeg_dst.unlink(missing_ok=True)
+                except Exception: pass
                 return False
+
+            # Archive the original before renaming the temp output
+            archive_path = self._originals_dir / src.name
+            shutil.move(str(src), str(archive_path))
+
+            # Rename temp output to final destination (only needed when same_file)
+            if same_file:
+                ffmpeg_dst.rename(dst)
 
             # Add silence padding to the converted WAV before any downstream use
             _pad_wav_silence(dst)
 
-            # Move original to originals directory
-            archive_path = self._originals_dir / src.name
-            shutil.move(str(src), str(archive_path))
+            # archive_path already moved above
             log.info(
                 "Converted '%s' → '%s' (original archived to originals/)",
                 src.name, dst.name,
@@ -701,8 +756,21 @@ class TranscriptionService:
                             encoding="utf-8",
                         )
                         continue
-                except Exception:
-                    pass
+                except Exception as _fmt_err:
+                    # soundfile cannot read this file — corrupt or unsupported format.
+                    # Write a stub .ref.txt to stop the infinite retry loop.
+                    log.warning(
+                        "Sample '%s' cannot be read by soundfile — writing stub to prevent retry loop: %s",
+                        path.name, _fmt_err
+                    )
+                    try:
+                        path.with_name(path.stem + ".ref.txt").write_text(
+                            f"[REJECTED: file cannot be read — {_fmt_err}]",
+                            encoding="utf-8",
+                        )
+                    except Exception:
+                        pass
+                    continue
                 pending.append(path)
 
         if not pending:
@@ -772,9 +840,25 @@ class TranscriptionService:
                                 log.error("Failed to transcribe '%s': %s", audio_path.name, inner)
                     else:
                         audio_path = master_batch[0]
-                        log.error("Failed to transcribe '%s': %s", audio_path.name, e)
-                        batch_start += 1
-                        continue
+                        if _is_cuda_oom_error(e):
+                            log.warning(
+                                "Master transcription CUDA OOM on '%s' — retrying on CPU",
+                                audio_path.name
+                            )
+                            try:
+                                import torch
+                                if torch.cuda.is_available():
+                                    torch.cuda.empty_cache()
+                                batch_results = [self._transcribe_one_cpu(audio_path, language_hint="en")]
+                                batch_paths = [audio_path]
+                            except Exception as cpu_e:
+                                log.error("Master CPU fallback failed for '%s': %s", audio_path.name, cpu_e)
+                                batch_start += 1
+                                continue
+                        else:
+                            log.error("Failed to transcribe '%s': %s", audio_path.name, e)
+                            batch_start += 1
+                            continue
 
                 for audio_path, (transcript, language, chunks) in zip(batch_paths, batch_results):
                     try:
@@ -923,8 +1007,22 @@ class TranscriptionService:
             return None
 
         try:
-            device      = "cuda" if torch.cuda.is_available() else "cpu"
-            torch_dtype = torch.float16 if torch.cuda.is_available() else torch.float32
+            # Only use CUDA if there is enough free VRAM for Whisper.
+            # With large backends loaded (e.g. cosyvoice_vllm), GPU may be
+            # available but not have enough headroom — load on CPU in that case.
+            _WHISPER_MIN_VRAM_MIB = 1800  # ~1.8GB minimum for v3-turbo; tiny needs ~400MB
+            _cuda_ok = False
+            if torch.cuda.is_available():
+                _free_mib = (torch.cuda.get_device_properties(0).total_memory
+                             - torch.cuda.memory_reserved(0)) / (1024 * 1024)
+                _cuda_ok = _free_mib >= _WHISPER_MIN_VRAM_MIB
+                if not _cuda_ok:
+                    log.info(
+                        "Whisper: only %.0fMiB VRAM free (need %dMiB) — loading on CPU",
+                        _free_mib, _WHISPER_MIN_VRAM_MIB
+                    )
+            device      = "cuda" if _cuda_ok else "cpu"
+            torch_dtype = torch.float16 if _cuda_ok else torch.float32
 
             log.info("Loading Whisper from %s (device=%s)", self._whisper_dir, device)
 
@@ -983,6 +1081,41 @@ class TranscriptionService:
 
     def _transcribe_one(self, pipe, audio_path: Path) -> tuple[str, str, list]:
         return self._transcribe_one_static(pipe, audio_path, language_hint="en")
+
+    def _transcribe_one_cpu(self, audio_path: Path, language_hint: str = "en") -> tuple[str, str, list]:
+        """Transcribe a single file on CPU — used as OOM fallback from GPU transcription."""
+        log.info("Whisper CPU fallback: loading model on CPU for '%s'", audio_path.name)
+        import torch
+        from transformers import AutoModelForSpeechSeq2Seq, AutoProcessor, pipeline
+        torch_dtype = torch.float32
+        model = AutoModelForSpeechSeq2Seq.from_pretrained(
+            str(self._whisper_dir),
+            torch_dtype=torch_dtype,
+            low_cpu_mem_usage=True,
+            use_safetensors=True,
+            local_files_only=True,
+        )
+        processor = AutoProcessor.from_pretrained(
+            str(self._whisper_dir), local_files_only=True,
+        )
+        cpu_pipe = pipeline(
+            "automatic-speech-recognition",
+            model=model,
+            tokenizer=processor.tokenizer,
+            feature_extractor=processor.feature_extractor,
+            torch_dtype=torch_dtype,
+            device="cpu",
+        )
+        gc = getattr(model, "generation_config", None)
+        if gc is not None:
+            gc.condition_on_previous_text = False
+            gc.suppress_tokens = None
+            gc.begin_suppress_tokens = None
+        result = self._transcribe_one_static(cpu_pipe, audio_path, language_hint=language_hint)
+        del cpu_pipe, model, processor
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+        return result
 
     @staticmethod
     def _transcribe_many_static(pipe, audio_paths: list[Path], language_hint: str = "en", batch_size: int = 1, return_timestamps: bool | str = "word") -> list[tuple[str, str, list]]:
