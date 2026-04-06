@@ -10,6 +10,7 @@ wetext is optional — if not installed, only WoW pre-normalization runs.
 from __future__ import annotations
 
 import logging
+import os
 import re
 from functools import lru_cache
 from typing import Optional
@@ -150,7 +151,15 @@ def _wow_prenormalize(text: str) -> str:
 
 @lru_cache(maxsize=1)
 def _get_wetext_normalizer() -> Optional[object]:
-    """Load wetext normalizer once, return None if not installed."""
+    """Load wetext normalizer once, return None if not installed or disabled.
+
+    Set RRV_WETEXT=false to disable wetext normalization entirely and pass
+    text through layer-1 (WoW pre-normalization) only. Useful for diagnosing
+    text truncation or unexpected mutations caused by wetext.
+    """
+    if os.environ.get("RRV_WETEXT", "true").lower() in ("false", "0", "no", "off"):
+        log.info("text_normalize: wetext disabled via RRV_WETEXT=false — WoW pre-normalization only")
+        return None
     try:
         from wetext import Normalizer  # type: ignore
         n = Normalizer(lang="en", operator="tn")

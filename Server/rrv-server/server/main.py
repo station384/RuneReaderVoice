@@ -56,6 +56,7 @@ from .gpu_detect import detect as detect_gpu
 from .cache import AudioCache
 from .backends import load_backends
 from .transcriber import TranscriptionService
+from .asr import load_asr_provider, AsrRegistry
 from .community_db import CommunityDb
 
 log = logging.getLogger(__name__)
@@ -105,6 +106,7 @@ async def lifespan(app: FastAPI):
     poll_task = None
     has_voice_matching = any(b.supports_voice_matching for b in registry.all())
 
+    asr_registry = None
     if has_voice_matching:
         transcriber = TranscriptionService(
             whisper_model_dir=settings.whisper_model_dir,
@@ -112,6 +114,17 @@ async def lifespan(app: FastAPI):
         )
         transcriber.cleanup_tmp_sidecars()  # remove leftover .tmp sidecars from interrupted writes
         transcriber.check_availability()   # checks both ffmpeg and Whisper, logs results
+
+        # Load ASR provider — may be whisper (in-process) or a worker subprocess
+        asr_registry = await load_asr_provider(
+            provider_name=settings.asr_provider,
+            models_dir=settings.models_dir,
+            whisper_model_dir=settings.whisper_model_dir,
+            gpu=gpu,
+            settings=settings,
+        )
+        app.state.asr_registry = asr_registry
+        transcriber.set_asr_registry(asr_registry)
 
         # Initial scan at startup — convert + transcribe any pending files
         await transcriber.scan_and_transcribe()
@@ -143,6 +156,10 @@ async def lifespan(app: FastAPI):
             await poll_task
         except asyncio.CancelledError:
             pass
+
+    # Shut down ASR provider subprocess (if any)
+    if asr_registry is not None:
+        asr_registry.shutdown()
 
     # Shut down any worker subprocess backends before closing cache/db
     from .backends.worker_backend import WorkerBackend as _WorkerBackend

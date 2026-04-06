@@ -84,6 +84,18 @@ class Settings:
         self.f5_vocoder: str = _env_str("RRV_F5_VOCODER", "auto")
         self.samples_dir:          Path = Path(_env_str("RRV_SAMPLES_DIR",          "./data/samples"))
         self.whisper_model_dir:    Path = Path(_env_str("RRV_WHISPER_MODEL_DIR",    "./data/models/whisper"))
+        # ASR provider selection.
+        # Options: whisper (default, in-process), qwen_asr, crisper_whisper, cohere_transcribe
+        self.asr_provider: str = _env_str("RRV_ASR_PROVIDER", "whisper").lower()
+        # Optional per-provider ASR venv path overrides (RRV_ASR_VENV_<provider>)
+        self.asr_worker_venvs: dict = {}
+        _asr_venv_prefix = "RRV_ASR_VENV_"
+        for _av_key, _av_val in os.environ.items():
+            if _av_key.startswith(_asr_venv_prefix):
+                _av_provider = _av_key[len(_asr_venv_prefix):].lower()
+                _av_path = _av_val.strip()
+                if _av_path:
+                    self.asr_worker_venvs[_av_provider] = Path(_av_path)
         self.sample_scan_interval: int  = _env_int("RRV_SAMPLE_SCAN_INTERVAL", 30)
         self.f5_sample_channels: int = _env_int("RRV_F5_SAMPLE_CHANNELS", 1)
         self.chatterbox_sample_channels: int = _env_int("RRV_CHATTERBOX_SAMPLE_CHANNELS", 2)
@@ -145,6 +157,11 @@ class Settings:
         # Set "0.0.0.0/0" to trust all proxies on a private LAN.
         # Set "" to disable proxy header trust entirely (direct connections only).
         self.trusted_proxy_ips: str = _env_str("RRV_TRUSTED_PROXY_IPS", "127.0.0.1")
+
+        # Text normalization
+        # RRV_WETEXT=false disables wetext layer-2 normalization.
+        # Use to diagnose text truncation or mutation caused by wetext.
+        self.wetext_enabled: bool = _env_str("RRV_WETEXT", "true").lower() not in ("false", "0", "no", "off")
 
         # Logging
         log_level = _env_str("RRV_LOG_LEVEL", "info").lower()
@@ -291,6 +308,8 @@ class Settings:
             f"contribute_key_set={bool(self.contribute_key)}, "
             f"admin_key_set={bool(self.admin_key)}, "
             f"log_level={self.log_level!r}, "
+            f"wetext={self.wetext_enabled}, "
+            f"asr_provider={self.asr_provider!r}, "
             f"worker_backends={sorted(self.worker_venvs)}"
             f")"
         )

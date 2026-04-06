@@ -520,12 +520,15 @@ class TranscriptionService:
     and unloaded immediately after to free memory.
     """
 
-    def __init__(self, whisper_model_dir: Path, samples_dir: Path) -> None:
+    def __init__(self, whisper_model_dir: Path, samples_dir: Path, asr_registry=None) -> None:
         self._whisper_dir  = whisper_model_dir
         self._samples_dir  = samples_dir
         self._originals_dir = samples_dir / "originals"
         self._available    = False   # True once we've confirmed the model dir exists
         self._ffmpeg_ok    = False   # Set by check_availability()
+        # Optional ASR registry — when provided, master transcription delegates
+        # to the active ASR provider instead of loading Whisper directly.
+        self._asr_registry = asr_registry
 
     def cleanup_tmp_sidecars(self) -> None:
         """Remove any leftover .ref.txt.tmp and .txt.tmp files from interrupted writes."""
@@ -571,6 +574,20 @@ class TranscriptionService:
         log.info("Whisper model found at %s — auto-transcription enabled", self._whisper_dir)
         self._available = True
         return True
+
+    def set_asr_registry(self, asr_registry) -> None:
+        """Set the ASR registry after construction. Called from main.py after ASR loads."""
+        self._asr_registry = asr_registry
+        # If the registry has a provider, auto-transcription is available
+        # regardless of whether Whisper itself was found.
+        if asr_registry is not None and asr_registry.available:
+            provider_id = asr_registry.provider.provider_id if asr_registry.provider else "none"
+            log.info(
+                "TranscriptionService: ASR provider '%s' registered — "
+                "master transcription will use ASR provider",
+                provider_id,
+            )
+            self._available = True
 
     async def scan_and_transcribe(self) -> int:
         """
@@ -777,10 +794,25 @@ class TranscriptionService:
             return 0
 
         log.info(
-            "Transcription: found %d sample(s) missing .ref.txt — starting Whisper",
+            "Transcription: found %d sample(s) missing .ref.txt — starting transcription",
             len(pending),
         )
 
+        # Use ASR provider if available, otherwise fall back to direct Whisper
+        asr_provider = (
+            self._asr_registry.provider
+            if self._asr_registry is not None and self._asr_registry.available
+            else None
+        )
+
+        if asr_provider is not None and asr_provider.provider_id != "whisper":
+            log.info(
+                "Master transcription: delegating to ASR provider '%s' (%s)",
+                asr_provider.provider_id, asr_provider.display_name
+            )
+            return self._transcribe_pending_via_asr_provider(pending, asr_provider)
+
+        # Original Whisper path
         pipe = self._load_whisper()
         if pipe is None:
             return 0
@@ -988,6 +1020,145 @@ class TranscriptionService:
                 pass
 
         log.info("Transcription: completed %d file(s), Whisper unloaded", count)
+        return count
+
+    def _transcribe_pending_via_asr_provider(self, pending: list, asr_provider) -> int:
+        """
+        Transcribe pending master files using the configured ASR provider.
+        Called when a non-Whisper ASR provider is active.
+        Generated clip retranscription still uses Whisper (batch-optimised).
+        """
+        from .asr.base import TranscriptionRequest
+
+        count = 0
+        generated_retranscribe_jobs: list[tuple[list, str, str]] = []
+
+        for audio_path in pending:
+            try:
+                request = TranscriptionRequest(
+                    audio_path=audio_path,
+                    language_hint="en",
+                    return_timestamps=False,
+                )
+                # We're in a thread pool executor — run the async transcribe
+                # in a fresh event loop to avoid conflicts with the host loop.
+                result = asyncio.run(asr_provider.transcribe(request))
+
+                if result.is_empty():
+                    log.warning(
+                        "ASR provider '%s' returned empty result for: %s",
+                        asr_provider.provider_id, audio_path.name
+                    )
+                    continue
+
+                transcript = result.text
+                language = result.language or "en"
+                # Convert ASR chunks to Whisper-compatible format for extract_clips
+                chunks = [
+                    {"text": c.text, "timestamp": [c.start, c.end]}
+                    for c in result.chunks
+                    if c.text
+                ]
+
+                ref_txt = audio_path.with_name(audio_path.stem + ".ref.txt")
+                _write_sidecar_with_debug(
+                    ref_txt, transcript, kind="master_ref", source_audio=audio_path
+                )
+                log.info(
+                    "Transcribed '%s' via %s: %s",
+                    audio_path.name, asr_provider.display_name,
+                    transcript[:80] + ("..." if len(transcript) > 80 else ""),
+                )
+
+                txt_sidecar = audio_path.with_name(audio_path.stem + ".txt")
+                profile = None
+                if not txt_sidecar.exists():
+                    profile = profile_voice(audio_path, transcript=transcript, language=language)
+                    if profile:
+                        _write_sidecar_with_debug(
+                            txt_sidecar, profile, kind="master_profile", source_audio=audio_path
+                        )
+                        log.info("Voice profile written for '%s': %s", audio_path.name, profile)
+                else:
+                    try:
+                        profile = txt_sidecar.read_text(encoding="utf-8").strip()
+                    except Exception:
+                        pass
+
+                if profile:
+                    prefix = _gender_prefix(profile)
+                    if prefix:
+                        renamed_audio = _apply_gender_prefix(audio_path, prefix)
+                        if renamed_audio != audio_path:
+                            audio_path = renamed_audio
+
+                if chunks:
+                    try:
+                        import soundfile as sf
+                        master_info = sf.info(str(audio_path))
+                        extraction = extract_clips(
+                            audio_path,
+                            chunks=chunks,
+                            master_duration=float(master_info.duration),
+                        )
+                        if extraction and extraction.clips:
+                            generated_retranscribe_jobs.append(
+                                (list(extraction.clips), language, audio_path.name)
+                            )
+                            for clip in extraction.clips:
+                                clip_txt = clip.path.with_name(clip.path.stem + ".txt")
+                                if not clip_txt.exists():
+                                    clip_profile = profile_voice(
+                                        clip.path, transcript=clip.ref_text, language=language
+                                    )
+                                    if clip_profile:
+                                        _write_sidecar_with_debug(
+                                            clip_txt, clip_profile,
+                                            kind="generated_profile", source_audio=clip.path
+                                        )
+                    except Exception as e:
+                        log.warning(
+                            "Smart extraction failed for '%s' (non-fatal): %s",
+                            audio_path.name, e
+                        )
+
+                count += 1
+
+            except Exception as e:
+                log.error(
+                    "ASR provider '%s' failed to transcribe '%s': %s",
+                    asr_provider.provider_id, audio_path.name, e
+                )
+
+        # Generated clip retranscription — always uses Whisper (batch-optimised)
+        if generated_retranscribe_jobs:
+            pipe = self._load_whisper()
+            if pipe is not None:
+                try:
+                    total_clips = sum(len(c) for c, _, _ in generated_retranscribe_jobs)
+                    log.info(
+                        "Generated clip retranscription queue starting — master_files=%d clips=%d",
+                        len(generated_retranscribe_jobs), total_clips,
+                    )
+                    for clips, language, master_name in generated_retranscribe_jobs:
+                        log.info(
+                            "Generated clip retranscription queue dispatch — master='%s' clips=%d",
+                            master_name, len(clips)
+                        )
+                        _retranscribe_generated_clips(pipe, clips, language, batch_size=_GENERATED_BATCH_SIZE)
+                finally:
+                    del pipe
+                    try:
+                        import torch
+                        if torch.cuda.is_available():
+                            torch.cuda.empty_cache()
+                    except Exception:
+                        pass
+
+        log.info(
+            "Transcription: completed %d file(s) via %s",
+            count, asr_provider.display_name
+        )
         return count
 
     def _load_whisper(self):
