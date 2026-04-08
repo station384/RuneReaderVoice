@@ -54,6 +54,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import os
+import re
 import tempfile
 from pathlib import Path
 
@@ -62,6 +63,94 @@ from .audio import pcm_to_ogg, estimate_duration
 from ..utils import compute_file_hash
 
 log = logging.getLogger(__name__)
+
+# ── Transparent sentence-level chunking ───────────────────────────────────────
+# Chatterbox has a practical ceiling of ~400 chars / ~65 words before truncation
+# and hallucination become likely (benchmark data, April 2026).
+# For longer inputs the backend splits at sentence boundaries, synthesizes each
+# chunk independently against the same reference sample, and concatenates.
+# Conditionals are cached after the first chunk so subsequent chunks are cheap.
+# This is transparent to the client — full text in, single OGG out.
+
+_CB_CHUNK_TARGET_CHARS = int(os.environ.get("RRV_CB_CHUNK_TARGET_CHARS", "380"))
+_CB_CHUNK_HARD_CHARS   = int(os.environ.get("RRV_CB_CHUNK_HARD_CHARS",   "480"))
+
+# Sentence-ending punctuation — split here preferentially
+_SENT_END = re.compile(r'(?<=[.!?])\s+')
+# Clause boundary — fallback if sentence split produces oversized chunks
+_CLAUSE   = re.compile(r'(?<=[,;:])\s+')
+
+
+def _split_into_chunks(text: str,
+                       target: int = _CB_CHUNK_TARGET_CHARS,
+                       hard: int   = _CB_CHUNK_HARD_CHARS) -> list[str]:
+    """
+    Split text into chunks at sentence boundaries, targeting target chars each.
+    Falls back to clause boundaries when a sentence is itself oversized.
+    Never splits mid-word. Returns a list of non-empty strings.
+
+    target / hard are the soft and hard character limits per chunk.
+    If a single sentence exceeds hard, it is split at the nearest clause
+    boundary under hard, or at the hard limit as a last resort.
+    """
+    import re as _re
+
+    # First pass: split at sentence endings
+    sentences = [s.strip() for s in _SENT_END.split(text) if s.strip()]
+
+    chunks: list[str] = []
+    current = ""
+
+    for sent in sentences:
+        # If the sentence itself exceeds hard cap, split it further
+        if len(sent) > hard:
+            # Try clause boundaries first
+            clauses = [c.strip() for c in _CLAUSE.split(sent) if c.strip()]
+            for clause in clauses:
+                if len(clause) > hard:
+                    # Last resort: hard split at word boundary under hard cap
+                    words = clause.split()
+                    part = ""
+                    for w in words:
+                        candidate = (part + " " + w).strip()
+                        if len(candidate) > hard and part:
+                            if current:
+                                chunks.append(current.strip())
+                                current = ""
+                            chunks.append(part.strip())
+                            part = w
+                        else:
+                            part = candidate
+                    if part:
+                        candidate = (current + " " + part).strip() if current else part
+                        if len(candidate) <= hard:
+                            current = candidate
+                        else:
+                            if current:
+                                chunks.append(current.strip())
+                            current = part
+                else:
+                    candidate = (current + " " + clause).strip() if current else clause
+                    if len(candidate) <= target:
+                        current = candidate
+                    else:
+                        if current:
+                            chunks.append(current.strip())
+                        current = clause
+        else:
+            candidate = (current + " " + sent).strip() if current else sent
+            if len(candidate) <= target:
+                current = candidate
+            else:
+                if current:
+                    chunks.append(current.strip())
+                current = sent
+
+    if current.strip():
+        chunks.append(current.strip())
+
+    return [c for c in chunks if c]
+
 
 
 class ChatterboxFullBackend(AbstractTtsBackend):
@@ -439,20 +528,48 @@ class ChatterboxFullBackend(AbstractTtsBackend):
     def _synthesize_sync(self, request: SynthesisRequest) -> bytes:
         import numpy as np
 
-        sample_hash = compute_file_hash(request.sample_path)
+        sample_hash  = compute_file_hash(request.sample_path)
+        cfg_weight   = request.cfg_weight   if request.cfg_weight   is not None else 0.5
+        exaggeration = request.exaggeration if request.exaggeration is not None else 0.5
 
-        # Ensure the model's internal conditionals match this speaker.
-        # On the first call for a sample this writes the temp WAV and calls
-        # prepare_conditionals(). On subsequent calls for the same sample it
-        # is a no-op — the identical voice embedding is already loaded.
+        # Ensure conditionals loaded for this speaker
         self._ensure_conditionals(request.sample_path, sample_hash)
 
-        # Generate without audio_prompt_path — model reuses self.conds
-        wav = self._model.generate(
-            text=request.text,
-            cfg_weight=request.cfg_weight   if request.cfg_weight   is not None else 0.5,
-            exaggeration=request.exaggeration if request.exaggeration is not None else 0.5,
-        )
+        # Set deterministic seed if requested
+        if request.synthesis_seed is not None:
+            import torch as _torch
+            _torch.manual_seed(request.synthesis_seed)
+            _torch.cuda.manual_seed_all(request.synthesis_seed)
 
-        samples = wav.squeeze().numpy() if hasattr(wav, 'numpy') else np.array(wav).squeeze()
-        return pcm_to_ogg(samples, self._model.sr)
+        # Split into sentence-boundary chunks. Short texts produce a single
+        # chunk — no overhead. Longer texts are synthesized chunk-by-chunk
+        # against the same cached conditionals and concatenated transparently.
+        chunks = _split_into_chunks(request.text)
+        total  = len(chunks)
+        _progress_cb = request.progress_callback
+
+        all_samples: list[np.ndarray] = []
+
+        for i, chunk_text in enumerate(chunks):
+            if not chunk_text.strip():
+                continue
+            wav = self._model.generate(
+                text=chunk_text,
+                cfg_weight=cfg_weight,
+                exaggeration=exaggeration,
+            )
+            samples = wav.squeeze().numpy() if hasattr(wav, 'numpy') else np.array(wav).squeeze()
+            all_samples.append(samples.astype(np.float32))
+            log.debug("Chatterbox Full: chunk %d/%d synthesized (%d chars)",
+                      i + 1, total, len(chunk_text))
+            if _progress_cb is not None:
+                try:
+                    _progress_cb(i + 1, total)
+                except Exception:
+                    pass
+
+        if not all_samples:
+            return pcm_to_ogg(np.zeros(self._model.sr, dtype=np.float32), self._model.sr)
+
+        combined = np.concatenate(all_samples)
+        return pcm_to_ogg(combined, self._model.sr)

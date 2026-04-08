@@ -265,8 +265,9 @@ COSYVOICE_TARGET_SEC   = 25.0   # ideal CosyVoice3 clip length (28s hard max)
 COSYVOICE_MAX_SEC      = 28.0   # hard upper bound for CosyVoice3
 LUX_TARGET_SEC         = 8.0    # LuxTTS — same range as F5
 LUX_MAX_SEC            = 9.0    # hard upper bound for LuxTTS
-LONGCAT_TARGET_SEC     = 8.0    # LongCat reference clip target — within 10s model limit
-LONGCAT_MAX_SEC        = 9.5    # hard upper bound — leave 0.5s headroom below 10s ceiling
+LONGCAT_TARGET_SEC     = 5.0    # LongCat reference clip target — 3-6s sweet spot per benchmarks
+LONGCAT_MAX_SEC        = 6.0    # hard upper bound — shorter clips leave more headroom in the
+                                 # 30s per-chunk budget for generated speech
 
 # ── Variant detection thresholds ──────────────────────────────────────────────
 
