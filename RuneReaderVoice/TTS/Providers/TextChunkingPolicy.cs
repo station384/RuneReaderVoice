@@ -39,6 +39,7 @@ internal sealed class ChunkProfile
     public int ListItemLimit { get; init; }
     public int RepeatedSentenceLimit { get; init; }
     public bool IsChatterboxFamily { get; init; }
+    public bool IsCosyVoiceFamily { get; init; }
     public bool IsTurbo { get; init; }
     public int PivotMergeWordLimit { get; init; }
 }
@@ -155,6 +156,12 @@ public static class TextChunkingPolicy
         if (profile.IsChatterboxFamily && ContainsRumorOrPivotCluster(text))
             return true;
 
+        // CosyVoice-specific: hyphenated compound number words (twenty-one, thirty-two etc.)
+        // cause LLM attention collapse even at short char counts. The A2/K benchmark failures
+        // (247 and 228 chars) happen well below the char limit — detect and split early.
+        if (profile.IsCosyVoiceFamily && LooksHyphenatedNumberHeavy(text))
+            return true;
+
         return false;
     }
 
@@ -258,19 +265,30 @@ public static class TextChunkingPolicy
         bool turbo      = id.Contains("turbo", StringComparison.OrdinalIgnoreCase);
         bool f5         = id.Contains("f5", StringComparison.OrdinalIgnoreCase);
         bool kokoro     = id.Contains("kokoro", StringComparison.OrdinalIgnoreCase);
+        bool cosyvoice  = id.Contains("cosyvoice", StringComparison.OrdinalIgnoreCase);
 
-        // Chatterbox limits derived from Provider_Tests.md:
+        // Limits derived from Provider_Tests.md (2026-04-06 benchmark run):
         //
-        // Chatterbox Full (exaggeration=0.5):
-        //   Plain prose:     ~450 chars safe, 600+ chars risky
+        // Chatterbox Full (exaggeration=0.5, M_Narrator):
+        //   Plain prose:     passes through ~539 chars (L002), fails at 726 chars (L003, hits 40s cap)
+        //   Practical safe ceiling: ~550 chars plain prose
+        //   Number lists:    fails at 228–247 chars (J, K — ratio 2.0–2.1× = hallucination, not truncation)
+        //   Comma lists:     fails at 40 items in paragraph grouping (C1, 399 chars)
         //   Repeated frames: fails at 3-4 sentences regardless of length
-        //   Comma lists:     fails at ~10 items
-        //   Number words:    fails at 20-item sequences
         //
-        // Chatterbox Turbo:
+        // Chatterbox Turbo (M_Narrator):
         //   Plain prose:     ~650 chars safe, 870+ chars fails
         //   Repeated frames: fails at 3 sentences
         //   Comma lists:     fails at ~10 items
+        //
+        // CosyVoice-vLLM (M_Narrator):
+        //   Plain prose:     passes at 302 chars (A), 436 chars (B), 399 chars (Stage4); FAILS at 409 chars (L001)
+        //   Failure mode:    sentence SKIPPING (attention collapse on repeated tokens), not truncation
+        //   Number lists:    fails at 196 chars (A1, 1-20), 247 chars (A2, 21-40) — hyphenated words trigger early
+        //   Repeated text:   collapses around 300-400 chars; the L-series (same paragraph repeated) fails at L001
+        //   Pacing:          "progressively slowed", "rushed", "stilted" even on passes — model is marginal at 350+
+        //   Key insight:     failure is semantic repetition in the LLM stage, not raw sequence length.
+        //                    Varied prose is more forgiving than repeated-structure text.
         //
         // Key insight: TargetChars controls where we split prose.
         // ListItemLimit and RepeatedSentenceLimit control pattern-based splits
@@ -278,43 +296,55 @@ public static class TextChunkingPolicy
 
         var result = new ChunkProfile
         {
-            // Chatterbox Full: tightened from 550/650 to 380/480
-            // Turbo is more robust — keep at 600/720 (tightened from 700/850)
+            // Chatterbox Full: plain prose safe to ~550; kept at 550/650 (number-list and repetition
+            //   guards below catch the real failure modes before the char limit matters)
+            // Turbo: 600/720
+            // CosyVoice3: 350/430 — benchmark shows sentence skipping starts at ~409 chars repeated,
+            //   and pacing degrades even on passes above 350. Varied prose could go higher but
+            //   repeated WoW NPC dialog patterns look more like the L-series than the stage tests.
             // F5 and Kokoro unchanged
-            TargetChars           = kokoro    ? 850
-                                  : f5        ? 575
-                                  : turbo     ? 600
+            TargetChars           = kokoro     ? 850
+                                  : f5         ? 575
+                                  : turbo      ? 600
                                   : chatterbox ? 550
+                                  : cosyvoice  ? 350
                                   : 700,
 
-            HardCapChars          = kokoro    ? 1050
-                                  : f5        ? 725
-                                  : turbo     ? 720
+            HardCapChars          = kokoro     ? 1050
+                                  : f5         ? 725
+                                  : turbo      ? 720
                                   : chatterbox ? 650
+                                  : cosyvoice  ? 430
                                   : 850,
 
-            // Chatterbox Full fails at ~10 comma-separated items; cap at 7 (was 7, keep)
-            // Turbo fails at ~10 items; cap at 8 (was 9)
-            ListItemLimit         = kokoro    ? 12
-                                  : f5        ? 10
-                                  : turbo     ?  8
+            // CosyVoice3: 5 — number sequences fail at ~196 chars (1-20 list), tighter than Chatterbox Full.
+            //   The LooksNumberHeavy guard fires the item-count check; at limit 5 it splits
+            //   the twenty-one to forty range before the hyphenated-word attention collapse.
+            // Chatterbox Full: 6 — validated; number-list failures (J, K) are caught by LooksNumberHeavy
+            //   before the item limit matters.
+            ListItemLimit         = kokoro     ? 12
+                                  : f5         ? 10
+                                  : turbo      ?  8
                                   : chatterbox ?  6
+                                  : cosyvoice  ?  5
                                   : 10,
 
-            // Chatterbox fails on repeated sentence frames at 3+; cap at 2 (was 3)
-            RepeatedSentenceLimit = kokoro    ? 5
-                                  : f5        ? 4
-                                  : turbo     ? 3
+            // CosyVoice3: 2 — same as Chatterbox Full; repeated frames collapse the LLM attention
+            RepeatedSentenceLimit = kokoro     ? 5
+                                  : f5         ? 4
+                                  : turbo      ? 3
                                   : chatterbox ? 2
+                                  : cosyvoice  ? 2
                                   : 4,
 
             IsChatterboxFamily    = chatterbox,
+            IsCosyVoiceFamily     = cosyvoice,
             IsTurbo               = turbo,
             PivotMergeWordLimit   = turbo ? 11 : (chatterbox ? 10 : 0),
         };
 
         // Further tighten for high exaggeration — test showed exaggeration >= 1.0
-        // fails at roughly 60-70% of the normal safe length
+        // fails at roughly 60-70% of the normal safe length (Chatterbox only)
         var exaggeration = profile?.Exaggeration ?? 0f;
         if (chatterbox && exaggeration >= 1.0f)
         {
@@ -325,6 +355,7 @@ public static class TextChunkingPolicy
                 ListItemLimit         = Math.Max(4, result.ListItemLimit    - 2),
                 RepeatedSentenceLimit = Math.Max(2, result.RepeatedSentenceLimit - 1),
                 IsChatterboxFamily    = result.IsChatterboxFamily,
+                IsCosyVoiceFamily     = result.IsCosyVoiceFamily,
                 IsTurbo               = result.IsTurbo,
                 PivotMergeWordLimit   = result.PivotMergeWordLimit,
             };
@@ -356,6 +387,20 @@ public static class TextChunkingPolicy
     {
         if (string.IsNullOrWhiteSpace(text)) return false;
         return Regex.IsMatch(text, @"\b(one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|fifteen|sixteen|seventeen|eighteen|nineteen|twenty|thirty|forty|fifty|sixty|first|second|third|fourth|fifth|sixth|seventh|eighth|ninth|tenth|monday|tuesday|wednesday|thursday|friday|saturday|sunday|january|february|march|april|may|june|july|august|september|october|november|december)\b", RegexOptions.IgnoreCase);
+    }
+
+    // Detects hyphenated compound number words: twenty-one, thirty-two, forty-five etc.
+    // CosyVoice benchmark (A2: 21-40 in words, 247 chars) showed LLM attention collapse
+    // on these sequences even at char counts well below the TargetChars limit.
+    // Threshold: 4 or more hyphenated number compounds in the text triggers the guard.
+    private static readonly Regex HyphenatedNumberPattern = new(
+        @"\b(twenty|thirty|forty|fifty|sixty|seventy|eighty|ninety)-(one|two|three|four|five|six|seven|eight|nine)\b",
+        RegexOptions.IgnoreCase | RegexOptions.Compiled);
+
+    private static bool LooksHyphenatedNumberHeavy(string text)
+    {
+        if (string.IsNullOrWhiteSpace(text)) return false;
+        return HyphenatedNumberPattern.Matches(text).Count >= 4;
     }
 
     private static bool LooksLikeRepeatedFrames(string text, int threshold)

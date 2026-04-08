@@ -141,6 +141,7 @@ public partial class MainWindow
 
     private void OnPhraseChunkingChanged(object? sender, RoutedEventArgs e)
     {
+        if (_uiInitializing) return;
         var enabled = PhraseChunking.IsChecked == true;
         AppServices.Settings.EnablePhraseChunking = enabled;
         VoiceSettingsManager.SaveSettings(AppServices.Settings);
@@ -183,6 +184,7 @@ public partial class MainWindow
 
     private void OnRepeatSuppressionToggled(object? sender, RoutedEventArgs e)
     {
+        if (_uiInitializing) return;
         var enabled = RepeatSuppressionEnabled.IsChecked == true;
         AppServices.Settings.RepeatSuppressionEnabled = enabled;
         AppServices.Coordinator.RecentSpeechSuppressor.Enabled = enabled;
@@ -205,6 +207,7 @@ public partial class MainWindow
 
     private void OnCompressionToggled(object? sender, RoutedEventArgs e)
     {
+        if (_uiInitializing) return;
         AppServices.Settings.CompressionEnabled = CompressionEnabled.IsChecked == true;
         VoiceSettingsManager.SaveSettings(AppServices.Settings);
     }
@@ -225,6 +228,7 @@ public partial class MainWindow
 
     private void OnSilenceTrimToggled(object? sender, RoutedEventArgs e)
     {
+        if (_uiInitializing) return;
         AppServices.Settings.SilenceTrimEnabled = SilenceTrim.IsChecked == true;
         VoiceSettingsManager.SaveSettings(AppServices.Settings);
     }

@@ -30,56 +30,124 @@ public static class StandardVoiceProfileCatalog
     private static Dictionary<string, Dictionary<string, VoiceProfile>>? _voiceProfiles;
     private static Dictionary<string, Dictionary<string, VoiceProfile>>? _sampleProfiles;
 
-    private const string ChatterboxDonorProviderId = "remote:chatterbox_full";
+    private static readonly string[] ChatterboxDonorProviderIds = { "remote:chatterbox_full", "remote:chatterbox" };
     private const string NarratorSlotKey = "Narrator";
+    private const string HardNarratorVoiceId = "M_Narrator";
 
     public static VoiceProfile? TryGetVoiceStandard(string providerId, VoiceSlot slot)
     {
         EnsureLoaded();
 
-        if (TryGetProfile(_voiceProfiles, providerId, slot.ToString(), out var exact))
-            return exact;
-
         if (IsKokoroProvider(providerId))
         {
+            if (TryGetProfile(_voiceProfiles, providerId, slot.ToString(), out var kokoroExact))
+                return kokoroExact;
+
             var preset = SpeakerPresetCatalog.GetRecommendedForSlot(slot);
             return preset?.Profile?.Clone();
         }
 
-        if (TryGetProfile(_voiceProfiles, ChatterboxDonorProviderId, slot.ToString(), out var donorSlot))
+        if (IsChatterboxProvider(providerId))
+        {
+            if (TryGetProfile(_voiceProfiles, providerId, slot.ToString(), out var chatterboxExact))
+                return chatterboxExact;
+
+            if (TryGetFirstDonorVoice(slot.ToString(), out var chatterboxDonor))
+                return chatterboxDonor;
+
+            if (TryGetFirstDonorNarrator(out var chatterboxNarrator))
+                return chatterboxNarrator;
+
+            return CreateHardNarratorProfile();
+        }
+
+        if (slot.ToString().Equals(NarratorSlotKey, StringComparison.OrdinalIgnoreCase))
+        {
+            if (TryGetFirstDonorNarrator(out var donorNarrator))
+                return donorNarrator;
+
+            return CreateHardNarratorProfile();
+        }
+
+        if (TryGetFirstDonorVoice(slot.ToString(), out var donorSlot))
             return donorSlot;
 
-        if (TryGetProfile(_voiceProfiles, providerId, NarratorSlotKey, out var providerNarrator))
-            return providerNarrator;
+        if (TryGetFirstDonorNarrator(out var donorFallbackNarrator))
+            return donorFallbackNarrator;
 
-        if (TryGetProfile(_voiceProfiles, ChatterboxDonorProviderId, NarratorSlotKey, out var donorNarrator))
-            return donorNarrator;
-
-        return null;
+        return CreateHardNarratorProfile();
     }
 
     public static VoiceProfile? TryGetSampleStandard(string providerId, string sampleId)
     {
         EnsureLoaded();
 
-        if (TryGetProfile(_sampleProfiles, providerId, sampleId, out var exact))
-            return exact;
-
         if (IsKokoroProvider(providerId))
-            return null;
+        {
+            if (TryGetProfile(_sampleProfiles, providerId, sampleId, out var kokoroExact))
+                return kokoroExact;
 
-        if (TryGetProfile(_sampleProfiles, ChatterboxDonorProviderId, sampleId, out var donorSample))
+            return null;
+        }
+
+        if (IsChatterboxProvider(providerId))
+        {
+            if (TryGetProfile(_sampleProfiles, providerId, sampleId, out var chatterboxExact))
+                return chatterboxExact;
+
+            if (TryGetFirstDonorSample(sampleId, out var chatterboxDonorSample))
+                return chatterboxDonorSample;
+
+            if (TryGetFirstDonorNarrator(out var chatterboxNarrator))
+                return chatterboxNarrator;
+
+            return CreateHardNarratorProfile();
+        }
+
+        if (TryGetFirstDonorSample(sampleId, out var donorSample))
             return donorSample;
 
-        if (TryGetProfile(_voiceProfiles, providerId, NarratorSlotKey, out var providerNarrator))
-            return providerNarrator;
-
-        if (TryGetProfile(_voiceProfiles, ChatterboxDonorProviderId, NarratorSlotKey, out var donorNarrator))
+        if (TryGetFirstDonorNarrator(out var donorNarrator))
             return donorNarrator;
 
-        return null;
+        return CreateHardNarratorProfile();
     }
 
+
+
+
+    private static bool TryGetFirstDonorVoice(string key, out VoiceProfile? profile)
+    {
+        foreach (var donorProviderId in ChatterboxDonorProviderIds)
+        {
+            if (TryGetProfile(_voiceProfiles, donorProviderId, key, out profile))
+                return true;
+        }
+
+        profile = null;
+        return false;
+    }
+
+    private static bool TryGetFirstDonorSample(string key, out VoiceProfile? profile)
+    {
+        foreach (var donorProviderId in ChatterboxDonorProviderIds)
+        {
+            if (TryGetProfile(_sampleProfiles, donorProviderId, key, out profile))
+                return true;
+        }
+
+        profile = null;
+        return false;
+    }
+
+    private static bool TryGetFirstDonorNarrator(out VoiceProfile? profile)
+        => TryGetFirstDonorVoice(NarratorSlotKey, out profile);
+
+    private static bool IsChatterboxProvider(string providerId)
+        => ChatterboxDonorProviderIds.Any(x => x.Equals(providerId, StringComparison.OrdinalIgnoreCase));
+
+    private static VoiceProfile CreateHardNarratorProfile()
+        => VoiceProfileDefaults.Create(HardNarratorVoiceId);
 
     private static bool TryGetProfile(
         Dictionary<string, Dictionary<string, VoiceProfile>>? profiles,

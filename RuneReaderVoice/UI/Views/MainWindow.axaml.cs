@@ -41,12 +41,15 @@ public partial class MainWindow : Window
     private readonly DispatcherTimer _statusTimer;
     private bool _capturing;
     private bool _pronunciationUiInitializing;
+    private bool _uiInitializing;
 
     public MainWindow()
     {
         InitializeComponent();
         PopulateProviderSelector();
+        _uiInitializing = true;
         LoadSettingsIntoUI();
+        _uiInitializing = false;
         WireExpanderStateSaving();
         PopulateAudioDevices();
         PopulateVoiceGrid();

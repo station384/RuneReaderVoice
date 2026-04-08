@@ -226,7 +226,8 @@ public sealed class RemoteTtsProvider : ITtsProvider
         }
 
         var providerId = _descriptor.RemoteProviderId ?? string.Empty;
-        if (providerId.Contains("chatterbox", StringComparison.OrdinalIgnoreCase))
+        if (providerId.Contains("chatterbox", StringComparison.OrdinalIgnoreCase) ||
+            providerId.Contains("cosyvoice", StringComparison.OrdinalIgnoreCase))
             text = ChatterboxPreprocess(text);
 
         var voiceSpec = BuildVoiceSpec(profile);

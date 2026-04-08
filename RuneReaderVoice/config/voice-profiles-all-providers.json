@@ -5,7 +5,7 @@
       "Narrator": {
         "VoiceId": "M_Narrator",
         "LangCode": "en-gb",
-        "SpeechRate": 0.959,
+        "SpeechRate": 0.984,
         "CfgWeight": 2.03,
         "Exaggeration": 0.2,
         "CfgStrength": null,
@@ -13,7 +13,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [
@@ -48,7 +47,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [
@@ -83,7 +81,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [
@@ -118,7 +115,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [
@@ -153,7 +149,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [
@@ -188,7 +183,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [
@@ -215,7 +209,7 @@
       "Dwarf/Male": {
         "VoiceId": "M_Dwarf_2",
         "LangCode": "en-gb-scotland",
-        "SpeechRate": 0.51,
+        "SpeechRate": 1,
         "CfgWeight": 0.72,
         "Exaggeration": 0.71,
         "CfgStrength": null,
@@ -223,7 +217,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [
@@ -258,7 +251,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [
@@ -293,7 +285,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [
@@ -328,7 +319,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [
@@ -363,7 +353,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [
@@ -398,7 +387,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [
@@ -433,7 +421,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [
@@ -468,7 +455,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [
@@ -503,7 +489,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [
@@ -530,15 +515,14 @@
       "NightElf/Female": {
         "VoiceId": "F_NightElf",
         "LangCode": "en-us",
-        "SpeechRate": 0.54,
-        "CfgWeight": 1.0038462,
-        "Exaggeration": 0.4846154,
+        "SpeechRate": 1,
+        "CfgWeight": 0.9,
+        "Exaggeration": 0.64,
         "CfgStrength": null,
         "NfeStep": null,
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [
@@ -573,7 +557,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [
@@ -608,7 +591,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [
@@ -652,7 +634,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [
@@ -687,7 +668,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [
@@ -731,7 +711,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [
@@ -766,7 +745,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [
@@ -801,7 +779,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [
@@ -836,7 +813,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [
@@ -871,7 +847,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [
@@ -906,7 +881,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [
@@ -941,7 +915,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [
@@ -976,7 +949,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [
@@ -1011,7 +983,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [
@@ -1046,7 +1017,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [
@@ -1081,7 +1051,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [
@@ -1116,7 +1085,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [
@@ -1151,7 +1119,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [
@@ -1186,7 +1153,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [
@@ -1221,7 +1187,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [
@@ -1256,7 +1221,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [
@@ -1291,7 +1255,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [
@@ -1333,7 +1296,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [
@@ -1368,7 +1330,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [
@@ -1403,7 +1364,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [
@@ -1438,7 +1398,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [
@@ -1473,7 +1432,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [
@@ -1508,7 +1466,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [
@@ -1543,7 +1500,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [
@@ -1578,7 +1534,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [
@@ -1613,7 +1568,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [
@@ -1648,7 +1602,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [
@@ -1683,7 +1636,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [
@@ -1718,7 +1670,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [
@@ -1753,7 +1704,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [
@@ -1788,7 +1738,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [
@@ -1823,7 +1772,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [
@@ -1858,7 +1806,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [
@@ -1893,7 +1840,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [
@@ -1928,7 +1874,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [
@@ -1963,7 +1908,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [
@@ -1998,7 +1942,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [
@@ -2033,7 +1976,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [
@@ -2077,7 +2019,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [
@@ -2121,7 +2062,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -2139,7 +2079,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -2157,7 +2096,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -2175,7 +2113,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -2193,7 +2130,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -2211,7 +2147,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -2229,7 +2164,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -2247,7 +2181,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -2265,7 +2198,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -2283,7 +2215,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -2301,7 +2232,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -2319,7 +2249,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -2337,7 +2266,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -2355,7 +2283,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -2373,7 +2300,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -2391,7 +2317,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -2409,7 +2334,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -2427,7 +2351,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -2445,7 +2368,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -2463,7 +2385,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -2481,7 +2402,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -2499,7 +2419,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -2517,7 +2436,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -2535,7 +2453,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -2553,7 +2470,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -2571,7 +2487,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -2589,7 +2504,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -2607,7 +2521,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -2625,7 +2538,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -2643,7 +2555,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -2661,7 +2572,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -2679,7 +2589,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -2697,7 +2606,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -2715,7 +2623,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -2733,7 +2640,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -2751,7 +2657,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -2769,7 +2674,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -2787,7 +2691,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -2805,7 +2708,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -2823,7 +2725,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -2841,7 +2742,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -2859,7 +2759,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -2877,7 +2776,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -2895,7 +2793,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -2913,7 +2810,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -2931,7 +2827,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -2949,7 +2844,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -2970,7 +2864,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [
@@ -3005,7 +2898,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [
@@ -3040,7 +2932,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [
@@ -3075,7 +2966,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [
@@ -3110,7 +3000,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -3128,7 +3017,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [
@@ -3163,7 +3051,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [
@@ -3198,7 +3085,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [
@@ -3233,7 +3119,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [
@@ -3268,7 +3153,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [
@@ -3303,7 +3187,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [
@@ -3338,7 +3221,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [
@@ -3373,7 +3255,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [
@@ -3408,7 +3289,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [
@@ -3443,7 +3323,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [
@@ -3478,7 +3357,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [
@@ -3513,7 +3391,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [
@@ -3548,7 +3425,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [
@@ -3583,7 +3459,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [
@@ -3618,7 +3493,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [
@@ -3653,7 +3527,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [
@@ -3688,7 +3561,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [
@@ -3723,7 +3595,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [
@@ -3758,7 +3629,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [
@@ -3793,7 +3663,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [
@@ -3828,7 +3697,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [
@@ -3863,7 +3731,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [
@@ -3898,7 +3765,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [
@@ -3933,7 +3799,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [
@@ -3968,7 +3833,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -3986,7 +3850,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -4004,7 +3867,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -4022,7 +3884,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -4040,7 +3901,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -4058,7 +3918,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -4076,7 +3935,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -4094,7 +3952,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -4112,7 +3969,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -4130,7 +3986,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -4148,7 +4003,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -4166,7 +4020,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -4184,7 +4037,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [
@@ -4219,7 +4071,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [
@@ -4254,7 +4105,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -4272,7 +4122,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -4290,7 +4139,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -4308,7 +4156,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -4326,7 +4173,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -4344,7 +4190,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -4362,7 +4207,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -4380,7 +4224,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -4398,7 +4241,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -4416,7 +4258,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -4434,7 +4275,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -4452,7 +4292,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -4470,7 +4309,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -4488,7 +4326,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -4506,7 +4343,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -4524,7 +4360,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -4542,7 +4377,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -4560,7 +4394,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -4578,7 +4411,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -4596,7 +4428,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -4614,7 +4445,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [
@@ -4649,7 +4479,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -4667,7 +4496,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [
@@ -4702,7 +4530,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -4720,7 +4547,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -4738,7 +4564,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -4756,7 +4581,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -4774,7 +4598,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -4792,7 +4615,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -4810,7 +4632,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -4828,7 +4649,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -4846,7 +4666,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -4864,7 +4683,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -4882,7 +4700,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -4900,7 +4717,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -4918,7 +4734,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -4936,7 +4751,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -4954,7 +4768,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -4972,7 +4785,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -4990,7 +4802,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -5008,7 +4819,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -5026,7 +4836,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -5044,7 +4853,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -5062,7 +4870,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -5080,7 +4887,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -5098,7 +4904,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -5116,7 +4921,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -5134,7 +4938,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -5152,7 +4955,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -5170,7 +4972,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -5188,7 +4989,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -5206,7 +5006,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -5224,7 +5023,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -5242,7 +5040,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -5260,7 +5057,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -5278,7 +5074,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -5296,7 +5091,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -5314,7 +5108,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -5332,7 +5125,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -5350,7 +5142,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -5368,7 +5159,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -5386,7 +5176,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -5404,7 +5193,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -5422,7 +5210,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -5442,7 +5229,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -5460,7 +5246,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -5478,7 +5263,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -5496,7 +5280,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -5514,7 +5297,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": false,
           "Effects": [],
@@ -5532,7 +5314,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -5550,7 +5331,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -5568,7 +5348,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -5586,7 +5365,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": null
       }
     },
@@ -5602,7 +5380,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": -1,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [
@@ -5637,7 +5414,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": -1,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [
@@ -5672,7 +5448,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": -1,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [
@@ -5707,7 +5482,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": -1,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [
@@ -5742,7 +5516,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": -1,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [
@@ -5777,7 +5550,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": -1,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [
@@ -5812,7 +5584,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": -1,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [
@@ -5847,7 +5618,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": -1,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [
@@ -5882,7 +5652,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": -1,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [
@@ -5917,7 +5686,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": -1,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [
@@ -5952,7 +5720,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": -1,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [
@@ -5987,7 +5754,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": -1,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [
@@ -6022,7 +5788,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": -1,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -6040,7 +5805,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": -1,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -6058,7 +5822,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": -1,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [
@@ -6107,7 +5870,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": -1,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [
@@ -6142,7 +5904,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": -1,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [
@@ -6177,7 +5938,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": -1,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [
@@ -6212,7 +5972,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": -1,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [
@@ -6247,7 +6006,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": -1,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [
@@ -6282,7 +6040,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": -1,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [
@@ -6317,7 +6074,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": -1,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [
@@ -6352,7 +6108,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": -1,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [
@@ -6387,7 +6142,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": -1,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [
@@ -6422,7 +6176,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": -1,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [
@@ -6448,7 +6201,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": -1,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -6466,7 +6218,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": -1,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [
@@ -6501,7 +6252,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": -1,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [
@@ -6536,7 +6286,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": -1,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -6554,7 +6303,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": -1,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [
@@ -6589,7 +6337,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": -1,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [
@@ -6624,7 +6371,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": -1,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [
@@ -6659,7 +6405,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": -1,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [
@@ -6694,7 +6439,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": -1,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [
@@ -6729,7 +6473,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": -1,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -6747,7 +6490,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": -1,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -6765,7 +6507,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": -1,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -6783,7 +6524,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": -1,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -6801,7 +6541,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": -1,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -6819,7 +6558,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": -1,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -6837,7 +6575,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": -1,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -6855,7 +6592,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": -1,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -6873,7 +6609,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": -1,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -6891,7 +6626,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": -1,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -6909,7 +6643,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": -1,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -6927,7 +6660,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": -1,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -6945,7 +6677,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": -1,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -6963,7 +6694,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": -1,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -6981,7 +6711,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": -1,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -6999,7 +6728,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": -1,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -7017,7 +6745,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": -1,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -7035,7 +6762,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": -1,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -7053,7 +6779,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": -1,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -7071,7 +6796,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": -1,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -7089,7 +6813,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": -1,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -7107,7 +6830,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": -1,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -7125,7 +6847,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": -1,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -7143,7 +6864,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": -1,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -7161,7 +6881,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": -1,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -7179,7 +6898,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": -1,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -7197,7 +6915,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": -1,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -7215,7 +6932,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": -1,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -7233,7 +6949,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": -1,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -7251,7 +6966,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": -1,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -7269,7 +6983,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": -1,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -7287,7 +7000,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": -1,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -7305,7 +7017,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": -1,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -7323,7 +7034,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": -1,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -7341,7 +7051,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": -1,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -7359,7 +7068,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": -1,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -7377,7 +7085,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": -1,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -7395,7 +7102,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": -1,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -7413,7 +7119,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": -1,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -7431,7 +7136,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": -1,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -7449,7 +7153,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": -1,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -7467,7 +7170,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": -1,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -7485,7 +7187,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": -1,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -7503,7 +7204,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": -1,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -7521,7 +7221,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": -1,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -7539,7 +7238,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": -1,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -7557,7 +7255,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": -1,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -7575,7 +7272,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": -1,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -7593,7 +7289,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": -1,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -7611,7 +7306,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": -1,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -7629,7 +7323,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": -1,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -7647,7 +7340,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": -1,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -7665,7 +7357,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": -1,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -7683,7 +7374,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": -1,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -7701,7 +7391,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": -1,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -7719,7 +7408,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": -1,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -7737,7 +7425,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": -1,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -7755,7 +7442,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": -1,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -7773,7 +7459,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": -1,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -7791,7 +7476,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": -1,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -7809,7 +7493,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": -1,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -7827,7 +7510,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": -1,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -7845,7 +7527,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": -1,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -7863,7 +7544,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": -1,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -7881,7 +7561,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": -1,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -7899,7 +7578,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": -1,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -7917,7 +7595,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": -1,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -7935,7 +7612,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": -1,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -7953,7 +7629,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": -1,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -7971,7 +7646,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": -1,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -7989,7 +7663,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": -1,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -8007,7 +7680,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": -1,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -8025,7 +7697,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": -1,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -8045,7 +7716,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": null
       }
     },
@@ -8061,7 +7731,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -8079,7 +7748,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -8097,7 +7765,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -8115,7 +7782,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -8135,7 +7801,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -8155,7 +7820,6 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
-        "CosyInstruct": null,
         "Dsp": {
           "Enabled": true,
           "Effects": [],
@@ -8165,7 +7829,7 @@
     },
     "remote:cosyvoice_vllm": {
       "Narrator": {
-        "VoiceId": "M_Narrator",
+        "VoiceId": "am_adam-en-us",
         "LangCode": "en-us",
         "SpeechRate": 1,
         "CfgWeight": null,
@@ -8175,29 +7839,7 @@
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "DisableChunking": false,
-        "CosyInstruct": null,
-        "Dsp": {
-          "Enabled": true,
-          "Effects": [
-            {
-              "Kind": 8,
-              "Enabled": true,
-              "Params": {
-                "amount": 0.6086262
-              }
-            },
-            {
-              "Kind": 18,
-              "Enabled": true,
-              "Params": {
-                "wet": 0.04313099,
-                "roomSize": 0.09904154,
-                "damping": 0.92492014
-              }
-            }
-          ],
-          "IsNeutral": false
-        }
+        "Dsp": null
       }
     }
   }

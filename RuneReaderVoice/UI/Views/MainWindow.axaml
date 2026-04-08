@@ -266,7 +266,6 @@ along with RuneReaderVoice. If not, see <https://www.gnu.org/licenses/>.
 
                                     <CheckBox x:Name="PhraseChunking"
                                               Content="Phrase chunking — split long text into sentences"
-                                              IsChecked="True"
                                               Margin="0,4,0,0"
                                               Click="OnPhraseChunkingChanged"/>
 
@@ -415,7 +414,6 @@ along with RuneReaderVoice. If not, see <https://www.gnu.org/licenses/>.
                                 <StackPanel Margin="0,8,0,0" Spacing="6" HorizontalAlignment="Stretch">
                                     <CheckBox x:Name="RepeatSuppressionEnabled"
                                               Content="Suppress repeated speech"
-                                              IsChecked="True"
                                               Click="OnRepeatSuppressionToggled"/>
 
                                     <TextBlock Text="Repeat suppression window (seconds)" Foreground="#888" FontSize="11"/>
@@ -432,7 +430,6 @@ along with RuneReaderVoice. If not, see <https://www.gnu.org/licenses/>.
                                 <StackPanel Margin="0,8,0,0" Spacing="6" HorizontalAlignment="Stretch">
                                     <CheckBox x:Name="CompressionEnabled"
                                               Content="Enable OGG compression"
-                                              IsChecked="True"
                                               Click="OnCompressionToggled"/>
 
                                     <TextBlock Text="OGG Quality (0–10)" Foreground="#888" FontSize="11"/>
@@ -448,7 +445,6 @@ along with RuneReaderVoice. If not, see <https://www.gnu.org/licenses/>.
 
                                     <CheckBox x:Name="SilenceTrim"
                                               Content="Silence trimming"
-                                              IsChecked="True"
                                               Click="OnSilenceTrimToggled"/>
 
                                     <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,4,0,0">
