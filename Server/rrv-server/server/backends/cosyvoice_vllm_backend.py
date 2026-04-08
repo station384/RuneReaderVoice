@@ -253,9 +253,18 @@ class CosyVoiceVllmBackend(AbstractTtsBackend):
             await self._release_voice_slot(voice_key)
 
     def _build_prompt_text(self, ref_text: str, lang_code: str) -> str:
+        """
+        Build the prompt_text argument for inference_zero_shot().
+
+        For zero-shot cloning, prompt_text is just the reference transcript —
+        the system prompt format is only for inference_instruct2().
+        Passing the system prompt string here confuses the LLM token budget
+        and can cause mid-text truncation.
+        """
         if not ref_text:
             log.warning("CosyVoice3-vLLM: no ref_text — voice cloning quality may suffer")
-        return f"{_SYSTEM_PROMPT}{ref_text}"
+            return ""
+        return ref_text
 
     def _synthesize_sync(self, request: SynthesisRequest) -> bytes:
         import numpy as np
@@ -267,10 +276,12 @@ class CosyVoiceVllmBackend(AbstractTtsBackend):
 
         prompt_text    = self._build_prompt_text(ref_text, request.lang_code)
         cosy_instruct  = request.cosy_instruct or ""
+        speed = float(request.speech_rate) if request.speech_rate else 1.0
+        speed = max(0.5, min(2.0, speed))  # clamp to safe range
 
-        log.debug("CosyVoice3-vLLM: synthesizing %d chars from sample '%s' instruct=%r",
+        log.debug("CosyVoice3-vLLM: synthesizing %d chars from sample '%s' instruct=%r speed=%.2f",
                   len(request.text), request.sample_id or str(request.sample_path),
-                  cosy_instruct[:50] if cosy_instruct else "")
+                  cosy_instruct[:50] if cosy_instruct else "", speed)
 
         audio_chunks = []
         if cosy_instruct:
@@ -280,6 +291,7 @@ class CosyVoiceVllmBackend(AbstractTtsBackend):
                 instruct_prompt,
                 str(request.sample_path),
                 stream=False,
+                speed=speed,
             )):
                 audio_chunks.append(chunk['tts_speech'])
         else:
@@ -288,6 +300,7 @@ class CosyVoiceVllmBackend(AbstractTtsBackend):
                 prompt_text,
                 str(request.sample_path),
                 stream=False,
+                speed=speed,
             )):
                 audio_chunks.append(chunk['tts_speech'])
 

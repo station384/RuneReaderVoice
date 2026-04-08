@@ -80,6 +80,15 @@ class SynthesisRequest:
     # CosyVoice3-specific controls
     cosy_instruct:     Optional[str]   = None  # natural language style instruction for inference_instruct2()
 
+    # LongCat-AudioDiT-specific controls
+    longcat_steps:        Optional[int]   = None  # ODE Euler steps (default 16)
+    longcat_cfg_strength: Optional[float] = None  # guidance strength (default 4.0)
+    longcat_guidance:     Optional[str]   = None  # 'apg' or 'cfg' (default 'apg')
+
+    # Reproducibility — supported by all backends that use random sampling.
+    # None = non-deterministic (default). Integer = fixed seed for repeatable output.
+    synthesis_seed:       Optional[int]   = None
+
     # Progress callback — called by backend as each chunk completes.
     # Signature: callback(chunk: int, total: int) -> None
     # None = no progress reporting (v1 endpoint)

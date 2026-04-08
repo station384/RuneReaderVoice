@@ -125,20 +125,9 @@ async def lifespan(app: FastAPI):
         transcriber.cleanup_tmp_sidecars()  # remove leftover .tmp sidecars from interrupted writes
         transcriber.check_availability()   # checks both ffmpeg and Whisper, logs results
 
-        # Load ASR provider — may be whisper (in-process) or a worker subprocess.
-        # If the provider requires GPU, ask the resource manager to evict an
-        # idle backend first so there is enough VRAM to load.
-        if settings.asr_provider != "whisper":
-            # Create a lightweight sentinel so the manager knows what's requesting
-            class _AsrLoadRequest:
-                resource_id = settings.asr_provider
-                requires_gpu = True
-                is_loaded = False
-                last_used = 0.0
-                use_count = 0
-                async def load(self): pass
-                async def unload(self): pass
-            await manager.request_load(_AsrLoadRequest())
+        # Load ASR provider — Whisper subprocess worker.
+        # Whisper runs on CPU/GPU but does not require pre-eviction since
+        # it can fall back to CPU when VRAM is tight.
         asr_registry = await load_asr_provider(
             provider_name=settings.asr_provider,
             models_dir=settings.models_dir,

@@ -96,6 +96,12 @@ class SynthesizeRequest(BaseModel):
     lux_return_smooth:   bool  | None = None
     # CosyVoice3 controls
     cosy_instruct:       str   | None = None
+    # LongCat-AudioDiT controls
+    longcat_steps:        int   | None = Field(default=None, ge=4, le=64)
+    longcat_cfg_strength: float | None = Field(default=None, ge=1.0, le=10.0)
+    longcat_guidance:     str   | None = None
+    # Reproducibility — None = non-deterministic, integer = fixed seed
+    synthesis_seed:      int   | None = Field(default=None, ge=0)
 
 
 # ── Endpoint ──────────────────────────────────────────────────────────────────
@@ -187,6 +193,14 @@ async def synthesize(body: SynthesizeRequest, request: Request) -> Response:
         effective_voice_context = f"{effective_voice_context}|lux_smooth:{int(body.lux_return_smooth)}"
     if body.cosy_instruct:
         effective_voice_context = f"{effective_voice_context}|cosy_instruct:{body.cosy_instruct}"
+    if body.longcat_steps is not None:
+        effective_voice_context = f"{effective_voice_context}|lc_steps:{body.longcat_steps}"
+    if body.longcat_cfg_strength is not None:
+        effective_voice_context = f"{effective_voice_context}|lc_cfg:{body.longcat_cfg_strength:.2f}"
+    if body.longcat_guidance is not None:
+        effective_voice_context = f"{effective_voice_context}|lc_guide:{body.longcat_guidance}"
+    if body.synthesis_seed is not None:
+        effective_voice_context = f"{effective_voice_context}|seed:{body.synthesis_seed}" 
 
     cache_key = compute_cache_key(
         text=normalized_text,
@@ -203,6 +217,12 @@ async def synthesize(body: SynthesizeRequest, request: Request) -> Response:
         voice_context=effective_voice_context,
     )
 
+    # ── Input metrics — computed once from the normalized text ────────────────
+    # These are included in all responses (HIT and MISS) so the benchmark script
+    # gets consistent headers regardless of cache state.
+    input_chars = len(normalized_text)
+    input_words = len(normalized_text.split())
+
     # 6. Cache hit check (no lock needed for reads)
     cached = await cache.get(cache_key)
     if cached is not None:
@@ -210,7 +230,12 @@ async def synthesize(body: SynthesizeRequest, request: Request) -> Response:
         return Response(
             content=cached,
             media_type="audio/ogg",
-            headers={"X-Cache": "HIT", "X-Cache-Key": cache_key},
+            headers={
+                "X-Cache":       "HIT",
+                "X-Cache-Key":   cache_key,
+                "X-Input-Chars": str(input_chars),
+                "X-Input-Words": str(input_words),
+            },
         )
 
     # 7. Acquire per-key lock — only one coroutine synthesizes a given key at a time.
@@ -225,7 +250,12 @@ async def synthesize(body: SynthesizeRequest, request: Request) -> Response:
             return Response(
                 content=cached,
                 media_type="audio/ogg",
-                headers={"X-Cache": "HIT", "X-Cache-Key": cache_key},
+                headers={
+                    "X-Cache":       "HIT",
+                    "X-Cache-Key":   cache_key,
+                    "X-Input-Chars": str(input_chars),
+                    "X-Input-Words": str(input_words),
+                },
             )
 
         # 8. Synthesize
@@ -260,6 +290,10 @@ async def synthesize(body: SynthesizeRequest, request: Request) -> Response:
             lux_return_smooth=body.lux_return_smooth,
             cosy_instruct=body.cosy_instruct,
             voice_description=body.voice.voice_description,
+            longcat_steps=body.longcat_steps,
+            longcat_cfg_strength=body.longcat_cfg_strength,
+            longcat_guidance=body.longcat_guidance,
+            synthesis_seed=body.synthesis_seed,
         )
 
         try:
@@ -275,11 +309,13 @@ async def synthesize(body: SynthesizeRequest, request: Request) -> Response:
                                 detail=f"Synthesis failed: {e}")
 
         elapsed = time.monotonic() - t0
+        realtime_factor = (result.duration_sec / elapsed) if elapsed > 0 else 0.0
         log.info(
             "Synthesis complete: provider=%s key=%s duration=%.2fs "
-            "synth_time=%.2fs size=%d bytes",
+            "synth_time=%.2fs rtf=%.2fx size=%d bytes chars=%d words=%d",
             body.provider_id, cache_key, result.duration_sec,
-            elapsed, len(result.ogg_bytes),
+            elapsed, realtime_factor, len(result.ogg_bytes),
+            input_chars, input_words,
         )
 
         # 9. Store in cache
@@ -294,10 +330,13 @@ async def synthesize(body: SynthesizeRequest, request: Request) -> Response:
             content=result.ogg_bytes,
             media_type="audio/ogg",
             headers={
-                "X-Cache":         "MISS",
-                "X-Cache-Key":     cache_key,
-                "X-Synth-Time":    f"{elapsed:.3f}",
-                "X-Duration":      f"{result.duration_sec:.3f}",
+                "X-Cache":          "MISS",
+                "X-Cache-Key":      cache_key,
+                "X-Input-Chars":    str(input_chars),
+                "X-Input-Words":    str(input_words),
+                "X-Synth-Time":     f"{elapsed:.3f}",
+                "X-Duration":       f"{result.duration_sec:.3f}",
+                "X-Realtime-Factor": f"{realtime_factor:.3f}",
             },
         )
 

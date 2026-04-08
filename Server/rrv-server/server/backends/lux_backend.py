@@ -41,19 +41,26 @@ from .audio import pcm_to_ogg, estimate_duration
 
 log = logging.getLogger(__name__)
 
-# Sampling parameters — defaults, overridable via config
-_T_SHIFT    = 0.7    # lower = cleaner/less raspy; higher = better quality but artifacts
-_RMS        = 0.01   # reference audio volume normalization
-_RETURN_SMOOTH = True  # smoothing reduces metallic/raspy artifacts
-_NUM_STEPS_DEFAULT = 10
+# Sampling parameters — defaults validated by Provider_Tests.md (2026-04-06)
+# t_shift=0.5 produces more natural comma/pause handling than 0.7.
+# num_steps=32 is the quality ceiling; 10 (old default) produces audible frame artifacts.
+# Both are overridable per-request via lux_t_shift / lux_num_steps controls,
+# and at the server level via RRV_LUX_T_SHIFT / RRV_LUX_NUM_STEPS env vars.
+_T_SHIFT           = 0.5    # lower = more even step distribution = better pause/comma handling
+_RMS               = 0.01   # reference audio volume normalization
+_RETURN_SMOOTH     = True   # smoothing reduces metallic/raspy artifacts
+_NUM_STEPS_DEFAULT = 32     # 32 = quality ceiling; audible frame artifacts below ~24
 
 
 class LuxBackend(AbstractTtsBackend):
 
-    def __init__(self, models_dir: Path, torch_device: str, num_steps: int = _NUM_STEPS_DEFAULT) -> None:
+    def __init__(self, models_dir: Path, torch_device: str,
+                 num_steps: int = _NUM_STEPS_DEFAULT,
+                 t_shift: float = _T_SHIFT) -> None:
         self._models_dir    = models_dir
         self._torch_device  = torch_device
         self._num_steps     = num_steps
+        self._t_shift       = t_shift
         self._model         = None
         self._model_version = ""
         self._sample_rate   = 48000  # LuxTTS always outputs at 48kHz
@@ -102,17 +109,17 @@ class LuxBackend(AbstractTtsBackend):
         return {
             "lux_num_steps": {
                 "type":        "int",
-                "default":     10,
+                "default":     32,
                 "min":         4,
                 "max":         32,
-                "description": "ODE solver steps — higher = better quality, slightly slower. Range 4–32.",
+                "description": "ODE solver steps — higher = better quality, slightly slower. 32 is the quality ceiling; audible frame artifacts appear below ~24.",
             },
             "lux_t_shift": {
                 "type":        "float",
-                "default":     0.7,
+                "default":     0.5,
                 "min":         0.1,
                 "max":         1.0,
-                "description": "Sampling time shift — lower = cleaner/less raspy, higher = better voice similarity.",
+                "description": "ODE time-step distribution — lower = more even distribution = better comma/pause handling. 0.5 validated as optimal for narration.",
             },
             "lux_return_smooth": {
                 "type":        "bool",
@@ -126,8 +133,8 @@ class LuxBackend(AbstractTtsBackend):
     async def load(self) -> None:
         loop = asyncio.get_event_loop()
         await loop.run_in_executor(None, self._load_sync)
-        log.info("LuxTTS loaded: device=%s sample_rate=%d num_steps=%d",
-                 self._torch_device, self._sample_rate, self._num_steps)
+        log.info("LuxTTS loaded: device=%s sample_rate=%d num_steps=%d t_shift=%.2f",
+                 self._torch_device, self._sample_rate, self._num_steps, self._t_shift)
 
     def _load_sync(self) -> None:
         # LuxTTS source lives in the worker venv's lux-src directory.
@@ -216,13 +223,19 @@ class LuxBackend(AbstractTtsBackend):
         encoded_prompt = self._get_encoded_prompt(sample_id, request.sample_path)
 
         # Per-request controls — client overrides take priority over backend defaults
-        num_steps    = int(request.lux_num_steps)    if request.lux_num_steps    is not None else self._num_steps
-        t_shift      = float(request.lux_t_shift)    if request.lux_t_shift      is not None else _T_SHIFT
+        num_steps     = int(request.lux_num_steps)    if request.lux_num_steps    is not None else self._num_steps
+        t_shift       = float(request.lux_t_shift)    if request.lux_t_shift      is not None else self._t_shift
         return_smooth = bool(request.lux_return_smooth) if request.lux_return_smooth is not None else _RETURN_SMOOTH
         speed        = request.speech_rate if request.speech_rate is not None else 1.0
 
         log.debug("LuxTTS: synthesizing %d chars steps=%d t_shift=%.2f smooth=%s speed=%.2f",
                   len(request.text), num_steps, t_shift, return_smooth, speed)
+
+        # Set deterministic seed if requested
+        if request.synthesis_seed is not None:
+            import torch as _torch
+            _torch.manual_seed(request.synthesis_seed)
+            _torch.cuda.manual_seed_all(request.synthesis_seed)
 
         wav = self._model.generate_speech(
             request.text,

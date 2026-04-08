@@ -58,7 +58,7 @@ def _env_set(key: str, default: str) -> FrozenSet[str]:
 
 # ── Valid values ──────────────────────────────────────────────────────────────
 
-VALID_BACKENDS: FrozenSet[str] = frozenset({"kokoro", "f5tts", "chatterbox", "chatterbox_full", "chatterbox_multilingual", "qwen_natural", "qwen_custom", "qwen_design", "lux", "cosyvoice", "cosyvoice_vllm"})
+VALID_BACKENDS: FrozenSet[str] = frozenset({"kokoro", "f5tts", "chatterbox", "chatterbox_full", "chatterbox_multilingual", "qwen_natural", "qwen_custom", "qwen_design", "lux", "cosyvoice", "cosyvoice_vllm", "longcat"})
 VALID_GPU_MODES: FrozenSet[str] = frozenset({"auto", "cuda", "rocm", "cpu"})
 VALID_LOG_LEVELS: FrozenSet[str] = frozenset({"debug", "info", "warning", "error"})
 
@@ -222,9 +222,22 @@ class Settings:
         # ── LuxTTS sample format ─────────────────────────────────────────────
         self.lux_sample_channels: int = _env_int("RRV_LUX_SAMPLE_CHANNELS", 1)
         self.lux_sample_rate: int = _env_int("RRV_LUX_SAMPLE_RATE", 48000)
-        # Number of ODE solver steps — higher = better quality, slightly slower.
-        # LuxTTS is fast enough that 10-20 steps are practical. Default: 10.
-        self.lux_num_steps: int = _env_int("RRV_LUX_NUM_STEPS", 10)
+        # Synthesis defaults validated by Provider_Tests.md 2026-04-06:
+        #   num_steps=32 is the quality ceiling; 10 (old default) has audible frame artifacts.
+        #   t_shift=0.5 gives more natural comma/pause handling vs the previous 0.7 default.
+        self.lux_num_steps: int = _env_int("RRV_LUX_NUM_STEPS", 32)
+        self.lux_t_shift: float = float(os.environ.get("RRV_LUX_T_SHIFT", "0.5"))
+
+        # ── LongCat-AudioDiT configuration ────────────────────────────────────
+        # model_variant: "1B" (FP32, ~4GB VRAM), "3.5B-bf16" (BF16, ~7GB, recommended
+        # for 10GB+ VRAM), or "3.5B" (FP32, ~14GB, requires 16GB+ VRAM).
+        # Directory: data/models/longcat/<variant>/
+        self.longcat_model_variant: str = _env_str("RRV_LONGCAT_MODEL_VARIANT", "1B")
+        self.longcat_steps: int         = _env_int("RRV_LONGCAT_STEPS", 16)
+        self.longcat_cfg_strength: float = float(os.environ.get("RRV_LONGCAT_CFG_STRENGTH", "4.0"))
+        self.longcat_guidance: str       = _env_str("RRV_LONGCAT_GUIDANCE", "apg")
+        self.longcat_sample_rate: int    = _env_int("RRV_LONGCAT_SAMPLE_RATE", 22050)
+        self.longcat_sample_channels: int = _env_int("RRV_LONGCAT_SAMPLE_CHANNELS", 1)
 
     def override(self, **kwargs) -> None:
         """

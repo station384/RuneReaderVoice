@@ -72,6 +72,7 @@ class WorkerAsr(AbstractAsrProvider):
         gpu: str = "auto",
         log_level: str = "info",
         extra_env: Optional[dict] = None,
+        extra_args: Optional[list] = None,
     ) -> None:
         self._provider_name = provider_name
         self._venv_path = Path(venv_path)
@@ -79,6 +80,7 @@ class WorkerAsr(AbstractAsrProvider):
         self._gpu = gpu
         self._log_level = log_level
         self._extra_env = extra_env or {}
+        self._extra_args = extra_args or []
 
         self._process: Optional[subprocess.Popen] = None
         self._socket_path: Optional[str] = None
@@ -183,6 +185,7 @@ class WorkerAsr(AbstractAsrProvider):
             "--models-dir", str(self._models_dir),
             "--gpu",        self._gpu,
             "--log-level",  self._log_level,
+            *self._extra_args,
         ]
 
         log.info("Spawning ASR worker '%s' — launcher: %s", self._provider_name, launcher)
@@ -286,14 +289,21 @@ class WorkerAsr(AbstractAsrProvider):
         self._last_used = time.monotonic()
         self._use_count += 1
 
-        chunks = [
-            TranscriptionChunk(
-                text=c.get("text", ""),
-                start=c.get("start"),
-                end=c.get("end"),
-            )
-            for c in resp.get("chunks", [])
-        ]
+        chunks = []
+        for c in resp.get("chunks", []):
+            text = c.get("text", "").strip()
+            if not text:
+                continue
+            # Whisper native format: {"text": "word", "timestamp": [start, end]}
+            # Generic format: {"text": "word", "start": s, "end": e}
+            ts = c.get("timestamp")
+            if isinstance(ts, (list, tuple)) and len(ts) >= 2:
+                start = float(ts[0]) if ts[0] is not None else None
+                end   = float(ts[1]) if ts[1] is not None else None
+            else:
+                start = c.get("start")
+                end   = c.get("end")
+            chunks.append(TranscriptionChunk(text=text, start=start, end=end))
 
         return TranscriptionResult(
             text=resp.get("text", ""),

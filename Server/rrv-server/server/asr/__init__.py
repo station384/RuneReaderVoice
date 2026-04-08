@@ -6,6 +6,9 @@
 #
 # AsrRegistry: holds the active ASR provider.
 # load_asr_provider(): instantiates and loads the configured ASR provider.
+#
+# Supported providers:
+#   whisper  — subprocess worker using rrv-whisper venv (default, recommended)
 
 from __future__ import annotations
 
@@ -21,7 +24,6 @@ log = logging.getLogger(__name__)
 class AsrRegistry:
     """
     Holds the active ASR provider. At most one provider is active at a time.
-    Falls back gracefully if the configured provider fails to load.
     """
 
     def __init__(self) -> None:
@@ -57,41 +59,19 @@ async def load_asr_provider(
 ) -> AsrRegistry:
     """
     Instantiate and load the configured ASR provider.
-    Falls back to the built-in Whisper provider if the configured one fails.
-    Returns an AsrRegistry with the loaded provider (or empty if all fail).
+    Returns an AsrRegistry with the loaded provider (or empty if it fails).
     """
     registry = AsrRegistry()
+    name = provider_name.lower().strip()
 
-    # Try the configured provider first
     try:
-        provider = _create_asr_provider(
-            provider_name, models_dir, whisper_model_dir, gpu, settings
-        )
+        provider = _create_asr_provider(name, models_dir, whisper_model_dir, gpu, settings)
         await provider.load()
         registry.register(provider)
-        return registry
     except Exception as e:
-        log.error(
-            "ASR provider '%s' failed to load: %s", provider_name, e
-        )
+        log.error("ASR provider '%s' failed to load: %s", name, e)
+        log.warning("Auto-transcription will be unavailable. Check model files and venv.")
 
-    # Fall back to whisper if the configured provider wasn't already whisper
-    if provider_name != "whisper":
-        log.warning("Falling back to built-in Whisper ASR provider")
-        try:
-            provider = _create_asr_provider(
-                "whisper", models_dir, whisper_model_dir, gpu, settings
-            )
-            await provider.load()
-            registry.register(provider)
-            return registry
-        except Exception as e:
-            log.error("Whisper fallback also failed: %s", e)
-
-    log.warning(
-        "No ASR provider loaded — auto-transcription will be unavailable. "
-        "Check model files and venv dependencies."
-    )
     return registry
 
 
@@ -107,54 +87,31 @@ def _create_asr_provider(
     gpu_str = getattr(gpu, "provider", "auto") if hasattr(gpu, "provider") else str(gpu)
 
     if name == "whisper":
-        from .whisper_asr import WhisperAsrProvider
-        return WhisperAsrProvider(whisper_model_dir=whisper_model_dir)
+        # Whisper as subprocess worker — load/transcribe/unload per batch
+        # Uses rrv-whisper venv which has transformers + torch already installed
+        venv_path = _resolve_venv(name, models_dir, settings, "rrv-whisper")
+        from .worker_asr import WorkerAsr
+        log.info("ASR provider 'whisper' configured as worker subprocess (venv: %s)", venv_path)
+        return WorkerAsr(
+            provider_name="whisper",
+            venv_path=venv_path,
+            models_dir=models_dir,
+            gpu=gpu_str,
+            log_level=log_level,
+            extra_args=["--model-dir", str(whisper_model_dir)],
+        )
 
-    # Worker-subprocess providers
+    raise ValueError(
+        f"Unknown ASR provider: {name!r}. "
+        f"Currently supported: whisper"
+    )
+
+
+def _resolve_venv(name: str, models_dir: Path, settings, default_dir: str) -> Path:
+    """Resolve venv path from settings or fall back to default relative path."""
     worker_venvs: dict = getattr(settings, "asr_worker_venvs", {})
-
-    if name == "qwen_asr":
-        venv = worker_venvs.get("qwen_asr")
-        if not venv:
-            # Try default path
-            venv = models_dir.parent.parent / "rrv-qwen-asr" / ".venv"
-        from .worker_asr import WorkerAsr
-        log.info("ASR provider 'qwen_asr' configured as worker subprocess (venv: %s)", venv)
-        return WorkerAsr(
-            provider_name="qwen_asr",
-            venv_path=Path(venv),
-            models_dir=models_dir,
-            gpu=gpu_str,
-            log_level=log_level,
-        )
-
-    elif name == "crisper_whisper":
-        venv = worker_venvs.get("crisper_whisper")
-        if not venv:
-            venv = models_dir.parent.parent / "rrv-crisper-whisper" / ".venv"
-        from .worker_asr import WorkerAsr
-        log.info("ASR provider 'crisper_whisper' configured as worker subprocess (venv: %s)", venv)
-        return WorkerAsr(
-            provider_name="crisper_whisper",
-            venv_path=Path(venv),
-            models_dir=models_dir,
-            gpu=gpu_str,
-            log_level=log_level,
-        )
-
-    elif name == "cohere_transcribe":
-        venv = worker_venvs.get("cohere_transcribe")
-        if not venv:
-            venv = models_dir.parent.parent / "rrv-cohere-transcribe" / ".venv"
-        from .worker_asr import WorkerAsr
-        log.info("ASR provider 'cohere_transcribe' configured as worker subprocess (venv: %s)", venv)
-        return WorkerAsr(
-            provider_name="cohere_transcribe",
-            venv_path=Path(venv),
-            models_dir=models_dir,
-            gpu=gpu_str,
-            log_level=log_level,
-        )
-
-    else:
-        raise ValueError(f"Unknown ASR provider name: {name!r}")
+    venv = worker_venvs.get(name)
+    if venv:
+        return Path(venv)
+    # Default: sibling directory of rrv-server
+    return models_dir.parent.parent / default_dir / ".venv"

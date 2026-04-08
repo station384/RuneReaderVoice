@@ -59,7 +59,7 @@ _VALID_STEM_RE = re.compile(r"^[A-Za-z0-9_-]+$")
 #   <stem>-<mode>-f5.wav           — F5 variant (loud/quiet/fast/slow/breathy)
 #   <stem>-<mode>-chatterbox.wav   — Chatterbox variant
 #   <stem>-master.wav              — original master (hidden, kept for diagnostics)
-PROVIDER_SUFFIXES = ("f5", "chatterbox", "cosyvoice", "lux")
+PROVIDER_SUFFIXES = ("f5", "chatterbox", "cosyvoice", "lux", "longcat")
 
 # Variant mode names (without provider suffix)
 VARIANT_SUFFIXES = ("loud", "quiet", "fast", "slow", "breathy")
@@ -72,9 +72,9 @@ VARIANT_SUFFIXES = ("loud", "quiet", "fast", "slow", "breathy")
 #   -chatterbox-loud ← Chatterbox loud variant
 #   -master          ← archived original
 _INTERNAL_SUFFIX_RE = re.compile(
-    r"-(?:f5|chatterbox|cosyvoice|lux)$"                           # default clips
+    r"-(?:f5|chatterbox|cosyvoice|lux|longcat)$"                           # default clips
     r"|"
-    r"-(?:f5|chatterbox|cosyvoice|lux)-(?:loud|quiet|fast|slow|breathy)$"  # variant clips
+    r"-(?:f5|chatterbox|cosyvoice|lux|longcat)-(?:loud|quiet|fast|slow|breathy)$"  # variant clips
     r"|"
     r"-master$"                                                    # archived master
 )
@@ -391,6 +391,8 @@ def _provider_suffix(provider_id: str) -> Optional[str]:
         return "cosyvoice"
     elif pid == "cosyvoice_vllm":
         return "cosyvoice"
+    elif pid == "longcat":
+        return "longcat"
     return None
 
 

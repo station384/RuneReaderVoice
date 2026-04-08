@@ -67,9 +67,13 @@ log = logging.getLogger(__name__)
 _WORKER_START_TIMEOUT = 60.0
 # How long to wait for a ping response (seconds)
 _PING_TIMEOUT = 10.0
-# How long to wait for synthesis to complete (seconds)
-# Long timeout: Chatterbox full model on CPU can take 60+ seconds
-_SYNTHESIS_TIMEOUT = 300.0
+# How long to wait for synthesis to complete (seconds).
+# Overridable via RRV_SYNTHESIS_TIMEOUT env var.
+# Default 300s covers Chatterbox full on CPU. vLLM backends compile CUDA kernels
+# on first inference which can take 5–10 minutes on some GPUs — use
+# RRV_VLLM_SYNTHESIS_TIMEOUT (default 900s) for those backends.
+_SYNTHESIS_TIMEOUT      = float(os.environ.get("RRV_SYNTHESIS_TIMEOUT",      "300"))
+_VLLM_SYNTHESIS_TIMEOUT = float(os.environ.get("RRV_VLLM_SYNTHESIS_TIMEOUT", "900"))
 
 
 # ── Wire protocol helpers (duplicated from worker.py to keep host-side clean) ─
@@ -121,7 +125,12 @@ class WorkerBackend(AbstractTtsBackend):
         max_concurrent: int = 2,
         log_level: str = "info",
         qwen_size: str = "large",
-        lux_num_steps: int = 10,
+        lux_num_steps: int = 32,
+        lux_t_shift: float = 0.5,
+        longcat_model_variant: str = "1B",
+        longcat_steps: int = 16,
+        longcat_cfg_strength: float = 4.0,
+        longcat_guidance: str = "apg",
     ) -> None:
         self._backend_name = backend_name
         self._venv_path = Path(venv_path)
@@ -132,6 +141,11 @@ class WorkerBackend(AbstractTtsBackend):
         self._log_level = log_level
         self._qwen_size = qwen_size
         self._lux_num_steps = lux_num_steps
+        self._lux_t_shift = lux_t_shift
+        self._longcat_model_variant = longcat_model_variant
+        self._longcat_steps = longcat_steps
+        self._longcat_cfg_strength = longcat_cfg_strength
+        self._longcat_guidance = longcat_guidance
 
         # Set after load()
         self._process: Optional[subprocess.Popen] = None
@@ -287,6 +301,11 @@ class WorkerBackend(AbstractTtsBackend):
             "--max-concurrent", str(self._max_concurrent),
             "--qwen-size",   self._qwen_size,
             "--lux-num-steps", str(self._lux_num_steps),
+            "--lux-t-shift", str(self._lux_t_shift),
+            "--longcat-model-variant", self._longcat_model_variant,
+            "--longcat-steps", str(self._longcat_steps),
+            "--longcat-cfg-strength", str(self._longcat_cfg_strength),
+            "--longcat-guidance", self._longcat_guidance,
             "--log-level",   self._log_level,
         ]
 
@@ -457,14 +476,20 @@ class WorkerBackend(AbstractTtsBackend):
         async with self._lock:
             try:
                 await _send_message(self._writer, msg)
+                # vLLM backends compile CUDA kernels on first inference — allow extra time
+                synth_timeout = (
+                    _VLLM_SYNTHESIS_TIMEOUT
+                    if "vllm" in self._backend_name.lower()
+                    else _SYNTHESIS_TIMEOUT
+                )
                 header = await asyncio.wait_for(
                     _recv_message(self._reader),
-                    timeout=_SYNTHESIS_TIMEOUT,
+                    timeout=synth_timeout,
                 )
             except asyncio.TimeoutError:
                 raise RuntimeError(
                     f"Worker '{self._backend_name}' synthesis timed out "
-                    f"after {_SYNTHESIS_TIMEOUT:.0f}s"
+                    f"after {synth_timeout:.0f}s"
                 )
 
             if header is None:

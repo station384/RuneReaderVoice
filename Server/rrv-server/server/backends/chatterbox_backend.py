@@ -439,6 +439,12 @@ class ChatterboxBackend(AbstractTtsBackend):
         # Generate without audio_prompt_path — model reuses self.conds.
         # exaggeration is intentionally omitted here: Turbo applies it during
         # prepare_conditionals(), not generate(). Passing it to generate() is a no-op.
+        # Set deterministic seed if requested
+        if request.synthesis_seed is not None:
+            import torch as _torch
+            _torch.manual_seed(request.synthesis_seed)
+            _torch.cuda.manual_seed_all(request.synthesis_seed)
+
         wav = self._model.generate(
             text=request.text,
             cfg_weight=request.cfg_weight if request.cfg_weight is not None else 0.0,

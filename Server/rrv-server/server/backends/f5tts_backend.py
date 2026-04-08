@@ -449,6 +449,12 @@ class F5TtsBackend(AbstractTtsBackend):
             try: _progress_cb(0, 1)
             except Exception: pass
 
+        # Set deterministic seed if requested
+        if request.synthesis_seed is not None:
+            import torch as _torch
+            _torch.manual_seed(request.synthesis_seed)
+            _torch.cuda.manual_seed_all(request.synthesis_seed)
+
         audio_segment, final_sample_rate, _ = infer_process(**infer_kwargs)
 
         if _progress_cb is not None:

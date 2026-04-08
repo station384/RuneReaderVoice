@@ -215,17 +215,18 @@ class CosyVoiceBackend(AbstractTtsBackend):
 
     def _build_prompt_text(self, ref_text: str, lang_code: str) -> str:
         """
-        Build the prompt text in CosyVoice3 format.
-        CosyVoice3 expects: <system_prompt><lang_token><ref_text>
-        Example: "You are a helpful assistant.<|endofprompt|>Hello there."
-        The lang token in the prompt text helps the model match language.
+        Build the prompt_text argument for inference_zero_shot().
+
+        For zero-shot cloning, prompt_text is just the reference transcript —
+        the system prompt format is only for inference_instruct2().
+        Passing the system prompt here confuses the LLM token budget and
+        can cause mid-text truncation.
         """
         if not ref_text:
             log.warning("CosyVoice3: no ref_text provided — voice cloning quality may suffer")
-            ref_text = ""
+            return ""
 
-        # CosyVoice3 uses system prompt + ref text as the prompt_text argument
-        return f"{_SYSTEM_PROMPT}{ref_text}"
+        return ref_text
 
     def _synthesize_sync(self, request: SynthesisRequest) -> bytes:
         import numpy as np
@@ -241,12 +242,15 @@ class CosyVoiceBackend(AbstractTtsBackend):
         # cosy_instruct uses inference_instruct2() — natural language style control
         # embedded in the prompt text alongside the system prompt.
         cosy_instruct = request.cosy_instruct or ""
+        speed = float(request.speech_rate) if request.speech_rate else 1.0
+        speed = max(0.5, min(2.0, speed))   # clamp to safe range
 
-        log.debug("CosyVoice3: synthesizing %d chars from sample '%s' instruct=%r",
+        log.debug("CosyVoice3: synthesizing %d chars from sample '%s' instruct=%r speed=%.2f",
                   len(request.text), request.sample_id or str(request.sample_path),
-                  cosy_instruct[:50] if cosy_instruct else "")
+                  cosy_instruct[:50] if cosy_instruct else "", speed)
 
         # Collect all audio chunks from the generator
+
         audio_chunks = []
         if cosy_instruct:
             # inference_instruct2: style instruction for delivery control.
@@ -258,6 +262,7 @@ class CosyVoiceBackend(AbstractTtsBackend):
                 instruct_prompt,
                 str(request.sample_path),
                 stream=False,
+                speed=speed,
             )):
                 audio_chunks.append(chunk['tts_speech'])
         else:
@@ -266,6 +271,7 @@ class CosyVoiceBackend(AbstractTtsBackend):
                 prompt_text,
                 str(request.sample_path),
                 stream=False,
+                speed=speed,
             )):
                 audio_chunks.append(chunk['tts_speech'])
 

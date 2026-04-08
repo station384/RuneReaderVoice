@@ -82,6 +82,10 @@ class JobState:
     total:        int          = 0
     error:        str          = ""
     duration_sec: float        = 0.0
+    synth_time:   float        = 0.0
+    realtime_factor: float     = 0.0
+    input_chars:  int          = 0
+    input_words:  int          = 0
     cache_hit:    bool         = False
     result:       Optional[bytes] = None        # OGG bytes when complete
     created_at:   float        = field(default_factory=time.monotonic)
@@ -232,6 +236,14 @@ async def synthesize_v2(body: SynthesizeRequest, request: Request) -> dict:
         effective_voice_context = f"{effective_voice_context}|lux_smooth:{int(body.lux_return_smooth)}"
     if body.cosy_instruct:
         effective_voice_context = f"{effective_voice_context}|cosy_instruct:{body.cosy_instruct}"
+    if body.longcat_steps is not None:
+        effective_voice_context = f"{effective_voice_context}|lc_steps:{body.longcat_steps}"
+    if body.longcat_cfg_strength is not None:
+        effective_voice_context = f"{effective_voice_context}|lc_cfg:{body.longcat_cfg_strength:.2f}"
+    if body.longcat_guidance is not None:
+        effective_voice_context = f"{effective_voice_context}|lc_guide:{body.longcat_guidance}"
+    if body.synthesis_seed is not None:
+        effective_voice_context = f"{effective_voice_context}|seed:{body.synthesis_seed}" 
 
     # Normalize text for TTS (WoW-specific + wetext English TN)
     normalized_text = normalize_text(body.text)
@@ -254,6 +266,11 @@ async def synthesize_v2(body: SynthesizeRequest, request: Request) -> dict:
     # 4. Check cache — if hit, job completes immediately
     progress_key = str(uuid.uuid4()).replace("-", "")
     job = JobState(progress_key=progress_key, cache_key=cache_key, provider_id=body.provider_id, batch_id=body.batch_id or "")
+
+    # Stamp input metrics onto the job now — available at result-fetch time
+    # regardless of cache hit/miss and without the caller needing to re-send them.
+    job.input_chars = len(normalized_text)
+    job.input_words = len(normalized_text.split())
 
     async with _jobs_lock:
         _jobs[progress_key] = job
@@ -281,7 +298,13 @@ async def synthesize_v2(body: SynthesizeRequest, request: Request) -> dict:
         job.completed_at = time.monotonic()
         log.debug("synthesize_v2: cache hit for key=%s", cache_key)
         # cached=true signals the client to skip SSE and fetch result directly
-        return {"progress_key": progress_key, "cache_key": cache_key, "cached": True}
+        return {
+            "progress_key": progress_key,
+            "cache_key":    cache_key,
+            "cached":       True,
+            "input_chars":  job.input_chars,
+            "input_words":  job.input_words,
+        }
 
     # 5. Build synthesis request
     synth_request = SynthesisRequest(
@@ -306,12 +329,21 @@ async def synthesize_v2(body: SynthesizeRequest, request: Request) -> dict:
         lux_t_shift=body.lux_t_shift,
         lux_return_smooth=body.lux_return_smooth,
         cosy_instruct=body.cosy_instruct,
+        longcat_steps=body.longcat_steps,
+        longcat_cfg_strength=body.longcat_cfg_strength,
+        longcat_guidance=body.longcat_guidance,
+        synthesis_seed=body.synthesis_seed,
     )
 
     # 6. Start background synthesis task
     asyncio.create_task(_run_synthesis(job, backend, synth_request, cache, cache_key))
 
-    return {"progress_key": progress_key, "cache_key": cache_key}
+    return {
+        "progress_key": progress_key,
+        "cache_key":    cache_key,
+        "input_chars":  job.input_chars,
+        "input_words":  job.input_words,
+    }
 
 
 async def _run_synthesis(
@@ -347,19 +379,26 @@ async def _run_synthesis(
             await cache.store(cache_key, job.provider_id, result.ogg_bytes, result.duration_sec)
 
         elapsed = _time.monotonic() - t0
-        job.status       = "complete"
-        job.result       = result.ogg_bytes
-        job.duration_sec = result.duration_sec
-        job.completed_at = _time.monotonic()
+        realtime_factor = (result.duration_sec / elapsed) if elapsed > 0 else 0.0
+        job.status          = "complete"
+        job.result          = result.ogg_bytes
+        job.duration_sec    = result.duration_sec
+        job.synth_time      = elapsed
+        job.realtime_factor = realtime_factor
+        job.completed_at    = _time.monotonic()
         job.push_event({
-            "status":       "complete",
-            "duration_sec": round(result.duration_sec, 2),
-            "synth_time":   round(elapsed, 2),
-            "cache_hit":    False,
+            "status":           "complete",
+            "duration_sec":     round(result.duration_sec, 3),
+            "synth_time":       round(elapsed, 3),
+            "realtime_factor":  round(realtime_factor, 3),
+            "input_chars":      job.input_chars,
+            "input_words":      job.input_words,
+            "cache_hit":        False,
         })
         log.info(
-            "synthesize_v2: complete key=%s duration=%.2fs synth_time=%.2fs",
-            cache_key, result.duration_sec, elapsed
+            "synthesize_v2: complete key=%s duration=%.2fs synth_time=%.2fs rtf=%.2fx chars=%d words=%d",
+            cache_key, result.duration_sec, elapsed, realtime_factor,
+            job.input_chars, job.input_words,
         )
         _update_batch(job.batch_id, success=True)
 
@@ -573,8 +612,12 @@ async def synthesize_v2_result(progress_key: str) -> Response:
         content=job.result,
         media_type="audio/ogg",
         headers={
-            "X-Cache": "HIT" if job.cache_hit else "MISS",
-            "X-Cache-Key": job.cache_key,
-            "X-Duration": str(round(job.duration_sec, 2)),
+            "X-Cache":           "HIT" if job.cache_hit else "MISS",
+            "X-Cache-Key":       job.cache_key,
+            "X-Input-Chars":     str(job.input_chars),
+            "X-Input-Words":     str(job.input_words),
+            "X-Duration":        f"{job.duration_sec:.3f}",
+            "X-Synth-Time":      f"{job.synth_time:.3f}"      if not job.cache_hit else "",
+            "X-Realtime-Factor": f"{job.realtime_factor:.3f}" if not job.cache_hit else "",
         },
     )

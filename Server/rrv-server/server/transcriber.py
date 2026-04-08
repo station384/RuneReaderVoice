@@ -812,14 +812,14 @@ class TranscriptionService:
             else None
         )
 
-        if asr_provider is not None and asr_provider.provider_id != "whisper":
+        if asr_provider is not None:
             log.info(
                 "Master transcription: delegating to ASR provider '%s' (%s)",
                 asr_provider.provider_id, asr_provider.display_name
             )
             return self._transcribe_pending_via_asr_provider(pending, asr_provider)
 
-        # Original Whisper path
+        # Fallback: direct in-process Whisper (no ASR provider configured)
         pipe = self._load_whisper()
         if pipe is None:
             return 0
@@ -958,6 +958,7 @@ class TranscriptionService:
                                     audio_path,
                                     chunks=chunks or [],
                                     master_duration=float(master_info.duration),
+                                    whisper_pipe=pipe,
                                 )
                                 if extraction and extraction.clips:
                                     generated_retranscribe_jobs.append((list(extraction.clips), language, audio_path.name))
@@ -1107,11 +1108,26 @@ class TranscriptionService:
                 if chunks:
                     try:
                         import soundfile as sf
+                        from .sample_extractor import _has_repeated_words, _parse_chunks, _CLIP_MAX_REPEAT_WORDS
                         master_info = sf.info(str(audio_path))
+                        # Only load Whisper for re-transcription if the initial
+                        # transcript actually contains hallucination artifacts.
+                        # Loading in-process while other backends hold VRAM causes
+                        # OOM — don't pay that cost unless a re-run is necessary.
+                        _retrans_pipe = None
+                        _parsed = _parse_chunks(chunks)
+                        if _parsed and _has_repeated_words(_parsed, _CLIP_MAX_REPEAT_WORDS):
+                            log.info(
+                                "transcriber: repeated words detected in '%s' — "
+                                "loading Whisper for hallucination re-transcription",
+                                audio_path.name,
+                            )
+                            _retrans_pipe = self._load_whisper()
                         extraction = extract_clips(
                             audio_path,
                             chunks=chunks,
                             master_duration=float(master_info.duration),
+                            whisper_pipe=_retrans_pipe,
                         )
                         if extraction and extraction.clips:
                             generated_retranscribe_jobs.append(
@@ -1142,34 +1158,11 @@ class TranscriptionService:
                     asr_provider.provider_id, audio_path.name, e
                 )
 
-        # Generated clip retranscription — always uses Whisper (batch-optimised)
-        if generated_retranscribe_jobs:
-            pipe = self._load_whisper()
-            if pipe is not None:
-                try:
-                    total_clips = sum(len(c) for c, _, _ in generated_retranscribe_jobs)
-                    log.info(
-                        "Generated clip retranscription queue starting — master_files=%d clips=%d",
-                        len(generated_retranscribe_jobs), total_clips,
-                    )
-                    for clips, language, master_name in generated_retranscribe_jobs:
-                        log.info(
-                            "Generated clip retranscription queue dispatch — master='%s' clips=%d",
-                            master_name, len(clips)
-                        )
-                        _retranscribe_generated_clips(pipe, clips, language, batch_size=_GENERATED_BATCH_SIZE)
-                finally:
-                    del pipe
-                    try:
-                        import torch
-                        if torch.cuda.is_available():
-                            torch.cuda.empty_cache()
-                    except Exception:
-                        pass
-
-        # Unload ASR provider after batch completes to free GPU memory.
-        # It will reload on demand when the next transcription is needed.
-        # This mirrors the Whisper pattern of load/transcribe/unload per pass.
+        # Unload ASR provider before generated-clip retranscription.
+        # The ASR worker holds GPU VRAM as a subprocess — loading in-process
+        # Whisper while the worker is still alive causes OOM on 16GB GPUs.
+        # Unload here explicitly so the VRAM is free before the in-process load.
+        # The worker reloads on demand at the next transcription pass.
         if hasattr(asr_provider, "unload") and asr_provider.is_loaded:
             try:
                 loop = self._asr_loop
@@ -1179,17 +1172,90 @@ class TranscriptionService:
                     )
                     future.result(timeout=30)
                     log.info(
-                        "Transcription: ASR provider '%s' unloaded after batch",
+                        "Transcription: ASR provider '%s' unloaded before generated-clip retranscription",
                         asr_provider.display_name
                     )
             except Exception as e:
-                log.warning("Transcription: failed to unload ASR provider: %s", e)
+                log.warning("Transcription: failed to unload ASR provider before retranscription: %s", e)
+
+        # Generated clip retranscription — route through the ASR worker.
+        # The worker was unloaded above to free VRAM for any hallucination
+        # re-transcription. Reload it here for the clip retranscription pass,
+        # then let it unload normally at the next scan boundary.
+        # This avoids loading a second in-process Whisper instance which
+        # caused OOM on 16GB GPUs when backends were already resident.
+        if generated_retranscribe_jobs:
+            total_clips = sum(len(c) for c, _, _ in generated_retranscribe_jobs)
+            log.info(
+                "Generated clip retranscription queue starting via ASR worker — "
+                "master_files=%d clips=%d",
+                len(generated_retranscribe_jobs), total_clips,
+            )
+            for clips, language, master_name in generated_retranscribe_jobs:
+                log.info(
+                    "Generated clip retranscription queue dispatch — master='%s' clips=%d",
+                    master_name, len(clips)
+                )
+                self._retranscribe_generated_clips_via_worker(
+                    clips, language, asr_provider
+                )
+
+        # ASR provider already unloaded above before generated-clip retranscription.
+        # Nothing to do here.
 
         log.info(
             "Transcription: completed %d file(s) via %s",
             count, asr_provider.display_name
         )
         return count
+
+    def _retranscribe_generated_clips_via_worker(
+        self,
+        clips: list,
+        language: str,
+        asr_provider,
+    ) -> None:
+        """
+        Re-transcribe generated provider clips using the ASR worker.
+        Routes through the worker rather than loading in-process Whisper,
+        avoiding OOM when TTS backends are resident in GPU memory.
+        The worker reloads on demand if it was previously unloaded.
+        """
+        from .asr.base import TranscriptionRequest
+
+        loop = self._asr_loop
+        if loop is None:
+            log.warning("_retranscribe_generated_clips_via_worker: no event loop — skipping")
+            return
+
+        for clip in clips:
+            try:
+                request = TranscriptionRequest(
+                    audio_path=clip.path,
+                    language_hint=language or "en",
+                    return_timestamps=False,
+                )
+                future = asyncio.run_coroutine_threadsafe(
+                    asr_provider.transcribe(request), loop
+                )
+                result = future.result(timeout=120)
+                if result and result.text:
+                    _write_sidecar_with_debug(
+                        clip.ref_path,
+                        result.text,
+                        kind="generated_ref",
+                        source_audio=clip.path,
+                    )
+                else:
+                    log.warning(
+                        "Generated clip retranscription returned empty for '%s'",
+                        clip.path.name,
+                    )
+            except Exception as e:
+                log.warning(
+                    "Generated clip retranscription failed for '%s': %s",
+                    clip.path.name, e,
+                )
 
     def _load_whisper(self):
         """

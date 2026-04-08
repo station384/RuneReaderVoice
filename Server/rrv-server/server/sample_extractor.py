@@ -130,9 +130,99 @@ _COSYVOICE_OUTPUT_CHANNELS = _env_clip_channels("RRV_COSYVOICE_SAMPLE_CHANNELS",
 _COSYVOICE_OUTPUT_SAMPLE_RATE = _env_clip_rate("RRV_COSYVOICE_SAMPLE_RATE", 24000)
 _LUX_OUTPUT_CHANNELS = _env_clip_channels("RRV_LUX_SAMPLE_CHANNELS", 1)
 _LUX_OUTPUT_SAMPLE_RATE = _env_clip_rate("RRV_LUX_SAMPLE_RATE", 48000)
+_LONGCAT_OUTPUT_CHANNELS = _env_clip_channels("RRV_LONGCAT_SAMPLE_CHANNELS", 1)
+_LONGCAT_OUTPUT_SAMPLE_RATE = _env_clip_rate("RRV_LONGCAT_SAMPLE_RATE", 22050)
 
 _CLIP_PREROLL_SEC = max(0.0, float(os.getenv("RRV_SAMPLE_CLIP_PREROLL_SEC", "0.08") or "0.08"))
 _CLIP_POSTROLL_SEC = max(0.0, float(os.getenv("RRV_SAMPLE_CLIP_POSTROLL_SEC", "0.18") or "0.18"))
+
+# Silence-snap: after Whisper locates the approximate boundary, walk the PCM
+# to find the nearest actual silence. This corrects the ~50-100ms imprecision
+# in Whisper word timestamps and ensures clips never start/end mid-phoneme.
+_SILENCE_SNAP_WINDOW_SEC  = max(0.0, float(os.getenv("RRV_SILENCE_SNAP_WINDOW_SEC",  "0.35") or "0.35"))
+_SILENCE_SNAP_FRAME_MS    = max(1,   int(os.getenv(  "RRV_SILENCE_SNAP_FRAME_MS",    "10")   or "10"))
+_SILENCE_SNAP_RMS_THRESH  = max(0.0, float(os.getenv("RRV_SILENCE_SNAP_RMS_THRESH",  "0.012") or "0.012"))
+                                   # 0.008 was too sensitive — caught mid-word apostrophe
+                                   # pauses (e.g. "Zul'man" → broke at "Zul,")
+_SILENCE_SNAP_CONSECUTIVE_FRAMES = max(1, int(os.getenv("RRV_SILENCE_SNAP_CONSECUTIVE_FRAMES", "3") or "3"))
+                                       # require 3×10ms = 30ms of consecutive silence
+                                       # before accepting a boundary — filters out
+                                       # single-frame dips inside words
+
+# Clip quality gates — applied inside _find_best_region for every candidate region.
+_CLIP_MAX_INTERNAL_SILENCE_SEC = max(0.0, float(os.getenv("RRV_CLIP_MAX_INTERNAL_SILENCE_SEC", "1.2") or "1.2"))
+# Maximum contiguous silence (seconds) allowed anywhere inside a selected clip.
+# Long internal pauses confuse TTS voice-matching models — they either skip
+# speech or pad output unpredictably. Example: "always. <4s silence> the eagle"
+# would produce a broken sample.
+
+_CLIP_MAX_REPEAT_WORDS = max(1, int(os.getenv("RRV_CLIP_MAX_REPEAT_WORDS", "2") or "2"))
+# Maximum consecutive repetitions of the same word in the transcript.
+# "always. always." = 2 repeats of "always" which exceeds a limit of 1.
+# Repeated words indicate a Whisper transcription artifact or model stuttering.
+
+
+def _snap_to_silence(y_mono: "np.ndarray", sr: int, t_sec: float,
+                     search_sec: float, find_start: bool) -> float:
+    """
+    Given a Whisper boundary at t_sec, search within ±search_sec for the
+    nearest silence in the mono PCM y_mono.
+
+    Requires _SILENCE_SNAP_CONSECUTIVE_FRAMES consecutive silent frames to
+    qualify as a real inter-word gap — avoids snapping to brief mid-word
+    pauses like the gap inside "Zul'man" at the apostrophe.
+
+    find_start=True  → snap the START of a clip: walk BACKWARD from t_sec
+                        to find the last silence before speech begins.
+    find_start=False → snap the END   of a clip: walk FORWARD  from t_sec
+                        to find the first silence after speech ends.
+
+    Returns the snapped time in seconds. Falls back to t_sec if no qualifying
+    silence is found within the search window.
+    """
+    import numpy as np
+
+    frame_samples      = max(1, int(_SILENCE_SNAP_FRAME_MS * sr / 1000))
+    required_run       = _SILENCE_SNAP_CONSECUTIVE_FRAMES
+    center_sample      = int(round(t_sec * sr))
+    search_samples     = int(round(search_sec * sr))
+    total              = len(y_mono)
+
+    if find_start:
+        # Walk backward: find a run of quiet frames ending before t_sec
+        search_start = max(0, center_sample - search_samples)
+        run = 0
+        for i in range(center_sample, search_start, -frame_samples):
+            frame = y_mono[max(0, i - frame_samples): i]
+            if len(frame) == 0:
+                continue
+            rms = float(np.sqrt(np.mean(frame.astype(np.float64) ** 2)))
+            if rms < _SILENCE_SNAP_RMS_THRESH:
+                run += 1
+                if run >= required_run:
+                    return i / sr   # end of the silent run = start of clip
+            else:
+                run = 0
+        return t_sec
+    else:
+        # Walk forward: find a run of quiet frames starting after t_sec
+        search_end = min(total, center_sample + search_samples)
+        run = 0
+        run_start = center_sample
+        for i in range(center_sample, search_end, frame_samples):
+            frame = y_mono[i: min(total, i + frame_samples)]
+            if len(frame) == 0:
+                continue
+            rms = float(np.sqrt(np.mean(frame.astype(np.float64) ** 2)))
+            if rms < _SILENCE_SNAP_RMS_THRESH:
+                if run == 0:
+                    run_start = i
+                run += 1
+                if run >= required_run:
+                    return run_start / sr   # start of the silent run = end of clip
+            else:
+                run = 0
+        return t_sec
 
 
 def _provider_output_channels(label: str) -> int:
@@ -145,6 +235,8 @@ def _provider_output_channels(label: str) -> int:
         return _COSYVOICE_OUTPUT_CHANNELS
     if label.startswith("lux"):
         return _LUX_OUTPUT_CHANNELS
+    if label.startswith("longcat"):
+        return _LONGCAT_OUTPUT_CHANNELS
     return 2
 
 
@@ -158,6 +250,8 @@ def _provider_output_sample_rate(label: str) -> int:
         return _COSYVOICE_OUTPUT_SAMPLE_RATE
     if label.startswith("lux"):
         return _LUX_OUTPUT_SAMPLE_RATE
+    if label.startswith("longcat"):
+        return _LONGCAT_OUTPUT_SAMPLE_RATE
     return 44100
 
 
@@ -171,6 +265,8 @@ COSYVOICE_TARGET_SEC   = 25.0   # ideal CosyVoice3 clip length (28s hard max)
 COSYVOICE_MAX_SEC      = 28.0   # hard upper bound for CosyVoice3
 LUX_TARGET_SEC         = 8.0    # LuxTTS — same range as F5
 LUX_MAX_SEC            = 9.0    # hard upper bound for LuxTTS
+LONGCAT_TARGET_SEC     = 8.0    # LongCat reference clip target — within 10s model limit
+LONGCAT_MAX_SEC        = 9.5    # hard upper bound — leave 0.5s headroom below 10s ceiling
 
 # ── Variant detection thresholds ──────────────────────────────────────────────
 
@@ -221,11 +317,98 @@ class ExtractionResult:
 
 # ── Public entry point ────────────────────────────────────────────────────────
 
+def _retranscribe_master(master_path: Path, pipe) -> list["WhisperChunk"]:
+    """
+    Re-transcribe the full master WAV using anti-hallucination Whisper settings.
+    Returns a new list of WhisperChunk, or empty list on failure.
+
+    Called when the initial transcript contains repeated consecutive words —
+    a reliable indicator of Whisper greedy-decoder hallucination loops.
+
+    Settings rationale:
+      temperature=0.2
+        The default (0.0) is fully greedy — the model always picks the
+        highest-probability token. A stuck loop keeps picking the same word.
+        A small temperature adds just enough randomness to escape the loop
+        without producing random output. 0.2 is the standard first-fallback
+        value used in the Whisper paper.
+
+      do_sample=True
+        Required to activate temperature > 0 in HuggingFace generate().
+        Without this flag the temperature parameter is silently ignored.
+
+      num_beams=5
+        Beam search evaluates 5 parallel hypotheses at each step and keeps
+        the globally best sequence rather than the locally greedy one.
+        This is the most reliable way to avoid short loops — the beam
+        penalizes sequences that repeat tokens across the full output.
+
+      best_of=5 (via num_return_sequences)
+        Sample 5 complete transcriptions and keep the one with the lowest
+        log-probability per token (highest confidence). Increases compute
+        ~5x but runs once per hallucination trigger so cost is acceptable.
+        NOTE: best_of is only meaningful with do_sample=True.
+
+      compression_ratio_threshold=1.8
+        Whisper internally flags outputs with text/compressed-text ratio
+        above this value as likely hallucinations. The default is 2.4 —
+        quite permissive. 1.8 is tighter and will cause the model to
+        internally retry when it produces repetitive output.
+
+      No language= constraint
+        The initial pass uses language="en" which biases the model toward
+        English phonetics. Fantasy proper nouns (Akilzan, Zul'man) get
+        mangled into the nearest English word. Without a language constraint
+        Whisper uses its own language detection — better for mixed content.
+    """
+    try:
+        import soundfile as sf
+        import numpy as np
+
+        raw, sample_rate = sf.read(str(master_path), dtype="float32")
+        if raw.ndim > 1:
+            raw = raw.mean(axis=1)
+
+        generate_kwargs = {
+            "task":                       "transcribe",
+            "temperature":                0.2,
+            "do_sample":                  True,
+            "num_beams":                  5,
+            "compression_ratio_threshold": 1.8,
+            # Explicitly no language= — let Whisper detect it.
+            # Fantasy names and non-English proper nouns transcribe more
+            # accurately without the English language bias.
+        }
+
+        result = pipe(
+            {"array": raw, "sampling_rate": sample_rate},
+            return_timestamps="word",
+            chunk_length_s=30,
+            batch_size=1,
+            generate_kwargs=generate_kwargs,
+        )
+
+        raw_chunks = result.get("chunks", []) if isinstance(result, dict) else []
+        if not raw_chunks:
+            return []
+
+        wchunks = _parse_chunks(raw_chunks)
+        return wchunks
+
+    except Exception as e:
+        log.warning("_retranscribe_master: failed for '%s': %s", master_path.name, e)
+        return []
+
+
 def extract_clips(
     master_path: Path,
     chunks: list[dict],          # raw Whisper chunk dicts: {"text":..., "timestamp":[s,e]}
     master_duration: float,
     emit_variants: bool = True,
+    whisper_pipe=None,           # optional: loaded HuggingFace Whisper pipeline.
+                                 # When provided, used to re-transcribe the master if
+                                 # the initial transcript contains hallucination artifacts
+                                 # (repeated consecutive words) before region selection.
 ) -> ExtractionResult:
     """
     Main entry point. Called by transcriber after Whisper completes.
@@ -234,6 +417,8 @@ def extract_clips(
     chunks          : Whisper result["chunks"] — word/phrase timestamps
     master_duration : total audio duration in seconds
     emit_variants   : set False to skip variant detection (Normal clips only)
+    whisper_pipe    : if provided, enables hallucination-triggered re-transcription
+                      of the full master before clip region selection begins.
 
     Returns ExtractionResult with all clips written to disk alongside master.
     """
@@ -248,6 +433,34 @@ def extract_clips(
     if not wchunks:
         log.warning("extract_clips: could not parse chunks for '%s'", master_path.name)
         return result
+
+    # ── Hallucination check: re-transcribe master if needed ───────────────────
+    # Check the full master transcript for consecutive repeated words before
+    # doing any region selection. Repeated words ("always. always.") indicate
+    # a Whisper hallucination loop — the greedy decoder got stuck. If found
+    # and a whisper_pipe is available, re-run with anti-hallucination settings
+    # on the full master and replace wchunks globally. This gives all downstream
+    # region selections a clean transcript rather than filtering per-region.
+    # The re-run happens at most once per master.
+    if whisper_pipe is not None and _has_repeated_words(wchunks, _CLIP_MAX_REPEAT_WORDS):
+        log.warning(
+            "extract_clips: repeated words detected in '%s' transcript — "
+            "re-transcribing master with anti-hallucination settings",
+            master_path.name,
+        )
+        retrans_chunks = _retranscribe_master(master_path, whisper_pipe)
+        if retrans_chunks:
+            wchunks = retrans_chunks
+            log.info(
+                "extract_clips: re-transcription complete for '%s' — %d chunks",
+                master_path.name, len(wchunks),
+            )
+        else:
+            log.warning(
+                "extract_clips: re-transcription failed for '%s' — "
+                "continuing with original transcript",
+                master_path.name,
+            )
 
     # Secondary duration gate — transcriber should have caught this first,
     # but guard here too in case extract_clips is called directly.
@@ -312,6 +525,7 @@ def extract_clips(
     normal_f5_region = _find_best_region(
         windows, wchunks, F5_TARGET_SEC, F5_MAX_SEC,
         mode="normal", baseline_rms=baseline_rms, baseline_wpm=baseline_wpm,
+        y_mono=y, sr=sr,
     )
 
     if normal_f5_region is None:
@@ -336,6 +550,7 @@ def extract_clips(
     normal_cb_region = _find_best_region(
         windows, wchunks, CHATTERBOX_TARGET_SEC, CHATTERBOX_MAX_SEC,
         mode="normal", baseline_rms=baseline_rms, baseline_wpm=baseline_wpm,
+        y_mono=y, sr=sr,
     )
     # If master is shorter than Chatterbox target, use whatever is available
     if normal_cb_region is None:
@@ -343,6 +558,7 @@ def extract_clips(
             windows, wchunks, min(master_duration, CHATTERBOX_TARGET_SEC),
             min(master_duration, CHATTERBOX_MAX_SEC),
             mode="normal", baseline_rms=baseline_rms, baseline_wpm=baseline_wpm,
+ y_mono=y, sr=sr,
         )
     if normal_cb_region:
         cb_clip = _write_clip(master_path, normal_cb_region, wchunks, "chatterbox", y_stereo, sr)
@@ -363,12 +579,14 @@ def extract_clips(
     normal_cosyvoice_region = _find_best_region(
         windows, wchunks, COSYVOICE_TARGET_SEC, COSYVOICE_MAX_SEC,
         mode="normal", baseline_rms=baseline_rms, baseline_wpm=baseline_wpm,
+        y_mono=y, sr=sr,
     )
     if normal_cosyvoice_region is None:
         normal_cosyvoice_region = _find_best_region(
             windows, wchunks, min(master_duration, COSYVOICE_TARGET_SEC),
             min(master_duration, COSYVOICE_MAX_SEC),
             mode="normal", baseline_rms=baseline_rms, baseline_wpm=baseline_wpm,
+ y_mono=y, sr=sr,
         )
     if normal_cosyvoice_region:
         cv_clip = _write_clip(master_path, normal_cosyvoice_region, wchunks, "cosyvoice", y_stereo, sr)
@@ -385,6 +603,7 @@ def extract_clips(
     normal_lux_region = _find_best_region(
         windows, wchunks, LUX_TARGET_SEC, LUX_MAX_SEC,
         mode="normal", baseline_rms=baseline_rms, baseline_wpm=baseline_wpm,
+        y_mono=y, sr=sr,
     )
     if normal_lux_region:
         lux_clip = _write_clip(master_path, normal_lux_region, wchunks, "lux", y_stereo, sr)
@@ -397,7 +616,22 @@ def extract_clips(
     else:
         log.warning("extract_clips: could not find LuxTTS region for '%s' — skipping", master_path.name)
 
-    # For each detected speech mode, write BOTH a Chatterbox variant (-mode-chatterbox)
+    # ── LongCat default clip ──────────────────────────────────────────────────
+    normal_longcat_region = _find_best_region(
+        windows, wchunks, LONGCAT_TARGET_SEC, LONGCAT_MAX_SEC,
+        mode="normal", baseline_rms=baseline_rms, baseline_wpm=baseline_wpm,
+        y_mono=y, sr=sr,
+    )
+    if normal_longcat_region:
+        longcat_clip = _write_clip(master_path, normal_longcat_region, wchunks, "longcat", y_stereo, sr)
+        if longcat_clip:
+            result.clips.append(longcat_clip)
+            log.info(
+                "extract_clips: wrote LongCat default '%s' (%.1f-%.1fs)",
+                longcat_clip.path.name, longcat_clip.start, longcat_clip.end
+            )
+    else:
+        log.warning("extract_clips: could not find LongCat region for '%s' — skipping", master_path.name)
     # and an F5 variant (-mode-f5). Both are extracted directly from the master.
     # Variant names must carry the provider suffix so the server resolves correctly.
     if not emit_variants:
@@ -429,6 +663,7 @@ def extract_clips(
         f5_region = _find_best_region(
             variant_windows, wchunks, F5_TARGET_SEC, F5_MAX_SEC,
             mode=mode, baseline_rms=baseline_rms, baseline_wpm=baseline_wpm,
+ y_mono=y, sr=sr,
         )
         if f5_region is None:
             log.debug("extract_clips: variant '%s'-f5 — insufficient material", mode)
@@ -454,12 +689,14 @@ def extract_clips(
         cb_region = _find_best_region(
             variant_windows, wchunks, CHATTERBOX_TARGET_SEC, CHATTERBOX_MAX_SEC,
             mode=mode, baseline_rms=baseline_rms, baseline_wpm=baseline_wpm,
+ y_mono=y, sr=sr,
         )
         if cb_region is None:
             # Not enough material for Chatterbox length — fall back to F5 length
             cb_region = _find_best_region(
                 variant_windows, wchunks, F5_TARGET_SEC, F5_MAX_SEC,
                 mode=mode, baseline_rms=baseline_rms, baseline_wpm=baseline_wpm,
+ y_mono=y, sr=sr,
             )
         if cb_region is None:
             log.debug("extract_clips: variant '%s'-chatterbox — insufficient material", mode)
@@ -486,11 +723,13 @@ def extract_clips(
         cv_var_region = _find_best_region(
             variant_windows, wchunks, COSYVOICE_TARGET_SEC, COSYVOICE_MAX_SEC,
             mode=mode, baseline_rms=baseline_rms, baseline_wpm=baseline_wpm,
+ y_mono=y, sr=sr,
         )
         if cv_var_region is None:
             cv_var_region = _find_best_region(
                 variant_windows, wchunks, F5_TARGET_SEC, F5_MAX_SEC,
                 mode=mode, baseline_rms=baseline_rms, baseline_wpm=baseline_wpm,
+ y_mono=y, sr=sr,
             )
         if cv_var_region and normal_cosyvoice_region:
             overlap = _region_overlap(normal_cosyvoice_region, cv_var_region)
@@ -509,6 +748,7 @@ def extract_clips(
         lux_var_region = _find_best_region(
             variant_windows, wchunks, LUX_TARGET_SEC, LUX_MAX_SEC,
             mode=mode, baseline_rms=baseline_rms, baseline_wpm=baseline_wpm,
+ y_mono=y, sr=sr,
         )
         if lux_var_region and normal_lux_region:
             overlap = _region_overlap(normal_lux_region, lux_var_region)
@@ -523,7 +763,24 @@ def extract_clips(
                     lux_var.path.name, lux_var.start, lux_var.end
                 )
 
-    # ── Rename master to hide from client sample lists ────────────────────────
+        # ── LongCat variant ───────────────────────────────────────────────────
+        longcat_var_region = _find_best_region(
+            variant_windows, wchunks, LONGCAT_TARGET_SEC, LONGCAT_MAX_SEC,
+            mode=mode, baseline_rms=baseline_rms, baseline_wpm=baseline_wpm,
+ y_mono=y, sr=sr,
+        )
+        if longcat_var_region and normal_longcat_region:
+            overlap = _region_overlap(normal_longcat_region, longcat_var_region)
+            if overlap > 0.5:
+                longcat_var_region = None
+        if longcat_var_region:
+            longcat_var = _write_clip(master_path, longcat_var_region, wchunks, f"longcat-{mode}", y_stereo, sr)
+            if longcat_var:
+                result.clips.append(longcat_var)
+                log.info(
+                    "extract_clips: wrote LongCat variant '%s' (%.1f–%.1fs)",
+                    longcat_var.path.name, longcat_var.start, longcat_var.end
+                )
     # The master WAV has served its purpose. Renaming to -master.wav keeps it
     # on disk for diagnostics but the sample scanner will not expose it
     # (only -f5 and -chatterbox files are provider-visible).
@@ -713,7 +970,7 @@ def _compute_windows(y, sr, chunks: list[WhisperChunk], duration: float) -> list
         ]
         word_count = sum(len(c.text.split()) for c in window_chunks)
         speech_sec = sum(c.end - c.start for c in window_chunks)
-        speech_density = speech_sec / _WINDOW_SEC  # 0.0–1.0
+        speech_density = speech_sec / _WINDOW_SEC  # 0.0-1.0
         wpm = (word_count / _WINDOW_SEC) * 60.0 if word_count > 0 else 0.0
 
         # Prose quality: fraction of words that are natural speech (not codes/numbers)
@@ -738,6 +995,57 @@ def _compute_windows(y, sr, chunks: list[WhisperChunk], duration: float) -> list
 
 # ── Region finder ─────────────────────────────────────────────────────────────
 
+def _max_internal_silence(y_mono: "np.ndarray", sr: int,
+                           start_sec: float, end_sec: float) -> float:
+    """
+    Return the duration (seconds) of the longest contiguous silence run
+    inside the region [start_sec, end_sec] of y_mono.
+    Uses the same RMS frame analysis as the silence-snap system.
+    """
+    import numpy as np
+    s = max(0, int(round(start_sec * sr)))
+    e = min(len(y_mono), int(round(end_sec * sr)))
+    if e <= s:
+        return 0.0
+    region   = y_mono[s:e].astype(np.float64)
+    fsize    = max(1, int(_SILENCE_SNAP_FRAME_MS * sr / 1000))
+    thresh   = _SILENCE_SNAP_RMS_THRESH
+    max_run  = 0
+    cur_run  = 0
+    for i in range(0, len(region), fsize):
+        frame = region[i: i + fsize]
+        if len(frame) == 0:
+            break
+        rms = float(np.sqrt(np.mean(frame ** 2)))
+        if rms < thresh:
+            cur_run += 1
+            max_run = max(max_run, cur_run)
+        else:
+            cur_run = 0
+    return max_run * fsize / sr
+
+
+def _has_repeated_words(chunks: list["WhisperChunk"], max_repeats: int) -> bool:
+    """
+    Return True if any word appears more than max_repeats times consecutively
+    in the concatenated transcript of chunks.
+    "always. always." → words = ["always", "always"] → 2 consecutive = True
+    max_repeats=1 means no consecutive repeats allowed at all.
+    """
+    import re
+    text  = " ".join(c.text for c in chunks)
+    words = re.findall(r"\b\w+\b", text.lower())
+    run   = 1
+    for i in range(1, len(words)):
+        if words[i] == words[i - 1]:
+            run += 1
+            if run > max_repeats:
+                return True
+        else:
+            run = 1
+    return False
+
+
 def _find_best_region(
     windows: list[dict],
     chunks: list[WhisperChunk],
@@ -746,6 +1054,8 @@ def _find_best_region(
     mode: str,
     baseline_rms: float,
     baseline_wpm: float,
+    y_mono: "Optional[np.ndarray]" = None,
+    sr: int = 0,
 ) -> Optional[tuple[float, float]]:
     """
     Find the best contiguous time region of approximately target_sec duration
@@ -753,7 +1063,12 @@ def _find_best_region(
     boundaries, or None if no suitable region found.
 
     Scoring: speech_density weighted most heavily, with a secondary preference
-    for ending on a sentence boundary (. ! ?).
+    for ending on a sentence boundary (. ! ?)
+
+    y_mono / sr: if provided, each candidate region is scanned for excessive
+    internal silence and repeated transcript words before being accepted.
+    This prevents selecting clips that contain multi-second pauses or
+    Whisper transcription artifacts like "always. always."
     """
     if not windows:
         return None
@@ -818,6 +1133,31 @@ def _find_best_region(
                 start, end, prose, _MIN_PROSE_RATIO
             )
             continue   # try next candidate
+
+        # Gate: reject regions with excessive internal silence.
+        # Scan the PCM for any contiguous run of silence longer than
+        # _CLIP_MAX_INTERNAL_SILENCE_SEC. This catches clips like
+        # "always. <4s silence> the eagle loa bring ya" that score
+        # well on speech density in aggregate but are unusable as
+        # voice-matching reference samples.
+        if y_mono is not None and sr > 0:
+            max_silence = _max_internal_silence(y_mono, sr, start, end)
+            if max_silence > _CLIP_MAX_INTERNAL_SILENCE_SEC:
+                log.debug(
+                    "_find_best_region: region %.1f–%.1fs rejected "
+                    "(internal silence %.2fs > %.2fs limit)",
+                    start, end, max_silence, _CLIP_MAX_INTERNAL_SILENCE_SEC
+                )
+                continue
+
+        # Gate: reject regions whose transcript contains consecutive repeated words.
+        # "always. always." = Whisper artifact or model stutter — not a good sample.
+        if _has_repeated_words(region_chunks, _CLIP_MAX_REPEAT_WORDS):
+            log.debug(
+                "_find_best_region: region %.1f–%.1fs rejected (repeated words in transcript)",
+                start, end
+            )
+            continue
 
         return region
 
@@ -907,7 +1247,7 @@ def _is_breathy_window(w, baseline_rms, baseline_wpm, baseline_flatness) -> bool
 # ── Overlap check ─────────────────────────────────────────────────────────────
 
 def _region_overlap(r1: Optional[tuple], r2: Optional[tuple]) -> float:
-    """Return fractional overlap between two (start, end) regions. 0.0–1.0."""
+    """Return fractional overlap between two (start, end) regions. 0.0-1.0."""
     if r1 is None or r2 is None:
         return 0.0
     overlap_start = max(r1[0], r2[0])
@@ -999,8 +1339,29 @@ def _write_clip(
     import soundfile as sf
 
     start, end = region
-    clip_start = max(0.0, float(start) - _CLIP_PREROLL_SEC)
-    clip_end = min(float(len(y)) / float(sr), float(end) + _CLIP_POSTROLL_SEC)
+
+    # Convert stereo master to mono for silence detection only.
+    # The actual clip is still sliced from y (stereo).
+    import numpy as np
+    y_mono_full = np.mean(y, axis=1).astype(np.float32) if y.ndim == 2 else y.astype(np.float32)
+
+    # Snap boundaries to actual PCM silence rather than using fixed pre/post roll.
+    # Whisper timestamps have ~50-100ms imprecision — snapping to silence ensures
+    # clips never start or end mid-phoneme.
+    snapped_start = _snap_to_silence(y_mono_full, sr, float(start),
+                                     _SILENCE_SNAP_WINDOW_SEC, find_start=True)
+    snapped_end   = _snap_to_silence(y_mono_full, sr, float(end),
+                                     _SILENCE_SNAP_WINDOW_SEC, find_start=False)
+
+    # Fall back to fixed preroll/postroll if snap didn't move the boundary
+    # (i.e. no silence found — dense speech with no gap around boundary).
+    if abs(snapped_start - float(start)) < 0.005:
+        snapped_start = max(0.0, float(start) - _CLIP_PREROLL_SEC)
+    if abs(snapped_end - float(end)) < 0.005:
+        snapped_end = min(float(len(y)) / float(sr), float(end) + _CLIP_POSTROLL_SEC)
+
+    clip_start = max(0.0, snapped_start)
+    clip_end   = min(float(len(y)) / float(sr), snapped_end)
     s_start = int(round(clip_start * sr))
     s_end   = int(round(clip_end   * sr))
 
@@ -1106,7 +1467,7 @@ def _write_clip(
 def _parse_chunks(raw_chunks: list[dict]) -> list[WhisperChunk]:
     """
     Parse raw Whisper chunk dicts into typed WhisperChunk objects.
-    Handles both word-level {"text", "timestamp": [s, e]} and
+    Handles both word-level (text, timestamp: [s, e]) and
     segment-level formats.
     """
     result = []
