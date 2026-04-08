@@ -90,6 +90,36 @@ def _load_whisper(model_dir: Path):
     return pipe
 
 
+def _is_cuda_oom(e: Exception) -> bool:
+    """Return True if exception is a CUDA out-of-memory error."""
+    msg = str(e).lower()
+    return "cuda out of memory" in msg or "out of memory" in msg and "cuda" in msg
+
+
+def _load_whisper_cpu(model_dir: Path):
+    """Load Whisper on CPU. Used as OOM fallback."""
+    import torch
+    from transformers import AutoModelForSpeechSeq2Seq, AutoProcessor, pipeline
+    log.info("Whisper: loading on CPU (OOM fallback) from %s", model_dir)
+    model = AutoModelForSpeechSeq2Seq.from_pretrained(
+        str(model_dir), torch_dtype=torch.float32,
+        low_cpu_mem_usage=True, use_safetensors=True, local_files_only=True,
+    )
+    processor = AutoProcessor.from_pretrained(str(model_dir), local_files_only=True)
+    pipe = pipeline(
+        "automatic-speech-recognition", model=model,
+        tokenizer=processor.tokenizer, feature_extractor=processor.feature_extractor,
+        torch_dtype=torch.float32, device="cpu",
+    )
+    gc = getattr(model, "generation_config", None)
+    if gc is not None:
+        gc.condition_on_previous_text = False
+        gc.suppress_tokens = None
+        gc.begin_suppress_tokens = None
+    log.info("Whisper: CPU fallback loaded")
+    return pipe
+
+
 def _transcribe(pipe, audio_path: Path, language: str = "en") -> dict:
     """Transcribe audio. Returns {text, language, chunks}."""
     import soundfile as sf
@@ -101,7 +131,86 @@ def _transcribe(pipe, audio_path: Path, language: str = "en") -> dict:
     else:
         audio_data = raw_audio
 
-    log.info("Whisper transcribing '%s' sr=%d samples=%d", audio_path.name, sample_rate, len(audio_data))
+    duration_sec = len(audio_data) / sample_rate
+    log.info("Whisper transcribing '%s' sr=%d samples=%d duration=%.1fs",
+             audio_path.name, sample_rate, len(audio_data), duration_sec)
+
+    # Route to CPU if the file is too long OR if available VRAM is too low.
+    # Two failure modes require CPU routing:
+    #
+    # 1. Duration gate (RRV_WHISPER_MAX_GPU_SEC, default 600s):
+    #    Long files cause unrecoverable CUDA device-side asserts deep inside
+    #    HuggingFace's chunked pipeline — a crash that kills the entire worker
+    #    process before the Python except block can run. The proactive CPU route
+    #    is the only reliable defence.
+    #
+    # 2. VRAM pressure gate (RRV_WHISPER_MIN_FREE_VRAM_MIB, default 1500 MiB):
+    #    When TTS backends (LongCat, Chatterbox, F5) are resident they consume
+    #    12-14 GB of the available 15.58 GB. Even a short file can trigger the
+    #    same unrecoverable CUDA crash if there isn't enough headroom for the
+    #    chunked inference pass. Check free VRAM before attempting GPU and
+    #    fall back to CPU proactively rather than crashing.
+    _MAX_GPU_DURATION_SEC  = float(os.environ.get("RRV_WHISPER_MAX_GPU_SEC",       "600"))
+    _MIN_FREE_VRAM_MIB     = float(os.environ.get("RRV_WHISPER_MIN_FREE_VRAM_MIB", "1500"))
+
+    _route_to_cpu = False
+    _route_reason = ""
+
+    if duration_sec > _MAX_GPU_DURATION_SEC:
+        _route_to_cpu = True
+        _route_reason = f"duration {duration_sec:.0f}s > {_MAX_GPU_DURATION_SEC:.0f}s limit"
+
+    if not _route_to_cpu and torch.cuda.is_available():
+        try:
+            _props     = torch.cuda.get_device_properties(0)
+            _free_mib  = (_props.total_memory - torch.cuda.memory_reserved(0)) / (1024 * 1024)
+            if _free_mib < _MIN_FREE_VRAM_MIB:
+                _route_to_cpu = True
+                _route_reason = f"only {_free_mib:.0f} MiB VRAM free (need {_MIN_FREE_VRAM_MIB:.0f} MiB)"
+        except Exception:
+            pass
+
+    if _route_to_cpu and hasattr(pipe, "model") and \
+            getattr(getattr(pipe, "model", None), "device", None) is not None and \
+            str(pipe.model.device) != "cpu":
+        log.warning(
+            "Whisper: '%s' routing to CPU — %s",
+            audio_path.name, _route_reason,
+        )
+        import torch
+        cpu_pipe = _load_whisper_cpu(audio_path.parent.parent / "models" / "whisper" / "v3-turbo")
+        result = _do_transcribe(cpu_pipe, audio_data, sample_rate, language, audio_path.name)
+        del cpu_pipe
+        try:
+            torch.cuda.empty_cache()
+        except Exception:
+            pass
+        return result
+
+    return _do_transcribe(pipe, audio_data, sample_rate, language, audio_path.name)
+
+
+def _do_transcribe(pipe, audio_data, sample_rate: int, language: str, name: str) -> dict:
+    """Run the actual pipeline inference and return result dict."""
+    # Pre-inference VRAM check — raise a catchable Python error before touching
+    # CUDA rather than letting the device-side assert kill the worker process.
+    # The _handle_client OOM handler can recover from a Python exception but
+    # cannot recover from a CUDA device-side assert (process dies immediately).
+    import torch
+    pipe_device = getattr(getattr(pipe, "model", None), "device", None)
+    if pipe_device is not None and str(pipe_device) != "cpu" and torch.cuda.is_available():
+        try:
+            free_mib = (torch.cuda.get_device_properties(0).total_memory
+                        - torch.cuda.memory_reserved(0)) / (1024 * 1024)
+            if free_mib < _MIN_FREE_VRAM_MIB:
+                raise RuntimeError(
+                    f"CUDA out of memory (pre-check): only {free_mib:.0f} MiB free, "
+                    f"need {_MIN_FREE_VRAM_MIB:.0f} MiB for '{name}'"
+                )
+        except RuntimeError:
+            raise
+        except Exception:
+            pass  # VRAM query failed — proceed and let the real OOM handler catch it
 
     result = pipe(
         {"array": audio_data, "sampling_rate": sample_rate},
@@ -142,7 +251,7 @@ async def _recv_message(reader: asyncio.StreamReader) -> dict:
 async def _handle_client(
     reader: asyncio.StreamReader,
     writer: asyncio.StreamWriter,
-    pipe,
+    pipe_ref: list,   # mutable [pipe] — allows CPU fallback to replace pipe in-place
     model_dir: Path,
     gpu_provider: str,
 ) -> None:
@@ -173,6 +282,7 @@ async def _handle_client(
                         "display_name": "Whisper",
                         "requires_gpu": False,
                         "loaded": True,
+                        "device": getattr(getattr(pipe_ref[0], "model", None), "device", "unknown") if pipe_ref else "unknown",
                         "vram_used_mib": vram,
                     }
                 })
@@ -181,11 +291,30 @@ async def _handle_client(
                 audio_path = Path(msg.get("audio_path", ""))
                 language = msg.get("language", "en") or "en"
                 try:
-                    result = _transcribe(pipe, audio_path, language)
+                    result = _transcribe(pipe_ref[0], audio_path, language)
                     await _send_message(writer, {"status": "ok", **result})
                 except Exception as e:
-                    log.error("Transcription failed: %s", e)
-                    await _send_message(writer, {"status": "error", "error": str(e)})
+                    if _is_cuda_oom(e) and pipe_ref[0].device.type != "cpu":
+                        # GPU OOM during inference — unload GPU model, reload on
+                        # CPU, and retry. The CPU model stays loaded for the rest
+                        # of this worker session so subsequent files also benefit.
+                        log.warning(
+                            "Whisper: CUDA OOM on '%s' — falling back to CPU and retrying",
+                            audio_path.name,
+                        )
+                        try:
+                            import torch
+                            del pipe_ref[0]
+                            torch.cuda.empty_cache()
+                            pipe_ref[0] = _load_whisper_cpu(model_dir)
+                            result = _transcribe(pipe_ref[0], audio_path, language)
+                            await _send_message(writer, {"status": "ok", **result})
+                        except Exception as cpu_e:
+                            log.error("Whisper: CPU fallback also failed for '%s': %s", audio_path.name, cpu_e)
+                            await _send_message(writer, {"status": "error", "error": str(cpu_e)})
+                    else:
+                        log.error("Transcription failed: %s", e)
+                        await _send_message(writer, {"status": "error", "error": str(e)})
 
             elif cmd == "shutdown":
                 await _send_message(writer, {"status": "ok"})
@@ -223,7 +352,7 @@ async def _main(args) -> None:
 
     sock_path = args.socket
     server = await asyncio.start_unix_server(
-        lambda r, w: _handle_client(r, w, pipe, model_dir, gpu_provider),
+        lambda r, w: _handle_client(r, w, [pipe], model_dir, gpu_provider),
         path=sock_path,
     )
 
