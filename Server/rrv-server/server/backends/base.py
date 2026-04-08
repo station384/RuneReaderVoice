@@ -80,6 +80,12 @@ class SynthesisRequest:
     # CosyVoice3-specific controls
     cosy_instruct:     Optional[str]   = None  # natural language style instruction for inference_instruct2()
 
+    # Chatterbox/T3 sampling controls — passed directly to t3.inference()
+    # These are available in both ChatterboxTTS and ChatterboxTTSTurbo.
+    cb_temperature:        Optional[float] = None  # token sampling temperature (default 0.8). Lower=stable, higher=expressive.
+    cb_top_p:              Optional[float] = None  # nucleus sampling cutoff (default 1.0 full, 0.95 turbo). Lower=conservative.
+    cb_repetition_penalty: Optional[float] = None  # repeat token penalty (default 1.2). Higher=less repetition/hallucination.
+
     # LongCat-AudioDiT-specific controls
     longcat_steps:        Optional[int]   = None  # ODE Euler steps (default 16)
     longcat_cfg_strength: Optional[float] = None  # guidance strength (default 4.0)

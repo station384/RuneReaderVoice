@@ -96,6 +96,10 @@ class SynthesizeRequest(BaseModel):
     lux_return_smooth:   bool  | None = None
     # CosyVoice3 controls
     cosy_instruct:       str   | None = None
+    # Chatterbox/T3 sampling controls
+    cb_temperature:        float | None = Field(default=None, ge=0.1, le=2.0)
+    cb_top_p:              float | None = Field(default=None, ge=0.01, le=1.0)
+    cb_repetition_penalty: float | None = Field(default=None, ge=1.0, le=3.0)
     # LongCat-AudioDiT controls
     longcat_steps:        int   | None = Field(default=None, ge=4, le=64)
     longcat_cfg_strength: float | None = Field(default=None, ge=1.0, le=10.0)
@@ -199,6 +203,12 @@ async def synthesize(body: SynthesizeRequest, request: Request) -> Response:
         effective_voice_context = f"{effective_voice_context}|lc_cfg:{body.longcat_cfg_strength:.2f}"
     if body.longcat_guidance is not None:
         effective_voice_context = f"{effective_voice_context}|lc_guide:{body.longcat_guidance}"
+    if body.cb_temperature is not None:
+        effective_voice_context = f"{effective_voice_context}|cb_temp:{body.cb_temperature:.2f}"
+    if body.cb_top_p is not None:
+        effective_voice_context = f"{effective_voice_context}|cb_top_p:{body.cb_top_p:.2f}"
+    if body.cb_repetition_penalty is not None:
+        effective_voice_context = f"{effective_voice_context}|cb_rep:{body.cb_repetition_penalty:.2f}"
     if body.synthesis_seed is not None:
         effective_voice_context = f"{effective_voice_context}|seed:{body.synthesis_seed}" 
 
@@ -293,6 +303,9 @@ async def synthesize(body: SynthesizeRequest, request: Request) -> Response:
             longcat_steps=body.longcat_steps,
             longcat_cfg_strength=body.longcat_cfg_strength,
             longcat_guidance=body.longcat_guidance,
+            cb_temperature=body.cb_temperature,
+            cb_top_p=body.cb_top_p,
+            cb_repetition_penalty=body.cb_repetition_penalty,
             synthesis_seed=body.synthesis_seed,
         )
 

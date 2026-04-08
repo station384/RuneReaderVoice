@@ -200,7 +200,9 @@ def _apply_gender_prefix(audio_path: Path, prefix: str) -> Path:
 # Maximum sample duration for transcription and extraction.
 # Files longer than this are rejected — they cannot produce useful provider
 # clips (max 38s) and would OOM during librosa.load on the full audio array.
-MAX_SAMPLE_DURATION_SEC = 1200.0  # 20 minutes — covers typical audiobook chapter segments
+MAX_SAMPLE_DURATION_SEC = 600.0   # 10 minutes — larger files risk OOM in the ASR worker
+                                   # during chunked inference on 16GB GPUs when TTS
+                                   # backends are also resident. Trim and re-add if needed.
 
 
 def _pad_wav_silence(wav_path: Path) -> None:

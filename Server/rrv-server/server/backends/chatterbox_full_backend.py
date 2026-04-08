@@ -252,6 +252,18 @@ class ChatterboxFullBackend(AbstractTtsBackend):
                 "max":         3.0,
                 "description": "Emotion and expressiveness control. 0.0=monotone, 0.5=natural, 1.0+=dramatic.",
             },
+            "cb_temperature": {
+                "type": "float", "default": 0.8, "min": 0.1, "max": 2.0,
+                "description": "T3 token sampling temperature. Lower=stable/consistent, higher=expressive/variable.",
+            },
+            "cb_top_p": {
+                "type": "float", "default": 1.0, "min": 0.01, "max": 1.0,
+                "description": "Nucleus sampling cutoff. Lower=more conservative token selection.",
+            },
+            "cb_repetition_penalty": {
+                "type": "float", "default": 1.2, "min": 1.0, "max": 3.0,
+                "description": "Penalizes repeated tokens. Raise to 1.5-2.0 if model loops or hallucinates.",
+            },
         }
 
     # ── Load ──────────────────────────────────────────────────────────────────
@@ -529,8 +541,11 @@ class ChatterboxFullBackend(AbstractTtsBackend):
         import numpy as np
 
         sample_hash  = compute_file_hash(request.sample_path)
-        cfg_weight   = request.cfg_weight   if request.cfg_weight   is not None else 0.5
-        exaggeration = request.exaggeration if request.exaggeration is not None else 0.5
+        cfg_weight          = request.cfg_weight          if request.cfg_weight          is not None else 0.5
+        exaggeration        = request.exaggeration        if request.exaggeration        is not None else 0.5
+        temperature         = request.cb_temperature      if request.cb_temperature      is not None else 0.8
+        top_p               = request.cb_top_p            if request.cb_top_p            is not None else 1.0
+        repetition_penalty  = request.cb_repetition_penalty if request.cb_repetition_penalty is not None else 1.2
 
         # Ensure conditionals loaded for this speaker
         self._ensure_conditionals(request.sample_path, sample_hash)
@@ -557,6 +572,9 @@ class ChatterboxFullBackend(AbstractTtsBackend):
                 text=chunk_text,
                 cfg_weight=cfg_weight,
                 exaggeration=exaggeration,
+                temperature=temperature,
+                top_p=top_p,
+                repetition_penalty=repetition_penalty,
             )
             samples = wav.squeeze().numpy() if hasattr(wav, 'numpy') else np.array(wav).squeeze()
             all_samples.append(samples.astype(np.float32))
