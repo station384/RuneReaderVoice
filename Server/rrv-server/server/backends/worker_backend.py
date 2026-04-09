@@ -249,6 +249,10 @@ class WorkerBackend(AbstractTtsBackend):
     def model_version(self) -> str:
         return self._model_version_str
 
+    @property
+    def supports_synthesis_seed(self) -> bool:
+        return self._capabilities.get("supports_synthesis_seed", True)
+
     def extra_controls(self) -> dict:
         return self._capabilities.get("controls", {})
 

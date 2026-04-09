@@ -233,6 +233,11 @@ async def synthesize_v2(body: SynthesizeRequest, request: Request) -> dict:
                 _blend_entries.append({"voice_id": e.voice_id, "weight": e.weight})
         voice_identity = blend_voice_identity(_blend_entries)
 
+    # Resolve synthesis seed: client value → server default → None (random)
+    resolved_seed = body.synthesis_seed
+    if resolved_seed is None:
+        resolved_seed = settings.default_synthesis_seed
+
     effective_voice_context = body.voice_context or ""
     if body.voice_instruct:
         effective_voice_context = f"{effective_voice_context}|instruct:{body.voice_instruct}"
@@ -256,8 +261,8 @@ async def synthesize_v2(body: SynthesizeRequest, request: Request) -> dict:
         effective_voice_context = f"{effective_voice_context}|cb_top_p:{body.cb_top_p:.2f}"
     if body.cb_repetition_penalty is not None:
         effective_voice_context = f"{effective_voice_context}|cb_rep:{body.cb_repetition_penalty:.2f}"
-    if body.synthesis_seed is not None:
-        effective_voice_context = f"{effective_voice_context}|seed:{body.synthesis_seed}" 
+    if resolved_seed is not None:
+        effective_voice_context = f"{effective_voice_context}|seed:{resolved_seed}" 
 
     # Normalize text for TTS (WoW-specific + wetext English TN)
     normalized_text = normalize_text(body.text)
@@ -359,7 +364,7 @@ async def synthesize_v2(body: SynthesizeRequest, request: Request) -> dict:
         cb_temperature=body.cb_temperature,
         cb_top_p=body.cb_top_p,
         cb_repetition_penalty=body.cb_repetition_penalty,
-        synthesis_seed=body.synthesis_seed,
+        synthesis_seed=resolved_seed,
     )
 
     # 6. Start background synthesis task

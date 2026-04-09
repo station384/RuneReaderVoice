@@ -186,9 +186,21 @@ async def synthesize(body: SynthesizeRequest, request: Request) -> Response:
             (body.voice.voice_description or "").encode("utf-8")
         ).hexdigest()[:16]
     else:  # blend
-        voice_identity = blend_voice_identity(
-            [{"voice_id": e.voice_id, "weight": e.weight} for e in body.voice.blend]
-        )
+        _blend_id_entries = []
+        for e in body.voice.blend:
+            if e.sample_id:
+                _sp = resolve_sample_path_for_provider(
+                    settings.samples_dir, e.sample_id, body.provider_id)
+                _hash = compute_file_hash(_sp) if _sp else e.sample_id
+                _blend_id_entries.append({"voice_id": _hash, "weight": e.weight})
+            else:
+                _blend_id_entries.append({"voice_id": e.voice_id, "weight": e.weight})
+        voice_identity = blend_voice_identity(_blend_id_entries)
+
+    # Resolve synthesis seed: client value → server default → None (random)
+    resolved_seed = body.synthesis_seed
+    if resolved_seed is None:
+        resolved_seed = settings.default_synthesis_seed
 
     # 4b. Normalize text for TTS (WoW-specific + wetext English TN)
     normalized_text = normalize_text(body.text)
@@ -220,8 +232,8 @@ async def synthesize(body: SynthesizeRequest, request: Request) -> Response:
         effective_voice_context = f"{effective_voice_context}|cb_top_p:{body.cb_top_p:.2f}"
     if body.cb_repetition_penalty is not None:
         effective_voice_context = f"{effective_voice_context}|cb_rep:{body.cb_repetition_penalty:.2f}"
-    if body.synthesis_seed is not None:
-        effective_voice_context = f"{effective_voice_context}|seed:{body.synthesis_seed}" 
+    if resolved_seed is not None:
+        effective_voice_context = f"{effective_voice_context}|seed:{resolved_seed}" 
 
     cache_key = compute_cache_key(
         text=normalized_text,
@@ -325,7 +337,7 @@ async def synthesize(body: SynthesizeRequest, request: Request) -> Response:
             cb_temperature=body.cb_temperature,
             cb_top_p=body.cb_top_p,
             cb_repetition_penalty=body.cb_repetition_penalty,
-            synthesis_seed=body.synthesis_seed,
+            synthesis_seed=resolved_seed,
         )
 
         try:

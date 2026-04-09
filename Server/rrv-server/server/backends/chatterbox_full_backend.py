@@ -532,35 +532,14 @@ class ChatterboxFullBackend(AbstractTtsBackend):
                     gen_emb = self._model.conds.gen["embedding"].detach().clone()
                     gen_embeddings.append((gen_emb, weight))
 
-                log.info(
-                    "Chatterbox blend: sample=%s weight=%.3f "
-                    "t3_spk_norm=%.4f t3_spk_mean=%.4f "
-                    "gen_emb_norm=%.4f gen_emb_mean=%.4f",
-                    sample_path_str, weight,
-                    t3_spk.norm().item(), t3_spk.mean().item(),
-                    gen_emb.norm().item() if "embedding" in self._model.conds.gen else -1,
-                    gen_emb.mean().item() if "embedding" in self._model.conds.gen else -1,
-                )
-
-            # ── Blend T3 speaker_emb — weighted average, preserve magnitude ──────
+            # ── Blend T3 speaker_emb ────────────────────────────────────────────
             blended_t3_spk = sum(emb * w for emb, w in t3_speaker_embs)
             mean_mag = sum(emb.norm() * w for emb, w in t3_speaker_embs)
             b_norm = blended_t3_spk.norm()
             if b_norm > 1e-8:
                 blended_t3_spk = blended_t3_spk / b_norm * mean_mag
 
-            log.info(
-                "Chatterbox blend: t3_spk[0]_mean=%.4f t3_spk[1]_mean=%.4f blended_mean=%.4f",
-                t3_speaker_embs[0][0].mean().item(),
-                t3_speaker_embs[-1][0].mean().item(),
-                blended_t3_spk.mean().item(),
-            )
-            if gen_embeddings:
-                log.info(
-                    "Chatterbox blend: gen[0]_mean=%.4f gen[1]_mean=%.4f",
-                    gen_embeddings[0][0].mean().item(),
-                    gen_embeddings[-1][0].mean().item(),
-                )
+            # ── Blend S3Gen x-vector ─────────────────────────────────────────────
             blended_gen_emb = None
             if gen_embeddings:
                 blended_gen_emb = sum(emb * w for emb, w in gen_embeddings)

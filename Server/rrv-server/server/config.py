@@ -122,6 +122,12 @@ class Settings:
         if self.chatterbox_max_concurrent < 1:
             raise ValueError("RRV_CHATTERBOX_MAX_CONCURRENT must be at least 1")
 
+        # Default synthesis seed — applied when client does not send synthesis_seed.
+        # None = random (non-deterministic). Set e.g. RRV_DEFAULT_SEED=42 for
+        # reproducible output server-wide.
+        _raw_seed = _env_str("RRV_DEFAULT_SEED", "")
+        self.default_synthesis_seed: Optional[int] = int(_raw_seed) if _raw_seed.strip() else None
+
         # Community / sync
         self.community_db_path: Path = Path(_env_str("RRV_COMMUNITY_DB_PATH", "../data/community.db"))
         self.defaults_dir:      Path = Path(_env_str("RRV_DEFAULTS_DIR",      "../data/defaults"))

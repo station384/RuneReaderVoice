@@ -464,22 +464,10 @@ class ChatterboxBackend(AbstractTtsBackend):
     def _blend_conditionals(self, blend: list[dict]) -> None:
         """
         Blend voice conditionals from multiple reference samples.
-
-        Two independent speaker embeddings must both be blended:
-
-          conds.t3.speaker_emb   — 256-dim VE embedding. Projected by T3CondEnc.spkr_enc
-                                   (nn.Linear) into T3's hidden dim. Conditions token generation.
-
-          conds.gen["embedding"] — x-vector from S3Gen's CAMPPlus speaker_encoder.
-                                   Conditions S3Gen vocoder — the actual waveform timbre.
-                                   THIS is why blending only speaker_emb had no audible effect:
-                                   the vocoder was still rendering in 100% primary's voice.
-
-        Everything else (prompt_feat, prompt_token, cond_prompt_speech_tokens) comes
-        from the primary sample untouched — blending discrete/spectrogram data causes mush.
-
-        generate() bypass is required: its emotion_adv branch (float != tensor scalar)
-        always evaluates truthy and recreates T3Cond from scratch, discarding our blend.
+        Blends both t3.speaker_emb (T3 identity) and gen["embedding"] (S3Gen vocoder x-vector).
+        Everything else comes from primary sample untouched.
+        generate() is bypassed to prevent emotion_adv branch discarding our blend.
+        Turbo: no exaggeration parameter in prepare_conditionals.
         """
         import torch, tempfile, os, types
         import soundfile as sf
@@ -491,11 +479,10 @@ class ChatterboxBackend(AbstractTtsBackend):
         total_w = sum(e["weight"] for e in sample_entries)
         entries = [(e["sample_path"], e["weight"] / total_w) for e in sample_entries]
         primary_path = max(entries, key=lambda x: x[1])[0]
-        # Primary runs last — its full conds are in model.conds when loop ends
         entries_sorted = sorted(entries, key=lambda x: x[0] == primary_path)
 
-        t3_speaker_embs = []   # (tensor, weight) — T3 VE embeddings
-        gen_embeddings  = []   # (tensor, weight) — S3Gen x-vectors
+        t3_speaker_embs = []
+        gen_embeddings  = []
         tmp_wavs = []
 
         try:
@@ -509,23 +496,21 @@ class ChatterboxBackend(AbstractTtsBackend):
                 self._model.prepare_conditionals(tmp_path)
 
                 t3_speaker_embs.append((
-                    self._model.conds.t3.speaker_emb.detach().clone(),
-                    weight
+                    self._model.conds.t3.speaker_emb.detach().clone(), weight
                 ))
                 if "embedding" in self._model.conds.gen:
                     gen_embeddings.append((
-                        self._model.conds.gen["embedding"].detach().clone(),
-                        weight
+                        self._model.conds.gen["embedding"].detach().clone(), weight
                     ))
 
-            # ── Blend T3 speaker_emb — weighted average, preserve magnitude ──────
+            # Blend T3 speaker_emb
             blended_t3_spk = sum(emb * w for emb, w in t3_speaker_embs)
             mean_mag = sum(emb.norm() * w for emb, w in t3_speaker_embs)
             b_norm = blended_t3_spk.norm()
             if b_norm > 1e-8:
                 blended_t3_spk = blended_t3_spk / b_norm * mean_mag
 
-            # ── Blend S3Gen x-vector — same approach ─────────────────────────────
+            # Blend S3Gen x-vector
             blended_gen_emb = None
             if gen_embeddings:
                 blended_gen_emb = sum(emb * w for emb, w in gen_embeddings)
@@ -534,24 +519,22 @@ class ChatterboxBackend(AbstractTtsBackend):
                 if g_norm > 1e-8:
                     blended_gen_emb = blended_gen_emb / g_norm * mean_mag_gen
 
-            # ── Build blended T3Cond — primary tokens, blended speaker_emb ───────
             from chatterbox.models.t3.modules.cond_enc import T3Cond
             _primary_t3 = self._model.conds.t3
             blended_t3 = T3Cond(
                 speaker_emb=blended_t3_spk,
                 cond_prompt_speech_tokens=_primary_t3.cond_prompt_speech_tokens,
-                emotion_adv=torch.zeros(1, 1, 1).to(dtype=blended_t3_spk.dtype, device=blended_t3_spk.device),
+                emotion_adv=torch.zeros(1, 1, 1).to(
+                    dtype=blended_t3_spk.dtype, device=blended_t3_spk.device),
             ).to(device=self._torch_device)
 
-            # ── Patch gen dict — replace embedding only, keep all other fields ───
-            blended_gen = dict(self._model.conds.gen)  # shallow copy — primary's fields
+            blended_gen = dict(self._model.conds.gen)
             if blended_gen_emb is not None:
                 blended_gen["embedding"] = blended_gen_emb
 
             self._model.conds.t3  = blended_t3
             self._model.conds.gen = blended_gen
 
-            # ── Bypass generate() — emotion_adv branch always fires, discards blend
             _t3_ref  = blended_t3
             _gen_ref = blended_gen
 
@@ -591,14 +574,10 @@ class ChatterboxBackend(AbstractTtsBackend):
                     watermarked = self_m.watermarker.apply_watermark(wav, sample_rate=self_m.sr)
                 return _torch.from_numpy(watermarked).unsqueeze(0)
 
-            import types as _types
-            self._model._rrv_blend_generate = _types.MethodType(_patched_generate, self._model)
+            self._model._rrv_blend_generate = types.MethodType(_patched_generate, self._model)
             self._is_blend_active = True
 
-            log.debug(
-                "Chatterbox blend: t3_speaker_emb + gen[embedding] blended (%d samples)",
-                len(t3_speaker_embs)
-            )
+            log.debug("Chatterbox Turbo blend: %d samples blended", len(t3_speaker_embs))
 
         finally:
             for tmp_path in tmp_wavs:
