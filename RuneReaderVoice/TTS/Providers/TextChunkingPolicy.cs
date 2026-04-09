@@ -304,10 +304,11 @@ public static class TextChunkingPolicy
             //   Chatterbox Turbo: 600 / 720
             //   Chatterbox Full:  380 / 480
             //   CosyVoice:        380 / 480
-            //   LongCat: backend handles transparent latent-carry chunking; the client
-            //            should not impose old bounded-provider limits. Keep paragraph/
-            //            line structure, but use a very high size ceiling.
-            TargetChars           = longcat    ? 8000
+            //   LongCat: use conservative client-side chunking around ~20 words (~100 chars)
+            //            with a harder cap around ~30 words. The backend can continue
+            //            across chunks transparently, but the client should still avoid
+            //            sending oversized blocks as a single request.
+            TargetChars           = longcat    ? 100
                                   : kokoro     ? 850
                                   : f5         ? 575
                                   : turbo      ? 600
@@ -315,7 +316,7 @@ public static class TextChunkingPolicy
                                   : cosyvoice  ? 380
                                   : 700,
 
-            HardCapChars          = longcat    ? 32000
+            HardCapChars          = longcat    ? 150
                                   : kokoro     ? 1050
                                   : f5         ? 725
                                   : turbo      ? 720
@@ -323,7 +324,7 @@ public static class TextChunkingPolicy
                                   : cosyvoice  ? 480
                                   : 850,
 
-            ListItemLimit         = longcat    ? 999
+            ListItemLimit         = longcat    ? 6
                                   : kokoro     ? 12
                                   : f5         ? 10
                                   : turbo      ?  8
@@ -331,7 +332,7 @@ public static class TextChunkingPolicy
                                   : cosyvoice  ?  6
                                   : 10,
 
-            RepeatedSentenceLimit = longcat    ? 999
+            RepeatedSentenceLimit = longcat    ? 2
                                   : kokoro     ? 5
                                   : f5         ? 4
                                   : turbo      ? 3
