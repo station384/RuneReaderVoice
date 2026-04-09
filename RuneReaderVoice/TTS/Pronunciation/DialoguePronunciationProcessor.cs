@@ -60,7 +60,13 @@ public sealed class DialoguePronunciationProcessor
             Slot = segment.Slot,
             DialogId = segment.DialogId,
             SegmentIndex = segment.SegmentIndex,
-            NpcId = segment.NpcId
+            NpcId = segment.NpcId,
+            PlayerName = segment.PlayerName,
+            PlayerRealm = segment.PlayerRealm,
+            PlayerClass = segment.PlayerClass,
+            BespokeSampleId = segment.BespokeSampleId,
+            BespokeExaggeration = segment.BespokeExaggeration,
+            BespokeCfgWeight = segment.BespokeCfgWeight
         };
     }
 

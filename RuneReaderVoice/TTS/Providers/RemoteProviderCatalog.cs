@@ -68,6 +68,7 @@ public static class RemoteProviderCatalog
             SupportsBaseVoices = dto.SupportsBaseVoices,
             SupportsVoiceMatching = dto.SupportsVoiceMatching,
             SupportsVoiceBlending = dto.SupportsVoiceBlending,
+            SupportsSynthesisSeed = dto.SupportsSynthesisSeed,
             SupportsInlinePronunciationHints = dto.SupportsInlinePronunciation,
             RequiresFullText = true,
             VoiceSourceKind = voiceSourceKind,
@@ -99,6 +100,7 @@ public sealed class RemoteProviderInfoDto
     [JsonPropertyName("supports_base_voices")] public bool SupportsBaseVoices { get; set; }
     [JsonPropertyName("supports_voice_matching")] public bool SupportsVoiceMatching { get; set; }
     [JsonPropertyName("supports_voice_blending")] public bool SupportsVoiceBlending { get; set; }
+    [JsonPropertyName("supports_synthesis_seed")] public bool SupportsSynthesisSeed { get; set; }
     [JsonPropertyName("supports_inline_pronunciation")] public bool SupportsInlinePronunciation { get; set; }
     [JsonPropertyName("languages")] public string[]? Languages { get; set; }
     [JsonPropertyName("controls")] public Dictionary<string, RemoteControlDescriptorDto>? Controls { get; set; }

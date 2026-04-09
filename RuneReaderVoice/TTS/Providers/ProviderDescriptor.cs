@@ -45,6 +45,7 @@ public sealed class ProviderDescriptor
     public bool SupportsBaseVoices { get; init; }
     public bool SupportsVoiceMatching { get; init; }
     public bool SupportsVoiceBlending { get; init; }
+    public bool SupportsSynthesisSeed { get; init; }
     public bool SupportsInlinePronunciationHints { get; init; }
     public bool RequiresFullText { get; init; } = true;
     public RemoteVoiceSourceKind VoiceSourceKind { get; init; } = RemoteVoiceSourceKind.None;

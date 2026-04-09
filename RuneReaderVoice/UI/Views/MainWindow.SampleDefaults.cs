@@ -144,6 +144,7 @@ public partial class MainWindow
             availableVoices,
             supportsPresets: false,
             supportsBlend: descriptor?.SupportsVoiceBlending == true,
+            supportsSynthesisSeed: descriptor?.SupportsSynthesisSeed == true,
             voiceSourceLabel,
             descriptor?.Controls,
             sampleProfileKey: sampleId,

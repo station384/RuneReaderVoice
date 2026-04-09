@@ -20,6 +20,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
 using Avalonia.Layout;
@@ -146,6 +147,7 @@ So go quickly, keep your wits about you, and return by the main road if you valu
         IReadOnlyList<VoiceInfo> availableVoices,
         bool supportsPresets,
         bool supportsBlend,
+        bool supportsSynthesisSeed,
         string voiceSourceLabel,
         IReadOnlyDictionary<string, RemoteControlDescriptor>? controls = null,
         string? sampleProfileKey = null,
@@ -306,7 +308,6 @@ So go quickly, keep your wits about you, and return by the main road if you valu
         controls.TryGetValue("cb_temperature", out var cbTemperatureControl);
         controls.TryGetValue("cb_top_p", out var cbTopPControl);
         controls.TryGetValue("cb_repetition_penalty", out var cbRepetitionPenaltyControl);
-        controls.TryGetValue("synthesis_seed", out var synthesisSeedControl);
         controls.TryGetValue("longcat_steps", out var longcatStepsControl);
         controls.TryGetValue("longcat_cfg_strength", out var longcatCfgStrengthControl);
         controls.TryGetValue("longcat_guidance", out var longcatGuidanceControl);
@@ -338,7 +339,7 @@ So go quickly, keep your wits about you, and return by the main road if you valu
         _longcatCfgStrengthText = null;
         _longcatGuidanceCombo = null;
 
-        if (cfgControl != null || exagControl != null || cbTemperatureControl != null || cbTopPControl != null || cbRepetitionPenaltyControl != null || synthesisSeedControl != null)
+        if (cfgControl != null || exagControl != null || cbTemperatureControl != null || cbTopPControl != null || cbRepetitionPenaltyControl != null || supportsSynthesisSeed)
         {
             float cfgMin = cfgControl?.Min ?? 0f;
             float cfgMax = cfgControl?.Max ?? 3f;
@@ -386,7 +387,7 @@ So go quickly, keep your wits about you, and return by the main road if you valu
                 return row;
             }
 
-            if (synthesisSeedControl != null)
+            if (supportsSynthesisSeed)
             {
                 _seedText = new TextBox
                 {
@@ -416,9 +417,7 @@ So go quickly, keep your wits about you, and return by the main road if you valu
                 controlRows.Children.Add(seedRow);
                 controlRows.Children.Add(new TextBlock
                 {
-                    Text = string.IsNullOrWhiteSpace(synthesisSeedControl.Description)
-                        ? "Optional reproducibility seed. Leave blank for non-deterministic output. Different seeds must use different cache entries."
-                        : synthesisSeedControl.Description,
+                    Text = "Optional reproducibility seed. Leave blank for non-deterministic output. Different seeds must use different cache entries.",
                     Opacity = 0.8,
                     TextWrapping = TextWrapping.Wrap,
                     Margin = new Avalonia.Thickness(0, 0, 0, 4)
@@ -1025,6 +1024,21 @@ So go quickly, keep your wits about you, and return by the main road if you valu
                 new TextBlock { Text = $"Applies to: {npcLabel}", FontWeight = FontWeight.Bold, FontSize = 16 },
                 new TextBlock { Text = $"Accent profile: {accentLabel}", Opacity = 0.8 },
                 new TextBlock { Text = "This changes how RuneReader reads detected text for this NPC type. It does not change WoW's built-in audio or settings.", TextWrapping = TextWrapping.Wrap },
+                new Border
+                {
+                    Background = new SolidColorBrush(Color.Parse("#33AA0000")),
+                    BorderBrush = new SolidColorBrush(Color.Parse("#CCFF3333")),
+                    BorderThickness = new Thickness(1),
+                    CornerRadius = new CornerRadius(4),
+                    Padding = new Thickness(8),
+                    Child = new TextBlock
+                    {
+                        Text = "Warning: changing voice, language, speed, blend, seed, provider controls, or other synthesis-affecting settings changes cache identity and may force regeneration instead of using cached audio.",
+                        Foreground = new SolidColorBrush(Color.Parse("#FFFF6666")),
+                        TextWrapping = TextWrapping.Wrap,
+                        FontWeight = FontWeight.SemiBold
+                    }
+                },
                 topGrid,
                 dspCard,
                 Card("Live Preview", new StackPanel { Spacing = 8, Children =

@@ -21,6 +21,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using RuneReaderVoice.Data;
@@ -68,6 +69,9 @@ public sealed class AssembledSegment
     public int       DialogId          { get; init; }
     public int       SegmentIndex      { get; init; }
     public int       NpcId             { get; init; }
+    public string?    PlayerName        { get; init; } = null;
+    public string?    PlayerRealm       { get; init; } = null;
+    public string?    PlayerClass       { get; init; } = null;
 
     // Bespoke voice override resolved at assembly time from NpcRaceOverride.
     // Null means use the race slot defaults.
@@ -133,6 +137,10 @@ public sealed class TtsSessionAssembler
     private readonly Dictionary<int, NpcVoiceOverride> _npcVoiceStore = new();
     private readonly NpcRaceOverrideDb                 _overrideDb;
 
+    private string _currentPlayerName  = string.Empty;
+    private string _currentPlayerRealm = string.Empty;
+    private string _currentPlayerClass = string.Empty;
+
     // ── Construction ──────────────────────────────────────────────────────────
 
     public TtsSessionAssembler(NpcRaceOverrideDb overrideDb)
@@ -176,6 +184,9 @@ public sealed class TtsSessionAssembler
                 _completedUtteranceKeys.Clear();
                 _earlyChunks.Clear();
                 _completedSegments.Clear();
+                _currentPlayerName  = AppServices.CurrentPlayerName  ?? string.Empty;
+                _currentPlayerRealm = AppServices.CurrentPlayerRealm ?? string.Empty;
+                _currentPlayerClass = AppServices.CurrentPlayerClass ?? string.Empty;
                 OnSessionReset?.Invoke(_currentDialogId);
                 System.Diagnostics.Debug.WriteLine(
                     $"[Assembler] New dialog 0x{packet.DialogId:X4} seqTotal={packet.SeqTotal}");
@@ -360,6 +371,7 @@ public sealed class TtsSessionAssembler
         if (_completedKeys.Contains(key)) return;
 
         var text = DecodeAndClean(acc.Subs!);
+        text = ExtractAndApplyDialogMetadata(text);
 
         var utteranceKey = MakeUtteranceKey(_currentDialogId, acc.Slot, acc.NpcId, text, acc.SeqIndex);
         if (_completedUtteranceKeys.Contains(utteranceKey)) return;
@@ -377,6 +389,9 @@ public sealed class TtsSessionAssembler
             DialogId            = _currentDialogId,
             SegmentIndex        = acc.SeqIndex,
             NpcId               = acc.NpcId,
+            PlayerName          = string.IsNullOrWhiteSpace(_currentPlayerName) ? null : _currentPlayerName,
+            PlayerRealm         = string.IsNullOrWhiteSpace(_currentPlayerRealm) ? null : _currentPlayerRealm,
+            PlayerClass         = string.IsNullOrWhiteSpace(_currentPlayerClass) ? null : _currentPlayerClass,
             BespokeSampleId     = voiceOverride.BespokeSampleId,
             BespokeExaggeration = voiceOverride.BespokeExaggeration,
             BespokeCfgWeight    = voiceOverride.BespokeCfgWeight,
@@ -395,6 +410,103 @@ public sealed class TtsSessionAssembler
 
     private static string MakeEarlyKey(int subTotal, int flags, int race, int seqIndex)
         => $"{subTotal}|{flags}|{race}|{seqIndex}";
+
+    private string ExtractAndApplyDialogMetadata(string text)
+    {
+        if (string.IsNullOrEmpty(text)) return text;
+        var cleaned = ExtractMetadataTokens(text);
+        return ApplyPlayerReplacement(cleaned);
+    }
+
+    private string ExtractMetadataTokens(string text)
+    {
+        if (string.IsNullOrEmpty(text)) return text;
+        var sb = new StringBuilder(text.Length);
+        int i = 0;
+        while (i < text.Length)
+        {
+            if (text[i] == '\x02')
+            {
+                int end = text.IndexOf('\x03', i + 1);
+                if (end > i)
+                {
+                    ParseMetadataBody(text.Substring(i + 1, end - i - 1));
+                    i = end + 1;
+                    continue;
+                }
+            }
+            sb.Append(text[i]);
+            i++;
+        }
+        return sb.ToString().Trim();
+    }
+
+    private void ParseMetadataBody(string body)
+    {
+        if (string.IsNullOrWhiteSpace(body)) return;
+        if (body.StartsWith("RRV:", StringComparison.OrdinalIgnoreCase))
+            body = body.Substring(4);
+
+        var equals = body.IndexOf('=');
+        if (equals <= 0 || equals >= body.Length - 1) return;
+
+        var key = body[..equals].Trim().ToUpperInvariant();
+        var value = body[(equals + 1)..].Trim();
+        if (string.IsNullOrWhiteSpace(value)) return;
+
+        if (key == "PLAYER")
+        {
+            var (name, realm) = SplitNameAndRealm(value);
+            if (!string.IsNullOrWhiteSpace(name)) _currentPlayerName = name;
+            if (!string.IsNullOrWhiteSpace(realm)) _currentPlayerRealm = realm;
+            AppServices.CurrentPlayerName = _currentPlayerName;
+            if (!string.IsNullOrWhiteSpace(_currentPlayerRealm)) AppServices.CurrentPlayerRealm = _currentPlayerRealm;
+        }
+        else if (key == "REALM")
+        {
+            _currentPlayerRealm = value;
+            AppServices.CurrentPlayerRealm = value;
+        }
+        else if (key == "CLASS")
+        {
+            _currentPlayerClass = value;
+            AppServices.CurrentPlayerClass = value;
+        }
+    }
+
+    private string ApplyPlayerReplacement(string text)
+    {
+        if (string.IsNullOrWhiteSpace(text) || string.IsNullOrWhiteSpace(_currentPlayerName))
+            return text;
+
+        var mode = (AppServices.Settings.PlayerNameMode ?? "generic").Trim().ToLowerInvariant();
+        var replacement = _currentPlayerName;
+
+        if (mode != "actual")
+        {
+            var preset = (AppServices.Settings.PlayerNameReplacementPreset ?? "hero").Trim().ToLowerInvariant();
+            replacement = preset switch
+            {
+                "champion" => "Champion",
+                "class" => string.IsNullOrWhiteSpace(_currentPlayerClass) ? "Hero" : _currentPlayerClass,
+                _ => "Hero",
+            };
+
+            if (AppServices.Settings.PlayerNameAppendRealm && !string.IsNullOrWhiteSpace(_currentPlayerRealm))
+                replacement = $"{replacement} of {_currentPlayerRealm}";
+        }
+
+        var escaped = Regex.Escape(_currentPlayerName);
+        var pattern = $@"(?<![\p{{L}}\p{{N}}_'-]){escaped}(?![\p{{L}}\p{{N}}_'-])";
+        return Regex.Replace(text, pattern, replacement, RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+    }
+
+    private static (string name, string realm) SplitNameAndRealm(string value)
+    {
+        if (string.IsNullOrWhiteSpace(value)) return (string.Empty, string.Empty);
+        var hyphen = value.IndexOf('-');
+        return hyphen > 0 ? (value[..hyphen].Trim(), value[(hyphen + 1)..].Trim()) : (value.Trim(), string.Empty);
+    }
 
     // ── Text decoding and cleaning ────────────────────────────────────────────
 

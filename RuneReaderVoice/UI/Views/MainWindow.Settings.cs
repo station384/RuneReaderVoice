@@ -84,6 +84,42 @@ public partial class MainWindow
         VoiceSettingsManager.SaveSettings(AppServices.Settings);
     }
 
+    private void OnPlayerNameModeChanged(object? sender, SelectionChangedEventArgs e)
+    {
+        if (_uiInitializing) return;
+        if (PlayerNameModeSelector.SelectedItem is not ComboBoxItem item)
+            return;
+
+        var mode = item.Tag?.ToString();
+        if (string.IsNullOrWhiteSpace(mode))
+            return;
+
+        AppServices.Settings.PlayerNameMode = mode;
+        UpdatePlayerNameReplacementUi();
+        VoiceSettingsManager.SaveSettings(AppServices.Settings);
+    }
+
+    private void OnPlayerNamePresetChanged(object? sender, SelectionChangedEventArgs e)
+    {
+        if (_uiInitializing) return;
+        if (PlayerNamePresetSelector.SelectedItem is not ComboBoxItem item)
+            return;
+
+        var preset = item.Tag?.ToString();
+        if (string.IsNullOrWhiteSpace(preset))
+            return;
+
+        AppServices.Settings.PlayerNameReplacementPreset = preset;
+        VoiceSettingsManager.SaveSettings(AppServices.Settings);
+    }
+
+    private void OnPlayerNameAppendRealmChanged(object? sender, RoutedEventArgs e)
+    {
+        if (_uiInitializing) return;
+        AppServices.Settings.PlayerNameAppendRealm = PlayerNameAppendRealmCheck.IsChecked == true;
+        VoiceSettingsManager.SaveSettings(AppServices.Settings);
+    }
+
     private async void OnRefreshRemoteProvidersClicked(object? sender, RoutedEventArgs e)
     {
         RemoteRefreshProvidersButton.IsEnabled = false;

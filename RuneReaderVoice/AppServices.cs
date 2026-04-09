@@ -61,6 +61,10 @@ public static class AppServices
     public static string    LastTextSpoken    { get; set; } = string.Empty;
     public static VoiceSlot LastRuntimeSlot   { get; set; } = VoiceSlot.Narrator;
 
+    public static string CurrentPlayerName  { get; set; } = string.Empty;
+    public static string CurrentPlayerRealm { get; set; } = string.Empty;
+    public static string CurrentPlayerClass { get; set; } = string.Empty;
+
     public static string OperationStatus { get; private set; } = string.Empty;
     public static event Action<string>? OperationStatusChanged;
 

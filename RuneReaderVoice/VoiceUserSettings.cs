@@ -99,6 +99,13 @@ public sealed class VoiceUserSettings
     public bool EnableQuestReward { get; set; } = true;
     public bool EnableBooks { get; set; } = false;
 
+    // Player-name replacement for cache-friendly synthesis.
+    // generic = replace with a cache-friendly preset title
+    // actual  = speak detected player name
+    public string PlayerNameMode { get; set; } = "generic";
+    public string PlayerNameReplacementPreset { get; set; } = "hero";
+    public bool PlayerNameAppendRealm { get; set; } = false;
+
     public int CaptureIntervalMs { get; set; } = 5;
     public void NormalizeCaptureSettings()
     {

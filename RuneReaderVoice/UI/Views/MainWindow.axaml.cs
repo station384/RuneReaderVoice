@@ -102,11 +102,13 @@ public partial class MainWindow : Window
         {
             SessionStatus.Text = $"Dialog 0x{id:X4}  —  waiting";
             DiagDialog.Text    = $"0x{id:X4}";
+            PlayerStatus.Text  = string.IsNullOrWhiteSpace(AppServices.CurrentPlayerName) ? "—" : AppServices.CurrentPlayerName;
         });
         AppServices.Assembler.OnSegmentComplete += seg => Dispatcher.UIThread.Post(() =>
         {
             SessionStatus.Text = $"Dialog 0x{seg.DialogId:X4}  seg {seg.SegmentIndex}  {GetDisplaySlotLabel(seg.Slot)}";
             DiagDialog.Text    = $"0x{seg.DialogId:X4}";
+            PlayerStatus.Text  = string.IsNullOrWhiteSpace(AppServices.CurrentPlayerName) ? "—" : AppServices.CurrentPlayerName;
         });
 
         HookProviderStatusCallbacks(AppServices.Provider);
@@ -155,6 +157,7 @@ public partial class MainWindow : Window
         int total = cache.HitCount + cache.MissCount;
         var hitRate = total > 0 ? $"{cache.HitCount * 100 / total}%" : "—";
         CacheStatus.Text = $"{cache.EntryCount} entries  {cache.TotalSizeBytes / 1024 / 1024} MB  hit {hitRate}";
+        PlayerStatus.Text = string.IsNullOrWhiteSpace(AppServices.CurrentPlayerName) ? "—" : AppServices.CurrentPlayerName;
 
         // Diagnostics
         var latency = AppServices.Coordinator.LastSynthesisLatency;
@@ -205,6 +208,14 @@ public partial class MainWindow : Window
         }
     }
 
+
+    private void UpdatePlayerNameReplacementUi()
+    {
+        var useGeneric = string.Equals(AppServices.Settings.PlayerNameMode, "generic", StringComparison.OrdinalIgnoreCase);
+        PlayerNamePresetSelector.IsEnabled = useGeneric;
+        PlayerNameAppendRealmCheck.IsEnabled = useGeneric;
+    }
+
     private static string GetDisplaySlotLabel(VoiceSlot slot)
     {
         return NpcVoiceSlotCatalog.All.FirstOrDefault(x => x.Slot.Equals(slot))?.NpcLabel
@@ -224,6 +235,24 @@ public partial class MainWindow : Window
         RescanInterval.Value  = s.ReScanIntervalMs;
         RepeatSuppressionEnabled.IsChecked = s.RepeatSuppressionEnabled;
         RepeatSuppressionWindow.Value = s.RepeatSuppressionWindowSeconds;
+        foreach (var item in PlayerNameModeSelector.Items.OfType<ComboBoxItem>())
+        {
+            if (string.Equals(item.Tag?.ToString(), s.PlayerNameMode, StringComparison.OrdinalIgnoreCase))
+            {
+                PlayerNameModeSelector.SelectedItem = item;
+                break;
+            }
+        }
+        foreach (var item in PlayerNamePresetSelector.Items.OfType<ComboBoxItem>())
+        {
+            if (string.Equals(item.Tag?.ToString(), s.PlayerNameReplacementPreset, StringComparison.OrdinalIgnoreCase))
+            {
+                PlayerNamePresetSelector.SelectedItem = item;
+                break;
+            }
+        }
+        PlayerNameAppendRealmCheck.IsChecked = s.PlayerNameAppendRealm;
+        UpdatePlayerNameReplacementUi();
         CompressionEnabled.IsChecked = s.CompressionEnabled;
         OggQualitySlider.Value = s.OggQuality;
         CacheSizeLimit.Value   = s.CacheSizeLimitBytes / 1024 / 1024;

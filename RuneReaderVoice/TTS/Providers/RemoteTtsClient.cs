@@ -471,7 +471,8 @@ public sealed class RemoteVoiceSpec
 
 public sealed class RemoteBlendSpec
 {
-    [JsonPropertyName("voice_id")] public string VoiceId { get; set; } = string.Empty;
+    [JsonPropertyName("voice_id")] public string? VoiceId { get; set; }
+    [JsonPropertyName("sample_id")] public string? SampleId { get; set; }
     [JsonPropertyName("weight")]   public float  Weight  { get; set; }
 }
 

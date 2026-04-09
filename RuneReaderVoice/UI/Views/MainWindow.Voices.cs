@@ -291,7 +291,7 @@ So go quickly, keep your wits about you, and return by the main road if you valu
             var supportsBlend = (descriptor?.SupportsVoiceBlending ?? false)
                              || (AppServices.Provider is KokoroTtsProvider)
                              || isRemoteKokoro;
-            var dlg = new VoiceProfileEditorDialog(slot, catalog.NpcLabel, catalog.AccentLabel, profile, availableVoices, supportsPresets, supportsBlend, voiceSourceLabel, descriptor?.Controls);
+            var dlg = new VoiceProfileEditorDialog(slot, catalog.NpcLabel, catalog.AccentLabel, profile, availableVoices, supportsPresets, supportsBlend, descriptor?.SupportsSynthesisSeed == true, voiceSourceLabel, descriptor?.Controls);
             var updated = await dlg.ShowDialog<VoiceProfile?>(this);
             if (updated == null)
                 return;

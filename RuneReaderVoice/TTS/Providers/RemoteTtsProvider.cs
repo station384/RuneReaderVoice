@@ -317,6 +317,7 @@ public sealed class RemoteTtsProvider : ITtsProvider
     /// <summary>
     /// Cleans text before sending to Chatterbox. Chatterbox is sensitive to:
     ///   - Inline angle-bracket annotations like &lt;A water stain...&gt;
+    ///   - Inline square-bracket annotations like [A distant whisper...]
     ///   - Dash-interrupted sentences reconstructed across paragraph breaks
     ///   - Trailing/leading dashes left over from reconstruction
     /// </summary>
@@ -326,6 +327,10 @@ public sealed class RemoteTtsProvider : ITtsProvider
 
         text = System.Text.RegularExpressions.Regex.Replace(
             text, @"<([^>]{1,120})>", "$1",
+            System.Text.RegularExpressions.RegexOptions.None);
+
+        text = System.Text.RegularExpressions.Regex.Replace(
+            text, @"\[([^\]]{1,120})\]", "$1",
             System.Text.RegularExpressions.RegexOptions.None);
 
         text = System.Text.RegularExpressions.Regex.Replace(
@@ -608,7 +613,7 @@ public sealed class RemoteTtsProvider : ITtsProvider
             !string.IsNullOrWhiteSpace(profile.VoiceId) &&
             profile.VoiceId.StartsWith(KokoroTtsProvider.MixPrefix, StringComparison.OrdinalIgnoreCase))
         {
-            return new RemoteVoiceSpec { Type = "blend", Blend = ParseBlend(profile.VoiceId) };
+            return new RemoteVoiceSpec { Type = "blend", Blend = ParseBlend(profile.VoiceId, _descriptor.VoiceSourceKind == RemoteVoiceSourceKind.Samples) };
         }
 
         if (_descriptor.SupportsBaseVoices)
@@ -621,7 +626,7 @@ public sealed class RemoteTtsProvider : ITtsProvider
             $"Remote provider '{DisplayName}' has no supported voice source mode.");
     }
 
-    private static List<RemoteBlendSpec> ParseBlend(string blendSpec)
+    private static List<RemoteBlendSpec> ParseBlend(string blendSpec, bool useSampleIds)
     {
         var result = new List<RemoteBlendSpec>();
         if (string.IsNullOrWhiteSpace(blendSpec)) return result;
@@ -638,7 +643,9 @@ public sealed class RemoteTtsProvider : ITtsProvider
                 System.Globalization.NumberStyles.Float,
                 System.Globalization.CultureInfo.InvariantCulture, out var weight))
                 continue;
-            result.Add(new RemoteBlendSpec { VoiceId = pieces[0], Weight = weight });
+            result.Add(useSampleIds
+                ? new RemoteBlendSpec { SampleId = pieces[0], Weight = weight }
+                : new RemoteBlendSpec { VoiceId = pieces[0], Weight = weight });
         }
 
         return result;
