@@ -401,6 +401,13 @@ public sealed class RemoteSynthesizeRequest
     [JsonPropertyName("speech_rate")]  public float           SpeechRate   { get; set; } = 1.0f;
     [JsonPropertyName("cfg_weight")]   public float?          CfgWeight    { get; set; }
     [JsonPropertyName("exaggeration")] public float?          Exaggeration { get; set; }
+    [JsonPropertyName("cb_temperature")] public float?        CbTemperature { get; set; }
+    [JsonPropertyName("cb_top_p")] public float?             CbTopP { get; set; }
+    [JsonPropertyName("cb_repetition_penalty")] public float? CbRepetitionPenalty { get; set; }
+    [JsonPropertyName("longcat_steps")] public int?          LongcatSteps { get; set; }
+    [JsonPropertyName("longcat_cfg_strength")] public float? LongcatCfgStrength { get; set; }
+    [JsonPropertyName("longcat_guidance")] public string?    LongcatGuidance { get; set; }
+    [JsonPropertyName("synthesis_seed")] public int?         SynthesisSeed { get; set; }
 }
 
 /// <summary>
@@ -417,7 +424,15 @@ public sealed class RemoteSynthesizeV2Request
     [JsonPropertyName("speech_rate")]  public float           SpeechRate   { get; set; } = 1.0f;
     [JsonPropertyName("cfg_weight")]   public float?          CfgWeight    { get; set; }
     [JsonPropertyName("exaggeration")] public float?          Exaggeration { get; set; }
+    [JsonPropertyName("cb_temperature")] public float?        CbTemperature { get; set; }
+    [JsonPropertyName("cb_top_p")] public float?             CbTopP { get; set; }
+    [JsonPropertyName("cb_repetition_penalty")] public float? CbRepetitionPenalty { get; set; }
     [JsonPropertyName("cosy_instruct")] public string?        CosyInstruct { get; set; }
+    [JsonPropertyName("voice_instruct")] public string?       VoiceInstruct { get; set; }
+    [JsonPropertyName("longcat_steps")] public int?          LongcatSteps { get; set; }
+    [JsonPropertyName("longcat_cfg_strength")] public float? LongcatCfgStrength { get; set; }
+    [JsonPropertyName("longcat_guidance")] public string?    LongcatGuidance { get; set; }
+    [JsonPropertyName("synthesis_seed")] public int?         SynthesisSeed { get; set; }
 
     // ── Batch tracking ────────────────────────────────────────────────────────
     /// <summary>Client-generated UUID grouping all segments in one dialog.</summary>

@@ -254,46 +254,71 @@ public sealed class VoiceProfile
     public float? CfgWeight    { get; set; } = null;
     public float? Exaggeration { get; set; } = null;
 
-    public float? CfgStrength      { get; set; } = null;
+    public float? CfgStrength       { get; set; } = null;
     public int?   NfeStep           { get; set; } = null;
     public float? CrossFadeDuration { get; set; } = null;
     public float? SwaysamplingCoef  { get; set; } = null;
 
+    public string? VoiceInstruct         { get; set; } = null;
+    public string? CosyInstruct          { get; set; } = null;
+    public int?    SynthesisSeed         { get; set; } = null;
+    public float?  ChatterboxTemperature { get; set; } = null;
+    public float?  ChatterboxTopP        { get; set; } = null;
+    public float?  ChatterboxRepetitionPenalty { get; set; } = null;
+    public int?    LongcatSteps          { get; set; } = null;
+    public float?  LongcatCfgStrength    { get; set; } = null;
+    public string? LongcatGuidance       { get; set; } = null;
+
     public bool        DisableChunking { get; set; } = false;
-    public string?     CosyInstruct    { get; set; } = null;
     public DspProfile? Dsp             { get; set; } = null;
 
     public VoiceProfile Clone() => new()
     {
-        VoiceId           = VoiceId,
-        LangCode          = LangCode,
-        SpeechRate        = SpeechRate,
-        CfgWeight         = CfgWeight,
-        Exaggeration      = Exaggeration,
-        CfgStrength       = CfgStrength,
-        NfeStep           = NfeStep,
-        CrossFadeDuration = CrossFadeDuration,
-        SwaysamplingCoef  = SwaysamplingCoef,
-        DisableChunking   = DisableChunking,
-        CosyInstruct      = CosyInstruct,
-        Dsp               = Dsp?.Clone(),
+        VoiceId                    = VoiceId,
+        LangCode                   = LangCode,
+        SpeechRate                 = SpeechRate,
+        CfgWeight                  = CfgWeight,
+        Exaggeration               = Exaggeration,
+        CfgStrength                = CfgStrength,
+        NfeStep                    = NfeStep,
+        CrossFadeDuration          = CrossFadeDuration,
+        SwaysamplingCoef           = SwaysamplingCoef,
+        VoiceInstruct              = VoiceInstruct,
+        CosyInstruct               = CosyInstruct,
+        SynthesisSeed              = SynthesisSeed,
+        ChatterboxTemperature      = ChatterboxTemperature,
+        ChatterboxTopP             = ChatterboxTopP,
+        ChatterboxRepetitionPenalty = ChatterboxRepetitionPenalty,
+        LongcatSteps               = LongcatSteps,
+        LongcatCfgStrength         = LongcatCfgStrength,
+        LongcatGuidance            = LongcatGuidance,
+        DisableChunking            = DisableChunking,
+        Dsp                        = Dsp?.Clone(),
     };
 
     public void CopyCacheAffectingFieldsFrom(VoiceProfile source)
     {
         if (source == null) throw new ArgumentNullException(nameof(source));
 
-        VoiceId           = source.VoiceId;
-        LangCode          = source.LangCode;
-        SpeechRate        = source.SpeechRate;
-        CfgWeight         = source.CfgWeight;
-        Exaggeration      = source.Exaggeration;
-        CfgStrength       = source.CfgStrength;
-        NfeStep           = source.NfeStep;
-        CrossFadeDuration = source.CrossFadeDuration;
-        SwaysamplingCoef  = source.SwaysamplingCoef;
-        DisableChunking   = source.DisableChunking;
-        CosyInstruct      = source.CosyInstruct;
+        VoiceId                     = source.VoiceId;
+        LangCode                    = source.LangCode;
+        SpeechRate                  = source.SpeechRate;
+        CfgWeight                   = source.CfgWeight;
+        Exaggeration                = source.Exaggeration;
+        CfgStrength                 = source.CfgStrength;
+        NfeStep                     = source.NfeStep;
+        CrossFadeDuration           = source.CrossFadeDuration;
+        SwaysamplingCoef            = source.SwaysamplingCoef;
+        VoiceInstruct               = source.VoiceInstruct;
+        CosyInstruct                = source.CosyInstruct;
+        SynthesisSeed               = source.SynthesisSeed;
+        ChatterboxTemperature       = source.ChatterboxTemperature;
+        ChatterboxTopP              = source.ChatterboxTopP;
+        ChatterboxRepetitionPenalty = source.ChatterboxRepetitionPenalty;
+        LongcatSteps                = source.LongcatSteps;
+        LongcatCfgStrength          = source.LongcatCfgStrength;
+        LongcatGuidance             = source.LongcatGuidance;
+        DisableChunking             = source.DisableChunking;
     }
 
     public bool CacheAffectingEquals(VoiceProfile? other)
@@ -309,19 +334,36 @@ public sealed class VoiceProfile
             && Nullable.Equals(NfeStep, other.NfeStep)
             && Nullable.Equals(CrossFadeDuration, other.CrossFadeDuration)
             && Nullable.Equals(SwaysamplingCoef, other.SwaysamplingCoef)
-            && DisableChunking == other.DisableChunking
-            && string.Equals((CosyInstruct ?? string.Empty).Trim(), (other.CosyInstruct ?? string.Empty).Trim(), StringComparison.Ordinal);
+            && string.Equals((VoiceInstruct ?? string.Empty).Trim(), (other.VoiceInstruct ?? string.Empty).Trim(), StringComparison.Ordinal)
+            && string.Equals((CosyInstruct ?? string.Empty).Trim(), (other.CosyInstruct ?? string.Empty).Trim(), StringComparison.Ordinal)
+            && Nullable.Equals(SynthesisSeed, other.SynthesisSeed)
+            && Nullable.Equals(ChatterboxTemperature, other.ChatterboxTemperature)
+            && Nullable.Equals(ChatterboxTopP, other.ChatterboxTopP)
+            && Nullable.Equals(ChatterboxRepetitionPenalty, other.ChatterboxRepetitionPenalty)
+            && Nullable.Equals(LongcatSteps, other.LongcatSteps)
+            && Nullable.Equals(LongcatCfgStrength, other.LongcatCfgStrength)
+            && string.Equals((LongcatGuidance ?? string.Empty).Trim(), (other.LongcatGuidance ?? string.Empty).Trim(), StringComparison.OrdinalIgnoreCase)
+            && DisableChunking == other.DisableChunking;
     }
 
     public string BuildIdentityKey()
     {
-        var cfg  = CfgWeight.HasValue        ? CfgWeight.Value.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture) : "-";
-        var exg  = Exaggeration.HasValue     ? Exaggeration.Value.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture) : "-";
-        var cfs  = CfgStrength.HasValue      ? CfgStrength.Value.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture) : "-";
-        var nfe  = NfeStep.HasValue          ? NfeStep.Value.ToString() : "-";
-        var sway = SwaysamplingCoef.HasValue ? SwaysamplingCoef.Value.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture) : "-";
-        var instruct = string.IsNullOrWhiteSpace(CosyInstruct) ? "-" : CosyInstruct.Trim().Replace("|", "/");
-        return $"{VoiceId}|{LangCode}|{SpeechRate:0.00}|cfg:{cfg}|ex:{exg}|cfs:{cfs}|nfe:{nfe}|sway:{sway}|instr:{instruct}";
+        var inv = System.Globalization.CultureInfo.InvariantCulture;
+        var cfg      = CfgWeight.HasValue ? CfgWeight.Value.ToString("0.00", inv) : "-";
+        var exg      = Exaggeration.HasValue ? Exaggeration.Value.ToString("0.00", inv) : "-";
+        var cfs      = CfgStrength.HasValue ? CfgStrength.Value.ToString("0.00", inv) : "-";
+        var nfe      = NfeStep.HasValue ? NfeStep.Value.ToString() : "-";
+        var sway     = SwaysamplingCoef.HasValue ? SwaysamplingCoef.Value.ToString("0.00", inv) : "-";
+        var vInstr   = string.IsNullOrWhiteSpace(VoiceInstruct) ? "-" : VoiceInstruct.Trim().Replace("|", "/");
+        var cInstr   = string.IsNullOrWhiteSpace(CosyInstruct) ? "-" : CosyInstruct.Trim().Replace("|", "/");
+        var seed     = SynthesisSeed.HasValue ? SynthesisSeed.Value.ToString(inv) : "-";
+        var cbTemp   = ChatterboxTemperature.HasValue ? ChatterboxTemperature.Value.ToString("0.00", inv) : "-";
+        var cbTopP   = ChatterboxTopP.HasValue ? ChatterboxTopP.Value.ToString("0.00", inv) : "-";
+        var cbRep    = ChatterboxRepetitionPenalty.HasValue ? ChatterboxRepetitionPenalty.Value.ToString("0.00", inv) : "-";
+        var lcSteps  = LongcatSteps.HasValue ? LongcatSteps.Value.ToString(inv) : "-";
+        var lcCfg    = LongcatCfgStrength.HasValue ? LongcatCfgStrength.Value.ToString("0.00", inv) : "-";
+        var lcGuide  = string.IsNullOrWhiteSpace(LongcatGuidance) ? "-" : LongcatGuidance.Trim().ToLowerInvariant().Replace("|", "/");
+        return $"{VoiceId}|{LangCode}|{SpeechRate:0.00}|cfg:{cfg}|ex:{exg}|cfs:{cfs}|nfe:{nfe}|sway:{sway}|vinstr:{vInstr}|cinstr:{cInstr}|seed:{seed}|cbt:{cbTemp}|cbp:{cbTopP}|cbr:{cbRep}|lcs:{lcSteps}|lcc:{lcCfg}|lcg:{lcGuide}";
     }
 }
 

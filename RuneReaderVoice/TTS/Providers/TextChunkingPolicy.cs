@@ -40,6 +40,7 @@ internal sealed class ChunkProfile
     public int RepeatedSentenceLimit { get; init; }
     public bool IsChatterboxFamily { get; init; }
     public bool IsCosyVoiceFamily { get; init; }
+    public bool IsLongcatFamily { get; init; }
     public bool IsTurbo { get; init; }
     public int PivotMergeWordLimit { get; init; }
 }
@@ -266,6 +267,7 @@ public static class TextChunkingPolicy
         bool f5         = id.Contains("f5", StringComparison.OrdinalIgnoreCase);
         bool kokoro     = id.Contains("kokoro", StringComparison.OrdinalIgnoreCase);
         bool cosyvoice  = id.Contains("cosyvoice", StringComparison.OrdinalIgnoreCase);
+        bool longcat    = id.Contains("longcat", StringComparison.OrdinalIgnoreCase);
 
         // Limits derived from Provider_Tests.md (2026-04-06 benchmark run):
         //
@@ -296,41 +298,41 @@ public static class TextChunkingPolicy
 
         var result = new ChunkProfile
         {
-            // Chatterbox Full: plain prose safe to ~550; kept at 550/650 (number-list and repetition
-            //   guards below catch the real failure modes before the char limit matters)
-            // Turbo: 600/720
-            // CosyVoice3: 350/430 — benchmark shows sentence skipping starts at ~409 chars repeated,
-            //   and pacing degrades even on passes above 350. Varied prose could go higher but
-            //   repeated WoW NPC dialog patterns look more like the L-series than the stage tests.
-            // F5 and Kokoro unchanged
-            TargetChars           = kokoro     ? 850
+            // Current guidance (2026-04 client update prompt):
+            //   Kokoro:            850 / 1050
+            //   F5-TTS:           575 / 725
+            //   Chatterbox Turbo: 600 / 720
+            //   Chatterbox Full:  380 / 480
+            //   CosyVoice:        380 / 480
+            //   LongCat: backend handles transparent latent-carry chunking; the client
+            //            should not impose old bounded-provider limits. Keep paragraph/
+            //            line structure, but use a very high size ceiling.
+            TargetChars           = longcat    ? 8000
+                                  : kokoro     ? 850
                                   : f5         ? 575
                                   : turbo      ? 600
-                                  : chatterbox ? 550
-                                  : cosyvoice  ? 350
+                                  : chatterbox ? 380
+                                  : cosyvoice  ? 380
                                   : 700,
 
-            HardCapChars          = kokoro     ? 1050
+            HardCapChars          = longcat    ? 32000
+                                  : kokoro     ? 1050
                                   : f5         ? 725
                                   : turbo      ? 720
-                                  : chatterbox ? 650
-                                  : cosyvoice  ? 430
+                                  : chatterbox ? 480
+                                  : cosyvoice  ? 480
                                   : 850,
 
-            // CosyVoice3: 5 — number sequences fail at ~196 chars (1-20 list), tighter than Chatterbox Full.
-            //   The LooksNumberHeavy guard fires the item-count check; at limit 5 it splits
-            //   the twenty-one to forty range before the hyphenated-word attention collapse.
-            // Chatterbox Full: 6 — validated; number-list failures (J, K) are caught by LooksNumberHeavy
-            //   before the item limit matters.
-            ListItemLimit         = kokoro     ? 12
+            ListItemLimit         = longcat    ? 999
+                                  : kokoro     ? 12
                                   : f5         ? 10
                                   : turbo      ?  8
                                   : chatterbox ?  6
-                                  : cosyvoice  ?  5
+                                  : cosyvoice  ?  6
                                   : 10,
 
-            // CosyVoice3: 2 — same as Chatterbox Full; repeated frames collapse the LLM attention
-            RepeatedSentenceLimit = kokoro     ? 5
+            RepeatedSentenceLimit = longcat    ? 999
+                                  : kokoro     ? 5
                                   : f5         ? 4
                                   : turbo      ? 3
                                   : chatterbox ? 2
@@ -339,8 +341,9 @@ public static class TextChunkingPolicy
 
             IsChatterboxFamily    = chatterbox,
             IsCosyVoiceFamily     = cosyvoice,
+            IsLongcatFamily       = longcat,
             IsTurbo               = turbo,
-            PivotMergeWordLimit   = turbo ? 11 : (chatterbox ? 10 : 0),
+            PivotMergeWordLimit   = longcat ? 0 : (turbo ? 11 : (chatterbox ? 10 : 0)),
         };
 
         // Further tighten for high exaggeration — test showed exaggeration >= 1.0
@@ -356,6 +359,7 @@ public static class TextChunkingPolicy
                 RepeatedSentenceLimit = Math.Max(2, result.RepeatedSentenceLimit - 1),
                 IsChatterboxFamily    = result.IsChatterboxFamily,
                 IsCosyVoiceFamily     = result.IsCosyVoiceFamily,
+                IsLongcatFamily       = result.IsLongcatFamily,
                 IsTurbo               = result.IsTurbo,
                 PivotMergeWordLimit   = result.PivotMergeWordLimit,
             };

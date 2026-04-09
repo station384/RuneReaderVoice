@@ -92,6 +92,14 @@ So go quickly, keep your wits about you, and return by the main road if you valu
     private readonly TextBox?    _cfgWeightText;
     private readonly Slider?     _exaggerationSlider;
     private readonly TextBox?    _exaggerationText;
+    private readonly TextBlock?  _exaggerationWarningText;
+    private readonly TextBox?    _seedText;
+    private readonly Slider?     _cbTemperatureSlider;
+    private readonly TextBox?    _cbTemperatureText;
+    private readonly Slider?     _cbTopPSlider;
+    private readonly TextBox?    _cbTopPText;
+    private readonly Slider?     _cbRepetitionPenaltySlider;
+    private readonly TextBox?    _cbRepetitionPenaltyText;
 
     // F5-TTS specific controls
     private readonly Slider?     _cfgStrengthSlider;
@@ -100,6 +108,11 @@ So go quickly, keep your wits about you, and return by the main road if you valu
     private readonly TextBox?    _nfeStepText;
     private readonly Slider?     _swaySlider;
     private readonly TextBox?    _swayText;
+    private readonly Slider?     _longcatStepsSlider;
+    private readonly TextBox?    _longcatStepsText;
+    private readonly Slider?     _longcatCfgStrengthSlider;
+    private readonly TextBox?    _longcatCfgStrengthText;
+    private readonly ComboBox?   _longcatGuidanceCombo;
     private readonly ComboBox?   _stylePaceCombo;
     private readonly ComboBox?   _styleToneCombo;
     private readonly ComboBox?   _styleVolumeCombo;
@@ -290,12 +303,27 @@ So go quickly, keep your wits about you, and return by the main road if you valu
         controls ??= new Dictionary<string, RemoteControlDescriptor>(StringComparer.OrdinalIgnoreCase);
         controls.TryGetValue("cfg_weight", out var cfgControl);
         controls.TryGetValue("exaggeration", out var exagControl);
+        controls.TryGetValue("cb_temperature", out var cbTemperatureControl);
+        controls.TryGetValue("cb_top_p", out var cbTopPControl);
+        controls.TryGetValue("cb_repetition_penalty", out var cbRepetitionPenaltyControl);
+        controls.TryGetValue("synthesis_seed", out var synthesisSeedControl);
+        controls.TryGetValue("longcat_steps", out var longcatStepsControl);
+        controls.TryGetValue("longcat_cfg_strength", out var longcatCfgStrengthControl);
+        controls.TryGetValue("longcat_guidance", out var longcatGuidanceControl);
 
         Border? chatterboxControlsCard = null;
         _cfgWeightSlider    = null;
         _cfgWeightText      = null;
         _exaggerationSlider = null;
         _exaggerationText   = null;
+        _exaggerationWarningText = null;
+        _seedText = null;
+        _cbTemperatureSlider = null;
+        _cbTemperatureText = null;
+        _cbTopPSlider = null;
+        _cbTopPText = null;
+        _cbRepetitionPenaltySlider = null;
+        _cbRepetitionPenaltyText = null;
 
         Border? f5ControlsCard = null;
         _cfgStrengthSlider = null;
@@ -304,8 +332,13 @@ So go quickly, keep your wits about you, and return by the main road if you valu
         _nfeStepText       = null;
         _swaySlider        = null;
         _swayText          = null;
+        _longcatStepsSlider = null;
+        _longcatStepsText = null;
+        _longcatCfgStrengthSlider = null;
+        _longcatCfgStrengthText = null;
+        _longcatGuidanceCombo = null;
 
-        if (cfgControl != null || exagControl != null)
+        if (cfgControl != null || exagControl != null || cbTemperatureControl != null || cbTopPControl != null || cbRepetitionPenaltyControl != null || synthesisSeedControl != null)
         {
             float cfgMin = cfgControl?.Min ?? 0f;
             float cfgMax = cfgControl?.Max ?? 3f;
@@ -314,95 +347,162 @@ So go quickly, keep your wits about you, and return by the main road if you valu
             float exMax = exagControl?.Max ?? 3f;
             float exDefault = ParseFloatDefault(exagControl?.Default, 0f);
 
-            if (!_workingProfile.CfgWeight.HasValue)
+            if (!_workingProfile.CfgWeight.HasValue && cfgControl != null)
                 _workingProfile.CfgWeight = cfgDefault;
-            if (!_workingProfile.Exaggeration.HasValue)
+            if (!_workingProfile.Exaggeration.HasValue && exagControl != null)
                 _workingProfile.Exaggeration = exDefault;
 
             var controlRows = new StackPanel { Spacing = 8 };
 
-            if (cfgControl != null)
+            Grid BuildFloatRow(string label, float min, float max, float value, Action<float> setter, out Slider slider, out TextBox textBox, float tick = 0.1f, string format = "0.00", Action? onValueChanged = null)
             {
-                _cfgWeightSlider = new Slider { Minimum = cfgMin, Maximum = cfgMax, Value = _workingProfile.CfgWeight ?? cfgDefault, TickFrequency = 0.1, HorizontalAlignment = HorizontalAlignment.Stretch };
-                _cfgWeightText = new TextBox { Width = 80, Text = (_workingProfile.CfgWeight ?? cfgDefault).ToString("0.00", Inv), HorizontalContentAlignment = HorizontalAlignment.Center };
-                _cfgWeightSlider.PropertyChanged += (_, e) =>
+                var sliderLocal = new Slider { Minimum = min, Maximum = max, Value = value, TickFrequency = tick, HorizontalAlignment = HorizontalAlignment.Stretch };
+                var textBoxLocal = new TextBox { Width = 80, Text = value.ToString(format, Inv), HorizontalContentAlignment = HorizontalAlignment.Center };
+                sliderLocal.PropertyChanged += (_, e) =>
                 {
                     if (e.Property != Slider.ValueProperty) return;
-                    _workingProfile.CfgWeight = (float)_cfgWeightSlider.Value;
-                    var t = _workingProfile.CfgWeight.Value.ToString("0.00", Inv);
-                    if (_cfgWeightText.Text != t) _cfgWeightText.Text = t;
+                    var v = (float)sliderLocal.Value;
+                    setter(v);
+                    var t = v.ToString(format, Inv);
+                    if (textBoxLocal.Text != t) textBoxLocal.Text = t;
+                    onValueChanged?.Invoke();
                     RefreshSummary();
                 };
-                _cfgWeightText.TextChanged += (_, _) =>
+                textBoxLocal.TextChanged += (_, _) =>
                 {
-                    if (!float.TryParse(_cfgWeightText.Text, System.Globalization.NumberStyles.Float, Inv, out var v)) return;
-                    v = Math.Clamp(v, cfgMin, cfgMax);
-                    _workingProfile.CfgWeight = v;
-                    if (Math.Abs(_cfgWeightSlider.Value - v) > 0.001) _cfgWeightSlider.Value = v;
+                    if (!float.TryParse(textBoxLocal.Text, System.Globalization.NumberStyles.Float, Inv, out var v)) return;
+                    v = Math.Clamp(v, min, max);
+                    setter(v);
+                    if (Math.Abs(sliderLocal.Value - v) > 0.001) sliderLocal.Value = v;
+                    onValueChanged?.Invoke();
                     RefreshSummary();
                 };
+                slider = sliderLocal;
+                textBox = textBoxLocal;
+                var row = new Grid { ColumnDefinitions = new ColumnDefinitions("130,*,70"), ColumnSpacing = 8 };
+                row.Children.Add(new TextBlock { Text = label, VerticalAlignment = VerticalAlignment.Center, FontWeight = FontWeight.SemiBold });
+                Grid.SetColumn(sliderLocal, 1); row.Children.Add(sliderLocal);
+                Grid.SetColumn(textBoxLocal, 2); row.Children.Add(textBoxLocal);
+                return row;
+            }
 
-                var cfgGrid = new Grid { ColumnDefinitions = new ColumnDefinitions("110,*,70,70"), ColumnSpacing = 8 };
-                cfgGrid.Children.Add(new TextBlock { Text = "CFG Weight", VerticalAlignment = VerticalAlignment.Center, FontWeight = FontWeight.SemiBold });
-                Grid.SetColumn(_cfgWeightSlider, 1);
-                cfgGrid.Children.Add(_cfgWeightSlider);
-                Grid.SetColumn(_cfgWeightText, 2);
-                cfgGrid.Children.Add(_cfgWeightText);
-                var cfgResetBtn = Btn("Default", 70);
-                cfgResetBtn.Click += (_, _) =>
+            if (synthesisSeedControl != null)
+            {
+                _seedText = new TextBox
                 {
-                    _workingProfile.CfgWeight = cfgDefault;
-                    _cfgWeightSlider.Value = cfgDefault;
-                    _cfgWeightText.Text = cfgDefault.ToString("0.00", Inv);
-                    RefreshSummary();
+                    Width = 120,
+                    Text = _workingProfile.SynthesisSeed?.ToString(Inv) ?? string.Empty,
+                    Watermark = "Blank = random"
                 };
-                Grid.SetColumn(cfgResetBtn, 3);
-                cfgGrid.Children.Add(cfgResetBtn);
-                controlRows.Children.Add(cfgGrid);
+                _seedText.TextChanged += (_, _) =>
+                {
+                    var raw = (_seedText.Text ?? string.Empty).Trim();
+                    if (string.IsNullOrWhiteSpace(raw))
+                    {
+                        _workingProfile.SynthesisSeed = null;
+                        RefreshSummary();
+                        return;
+                    }
+                    if (int.TryParse(raw, out var parsed) && parsed >= 0)
+                    {
+                        _workingProfile.SynthesisSeed = parsed;
+                        RefreshSummary();
+                    }
+                };
+                var seedRow = new Grid { ColumnDefinitions = new ColumnDefinitions("130,*"), ColumnSpacing = 8 };
+                seedRow.Children.Add(new TextBlock { Text = "Seed", VerticalAlignment = VerticalAlignment.Center, FontWeight = FontWeight.SemiBold });
+                Grid.SetColumn(_seedText, 1);
+                seedRow.Children.Add(_seedText);
+                controlRows.Children.Add(seedRow);
+                controlRows.Children.Add(new TextBlock
+                {
+                    Text = string.IsNullOrWhiteSpace(synthesisSeedControl.Description)
+                        ? "Optional reproducibility seed. Leave blank for non-deterministic output. Different seeds must use different cache entries."
+                        : synthesisSeedControl.Description,
+                    Opacity = 0.8,
+                    TextWrapping = TextWrapping.Wrap,
+                    Margin = new Avalonia.Thickness(0, 0, 0, 4)
+                });
+            }
+
+            if (cfgControl != null)
+            {
+                _cfgWeightSlider = null; _cfgWeightText = null;
+                var row = BuildFloatRow("CFG Weight", cfgMin, cfgMax, _workingProfile.CfgWeight ?? cfgDefault, v => _workingProfile.CfgWeight = v, out var cfgSlider, out var cfgText);
+                _cfgWeightSlider = cfgSlider;
+                _cfgWeightText = cfgText;
+                controlRows.Children.Add(row);
                 if (!string.IsNullOrWhiteSpace(cfgControl.Description))
                     controlRows.Children.Add(new TextBlock { Text = cfgControl.Description, Opacity = 0.8, TextWrapping = TextWrapping.Wrap, Margin = new Avalonia.Thickness(0, 0, 0, 4) });
             }
 
             if (exagControl != null)
             {
-                _exaggerationSlider = new Slider { Minimum = exMin, Maximum = exMax, Value = _workingProfile.Exaggeration ?? exDefault, TickFrequency = 0.1, HorizontalAlignment = HorizontalAlignment.Stretch };
-                _exaggerationText = new TextBox { Width = 80, Text = (_workingProfile.Exaggeration ?? exDefault).ToString("0.00", Inv), HorizontalContentAlignment = HorizontalAlignment.Center };
-                _exaggerationSlider.PropertyChanged += (_, e) =>
+                void UpdateExaggerationWarning()
                 {
-                    if (e.Property != Slider.ValueProperty) return;
-                    _workingProfile.Exaggeration = (float)_exaggerationSlider.Value;
-                    var t = _workingProfile.Exaggeration.Value.ToString("0.00", Inv);
-                    if (_exaggerationText.Text != t) _exaggerationText.Text = t;
-                    RefreshSummary();
-                };
-                _exaggerationText.TextChanged += (_, _) =>
-                {
-                    if (!float.TryParse(_exaggerationText.Text, System.Globalization.NumberStyles.Float, Inv, out var v)) return;
-                    v = Math.Clamp(v, exMin, exMax);
-                    _workingProfile.Exaggeration = v;
-                    if (Math.Abs(_exaggerationSlider.Value - v) > 0.001) _exaggerationSlider.Value = v;
-                    RefreshSummary();
-                };
+                    if (_exaggerationWarningText == null) return;
+                    var ex = _workingProfile.Exaggeration ?? exDefault;
+                    _exaggerationWarningText.IsVisible = ex > 1.5f;
+                }
 
-                var exGrid = new Grid { ColumnDefinitions = new ColumnDefinitions("110,*,70,70"), ColumnSpacing = 8 };
-                exGrid.Children.Add(new TextBlock { Text = "Exaggeration", VerticalAlignment = VerticalAlignment.Center, FontWeight = FontWeight.SemiBold });
-                Grid.SetColumn(_exaggerationSlider, 1);
-                exGrid.Children.Add(_exaggerationSlider);
-                Grid.SetColumn(_exaggerationText, 2);
-                exGrid.Children.Add(_exaggerationText);
-                var exResetBtn = Btn("Default", 70);
-                exResetBtn.Click += (_, _) =>
+                _exaggerationSlider = null; _exaggerationText = null;
+                var row = BuildFloatRow("Exaggeration", exMin, exMax, _workingProfile.Exaggeration ?? exDefault, v => _workingProfile.Exaggeration = v, out var exSlider, out var exText, onValueChanged: UpdateExaggerationWarning);
+                _exaggerationSlider = exSlider;
+                _exaggerationText = exText;
+                controlRows.Children.Add(row);
+                _exaggerationWarningText = new TextBlock
                 {
-                    _workingProfile.Exaggeration = exDefault;
-                    _exaggerationSlider.Value = exDefault;
-                    _exaggerationText.Text = exDefault.ToString("0.00", Inv);
-                    RefreshSummary();
+                    Text = "Warning: values above 1.5 can reduce Chatterbox reliability and may cause repetitions, garbled endings, or sequence drift.",
+                    Foreground = Brushes.Gold,
+                    TextWrapping = TextWrapping.Wrap,
+                    IsVisible = (_workingProfile.Exaggeration ?? exDefault) > 1.5f,
+                    Margin = new Avalonia.Thickness(0, 0, 0, 4)
                 };
-                Grid.SetColumn(exResetBtn, 3);
-                exGrid.Children.Add(exResetBtn);
-                controlRows.Children.Add(exGrid);
+                controlRows.Children.Add(_exaggerationWarningText);
                 if (!string.IsNullOrWhiteSpace(exagControl.Description))
                     controlRows.Children.Add(new TextBlock { Text = exagControl.Description, Opacity = 0.8, TextWrapping = TextWrapping.Wrap, Margin = new Avalonia.Thickness(0, 0, 0, 4) });
+            }
+
+            if (cbTemperatureControl != null)
+            {
+                var min = cbTemperatureControl.Min ?? 0.1f;
+                var max = cbTemperatureControl.Max ?? 2.0f;
+                var def = ParseFloatDefault(cbTemperatureControl.Default, 0.8f);
+                _cbTemperatureSlider = null; _cbTemperatureText = null;
+                var row = BuildFloatRow("Temperature", min, max, _workingProfile.ChatterboxTemperature ?? def, v => _workingProfile.ChatterboxTemperature = v, out var tempSlider, out var tempText);
+                _cbTemperatureSlider = tempSlider;
+                _cbTemperatureText = tempText;
+                controlRows.Children.Add(row);
+                if (!string.IsNullOrWhiteSpace(cbTemperatureControl.Description))
+                    controlRows.Children.Add(new TextBlock { Text = cbTemperatureControl.Description, Opacity = 0.8, TextWrapping = TextWrapping.Wrap, Margin = new Avalonia.Thickness(0, 0, 0, 4) });
+            }
+
+            if (cbTopPControl != null)
+            {
+                var min = cbTopPControl.Min ?? 0.01f;
+                var max = cbTopPControl.Max ?? 1.0f;
+                var def = ParseFloatDefault(cbTopPControl.Default, 1.0f);
+                _cbTopPSlider = null; _cbTopPText = null;
+                var row = BuildFloatRow("Top P", min, max, _workingProfile.ChatterboxTopP ?? def, v => _workingProfile.ChatterboxTopP = v, out var topPSlider, out var topPText);
+                _cbTopPSlider = topPSlider;
+                _cbTopPText = topPText;
+                controlRows.Children.Add(row);
+                if (!string.IsNullOrWhiteSpace(cbTopPControl.Description))
+                    controlRows.Children.Add(new TextBlock { Text = cbTopPControl.Description, Opacity = 0.8, TextWrapping = TextWrapping.Wrap, Margin = new Avalonia.Thickness(0, 0, 0, 4) });
+            }
+
+            if (cbRepetitionPenaltyControl != null)
+            {
+                var min = cbRepetitionPenaltyControl.Min ?? 1.0f;
+                var max = cbRepetitionPenaltyControl.Max ?? 3.0f;
+                var def = ParseFloatDefault(cbRepetitionPenaltyControl.Default, 1.2f);
+                _cbRepetitionPenaltySlider = null; _cbRepetitionPenaltyText = null;
+                var row = BuildFloatRow("Repeat Penalty", min, max, _workingProfile.ChatterboxRepetitionPenalty ?? def, v => _workingProfile.ChatterboxRepetitionPenalty = v, out var repSlider, out var repText);
+                _cbRepetitionPenaltySlider = repSlider;
+                _cbRepetitionPenaltyText = repText;
+                controlRows.Children.Add(row);
+                if (!string.IsNullOrWhiteSpace(cbRepetitionPenaltyControl.Description))
+                    controlRows.Children.Add(new TextBlock { Text = cbRepetitionPenaltyControl.Description, Opacity = 0.8, TextWrapping = TextWrapping.Wrap, Margin = new Avalonia.Thickness(0, 0, 0, 4) });
             }
 
             chatterboxControlsCard = Card("Voice Render Controls", controlRows);
@@ -525,6 +625,107 @@ So go quickly, keep your wits about you, and return by the main road if you valu
             }
 
             f5ControlsCard = Card("F5-TTS Synthesis Controls", f5Rows);
+        }
+
+        Border? longcatControlsCard = null;
+        if (longcatStepsControl != null || longcatCfgStrengthControl != null || longcatGuidanceControl != null)
+        {
+            var rows = new StackPanel { Spacing = 8 };
+
+            if (longcatStepsControl != null)
+            {
+                int min = (int)Math.Round(longcatStepsControl.Min ?? 4f);
+                int max = (int)Math.Round(longcatStepsControl.Max ?? 64f);
+                int def = ParseIntDefault(longcatStepsControl.Default, 16);
+                if (!_workingProfile.LongcatSteps.HasValue) _workingProfile.LongcatSteps = def;
+
+                _longcatStepsSlider = new Slider { Minimum = min, Maximum = max, Value = _workingProfile.LongcatSteps.Value, TickFrequency = 1, HorizontalAlignment = HorizontalAlignment.Stretch };
+                _longcatStepsText = new TextBox { Width = 80, Text = _workingProfile.LongcatSteps.Value.ToString(), HorizontalContentAlignment = HorizontalAlignment.Center };
+                _longcatStepsSlider.PropertyChanged += (_, e) =>
+                {
+                    if (e.Property != Slider.ValueProperty) return;
+                    var v = (int)Math.Round(_longcatStepsSlider.Value);
+                    _workingProfile.LongcatSteps = v;
+                    var t = v.ToString();
+                    if (_longcatStepsText.Text != t) _longcatStepsText.Text = t;
+                    RefreshSummary();
+                };
+                _longcatStepsText.TextChanged += (_, _) =>
+                {
+                    if (!int.TryParse(_longcatStepsText.Text, out var v)) return;
+                    v = Math.Clamp(v, min, max);
+                    _workingProfile.LongcatSteps = v;
+                    if (Math.Abs(_longcatStepsSlider.Value - v) > 0.001) _longcatStepsSlider.Value = v;
+                    RefreshSummary();
+                };
+                var row = new Grid { ColumnDefinitions = new ColumnDefinitions("130,*,70"), ColumnSpacing = 8 };
+                row.Children.Add(new TextBlock { Text = "LongCat Steps", VerticalAlignment = VerticalAlignment.Center, FontWeight = FontWeight.SemiBold });
+                Grid.SetColumn(_longcatStepsSlider, 1); row.Children.Add(_longcatStepsSlider);
+                Grid.SetColumn(_longcatStepsText, 2); row.Children.Add(_longcatStepsText);
+                rows.Children.Add(row);
+                if (!string.IsNullOrWhiteSpace(longcatStepsControl.Description))
+                    rows.Children.Add(new TextBlock { Text = longcatStepsControl.Description, Opacity = 0.8, TextWrapping = TextWrapping.Wrap, Margin = new Avalonia.Thickness(0, 0, 0, 4) });
+            }
+
+            if (longcatCfgStrengthControl != null)
+            {
+                float min = longcatCfgStrengthControl.Min ?? 1.0f;
+                float max = longcatCfgStrengthControl.Max ?? 10.0f;
+                float def = ParseFloatDefault(longcatCfgStrengthControl.Default, 4.0f);
+                if (!_workingProfile.LongcatCfgStrength.HasValue) _workingProfile.LongcatCfgStrength = def;
+
+                _longcatCfgStrengthSlider = new Slider { Minimum = min, Maximum = max, Value = _workingProfile.LongcatCfgStrength.Value, TickFrequency = 0.1, HorizontalAlignment = HorizontalAlignment.Stretch };
+                _longcatCfgStrengthText = new TextBox { Width = 80, Text = _workingProfile.LongcatCfgStrength.Value.ToString("0.00", Inv), HorizontalContentAlignment = HorizontalAlignment.Center };
+                _longcatCfgStrengthSlider.PropertyChanged += (_, e) =>
+                {
+                    if (e.Property != Slider.ValueProperty) return;
+                    var v = (float)_longcatCfgStrengthSlider.Value;
+                    _workingProfile.LongcatCfgStrength = v;
+                    var t = v.ToString("0.00", Inv);
+                    if (_longcatCfgStrengthText.Text != t) _longcatCfgStrengthText.Text = t;
+                    RefreshSummary();
+                };
+                _longcatCfgStrengthText.TextChanged += (_, _) =>
+                {
+                    if (!float.TryParse(_longcatCfgStrengthText.Text, System.Globalization.NumberStyles.Float, Inv, out var v)) return;
+                    v = Math.Clamp(v, min, max);
+                    _workingProfile.LongcatCfgStrength = v;
+                    if (Math.Abs(_longcatCfgStrengthSlider.Value - v) > 0.001) _longcatCfgStrengthSlider.Value = v;
+                    RefreshSummary();
+                };
+                var row = new Grid { ColumnDefinitions = new ColumnDefinitions("130,*,70"), ColumnSpacing = 8 };
+                row.Children.Add(new TextBlock { Text = "Guidance Strength", VerticalAlignment = VerticalAlignment.Center, FontWeight = FontWeight.SemiBold });
+                Grid.SetColumn(_longcatCfgStrengthSlider, 1); row.Children.Add(_longcatCfgStrengthSlider);
+                Grid.SetColumn(_longcatCfgStrengthText, 2); row.Children.Add(_longcatCfgStrengthText);
+                rows.Children.Add(row);
+                if (!string.IsNullOrWhiteSpace(longcatCfgStrengthControl.Description))
+                    rows.Children.Add(new TextBlock { Text = longcatCfgStrengthControl.Description, Opacity = 0.8, TextWrapping = TextWrapping.Wrap, Margin = new Avalonia.Thickness(0, 0, 0, 4) });
+            }
+
+            if (longcatGuidanceControl != null)
+            {
+                var opts = (longcatGuidanceControl.Options?.Count ?? 0) > 0
+                    ? longcatGuidanceControl.Options?.ToList() ?? new List<string> { "apg", "cfg" }
+                    : new List<string> { "apg", "cfg" };
+                var selected = _workingProfile.LongcatGuidance;
+                if (string.IsNullOrWhiteSpace(selected))
+                    selected = !string.IsNullOrWhiteSpace(longcatGuidanceControl.Default) ? longcatGuidanceControl.Default : opts.FirstOrDefault() ?? "apg";
+                _workingProfile.LongcatGuidance = selected;
+                _longcatGuidanceCombo = new ComboBox { ItemsSource = opts, SelectedItem = selected, HorizontalAlignment = HorizontalAlignment.Stretch };
+                _longcatGuidanceCombo.SelectionChanged += (_, _) =>
+                {
+                    _workingProfile.LongcatGuidance = _longcatGuidanceCombo.SelectedItem as string;
+                    RefreshSummary();
+                };
+                var row = new Grid { ColumnDefinitions = new ColumnDefinitions("130,*"), ColumnSpacing = 8 };
+                row.Children.Add(new TextBlock { Text = "Guidance Mode", VerticalAlignment = VerticalAlignment.Center, FontWeight = FontWeight.SemiBold });
+                Grid.SetColumn(_longcatGuidanceCombo, 1); row.Children.Add(_longcatGuidanceCombo);
+                rows.Children.Add(row);
+                if (!string.IsNullOrWhiteSpace(longcatGuidanceControl.Description))
+                    rows.Children.Add(new TextBlock { Text = longcatGuidanceControl.Description, Opacity = 0.8, TextWrapping = TextWrapping.Wrap, Margin = new Avalonia.Thickness(0, 0, 0, 4) });
+            }
+
+            longcatControlsCard = Card("LongCat Controls", rows);
         }
 
         controls.TryGetValue("cosy_instruct", out var styleInstructionControl);
@@ -847,6 +1048,11 @@ So go quickly, keep your wits about you, and return by the main road if you valu
             contentStack.Children.Insert(insertIndex, f5ControlsCard);
             insertIndex++;
         }
+        if (longcatControlsCard != null)
+        {
+            contentStack.Children.Insert(insertIndex, longcatControlsCard);
+            insertIndex++;
+        }
         if (styleInstructionCard != null)
             contentStack.Children.Insert(insertIndex, styleInstructionCard);
 
@@ -1123,6 +1329,40 @@ So go quickly, keep your wits about you, and return by the main road if you valu
             _swaySlider.Value = v;
             if (_swayText != null) _swayText.Text = v.ToString("0.00", Inv);
         }
+        if (_cbTemperatureSlider != null)
+        {
+            var v = _workingProfile.ChatterboxTemperature ?? (float)_cbTemperatureSlider.Value;
+            _cbTemperatureSlider.Value = v;
+            if (_cbTemperatureText != null) _cbTemperatureText.Text = v.ToString("0.00", Inv);
+        }
+        if (_cbTopPSlider != null)
+        {
+            var v = _workingProfile.ChatterboxTopP ?? (float)_cbTopPSlider.Value;
+            _cbTopPSlider.Value = v;
+            if (_cbTopPText != null) _cbTopPText.Text = v.ToString("0.00", Inv);
+        }
+        if (_cbRepetitionPenaltySlider != null)
+        {
+            var v = _workingProfile.ChatterboxRepetitionPenalty ?? (float)_cbRepetitionPenaltySlider.Value;
+            _cbRepetitionPenaltySlider.Value = v;
+            if (_cbRepetitionPenaltyText != null) _cbRepetitionPenaltyText.Text = v.ToString("0.00", Inv);
+        }
+        if (_seedText != null)
+            _seedText.Text = _workingProfile.SynthesisSeed?.ToString(Inv) ?? string.Empty;
+        if (_longcatStepsSlider != null)
+        {
+            var v = (float)(_workingProfile.LongcatSteps ?? (int)_longcatStepsSlider.Value);
+            _longcatStepsSlider.Value = v;
+            if (_longcatStepsText != null) _longcatStepsText.Text = ((int)v).ToString();
+        }
+        if (_longcatCfgStrengthSlider != null)
+        {
+            var v = _workingProfile.LongcatCfgStrength ?? (float)_longcatCfgStrengthSlider.Value;
+            _longcatCfgStrengthSlider.Value = v;
+            if (_longcatCfgStrengthText != null) _longcatCfgStrengthText.Text = v.ToString("0.00", Inv);
+        }
+        if (_longcatGuidanceCombo != null)
+            _longcatGuidanceCombo.SelectedItem = _workingProfile.LongcatGuidance;
         if (_styleInstructionText != null)
         {
             _suppressStyleSync = true;
@@ -1465,6 +1705,9 @@ So go quickly, keep your wits about you, and return by the main road if you valu
     /// </summary>
     private static float ParseFloatDefault(string? value, float fallback)
         => float.TryParse(value, System.Globalization.NumberStyles.Float, Inv, out var f) ? f : fallback;
+
+    private static int ParseIntDefault(string? value, int fallback)
+        => int.TryParse(value, out var i) ? i : fallback;
 
     private static Button Btn(string label, double width) => new() { Content = label, Width = width };
 

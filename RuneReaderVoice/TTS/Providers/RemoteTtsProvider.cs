@@ -231,23 +231,32 @@ public sealed class RemoteTtsProvider : ITtsProvider
             text = ChatterboxPreprocess(text);
 
         var voiceSpec = BuildVoiceSpec(profile);
+        var speechRate = profile.SpeechRate <= 0f ? 1.0f : Math.Clamp(profile.SpeechRate, 0.5f, 2.0f);
         var v2Request = new RemoteSynthesizeV2Request
         {
-            ProviderId        = _descriptor.RemoteProviderId!,
-            Text              = text,
-            Voice             = voiceSpec,
-            LangCode          = string.IsNullOrWhiteSpace(profile.LangCode) ? "en" : profile.LangCode,
-            SpeechRate        = profile.SpeechRate <= 0f ? 1.0f : profile.SpeechRate,
-            CfgWeight         = profile.CfgWeight,
-            Exaggeration      = profile.Exaggeration,
-            CosyInstruct      = string.IsNullOrWhiteSpace(profile.CosyInstruct) ? null : profile.CosyInstruct.Trim(),
-            BatchId           = batchId,
-            BatchTotal        = batchTotal,
-            CfgStrength       = profile.CfgStrength,
-            NfeStep           = profile.NfeStep,
-            CrossFadeDuration = profile.CrossFadeDuration,
-            SwaysamplingCoef  = profile.SwaysamplingCoef,
-            VoiceContext      = slot.ToString(),   // discriminates narrator vs NPC slots sharing same sample
+            ProviderId            = _descriptor.RemoteProviderId!,
+            Text                  = text,
+            Voice                 = voiceSpec,
+            LangCode              = string.IsNullOrWhiteSpace(profile.LangCode) ? "en" : profile.LangCode,
+            SpeechRate            = speechRate,
+            CfgWeight             = profile.CfgWeight,
+            Exaggeration          = profile.Exaggeration,
+            CbTemperature         = profile.ChatterboxTemperature,
+            CbTopP                = profile.ChatterboxTopP,
+            CbRepetitionPenalty   = profile.ChatterboxRepetitionPenalty,
+            CosyInstruct          = string.IsNullOrWhiteSpace(profile.CosyInstruct) ? null : profile.CosyInstruct.Trim(),
+            VoiceInstruct         = string.IsNullOrWhiteSpace(profile.VoiceInstruct) ? null : profile.VoiceInstruct.Trim(),
+            LongcatSteps          = profile.LongcatSteps,
+            LongcatCfgStrength    = profile.LongcatCfgStrength,
+            LongcatGuidance       = string.IsNullOrWhiteSpace(profile.LongcatGuidance) ? null : profile.LongcatGuidance.Trim(),
+            SynthesisSeed         = profile.SynthesisSeed,
+            BatchId               = batchId,
+            BatchTotal            = batchTotal,
+            CfgStrength           = profile.CfgStrength,
+            NfeStep               = profile.NfeStep,
+            CrossFadeDuration     = profile.CrossFadeDuration,
+            SwaysamplingCoef      = profile.SwaysamplingCoef,
+            VoiceContext          = slot.ToString(),   // discriminates narrator vs NPC slots sharing same sample
         };
 
         var submitted = await _client.SynthesizeV2Async(v2Request, ct);
