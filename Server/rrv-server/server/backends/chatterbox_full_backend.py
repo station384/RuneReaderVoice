@@ -222,7 +222,7 @@ class ChatterboxFullBackend(AbstractTtsBackend):
 
     @property
     def supports_voice_blending(self) -> bool:
-        return False
+        return True
 
     @property
     def supports_inline_pronunciation(self) -> bool:
@@ -458,14 +458,14 @@ class ChatterboxFullBackend(AbstractTtsBackend):
         if self._model is None:
             raise RuntimeError("Chatterbox backend is not loaded")
 
-        if request.sample_path is None:
+        # Blend requests supply sample paths via request.blend entries — sample_path
+        # is only required for single-reference synthesis.
+        blend_entries = [e for e in request.blend if e.get("sample_path")] if request.blend else []
+        if not blend_entries and request.sample_path is None:
             raise ValueError(
                 "Chatterbox requires a reference audio clip. "
-                "Provide sample_id in the request."
+                "Provide sample_id in the request, or use voice.type='blend'."
             )
-
-        if request.blend:
-            raise ValueError("Chatterbox does not support voice blending.")
 
         loop = asyncio.get_event_loop()
         voice_key = self._voice_group_key(request)
@@ -477,6 +477,174 @@ class ChatterboxFullBackend(AbstractTtsBackend):
 
         duration = estimate_duration(ogg_bytes)
         return SynthesisResult(ogg_bytes=ogg_bytes, duration_sec=duration)
+
+    def _blend_conditionals(self, blend: list[dict], exaggeration: float) -> None:
+        """
+        Blend voice conditionals from multiple reference samples.
+
+        Two independent speaker embeddings must both be blended:
+
+          conds.t3.speaker_emb   — 256-dim VE embedding. Projected by T3CondEnc.spkr_enc
+                                   (nn.Linear) into T3's hidden dim. Conditions token generation.
+
+          conds.gen["embedding"] — x-vector from S3Gen's CAMPPlus speaker_encoder.
+                                   Conditions S3Gen vocoder — the actual waveform timbre.
+                                   THIS is why blending only speaker_emb had no audible effect:
+                                   the vocoder was still rendering in 100% primary's voice.
+
+        Everything else (prompt_feat, prompt_token, cond_prompt_speech_tokens) comes
+        from the primary sample untouched — blending discrete/spectrogram data causes mush.
+
+        generate() bypass is required: its emotion_adv branch (float != tensor scalar)
+        always evaluates truthy and recreates T3Cond from scratch, discarding our blend.
+        """
+        import torch, tempfile, os, types
+        import soundfile as sf
+
+        sample_entries = [e for e in blend if e.get("sample_path")]
+        if not sample_entries:
+            raise ValueError("_blend_conditionals: no sample_path entries in blend")
+
+        total_w = sum(e["weight"] for e in sample_entries)
+        entries = [(e["sample_path"], e["weight"] / total_w) for e in sample_entries]
+        primary_path = max(entries, key=lambda x: x[1])[0]
+        # Primary runs last — its full conds are in model.conds when loop ends
+        entries_sorted = sorted(entries, key=lambda x: x[0] == primary_path)
+
+        t3_speaker_embs = []   # (tensor, weight) — T3 VE embeddings
+        gen_embeddings  = []   # (tensor, weight) — S3Gen x-vectors
+        tmp_wavs = []
+
+        try:
+            for sample_path_str, weight in entries_sorted:
+                audio_data, sr = sf.read(str(sample_path_str), dtype="float32")
+                with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tmp:
+                    tmp_path = tmp.name
+                sf.write(tmp_path, audio_data, sr, subtype="PCM_16")
+                tmp_wavs.append(tmp_path)
+
+                self._model.prepare_conditionals(tmp_path, exaggeration=exaggeration)
+
+                t3_spk = self._model.conds.t3.speaker_emb.detach().clone()
+                t3_speaker_embs.append((t3_spk, weight))
+
+                if "embedding" in self._model.conds.gen:
+                    gen_emb = self._model.conds.gen["embedding"].detach().clone()
+                    gen_embeddings.append((gen_emb, weight))
+
+                log.info(
+                    "Chatterbox blend: sample=%s weight=%.3f "
+                    "t3_spk_norm=%.4f t3_spk_mean=%.4f "
+                    "gen_emb_norm=%.4f gen_emb_mean=%.4f",
+                    sample_path_str, weight,
+                    t3_spk.norm().item(), t3_spk.mean().item(),
+                    gen_emb.norm().item() if "embedding" in self._model.conds.gen else -1,
+                    gen_emb.mean().item() if "embedding" in self._model.conds.gen else -1,
+                )
+
+            # ── Blend T3 speaker_emb — weighted average, preserve magnitude ──────
+            blended_t3_spk = sum(emb * w for emb, w in t3_speaker_embs)
+            mean_mag = sum(emb.norm() * w for emb, w in t3_speaker_embs)
+            b_norm = blended_t3_spk.norm()
+            if b_norm > 1e-8:
+                blended_t3_spk = blended_t3_spk / b_norm * mean_mag
+
+            log.info(
+                "Chatterbox blend: t3_spk[0]_mean=%.4f t3_spk[1]_mean=%.4f blended_mean=%.4f",
+                t3_speaker_embs[0][0].mean().item(),
+                t3_speaker_embs[-1][0].mean().item(),
+                blended_t3_spk.mean().item(),
+            )
+            if gen_embeddings:
+                log.info(
+                    "Chatterbox blend: gen[0]_mean=%.4f gen[1]_mean=%.4f",
+                    gen_embeddings[0][0].mean().item(),
+                    gen_embeddings[-1][0].mean().item(),
+                )
+            blended_gen_emb = None
+            if gen_embeddings:
+                blended_gen_emb = sum(emb * w for emb, w in gen_embeddings)
+                mean_mag_gen = sum(emb.norm() * w for emb, w in gen_embeddings)
+                g_norm = blended_gen_emb.norm()
+                if g_norm > 1e-8:
+                    blended_gen_emb = blended_gen_emb / g_norm * mean_mag_gen
+
+            # ── Build blended T3Cond — primary tokens, blended speaker_emb ───────
+            from chatterbox.models.t3.modules.cond_enc import T3Cond
+            _primary_t3 = self._model.conds.t3
+            blended_t3 = T3Cond(
+                speaker_emb=blended_t3_spk,
+                cond_prompt_speech_tokens=_primary_t3.cond_prompt_speech_tokens,
+                emotion_adv=torch.tensor([[[exaggeration]]],
+                                         dtype=blended_t3_spk.dtype,
+                                         device=blended_t3_spk.device),
+            ).to(device=self._torch_device)
+
+            # ── Patch gen dict — replace embedding only, keep all other fields ───
+            blended_gen = dict(self._model.conds.gen)  # shallow copy — primary's fields
+            if blended_gen_emb is not None:
+                blended_gen["embedding"] = blended_gen_emb
+
+            self._model.conds.t3  = blended_t3
+            self._model.conds.gen = blended_gen
+
+            # ── Bypass generate() — emotion_adv branch always fires, discards blend
+            _t3_ref  = blended_t3
+            _gen_ref = blended_gen
+
+            def _patched_generate(self_m, text, repetition_penalty=1.2, min_p=0.05,
+                                   top_p=1.0, audio_prompt_path=None, exaggeration=0.5,
+                                   cfg_weight=0.5, temperature=0.8):
+                import torch as _torch
+                import torch.nn.functional as F
+                from chatterbox.models.s3tokenizer import drop_invalid_tokens
+                self_m.conds.t3  = _t3_ref
+                self_m.conds.gen = _gen_ref
+                text_proc = self_m.tokenizer.text_to_tokens(text).to(self_m.device)
+                if cfg_weight > 0.0:
+                    text_proc = _torch.cat([text_proc, text_proc], dim=0)
+                sot = self_m.t3.hp.start_text_token
+                eot = self_m.t3.hp.stop_text_token
+                text_proc = F.pad(text_proc, (1, 0), value=sot)
+                text_proc = F.pad(text_proc, (0, 1), value=eot)
+                with _torch.inference_mode():
+                    speech_tokens = self_m.t3.inference(
+                        t3_cond=self_m.conds.t3,
+                        text_tokens=text_proc,
+                        max_new_tokens=1000,
+                        temperature=temperature,
+                        cfg_weight=cfg_weight,
+                        repetition_penalty=repetition_penalty,
+                        min_p=min_p,
+                        top_p=top_p,
+                    )
+                    speech_tokens = drop_invalid_tokens(speech_tokens[0])
+                    speech_tokens = speech_tokens[speech_tokens < 6561].to(self_m.device)
+                    wav, _ = self_m.s3gen.inference(
+                        speech_tokens=speech_tokens,
+                        ref_dict=self_m.conds.gen,
+                    )
+                    wav = wav.squeeze(0).detach().cpu().numpy()
+                    watermarked = self_m.watermarker.apply_watermark(wav, sample_rate=self_m.sr)
+                return _torch.from_numpy(watermarked).unsqueeze(0)
+
+            import types as _types
+            self._model._rrv_blend_generate = _types.MethodType(_patched_generate, self._model)
+            self._is_blend_active = True
+
+            log.debug(
+                "Chatterbox blend: t3_speaker_emb + gen[embedding] blended (%d samples)",
+                len(t3_speaker_embs)
+            )
+
+        finally:
+            for tmp_path in tmp_wavs:
+                try:
+                    os.unlink(tmp_path)
+                except Exception:
+                    pass
+
+        self._cond_sample_hash = ""
 
     def _ensure_conditionals(self, sample_path: Path, sample_hash: str) -> None:
         """
@@ -540,15 +708,22 @@ class ChatterboxFullBackend(AbstractTtsBackend):
     def _synthesize_sync(self, request: SynthesisRequest) -> bytes:
         import numpy as np
 
-        sample_hash  = compute_file_hash(request.sample_path)
         cfg_weight          = request.cfg_weight          if request.cfg_weight          is not None else 0.5
         exaggeration        = request.exaggeration        if request.exaggeration        is not None else 0.5
         temperature         = request.cb_temperature      if request.cb_temperature      is not None else 0.8
         top_p               = request.cb_top_p            if request.cb_top_p            is not None else 1.0
         repetition_penalty  = request.cb_repetition_penalty if request.cb_repetition_penalty is not None else 1.2
 
-        # Ensure conditionals loaded for this speaker
-        self._ensure_conditionals(request.sample_path, sample_hash)
+        # Route: blend vs single reference
+        blend_entries = [e for e in request.blend if e.get("sample_path")] if request.blend else []
+        if blend_entries:
+            log.debug("Chatterbox Full: blend mode — %d samples", len(blend_entries))
+            self._blend_conditionals(blend_entries, exaggeration)
+        else:
+            if request.sample_path is None:
+                raise ValueError("Chatterbox Full requires either a reference sample or a blend.")
+            sample_hash = compute_file_hash(request.sample_path)
+            self._ensure_conditionals(request.sample_path, sample_hash)
 
         # Set deterministic seed if requested
         if request.synthesis_seed is not None:
@@ -562,29 +737,40 @@ class ChatterboxFullBackend(AbstractTtsBackend):
         chunks = _split_into_chunks(request.text)
         total  = len(chunks)
         _progress_cb = request.progress_callback
+        _generate = getattr(self._model, '_rrv_blend_generate', None) \
+                    if getattr(self, '_is_blend_active', False) else None
+        if _generate is None:
+            _generate = self._model.generate
 
         all_samples: list[np.ndarray] = []
 
-        for i, chunk_text in enumerate(chunks):
-            if not chunk_text.strip():
-                continue
-            wav = self._model.generate(
-                text=chunk_text,
-                cfg_weight=cfg_weight,
-                exaggeration=exaggeration,
-                temperature=temperature,
-                top_p=top_p,
-                repetition_penalty=repetition_penalty,
-            )
-            samples = wav.squeeze().numpy() if hasattr(wav, 'numpy') else np.array(wav).squeeze()
-            all_samples.append(samples.astype(np.float32))
-            log.debug("Chatterbox Full: chunk %d/%d synthesized (%d chars)",
-                      i + 1, total, len(chunk_text))
-            if _progress_cb is not None:
-                try:
-                    _progress_cb(i + 1, total)
-                except Exception:
-                    pass
+        try:
+            for i, chunk_text in enumerate(chunks):
+                if not chunk_text.strip():
+                    continue
+                wav = _generate(
+                    text=chunk_text,
+                    cfg_weight=cfg_weight,
+                    exaggeration=exaggeration,
+                    temperature=temperature,
+                    top_p=top_p,
+                    repetition_penalty=repetition_penalty,
+                )
+                samples = wav.squeeze().numpy() if hasattr(wav, 'numpy') else np.array(wav).squeeze()
+                all_samples.append(samples.astype(np.float32))
+                log.debug("Chatterbox Full: chunk %d/%d synthesized (%d chars)",
+                          i + 1, total, len(chunk_text))
+                if _progress_cb is not None:
+                    try:
+                        _progress_cb(i + 1, total)
+                    except Exception:
+                        pass
+        finally:
+            # Clean up blend patch
+            if getattr(self, '_is_blend_active', False):
+                self._is_blend_active = False
+                if hasattr(self._model, '_rrv_blend_generate'):
+                    del self._model._rrv_blend_generate
 
         if not all_samples:
             return pcm_to_ogg(np.zeros(self._model.sr, dtype=np.float32), self._model.sr)

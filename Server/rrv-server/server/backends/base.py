@@ -207,6 +207,16 @@ class AbstractTtsBackend(ABC):
         """
         return {}
 
+    @property
+    def supports_synthesis_seed(self) -> bool:
+        """
+        True if the backend uses random sampling and honours synthesis_seed.
+        Kokoro (deterministic ONNX) returns False. All stochastic backends
+        (Chatterbox, F5-TTS, LuxTTS, LongCat, CosyVoice) return True.
+        Defaults to True — backends that are deterministic should override.
+        """
+        return True
+
     def capability_dict(self, execution_provider: str) -> dict:
         """
         Serialize capabilities to the API response shape.
@@ -223,6 +233,7 @@ class AbstractTtsBackend(ABC):
             "supports_inline_pronunciation": self.supports_inline_pronunciation,
             "supports_voice_instruct":    self.supports_voice_instruct,
             "supports_voice_design":      self.supports_voice_design,
+            "supports_synthesis_seed":    self.supports_synthesis_seed,
             "languages":                  self.languages,
         }
         controls = self.extra_controls()

@@ -158,6 +158,10 @@ class KokoroBackend(AbstractTtsBackend):
         return True
 
     @property
+    def supports_synthesis_seed(self) -> bool:
+        return False  # Kokoro uses deterministic ONNX inference — seed has no effect
+
+    @property
     def supports_inline_pronunciation(self) -> bool:
         return True
 

@@ -221,9 +221,17 @@ async def synthesize_v2(body: SynthesizeRequest, request: Request) -> dict:
             (body.voice.voice_description or "").encode("utf-8")
         ).hexdigest()[:16]
     else:
-        voice_identity = blend_voice_identity(
-            [{"voice_id": e.voice_id, "weight": e.weight} for e in body.voice.blend]
-        )
+        # For sample blends, resolve each sample to get a stable content-hash identity
+        _blend_entries = []
+        for e in body.voice.blend:
+            if e.sample_id:
+                _sp = resolve_sample_path_for_provider(
+                    settings.samples_dir, e.sample_id, body.provider_id)
+                _hash = compute_file_hash(_sp) if _sp else e.sample_id
+                _blend_entries.append({"voice_id": _hash, "weight": e.weight})
+            else:
+                _blend_entries.append({"voice_id": e.voice_id, "weight": e.weight})
+        voice_identity = blend_voice_identity(_blend_entries)
 
     effective_voice_context = body.voice_context or ""
     if body.voice_instruct:
@@ -322,7 +330,17 @@ async def synthesize_v2(body: SynthesizeRequest, request: Request) -> dict:
         sample_id=body.voice.sample_id if body.voice.type == "reference" else None,
         samples_dir=settings.samples_dir,
         ref_text=ref_text,
-        blend=[{"voice_id": e.voice_id, "weight": e.weight} for e in body.voice.blend],
+        blend=[
+            {
+                "voice_id":   e.voice_id,
+                "sample_id":  e.sample_id,
+                "sample_path": str(resolve_sample_path_for_provider(
+                    settings.samples_dir, e.sample_id, body.provider_id))
+                    if e.sample_id else None,
+                "weight":     e.weight,
+            }
+            for e in body.voice.blend
+        ],
         cfg_weight=body.cfg_weight,
         exaggeration=body.exaggeration,
         cfg_strength=body.cfg_strength,

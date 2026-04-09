@@ -409,11 +409,13 @@ def compute_cache_key(
 def blend_voice_identity(blend: list[dict]) -> str:
     """
     Canonical voice identity string for a blend request.
-    Sorts by voice_id for stability, normalizes weights to 2 decimal places.
-    Example: [{"voice_id": "bm_lewis", "weight": 0.6}, {"voice_id": "am_adam", "weight": 0.4}]
-             -> "am_adam:0.40|bm_lewis:0.60"
+    Supports both base-voice blends (voice_id key) and sample blends (sample_id key).
+    Sorts by id for stability, normalizes weights to 2 decimal places.
+    Example voice blend: "am_adam:0.40|bm_lewis:0.60"
+    Example sample blend: "M_Dwarf_1:0.30|M_Narrator:0.70"
     """
     pairs = sorted(
-        (f"{entry['voice_id']}:{entry['weight']:.2f}" for entry in blend)
+        f"{entry.get('voice_id') or entry.get('sample_id', 'unknown')}:{entry['weight']:.2f}"
+        for entry in blend
     )
     return "|".join(pairs)

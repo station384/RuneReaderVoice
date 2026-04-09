@@ -54,8 +54,19 @@ router = APIRouter()
 # ── Request / Response models ─────────────────────────────────────────────────
 
 class BlendEntry(BaseModel):
-    voice_id: str
-    weight:   float = Field(gt=0.0, le=1.0)
+    voice_id:  Optional[str] = None   # for base-voice blends (Kokoro)
+    sample_id: Optional[str] = None   # for reference-sample blends (Chatterbox)
+    weight:    float = Field(gt=0.0, le=1.0)
+
+    @field_validator("voice_id", "sample_id", mode="before")
+    @classmethod
+    def _at_least_one_id(cls, v, info):
+        # Cross-field validation happens at model level; per-field just pass through
+        return v
+
+    def model_post_init(self, __context):
+        if not self.voice_id and not self.sample_id:
+            raise ValueError("BlendEntry requires either voice_id or sample_id")
 
 
 class VoiceSpec(BaseModel):
@@ -286,7 +297,15 @@ async def synthesize(body: SynthesizeRequest, request: Request) -> Response:
             sample_id=body.voice.sample_id if body.voice.type == "reference" else None,
             samples_dir=settings.samples_dir,
             ref_text=ref_text,
-            blend=[{"voice_id": e.voice_id, "weight": e.weight}
+            blend=[
+                {
+                    "voice_id":    e.voice_id,
+                    "sample_id":   e.sample_id,
+                    "sample_path": str(resolve_sample_path_for_provider(
+                        settings.samples_dir, e.sample_id, body.provider_id))
+                        if e.sample_id else None,
+                    "weight":      e.weight,
+                }
                    for e in body.voice.blend],
             cfg_weight=body.cfg_weight,
             exaggeration=body.exaggeration,
