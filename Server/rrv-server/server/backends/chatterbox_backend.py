@@ -884,6 +884,36 @@ class ChatterboxBackend(AbstractTtsBackend):
         from chatterbox.models.t3.modules.cond_enc import T3Cond as _T3Cond
         from chatterbox.models.s3tokenizer import drop_invalid_tokens as _drop_invalid
 
+        def _load_tail_tokens_for_cache_key(cache_key: str):
+            """Load persisted prior T3 tail tokens for an explicit continuation ref.
+
+            Maintainer note:
+            This is intentionally separate from conditioning cache reuse. We only
+            load the prior speech token sidecar here so an explicitly chained
+            same-speaker batch segment can continue prosody/rhythm even when the
+            prior segment was a cache hit or was synthesized in an earlier worker
+            lifetime. Do not mix this with conditioning cache behavior.
+            """
+            if not cache_key or not request.cache_dir:
+                return None, ""
+            try:
+                sidecar = Path(request.cache_dir) / self.provider_id / f"{cache_key}.tokens.pt"
+                if not sidecar.exists():
+                    return None, ""
+                payload = _torch.load(sidecar, map_location='cpu')
+                if isinstance(payload, dict):
+                    tokens = payload.get('tokens')
+                    sidecar_voice_key = payload.get('voice_key', '') or ''
+                    sidecar_ctx = payload.get('voice_context', '') or ''
+                    if sidecar_voice_key and sidecar_voice_key != _voice_key:
+                        log.debug("Tail token sidecar voice mismatch for %s — ignoring", cache_key[:12])
+                        return None, ""
+                    return tokens, sidecar_ctx
+                return payload, ""
+            except Exception as _e:
+                log.debug("Tail token sidecar load failed (non-fatal): %s", _e)
+                return None, ""
+
         all_samples: list[np.ndarray] = []
 
         def _run_inference(chunk_text: str, active_t3_cond) -> tuple:
@@ -919,22 +949,31 @@ class ChatterboxBackend(AbstractTtsBackend):
                     continue
 
                 word_count = len(chunk_text.split())
-                _prior_entry = self._prior_speech_tokens.get(_voice_key)
                 _cur_ctx = request.voice_context or ""
+                explicit_continue = bool(request.continue_from_cache_key)
+                _prior_entry = self._prior_speech_tokens.get(_voice_key)
+                prior_tokens = None
+                _prior_ctx = ""
+
                 if _prior_entry is not None:
                     prior_tokens, _prior_ctx = _prior_entry
-                    # Only use prior tokens from the same voice slot context
-                    if _prior_ctx != _cur_ctx:
+                    if _prior_ctx != _cur_ctx and not explicit_continue:
                         prior_tokens = None
-                        log.debug("Cond cache: prior token context mismatch "
-                                  "(%s vs %s) — using reference tokens",
+                        log.debug("Tail token context mismatch (%s vs %s) — using reference tokens",
                                   _prior_ctx, _cur_ctx)
-                else:
-                    prior_tokens = None
+
+                if explicit_continue and prior_tokens is None:
+                    prior_tokens, _prior_ctx = _load_tail_tokens_for_cache_key(request.continue_from_cache_key)
+                    if prior_tokens is not None:
+                        log.debug("Loaded prior tail tokens from disk for explicit continuation: %s",
+                                  request.continue_from_cache_key[:12])
+
                 use_prior = (
-                    word_count <= _SHORT_WORD_THRESHOLD
-                    and prior_tokens is not None
-                    and bool(_cur_ctx)  # require non-empty context tag
+                    prior_tokens is not None
+                    and (
+                        explicit_continue
+                        or (word_count <= _SHORT_WORD_THRESHOLD and bool(_cur_ctx))
+                    )
                 )
 
                 if use_prior:
@@ -965,7 +1004,11 @@ class ChatterboxBackend(AbstractTtsBackend):
                         _sidecar_dir.mkdir(parents=True, exist_ok=True)
                         _sidecar_tmp = _sidecar_dir / f"{request.cache_key}.tokens.pt.tmp"
                         _sidecar     = _sidecar_dir / f"{request.cache_key}.tokens.pt"
-                        _ts.save(tail.cpu(), _sidecar_tmp)
+                        _ts.save({
+                            "tokens": tail.cpu(),
+                            "voice_key": _voice_key,
+                            "voice_context": _ctx_tag,
+                        }, _sidecar_tmp)
                         _sidecar_tmp.rename(_sidecar)
                         log.debug("Tail tokens saved: %s", request.cache_key[:12])
                     except Exception as _e:

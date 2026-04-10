@@ -101,6 +101,13 @@ class SynthesisRequest:
     cache_key:  Optional[str]  = None
     cache_dir:  Optional[str]  = None
 
+    # Explicit T3 continuation reference for batch stitching.
+    # This is ONLY for prior speech token carryover and must never affect
+    # voice conditioning cache selection. The client may point a segment at
+    # the prior same-speaker segment so continuity survives cache hits,
+    # partial regeneration, and worker restarts.
+    continue_from_cache_key: Optional[str] = None
+
     # Progress callback — called by backend as each chunk completes.
     # Signature: callback(chunk: int, total: int) -> None
     # None = no progress reporting (v1 endpoint)

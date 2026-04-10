@@ -157,3 +157,48 @@ def estimate_duration(ogg_bytes: bytes) -> float:
         return info.duration
     except Exception:
         return 0.0
+
+
+def trim_ogg_tail_ms(ogg_bytes: bytes, tail_trim_ms: int) -> tuple[bytes, float]:
+    """
+    Trim a fixed amount from the tail of an OGG and re-encode it.
+
+    Maintainer note:
+    This is intentionally a transport/result-layer helper, not a synthesis-layer helper.
+    We use it for client-requested batch joins where adjacent returned segments may be
+    merged mid-sentence. In that case, a small sentence-ending pad that sounds natural
+    at a true sentence boundary becomes an audible seam.
+
+    Do NOT repurpose this to globally trim backend output without re-checking normal
+    narration cadence first.
+    """
+    import numpy as np
+    import soundfile as sf
+
+    if tail_trim_ms <= 0:
+        return ogg_bytes, estimate_duration(ogg_bytes)
+
+    try:
+        buf = io.BytesIO(ogg_bytes)
+        samples, sample_rate = sf.read(buf, dtype="float32", always_2d=False)
+        if sample_rate <= 0:
+            return ogg_bytes, estimate_duration(ogg_bytes)
+
+        trim_frames = int(sample_rate * (tail_trim_ms / 1000.0))
+        if trim_frames <= 0:
+            return ogg_bytes, estimate_duration(ogg_bytes)
+
+        frame_count = int(samples.shape[0]) if getattr(samples, 'ndim', 1) > 1 else int(len(samples))
+        # Keep a small safety margin so very short chunks are never gutted.
+        min_keep_frames = max(int(sample_rate * 0.05), 1)
+        if frame_count <= trim_frames + min_keep_frames:
+            return ogg_bytes, estimate_duration(ogg_bytes)
+
+        trimmed = samples[:-trim_frames]
+        trimmed = np.asarray(trimmed, dtype=np.float32)
+        trimmed_ogg = pcm_to_ogg(trimmed, int(sample_rate))
+        trimmed_duration = float(len(trimmed) / sample_rate) if getattr(trimmed, 'ndim', 1) == 1 else float(trimmed.shape[0] / sample_rate)
+        return trimmed_ogg, trimmed_duration
+    except Exception as e:
+        log.warning("trim_ogg_tail_ms: failed (%s) — returning original audio", e)
+        return ogg_bytes, estimate_duration(ogg_bytes)

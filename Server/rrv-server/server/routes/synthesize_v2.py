@@ -56,6 +56,7 @@ class SynthesizeRequest(_SynthesizeRequestBase):
     batch_id:    _Opt[str] = None   # client-generated UUID grouping related segments
     batch_total: _Opt[int] = None   # total segments in this batch (required if batch_id set)
 from ..backends.base import SynthesisRequest
+from ..backends.audio import trim_ogg_tail_ms
 from ..text_normalize import normalize as normalize_text
 from ..cache import compute_cache_key, blend_voice_identity
 from ..utils import compute_file_hash
@@ -87,6 +88,8 @@ class JobState:
     input_chars:  int          = 0
     input_words:  int          = 0
     cache_hit:    bool         = False
+    batch_index:  int          = -1
+    batch_total:  int          = 0
     result:       Optional[bytes] = None        # OGG bytes when complete
     created_at:   float        = field(default_factory=time.monotonic)
     completed_at: float        = 0.0
@@ -329,6 +332,11 @@ async def synthesize_v2(body: SynthesizeRequest, request: Request) -> dict:
         }
 
     # 5. Build synthesis request
+    # Single-request v2 calls do not participate in the explicit T3 batch continuity chain.
+    # That chain is only resolved in the batch submit path where the client provides
+    # continue_from_segment_id links between related same-speaker segments.
+    continue_from_cache_key = None
+
     synth_request = SynthesisRequest(
         text=normalized_text,
         lang_code=body.lang_code,
@@ -370,6 +378,7 @@ async def synthesize_v2(body: SynthesizeRequest, request: Request) -> dict:
         synthesis_seed=resolved_seed,
         cache_key=cache_key,
         cache_dir=str(settings.cache_dir),
+        continue_from_cache_key=continue_from_cache_key,
     )
 
     # 6. Start background synthesis task
@@ -388,6 +397,7 @@ async def synthesize_v2(body: SynthesizeRequest, request: Request) -> dict:
 class BatchSegmentRequest(_SynthesizeRequestBase):
     """One segment in a batch submit. Identical fields to SynthesizeRequest."""
     segment_id: str = ""   # client-assigned ID echoed back in response
+    continue_from_segment_id: str = ""  # optional client continuity link to prior same-speaker segment
 
 
 class BatchSubmitRequest(BaseModel):
@@ -400,6 +410,9 @@ async def _process_one_segment(
     registry,
     cache,
     settings,
+    batch_index: int,
+    batch_total: int,
+    continue_from_cache_key: str | None = None,
 ) -> dict:
     """
     Process a single segment from a batch submit.
@@ -481,6 +494,10 @@ async def _process_one_segment(
     if resolved_seed is not None:
         effective_voice_context = f"{effective_voice_context}|seed:{resolved_seed}"
 
+    # Explicit continuity is a T3-tail-token concern only.
+    # The client may chain same-speaker segments across narrator interjections so
+    # continuation survives cache hits and partial regeneration. This reference
+    # must NEVER affect voice conditioning cache selection.
     normalized_text = normalize_text(seg.text)
 
     cache_key = compute_cache_key(
@@ -504,6 +521,8 @@ async def _process_one_segment(
         cache_key=cache_key,
         provider_id=seg.provider_id,
         batch_id=batch_id,
+        batch_index=batch_index,
+        batch_total=batch_total,
     )
     job.input_chars = len(normalized_text)
     job.input_words = len(normalized_text.split())
@@ -570,6 +589,7 @@ async def _process_one_segment(
         synthesis_seed=resolved_seed,
         cache_key=cache_key,
         cache_dir=str(settings.cache_dir),
+        continue_from_cache_key=continue_from_cache_key,
     )
 
     asyncio.create_task(_run_synthesis(job, backend, synth_request, cache, cache_key))
@@ -616,9 +636,24 @@ async def synthesize_v2_batch(body: BatchSubmitRequest, request: Request) -> dic
 
     # Process all segments — cache checks run concurrently, synthesis dispatched async
     results = []
-    for seg in body.segments:
-        result = await _process_one_segment(seg, batch_id, registry, cache, settings)
+    segment_cache_keys: dict[str, str] = {}
+    for batch_index, seg in enumerate(body.segments):
+        continue_from_cache_key = None
+        if seg.continue_from_segment_id:
+            continue_from_cache_key = segment_cache_keys.get(seg.continue_from_segment_id)
+        result = await _process_one_segment(
+            seg,
+            batch_id,
+            registry,
+            cache,
+            settings,
+            batch_index,
+            total,
+            continue_from_cache_key=continue_from_cache_key,
+        )
         results.append(result)
+        if seg.segment_id and result.get("cache_key"):
+            segment_cache_keys[seg.segment_id] = result["cache_key"]
         # Register each job's progress_key with the batch
         if result.get("progress_key"):
             async with _jobs_lock:
@@ -886,7 +921,7 @@ def _sse(data: dict) -> str:
 # ── GET /api/v1/synthesize/v2/{key}/result ────────────────────────────────────
 
 @router.get("/api/v1/synthesize/v2/{progress_key}/result")
-async def synthesize_v2_result(progress_key: str) -> Response:
+async def synthesize_v2_result(progress_key: str, request: Request) -> Response:
     """
     Fetch the OGG result for a completed synthesis job.
     Returns 202 if still in progress, 200 with OGG bytes if complete.
@@ -903,15 +938,36 @@ async def synthesize_v2_result(progress_key: str) -> Response:
             media_type="application/json",
         )
 
+    response_audio = job.result
+    response_duration = job.duration_sec
+
+    # Maintainer note:
+    # Batch join tail trim exists for client-requested Chatterbox batch segments only.
+    # We intentionally leave the backend's internal long-text sentence splitting alone,
+    # because its tiny sentence pause sounds correct at true sentence boundaries.
+    #
+    # The batch/player-name use case is different: adjacent results can be merged by the
+    # client mid-sentence, which makes the same trailing pad stand out as a seam. To keep
+    # cache contents pristine for normal playback, we trim ONLY on outbound result fetch,
+    # ONLY for non-final batch segments, and ONLY for Chatterbox-family providers.
+    if (
+        job.batch_id
+        and 0 <= job.batch_index < max(job.batch_total - 1, 0)
+        and job.provider_id in ("chatterbox", "chatterbox_full", "chatterbox_multilingual")
+    ):
+        trim_ms = int(getattr(request.app.state.settings, "cb_batch_join_tail_trim_ms", 0))
+        if trim_ms > 0:
+            response_audio, response_duration = trim_ogg_tail_ms(job.result, trim_ms)
+
     return Response(
-        content=job.result,
+        content=response_audio,
         media_type="audio/ogg",
         headers={
             "X-Cache":           "HIT" if job.cache_hit else "MISS",
             "X-Cache-Key":       job.cache_key,
             "X-Input-Chars":     str(job.input_chars),
             "X-Input-Words":     str(job.input_words),
-            "X-Duration":        f"{job.duration_sec:.3f}",
+            "X-Duration":        f"{response_duration:.3f}",
             "X-Synth-Time":      f"{job.synth_time:.3f}"      if not job.cache_hit else "",
             "X-Realtime-Factor": f"{job.realtime_factor:.3f}" if not job.cache_hit else "",
         },

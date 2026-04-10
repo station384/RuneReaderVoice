@@ -122,6 +122,25 @@ class Settings:
         if self.chatterbox_max_concurrent < 1:
             raise ValueError("RRV_CHATTERBOX_MAX_CONCURRENT must be at least 1")
 
+        # Tail trim applied ONLY when returning client-requested batch subsegments for
+        # Chatterbox-family providers. This intentionally does NOT touch the backend's
+        # internal long-text sentence splitter.
+        #
+        # Why this exists:
+        # - Normal internal Chatterbox sentence splitting sounds correct with a small
+        #   sentence-ending pause.
+        # - Client-requested batch splits can occur mid-sentence (for cache-friendly
+        #   player-name replacement), where that same trailing pad becomes an audible
+        #   seam after the client merges adjacent results.
+        # - Trimming is therefore applied one level higher, only to NON-FINAL batch
+        #   results at result-fetch time, so cached audio stays pristine for normal use.
+        #
+        # If future investigation shows clipped joins or renewed weird pausing, revisit
+        # this setting first before changing the backend's internal sentence chunker.
+        self.cb_batch_join_tail_trim_ms: int = _env_int("RRV_CB_BATCH_JOIN_TAIL_TRIM_MS", 100)
+        if self.cb_batch_join_tail_trim_ms < 0:
+            raise ValueError("RRV_CB_BATCH_JOIN_TAIL_TRIM_MS must be >= 0")
+
         # Voice conditioning cache — stores serialized T3Cond + gen dicts so
         # prepare_conditionals() is skipped on repeated voice/blend requests.
         # Keyed by content hash of reference audio + exaggeration.
