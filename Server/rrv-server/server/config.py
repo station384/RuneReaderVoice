@@ -122,6 +122,11 @@ class Settings:
         if self.chatterbox_max_concurrent < 1:
             raise ValueError("RRV_CHATTERBOX_MAX_CONCURRENT must be at least 1")
 
+        # Voice conditioning cache — stores serialized T3Cond + gen dicts so
+        # prepare_conditionals() is skipped on repeated voice/blend requests.
+        # Keyed by content hash of reference audio + exaggeration.
+        self.cond_cache_dir: Path = Path(_env_str("RRV_COND_CACHE_DIR", "./data/cond_cache"))
+
         # Default synthesis seed — applied when client does not send synthesis_seed.
         # None = random (non-deterministic). Set e.g. RRV_DEFAULT_SEED=42 for
         # reproducible output server-wide.

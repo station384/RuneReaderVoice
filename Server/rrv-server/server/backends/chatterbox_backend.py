@@ -152,7 +152,8 @@ def _split_into_chunks(text: str,
 
 class ChatterboxBackend(AbstractTtsBackend):
 
-    def __init__(self, models_dir: Path, torch_device: str, max_concurrent: int = 2) -> None:
+    def __init__(self, models_dir: Path, torch_device: str, max_concurrent: int = 2,
+                 cond_cache_dir: Path | None = None) -> None:
         self._models_dir     = models_dir
         self._torch_device   = torch_device
         self._model          = None
@@ -168,8 +169,19 @@ class ChatterboxBackend(AbstractTtsBackend):
         # Turbo bakes exaggeration into the conditionals during prepare_conditionals(),
         # so the cache key includes both sample hash and exaggeration value.
         # The temp WAV stays alive for the cache entry lifetime.
-        self._cond_cache_key: str = ""     # "{sample_hash}|{exaggeration}"
-        self._cond_tmp_wav: str   = ""     # path to current PCM_16 temp WAV
+        self._cond_cache_key: str = ""
+        self._cond_tmp_wav: str   = ""
+
+        # Two-level voice conditioning cache (memory + disk)
+        from collections import OrderedDict
+        self._cond_mem_cache: OrderedDict = OrderedDict()
+        self._cond_cache_dir: Path = (
+            Path(cond_cache_dir) if cond_cache_dir is not None
+            else Path("./data/cond_cache")
+        )
+
+        # Prior speech token context for short-text priming
+        self._prior_speech_tokens: dict = {}
 
     def _voice_group_key(self, request: SynthesisRequest) -> str:
         sample_key = str(request.sample_path.resolve()) if request.sample_path is not None else ""
@@ -461,7 +473,7 @@ class ChatterboxBackend(AbstractTtsBackend):
         duration = estimate_duration(ogg_bytes)
         return SynthesisResult(ogg_bytes=ogg_bytes, duration_sec=duration)
 
-    def _blend_conditionals(self, blend: list[dict]) -> None:
+    def _blend_conditionals_inner(self, blend: list[dict]) -> None:
         """
         Blend voice conditionals from multiple reference samples.
         Blends both t3.speaker_emb (T3 identity) and gen["embedding"] (S3Gen vocoder x-vector).
@@ -574,8 +586,7 @@ class ChatterboxBackend(AbstractTtsBackend):
                     watermarked = self_m.watermarker.apply_watermark(wav, sample_rate=self_m.sr)
                 return _torch.from_numpy(watermarked).unsqueeze(0)
 
-            self._model._rrv_blend_generate = types.MethodType(_patched_generate, self._model)
-            self._is_blend_active = True
+            self._setup_blend_generate(blended_t3, blended_gen)
 
             log.debug("Chatterbox Turbo blend: %d samples blended", len(t3_speaker_embs))
 
@@ -587,6 +598,167 @@ class ChatterboxBackend(AbstractTtsBackend):
                     pass
 
         self._cond_cache_key = ""
+
+    def _setup_blend_generate(self, t3_cond, gen_dict: dict) -> None:
+        """Install generate() bypass for blend/cache-loaded conditionals."""
+        import types as _types
+        _t3_ref  = t3_cond
+        _gen_ref = gen_dict
+
+        def _patched_generate(self_m, text, repetition_penalty=1.2, min_p=0.05,
+                               top_p=1.0, audio_prompt_path=None, exaggeration=0.5,
+                               cfg_weight=0.5, temperature=0.8):
+            import torch as _torch
+            import torch.nn.functional as F
+            from chatterbox.models.s3tokenizer import drop_invalid_tokens
+            self_m.conds.t3  = _t3_ref
+            self_m.conds.gen = _gen_ref
+            text_proc = self_m.tokenizer.text_to_tokens(text).to(self_m.device)
+            if cfg_weight > 0.0:
+                text_proc = _torch.cat([text_proc, text_proc], dim=0)
+            sot = self_m.t3.hp.start_text_token
+            eot = self_m.t3.hp.stop_text_token
+            text_proc = F.pad(text_proc, (1, 0), value=sot)
+            text_proc = F.pad(text_proc, (0, 1), value=eot)
+            with _torch.inference_mode():
+                speech_tokens = self_m.t3.inference(
+                    t3_cond=self_m.conds.t3,
+                    text_tokens=text_proc,
+                    max_new_tokens=1000,
+                    temperature=temperature,
+                    cfg_weight=cfg_weight,
+                    repetition_penalty=repetition_penalty,
+                    min_p=min_p,
+                    top_p=top_p,
+                )
+                speech_tokens = drop_invalid_tokens(speech_tokens[0])
+                speech_tokens = speech_tokens[speech_tokens < 6561].to(self_m.device)
+                wav, _ = self_m.s3gen.inference(
+                    speech_tokens=speech_tokens,
+                    ref_dict=self_m.conds.gen,
+                )
+                wav = wav.squeeze(0).detach().cpu().numpy()
+                watermarked = self_m.watermarker.apply_watermark(wav, sample_rate=self_m.sr)
+            return _torch.from_numpy(watermarked).unsqueeze(0)
+
+        self._model._rrv_blend_generate = _types.MethodType(_patched_generate, self._model)
+        self._is_blend_active = True
+
+    _COND_MEM_CACHE_SIZE = 4
+
+    def _cond_key_single(self, sample_path, exaggeration: float) -> str:
+        import hashlib
+        h = hashlib.sha256(Path(str(sample_path)).read_bytes()).hexdigest()[:16]
+        return f"{h}|ex:{exaggeration:.3f}"
+
+    def _cond_key_blend(self, blend_entries: list[dict], exaggeration: float) -> str:
+        import hashlib
+        from ..utils import compute_file_hash
+        parts = sorted(
+            f"{compute_file_hash(Path(e['sample_path']))[:16]}:{e['weight']:.4f}"
+            for e in blend_entries if e.get("sample_path")
+        )
+        h = hashlib.sha256("|".join(parts).encode()).hexdigest()[:16]
+        return f"blend_{h}|ex:{exaggeration:.3f}"
+
+    def _cond_disk_path(self, cache_key: str) -> Path:
+        safe = cache_key.replace("|", "_").replace(":", "-").replace(".", "p")
+        return self._cond_cache_dir / f"{safe}.pt"
+
+    def _cond_mem_get(self, cache_key: str):
+        if cache_key in self._cond_mem_cache:
+            self._cond_mem_cache.move_to_end(cache_key)
+            return self._cond_mem_cache[cache_key]
+        return None
+
+    def _cond_mem_put(self, cache_key: str, t3_cond, gen_dict: dict) -> None:
+        self._cond_mem_cache[cache_key] = (t3_cond, gen_dict)
+        self._cond_mem_cache.move_to_end(cache_key)
+        while len(self._cond_mem_cache) > self._COND_MEM_CACHE_SIZE:
+            self._cond_mem_cache.popitem(last=False)
+
+    def _cond_disk_save(self, cache_key: str, t3_cond, gen_dict: dict) -> None:
+        import torch
+        try:
+            self._cond_cache_dir.mkdir(parents=True, exist_ok=True)
+            data = {
+                "t3": {k: v.detach().cpu() if torch.is_tensor(v) else v
+                       for k, v in t3_cond.__dict__.items()},
+                "gen": {k: v.detach().cpu() if torch.is_tensor(v) else v
+                        for k, v in gen_dict.items()},
+            }
+            tmp = self._cond_disk_path(cache_key).with_suffix(".pt.tmp")
+            torch.save(data, tmp)
+            tmp.rename(self._cond_disk_path(cache_key))
+            log.debug("Cond cache: saved to disk key=%s", cache_key[:20])
+        except Exception as e:
+            log.warning("Cond cache: disk save failed (%s)", e)
+
+    def _cond_disk_load(self, cache_key: str):
+        import torch
+        from chatterbox.models.t3.modules.cond_enc import T3Cond
+        p = self._cond_disk_path(cache_key)
+        if not p.exists():
+            return None
+        try:
+            data = torch.load(p, map_location=self._torch_device, weights_only=True)
+            t3_cond = T3Cond(**data["t3"]).to(device=self._torch_device)
+            gen_dict = {k: v.to(device=self._torch_device) if torch.is_tensor(v) else v
+                        for k, v in data["gen"].items()}
+            log.debug("Cond cache: loaded from disk key=%s", cache_key[:20])
+            return t3_cond, gen_dict
+        except Exception as e:
+            log.warning("Cond cache: disk load failed (%s) — will recompute", e)
+            try: p.unlink()
+            except Exception: pass
+            return None
+
+    def _cond_get_or_compute_single(self, sample_path, exaggeration: float) -> tuple:
+        """Memory → disk → full prepare_conditionals()."""
+        cache_key = self._cond_key_single(sample_path, exaggeration)
+        hit = self._cond_mem_get(cache_key)
+        if hit:
+            log.debug("Cond cache: memory HIT single key=%s", cache_key[:20])
+            return hit
+        hit = self._cond_disk_load(cache_key)
+        if hit:
+            self._cond_mem_put(cache_key, *hit)
+            return hit
+        log.info("Cond cache: MISS single — running prepare_conditionals key=%s", cache_key[:20])
+        import soundfile as sf, tempfile, os
+        audio_data, sr = sf.read(str(sample_path), dtype="float32")
+        with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tmp:
+            tmp_path = tmp.name
+        try:
+            sf.write(tmp_path, audio_data, sr, subtype="PCM_16")
+            self._model.prepare_conditionals(tmp_path)
+        finally:
+            try: os.unlink(tmp_path)
+            except Exception: pass
+        t3_cond, gen_dict = self._model.conds.t3, self._model.conds.gen
+        self._cond_mem_put(cache_key, t3_cond, gen_dict)
+        self._cond_disk_save(cache_key, t3_cond, gen_dict)
+        self._cond_cache_key = cache_key
+        return t3_cond, gen_dict
+
+    def _cond_get_or_compute_blend(self, blend_entries: list[dict],
+                                    exaggeration: float) -> tuple:
+        """Memory → disk → full blend compute."""
+        cache_key = self._cond_key_blend(blend_entries, exaggeration)
+        hit = self._cond_mem_get(cache_key)
+        if hit:
+            log.debug("Cond cache: memory HIT blend key=%s", cache_key[:20])
+            return hit
+        hit = self._cond_disk_load(cache_key)
+        if hit:
+            self._cond_mem_put(cache_key, *hit)
+            return hit
+        log.info("Cond cache: MISS blend — computing conditionals key=%s", cache_key[:20])
+        self._blend_conditionals_inner(blend_entries)
+        t3_cond, gen_dict = self._model.conds.t3, self._model.conds.gen
+        self._cond_mem_put(cache_key, t3_cond, gen_dict)
+        self._cond_disk_save(cache_key, t3_cond, gen_dict)
+        return t3_cond, gen_dict
 
     def _make_cond_cache_key(self, sample_hash: str, exaggeration: float) -> str:
         # Turbo does not accept exaggeration in prepare_conditionals() —
@@ -661,16 +833,27 @@ class ChatterboxBackend(AbstractTtsBackend):
         top_p               = request.cb_top_p              if request.cb_top_p              is not None else 0.95
         repetition_penalty  = request.cb_repetition_penalty if request.cb_repetition_penalty is not None else 1.2
 
-        # Route: blend vs single reference
+        # Route: blend vs single reference — both via two-level conditioning cache
         blend_entries = [e for e in request.blend if e.get("sample_path")] if request.blend else []
         if blend_entries:
-            log.debug("Chatterbox Turbo: blend mode — %d samples", len(blend_entries))
-            self._blend_conditionals(blend_entries)
+            t3_cond, gen_dict = self._cond_get_or_compute_blend(blend_entries, exaggeration)
+            self._model.conds.t3  = t3_cond
+            self._model.conds.gen = gen_dict
+            self._setup_blend_generate(t3_cond, gen_dict)
         else:
             if request.sample_path is None:
                 raise ValueError("Chatterbox Turbo requires either a reference sample or a blend.")
-            sample_hash = compute_file_hash(request.sample_path)
-            self._ensure_conditionals(request.sample_path, sample_hash, exaggeration)
+            t3_cond, gen_dict = self._cond_get_or_compute_single(
+                request.sample_path, exaggeration)
+            self._model.conds.t3  = t3_cond
+            self._model.conds.gen = gen_dict
+            self._is_blend_active = False
+
+        # Voice identity key for prior token context
+        if blend_entries:
+            _voice_key = self._cond_key_blend(blend_entries, exaggeration)
+        else:
+            _voice_key = self._cond_key_single(request.sample_path, exaggeration)
 
         # Set deterministic seed if requested
         if request.synthesis_seed is not None:
@@ -678,30 +861,79 @@ class ChatterboxBackend(AbstractTtsBackend):
             _torch.manual_seed(request.synthesis_seed)
             _torch.cuda.manual_seed_all(request.synthesis_seed)
 
-        # Split into sentence-boundary chunks — transparent to the client.
         chunks = _split_into_chunks(request.text)
         total  = len(chunks)
         _progress_cb = request.progress_callback
-        _generate = getattr(self._model, '_rrv_blend_generate', None) \
-                    if getattr(self, '_is_blend_active', False) else None
-        if _generate is None:
-            _generate = self._model.generate
+
+        _SHORT_WORD_THRESHOLD = int(
+            __import__('os').environ.get('RRV_CB_PRIOR_TOKEN_WORDS', '3'))
+        _PRIOR_TOKEN_LEN = int(
+            __import__('os').environ.get('RRV_CB_PRIOR_TOKEN_LEN', '75'))
+
+        import torch as _torch
+        import torch.nn.functional as _F
+        from chatterbox.models.t3.modules.cond_enc import T3Cond as _T3Cond
+        from chatterbox.models.s3tokenizer import drop_invalid_tokens as _drop_invalid
 
         all_samples: list[np.ndarray] = []
+
+        def _run_inference(chunk_text: str, active_t3_cond) -> tuple:
+            text_proc = self._model.tokenizer.text_to_tokens(chunk_text).to(self._model.device)
+            if cfg_weight > 0.0:
+                text_proc = _torch.cat([text_proc, text_proc], dim=0)
+            sot = self._model.t3.hp.start_text_token
+            eot = self._model.t3.hp.stop_text_token
+            text_proc = _F.pad(text_proc, (1, 0), value=sot)
+            text_proc = _F.pad(text_proc, (0, 1), value=eot)
+            with _torch.inference_mode():
+                speech_tokens = self._model.t3.inference_turbo(
+                    t3_cond=active_t3_cond,
+                    text_tokens=text_proc,
+                    temperature=temperature,
+                    top_p=top_p,
+                    repetition_penalty=repetition_penalty,
+                )
+                clean = _drop_invalid(speech_tokens[0])
+                clean = clean[clean < 6561].to(self._model.device)
+                wav, _ = self._model.s3gen.inference(
+                    speech_tokens=clean,
+                    ref_dict=gen_dict,
+                )
+                wav_np = wav.squeeze(0).detach().cpu().numpy()
+                wav_np = self._model.watermarker.apply_watermark(
+                    wav_np, sample_rate=self._model.sr)
+            return wav_np, clean
 
         try:
             for i, chunk_text in enumerate(chunks):
                 if not chunk_text.strip():
                     continue
-                # exaggeration applied during prepare_conditionals, not generate()
-                wav = _generate(
-                    text=chunk_text,
-                    cfg_weight=cfg_weight,
-                    temperature=temperature,
-                    top_p=top_p,
-                    repetition_penalty=repetition_penalty,
+
+                word_count = len(chunk_text.split())
+                prior_tokens = self._prior_speech_tokens.get(_voice_key)
+                use_prior = (
+                    word_count <= _SHORT_WORD_THRESHOLD
+                    and prior_tokens is not None
                 )
-                samples = wav.squeeze().numpy() if hasattr(wav, 'numpy') else np.array(wav).squeeze()
+
+                if use_prior:
+                    active_t3 = _T3Cond(
+                        speaker_emb=t3_cond.speaker_emb,
+                        cond_prompt_speech_tokens=prior_tokens,
+                        emotion_adv=t3_cond.emotion_adv,
+                    ).to(device=self._torch_device)
+                    log.debug(
+                        "Chatterbox Turbo: chunk %d/%d primed (%d words) using %d prior tokens",
+                        i + 1, total, word_count, prior_tokens.shape[-1])
+                else:
+                    active_t3 = t3_cond
+
+                wav_np, clean_tokens = _run_inference(chunk_text, active_t3)
+
+                self._prior_speech_tokens[_voice_key] = \
+                    clean_tokens[-_PRIOR_TOKEN_LEN:].unsqueeze(0).detach()
+
+                samples = wav_np.squeeze() if wav_np.ndim > 1 else wav_np
                 all_samples.append(samples.astype(np.float32))
                 log.debug("Chatterbox Turbo: chunk %d/%d synthesized (%d chars)",
                           i + 1, total, len(chunk_text))

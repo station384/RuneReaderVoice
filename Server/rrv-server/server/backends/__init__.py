@@ -152,6 +152,8 @@ def _create_backend(name: str, models_dir, gpu: GpuInfo, settings=None) -> Abstr
         )
 
     chatterbox_max_concurrent = getattr(settings, "chatterbox_max_concurrent", 2)
+    _cond_cache_dir = Path(getattr(settings, "cond_cache_dir",
+                                    models_dir.parent / "cond_cache"))
 
     if name == "kokoro":
         from .kokoro_backend import KokoroBackend
@@ -173,6 +175,7 @@ def _create_backend(name: str, models_dir, gpu: GpuInfo, settings=None) -> Abstr
             models_dir=models_dir,
             torch_device=gpu.torch_device,
             max_concurrent=chatterbox_max_concurrent,
+            cond_cache_dir=_cond_cache_dir,
         )
 
     elif name == "chatterbox_full":
@@ -181,6 +184,7 @@ def _create_backend(name: str, models_dir, gpu: GpuInfo, settings=None) -> Abstr
             models_dir=models_dir,
             torch_device=gpu.torch_device,
             max_concurrent=chatterbox_max_concurrent,
+            cond_cache_dir=_cond_cache_dir,
         )
 
     elif name == "chatterbox_multilingual":
