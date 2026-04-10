@@ -202,6 +202,53 @@ class AudioCache:
             self._key_locks[key] = asyncio.Lock()
         return self._key_locks[key]
 
+    # ── Tail token sidecar ────────────────────────────────────────────────────
+
+    def _tail_token_path(self, key: str, provider_id: str) -> Path:
+        """Path for the tail token sidecar: {cache_dir}/{provider_id}/{key}.tokens.pt"""
+        return self._cache_dir / provider_id / f"{key}.tokens.pt"
+
+    def store_tail_tokens(self, key: str, provider_id: str,
+                          tokens: "torch.Tensor") -> None:
+        """
+        Persist the last N speech tokens from a synthesis alongside its OGG.
+        Stored as a CPU tensor in a .tokens.pt sidecar file.
+        Called synchronously from the worker thread after synthesis completes.
+        Silent on failure — tail tokens are best-effort.
+        """
+        import torch
+        try:
+            p = self._tail_token_path(key, provider_id)
+            if not p.parent.exists():
+                p.parent.mkdir(parents=True, exist_ok=True)
+            tmp = p.with_suffix(".pt.tmp")
+            torch.save(tokens.detach().cpu(), tmp)
+            tmp.rename(p)
+            log.debug("Tail tokens stored: %s/%s (%d tokens)", provider_id, key[:12], tokens.shape[-1])
+        except Exception as e:
+            log.debug("Tail token store failed (non-fatal): %s", e)
+
+    def load_tail_tokens(self, key: str, provider_id: str,
+                         device: str = "cpu") -> "Optional[torch.Tensor]":
+        """
+        Load tail tokens for a cached segment. Returns tensor on `device` or None.
+        Called synchronously from the worker thread during primed synthesis.
+        """
+        import torch
+        p = self._tail_token_path(key, provider_id)
+        if not p.exists():
+            return None
+        try:
+            tokens = torch.load(p, map_location=device, weights_only=True)
+            log.debug("Tail tokens loaded: %s/%s (%d tokens)", provider_id, key[:12], tokens.shape[-1])
+            return tokens
+        except Exception as e:
+            log.debug("Tail token load failed (non-fatal): %s", e)
+            return None
+        if key not in self._key_locks:
+            self._key_locks[key] = asyncio.Lock()
+        return self._key_locks[key]
+
     async def stats(self) -> dict:
         """Return cache statistics for the health/diagnostics endpoint."""
         assert self._db is not None

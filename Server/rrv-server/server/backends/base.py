@@ -70,6 +70,7 @@ class SynthesisRequest:
     sway_sampling_coef:  Optional[float] = None   # F5-TTS: ODE time step distribution (-1.0=sway optimal, 0=uniform)
     # Qwen-specific controls
     voice_instruct:    Optional[str] = None  # qwen_custom: natural language style instruction
+    voice_context:     Optional[str] = None  # slot identity string (e.g. "NightElf/Female") for cache discrimination and prior token gating
     voice_description: Optional[str] = None  # qwen_design: natural language voice persona description
 
     # LuxTTS-specific controls
@@ -94,6 +95,11 @@ class SynthesisRequest:
     # Reproducibility — supported by all backends that use random sampling.
     # None = non-deterministic (default). Integer = fixed seed for repeatable output.
     synthesis_seed:       Optional[int]   = None
+
+    # Cache key and cache dir — set by the route so the backend can write
+    # tail token sidecars directly after synthesis.
+    cache_key:  Optional[str]  = None
+    cache_dir:  Optional[str]  = None
 
     # Progress callback — called by backend as each chunk completes.
     # Signature: callback(chunk: int, total: int) -> None

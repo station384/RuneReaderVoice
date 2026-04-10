@@ -224,10 +224,13 @@ def _build_request(msg: dict):
         # progress_callback is never set cross-process — host handles progress
         voice_instruct=msg.get("voice_instruct"),
         voice_description=msg.get("voice_description"),
+        voice_context=msg.get("voice_context"),
         lux_num_steps=_opt_int(msg, "lux_num_steps"),
         lux_t_shift=_opt_float(msg, "lux_t_shift"),
         lux_return_smooth=msg.get("lux_return_smooth"),
         cosy_instruct=msg.get("cosy_instruct"),
+        cache_key=msg.get("cache_key"),
+        cache_dir=msg.get("cache_dir"),
         progress_callback=None,
     )
 

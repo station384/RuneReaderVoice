@@ -145,6 +145,9 @@ _batches: dict[str, BatchState] = {}
 async def _get_job(progress_key: str) -> JobState:
     async with _jobs_lock:
         job = _jobs.get(progress_key)
+        if job is None:
+            # Fallback: client may have passed cache_key instead of progress_key
+            job = next((j for j in _jobs.values() if j.cache_key == progress_key), None)
     if job is None:
         raise HTTPException(status_code=404, detail=f"Job '{progress_key}' not found or expired")
     return job
@@ -365,6 +368,8 @@ async def synthesize_v2(body: SynthesizeRequest, request: Request) -> dict:
         cb_top_p=body.cb_top_p,
         cb_repetition_penalty=body.cb_repetition_penalty,
         synthesis_seed=resolved_seed,
+        cache_key=cache_key,
+        cache_dir=str(settings.cache_dir),
     )
 
     # 6. Start background synthesis task
@@ -375,6 +380,264 @@ async def synthesize_v2(body: SynthesizeRequest, request: Request) -> dict:
         "cache_key":    cache_key,
         "input_chars":  job.input_chars,
         "input_words":  job.input_words,
+    }
+
+
+# ── Batch submit endpoint ──────────────────────────────────────────────────────
+
+class BatchSegmentRequest(_SynthesizeRequestBase):
+    """One segment in a batch submit. Identical fields to SynthesizeRequest."""
+    segment_id: str = ""   # client-assigned ID echoed back in response
+
+
+class BatchSubmitRequest(BaseModel):
+    segments: list[BatchSegmentRequest]
+
+
+async def _process_one_segment(
+    seg: BatchSegmentRequest,
+    batch_id: str,
+    registry,
+    cache,
+    settings,
+) -> dict:
+    """
+    Process a single segment from a batch submit.
+    Mirrors synthesize_v2() logic: resolve backend, compute cache key,
+    check cache, dispatch synthesis job.
+    Returns the per-segment response dict.
+    """
+    backend = registry.get(seg.provider_id)
+    if backend is None:
+        return {
+            "segment_id":   seg.segment_id,
+            "progress_key": None,
+            "cache_key":    None,
+            "cached":       False,
+            "error":        f"Provider '{seg.provider_id}' not loaded",
+        }
+
+    try:
+        _validate_voice_type(seg.voice, backend)
+    except HTTPException as e:
+        return {"segment_id": seg.segment_id, "error": e.detail,
+                "progress_key": None, "cache_key": None, "cached": False}
+
+    # Resolve sample
+    sample_path = None
+    sample_file_hash = ""
+    ref_text = ""
+    if seg.voice.type == "reference":
+        sample_id = seg.voice.sample_id
+        if not sample_id:
+            return {"segment_id": seg.segment_id, "error": "voice.sample_id required",
+                    "progress_key": None, "cache_key": None, "cached": False}
+        sample_path = resolve_sample_path_for_provider(
+            settings.samples_dir, sample_id, seg.provider_id)
+        if sample_path is None:
+            return {"segment_id": seg.segment_id, "error": f"Sample '{sample_id}' not found",
+                    "progress_key": None, "cache_key": None, "cached": False}
+        sample_file_hash = compute_file_hash(sample_path)
+        sample_info = resolve_sample_for_provider(
+            settings.samples_dir, sample_id, seg.provider_id)
+        ref_text = sample_info.ref_text if sample_info else ""
+
+    # Voice identity
+    if seg.voice.type == "base":
+        voice_identity = seg.voice.voice_id or ""
+    elif seg.voice.type == "reference":
+        voice_identity = sample_file_hash
+    elif seg.voice.type == "description":
+        import hashlib as _hl
+        voice_identity = _hl.sha256(
+            (seg.voice.voice_description or "").encode()).hexdigest()[:16]
+    else:
+        _blend_entries = []
+        for e in seg.voice.blend:
+            if e.sample_id:
+                _sp = resolve_sample_path_for_provider(
+                    settings.samples_dir, e.sample_id, seg.provider_id)
+                _hash = compute_file_hash(_sp) if _sp else e.sample_id
+                _blend_entries.append({"voice_id": _hash, "weight": e.weight})
+            else:
+                _blend_entries.append({"voice_id": e.voice_id, "weight": e.weight})
+        voice_identity = blend_voice_identity(_blend_entries)
+
+    # Seed resolution
+    resolved_seed = seg.synthesis_seed
+    if resolved_seed is None:
+        resolved_seed = settings.default_synthesis_seed
+
+    # Effective voice context (for cache key discrimination + prior token gating)
+    effective_voice_context = seg.voice_context or ""
+    if seg.voice_instruct:
+        effective_voice_context = f"{effective_voice_context}|instruct:{seg.voice_instruct}"
+    if seg.cb_temperature is not None:
+        effective_voice_context = f"{effective_voice_context}|cb_temp:{seg.cb_temperature:.2f}"
+    if seg.cb_top_p is not None:
+        effective_voice_context = f"{effective_voice_context}|cb_top_p:{seg.cb_top_p:.2f}"
+    if seg.cb_repetition_penalty is not None:
+        effective_voice_context = f"{effective_voice_context}|cb_rep:{seg.cb_repetition_penalty:.2f}"
+    if resolved_seed is not None:
+        effective_voice_context = f"{effective_voice_context}|seed:{resolved_seed}"
+
+    normalized_text = normalize_text(seg.text)
+
+    cache_key = compute_cache_key(
+        text=normalized_text,
+        provider_id=seg.provider_id,
+        voice_identity=voice_identity,
+        lang_code=seg.lang_code,
+        speech_rate=seg.speech_rate,
+        cfg_weight=seg.cfg_weight,
+        exaggeration=seg.exaggeration,
+        cfg_strength=seg.cfg_strength,
+        nfe_step=seg.nfe_step,
+        cross_fade_duration=seg.cross_fade_duration,
+        sway_sampling_coef=seg.sway_sampling_coef,
+        voice_context=effective_voice_context,
+    )
+
+    progress_key = str(uuid.uuid4()).replace("-", "")
+    job = JobState(
+        progress_key=progress_key,
+        cache_key=cache_key,
+        provider_id=seg.provider_id,
+        batch_id=batch_id,
+    )
+    job.input_chars = len(normalized_text)
+    job.input_words = len(normalized_text.split())
+
+    async with _jobs_lock:
+        _jobs[progress_key] = job
+
+    # Cache hit — complete immediately
+    cached_ogg = await cache.get(cache_key)
+    if cached_ogg is not None:
+        job.status       = "complete"
+        job.result       = cached_ogg
+        job.cache_hit    = True
+        job.completed_at = time.monotonic()
+        return {
+            "segment_id":   seg.segment_id,
+            "progress_key": progress_key,
+            "cache_key":    cache_key,
+            "cached":       True,
+            "input_chars":  job.input_chars,
+            "input_words":  job.input_words,
+        }
+
+    # Cache miss — build SynthesisRequest and dispatch
+    synth_request = SynthesisRequest(
+        text=normalized_text,
+        lang_code=seg.lang_code,
+        speech_rate=seg.speech_rate,
+        voice_id=seg.voice.voice_id,
+        sample_path=sample_path,
+        sample_id=seg.voice.sample_id if seg.voice.type == "reference" else None,
+        samples_dir=settings.samples_dir,
+        ref_text=ref_text,
+        blend=[
+            {
+                "voice_id":    e.voice_id,
+                "sample_id":   e.sample_id,
+                "sample_path": str(resolve_sample_path_for_provider(
+                    settings.samples_dir, e.sample_id, seg.provider_id))
+                    if e.sample_id else None,
+                "weight":      e.weight,
+            }
+            for e in seg.voice.blend
+        ],
+        cfg_weight=seg.cfg_weight,
+        exaggeration=seg.exaggeration,
+        cfg_strength=seg.cfg_strength,
+        nfe_step=seg.nfe_step,
+        cross_fade_duration=seg.cross_fade_duration,
+        sway_sampling_coef=seg.sway_sampling_coef,
+        voice_instruct=seg.voice_instruct,
+        voice_description=seg.voice.voice_description,
+        voice_context=seg.voice_context,
+        lux_num_steps=seg.lux_num_steps,
+        lux_t_shift=seg.lux_t_shift,
+        lux_return_smooth=seg.lux_return_smooth,
+        cosy_instruct=seg.cosy_instruct,
+        longcat_steps=seg.longcat_steps,
+        longcat_cfg_strength=seg.longcat_cfg_strength,
+        longcat_guidance=seg.longcat_guidance,
+        cb_temperature=seg.cb_temperature,
+        cb_top_p=seg.cb_top_p,
+        cb_repetition_penalty=seg.cb_repetition_penalty,
+        synthesis_seed=resolved_seed,
+        cache_key=cache_key,
+        cache_dir=str(settings.cache_dir),
+    )
+
+    asyncio.create_task(_run_synthesis(job, backend, synth_request, cache, cache_key))
+
+    return {
+        "segment_id":   seg.segment_id,
+        "progress_key": progress_key,
+        "cache_key":    cache_key,
+        "cached":       False,
+        "input_chars":  job.input_chars,
+        "input_words":  job.input_words,
+    }
+
+
+@router.post("/api/v1/synthesize/v2/batch", status_code=202)
+async def synthesize_v2_batch(body: BatchSubmitRequest, request: Request) -> dict:
+    """
+    Submit multiple synthesis segments in a single request.
+
+    All segments are checked against the OGG cache immediately.
+    Cache hits complete instantly. Cache misses are dispatched as background jobs.
+
+    Returns a batch_id and per-segment progress_key / cache_key / cached status.
+    The client polls GET /api/v1/synthesize/v2/{progress_key}/progress per pending
+    segment and fetches audio via GET /api/v1/synthesize/v2/{progress_key}/result.
+    The overall batch progress is available at
+    GET /api/v1/synthesize/v2/batch/{batch_id}/progress.
+    """
+    if not body.segments:
+        raise HTTPException(status_code=400, detail="segments array must not be empty")
+
+    registry = request.app.state.registry
+    cache    = request.app.state.cache
+    settings = request.app.state.settings
+
+    asyncio.create_task(_cleanup_expired())
+
+    batch_id = str(uuid.uuid4()).replace("-", "")
+    total    = len(body.segments)
+
+    # Register batch up front so progress polling works immediately
+    async with _jobs_lock:
+        _batches[batch_id] = BatchState(batch_id=batch_id, total=total)
+
+    # Process all segments — cache checks run concurrently, synthesis dispatched async
+    results = []
+    for seg in body.segments:
+        result = await _process_one_segment(seg, batch_id, registry, cache, settings)
+        results.append(result)
+        # Register each job's progress_key with the batch
+        if result.get("progress_key"):
+            async with _jobs_lock:
+                _batches[batch_id].job_keys.append(result["progress_key"])
+                # If this segment was a cache hit, update batch counters now
+                job = _jobs.get(result["progress_key"])
+                if job and job.cache_hit:
+                    _batches[batch_id].completed += 1
+
+    # If all segments were cache hits, mark batch complete
+    async with _jobs_lock:
+        batch = _batches.get(batch_id)
+        if batch and batch.is_done():
+            batch.completed_at = time.monotonic()
+
+    return {
+        "batch_id":  batch_id,
+        "total":     total,
+        "segments":  results,
     }
 
 

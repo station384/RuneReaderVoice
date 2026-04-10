@@ -338,6 +338,8 @@ async def synthesize(body: SynthesizeRequest, request: Request) -> Response:
             cb_top_p=body.cb_top_p,
             cb_repetition_penalty=body.cb_repetition_penalty,
             synthesis_seed=resolved_seed,
+            cache_key=cache_key,
+            cache_dir=str(settings.cache_dir),
         )
 
         try:

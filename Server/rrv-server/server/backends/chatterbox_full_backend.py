@@ -177,7 +177,7 @@ class ChatterboxFullBackend(AbstractTtsBackend):
         self._cond_mem_cache: OrderedDict = OrderedDict()
         self._cond_cache_dir: Path = (
             Path(cond_cache_dir) if cond_cache_dir is not None
-            else Path("./data/cond_cache")
+            else Path("../data/cond_cache")
         )
 
         # Prior speech token context — keyed by voice identity string.
@@ -710,6 +710,9 @@ class ChatterboxFullBackend(AbstractTtsBackend):
             gen_dict = {k: v.to(device=self._torch_device) if torch.is_tensor(v) else v
                         for k, v in data["gen"].items()}
             log.debug("Cond cache: loaded from disk key=%s", cache_key[:20])
+            # Clear any stale prior tokens for this key — disk load means
+            # a new session; last session's acoustic context is irrelevant.
+            self._prior_speech_tokens.pop(cache_key, None)
             return t3_cond, gen_dict
         except Exception as e:
             log.warning("Cond cache: disk load failed (%s) — will recompute", e)
@@ -846,9 +849,13 @@ class ChatterboxFullBackend(AbstractTtsBackend):
                 raise ValueError("Chatterbox Full requires either a reference sample or a blend.")
             t3_cond, gen_dict = self._cond_get_or_compute_single(
                 request.sample_path, exaggeration)
+            # Fully replace model conds — no partial state from prior request
             self._model.conds.t3  = t3_cond
             self._model.conds.gen = gen_dict
             self._is_blend_active = False
+            # Remove any stale blend bypass
+            if hasattr(self._model, "_rrv_blend_generate"):
+                del self._model._rrv_blend_generate
 
         # Voice identity key for prior token context store
         if blend_entries:
@@ -923,10 +930,22 @@ class ChatterboxFullBackend(AbstractTtsBackend):
                     continue
 
                 word_count = len(chunk_text.split())
-                prior_tokens = self._prior_speech_tokens.get(_voice_key)
+                _prior_entry = self._prior_speech_tokens.get(_voice_key)
+                _cur_ctx = request.voice_context or ""
+                if _prior_entry is not None:
+                    prior_tokens, _prior_ctx = _prior_entry
+                    # Only use prior tokens from the same voice slot context
+                    if _prior_ctx != _cur_ctx:
+                        prior_tokens = None
+                        log.debug("Cond cache: prior token context mismatch "
+                                  "(%s vs %s) — using reference tokens",
+                                  _prior_ctx, _cur_ctx)
+                else:
+                    prior_tokens = None
                 use_prior = (
                     word_count <= _SHORT_WORD_THRESHOLD
                     and prior_tokens is not None
+                    and bool(_cur_ctx)  # require non-empty context tag
                 )
 
                 if use_prior:
@@ -944,9 +963,28 @@ class ChatterboxFullBackend(AbstractTtsBackend):
 
                 wav_np, clean_tokens = _run_inference(chunk_text, active_t3)
 
-                # Update prior context with the last N tokens of this synthesis
-                self._prior_speech_tokens[_voice_key] = \
-                    clean_tokens[-_PRIOR_TOKEN_LEN:].unsqueeze(0).detach()
+                # Update in-memory prior context
+                tail = clean_tokens[-_PRIOR_TOKEN_LEN:].unsqueeze(0).detach()
+                # Store with voice_context tag to prevent cross-slot contamination
+                _ctx_tag = request.voice_context or ""
+                self._prior_speech_tokens[_voice_key] = (tail, _ctx_tag)
+
+                # Write tail token sidecar to cache dir alongside the OGG.
+                # Only written for single-chunk requests (one segment = one cache
+                # key). Multi-chunk requests produce a combined OGG whose key
+                # doesn't map cleanly to any single chunk's tokens.
+                if total == 1 and request.cache_key and request.cache_dir:
+                    try:
+                        import torch as _ts
+                        _sidecar_dir = Path(request.cache_dir) / self.provider_id
+                        _sidecar_dir.mkdir(parents=True, exist_ok=True)
+                        _sidecar_tmp = _sidecar_dir / f"{request.cache_key}.tokens.pt.tmp"
+                        _sidecar     = _sidecar_dir / f"{request.cache_key}.tokens.pt"
+                        _ts.save(tail.cpu(), _sidecar_tmp)
+                        _sidecar_tmp.rename(_sidecar)
+                        log.debug("Tail tokens saved: %s", request.cache_key[:12])
+                    except Exception as _e:
+                        log.debug("Tail token sidecar write failed (non-fatal): %s", _e)
 
                 samples = wav_np.squeeze() if wav_np.ndim > 1 else wav_np
                 all_samples.append(samples.astype(np.float32))

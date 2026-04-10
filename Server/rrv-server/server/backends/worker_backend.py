@@ -609,6 +609,8 @@ def _request_to_dict(request: SynthesisRequest) -> dict:
         d["sway_sampling_coef"] = request.sway_sampling_coef
     if request.voice_instruct is not None:
         d["voice_instruct"] = request.voice_instruct
+    if request.voice_context is not None:
+        d["voice_context"] = request.voice_context
     if request.voice_description is not None:
         d["voice_description"] = request.voice_description
     if request.lux_num_steps is not None:
@@ -619,5 +621,9 @@ def _request_to_dict(request: SynthesisRequest) -> dict:
         d["lux_return_smooth"] = request.lux_return_smooth
     if request.cosy_instruct is not None:
         d["cosy_instruct"] = request.cosy_instruct
+    if request.cache_key is not None:
+        d["cache_key"] = request.cache_key
+    if request.cache_dir is not None:
+        d["cache_dir"] = request.cache_dir
     # progress_callback is not serializable — skip it; host handles progress
     return d
