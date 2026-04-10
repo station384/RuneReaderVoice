@@ -21,6 +21,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Text.RegularExpressions;
 using System.Net.Sockets;
 using System.Threading;
 using System.Threading.Tasks;
@@ -65,7 +66,10 @@ public sealed class PlaybackCoordinator : IDisposable
     // Synthesis task map keyed by SegmentIndex.
     // Tasks are fired immediately on EnqueueSegment and consumed in strict order.
     private readonly Dictionary<int, Task<PcmAudio?>> _synthTasks = new();
+    private readonly Dictionary<int, AssembledSegment> _segmentMap = new();
+    private readonly Dictionary<string, Task<RemoteTtsProvider.RemoteBatchResolution>> _remoteBatchTasks = new();
     private int            _nextExpectedIndex;
+    private int            _expectedDialogSegments;
     private readonly SemaphoreSlim _queueSignal = new(0);
     private readonly object        _queueLock   = new();
 
@@ -120,6 +124,8 @@ public sealed class PlaybackCoordinator : IDisposable
             var ct        = _sessionCts?.Token ?? CancellationToken.None;
             var synthTask = SynthesizeSegmentAsync(segment, ct);
             _synthTasks[segment.SegmentIndex] = synthTask;
+            _segmentMap[segment.SegmentIndex] = segment;
+            _expectedDialogSegments = Math.Max(_expectedDialogSegments, segment.DialogSegmentCount);
             _queueSignal.Release();
         }
     }
@@ -160,7 +166,10 @@ public sealed class PlaybackCoordinator : IDisposable
         lock (_queueLock)
         {
             _synthTasks.Clear();
+            _segmentMap.Clear();
+            _remoteBatchTasks.Clear();
             _nextExpectedIndex = 0;
+            _expectedDialogSegments = 0;
         }
 
         while (_queueSignal.CurrentCount > 0)
@@ -195,6 +204,9 @@ public sealed class PlaybackCoordinator : IDisposable
             PcmAudio? audio;
             try
             {
+                if (_mode == PlaybackMode.WaitForFullText)
+                    await WaitForAllDialogSegmentsAsync(ct);
+
                 System.Diagnostics.Debug.WriteLine(
                     $"[PC] Awaiting segment {_nextExpectedIndex}, tasks in map: {string.Join(",", _synthTasks.Keys.OrderBy(k=>k))}");
 
@@ -214,13 +226,77 @@ public sealed class PlaybackCoordinator : IDisposable
                 continue;
             }
 
+            AssembledSegment? playedSegment;
             lock (_queueLock)
             {
+                _segmentMap.TryGetValue(_nextExpectedIndex, out playedSegment);
                 _synthTasks.Remove(_nextExpectedIndex);
+                _segmentMap.Remove(_nextExpectedIndex);
                 _nextExpectedIndex++;
             }
 
             if (audio == null) continue;
+
+            // When WaitForFullText is enabled, keep remote batch subsegments inside one
+            // active player session so the buffer never drains to Idle between pieces.
+            if (_mode == PlaybackMode.WaitForFullText &&
+                playedSegment != null &&
+                !string.IsNullOrWhiteSpace(playedSegment.BatchId) &&
+                playedSegment.BatchSegments != null && playedSegment.BatchSegments.Count > 1)
+            {
+                var batchAudios = new List<PcmAudio> { audio };
+                int startSeg = _nextExpectedIndex - 1;
+                int endSeg = startSeg;
+
+                while (true)
+                {
+                    AssembledSegment? nextBatchSeg;
+                    Task<PcmAudio?>? nextBatchTask;
+                    lock (_queueLock)
+                    {
+                        if (!_segmentMap.TryGetValue(_nextExpectedIndex, out nextBatchSeg) ||
+                            !string.Equals(nextBatchSeg.BatchId, playedSegment.BatchId, StringComparison.Ordinal) ||
+                            !_synthTasks.TryGetValue(_nextExpectedIndex, out nextBatchTask))
+                        {
+                            break;
+                        }
+                    }
+
+                    var nextAudio = await nextBatchTask;
+                    lock (_queueLock)
+                    {
+                        _synthTasks.Remove(_nextExpectedIndex);
+                        _segmentMap.Remove(_nextExpectedIndex);
+                        _nextExpectedIndex++;
+                    }
+
+                    if (nextAudio != null)
+                        batchAudios.Add(nextAudio);
+                    endSeg++;
+                }
+
+                try
+                {
+                    AppServices.SetOperationStatus("Playing audio…");
+                    var mergedBatchAudio = ConcatenatePcm(batchAudios);
+                    System.Diagnostics.Debug.WriteLine($"[PC] Play batch merged start segs={startSeg}-{endSeg} items={batchAudios.Count} samples={mergedBatchAudio.Samples.Length} pending={_synthTasks.Count}");
+                    await _player.PlayAsync(mergedBatchAudio, ct);
+                    AppServices.ClearOperationStatus();
+                    System.Diagnostics.Debug.WriteLine($"[PC] Play batch merged done segs={startSeg}-{endSeg}");
+                }
+                catch (OperationCanceledException) { AppServices.ClearOperationStatus(); break; }
+                catch (Exception ex) when (IsCancellationIoException(ex, ct))
+                {
+                    AppServices.ClearOperationStatus(); break;
+                }
+                catch (Exception ex)
+                {
+                    AppServices.ClearOperationStatus();
+                    System.Diagnostics.Debug.WriteLine($"[PlaybackCoordinator] Batch playback error: {ex.Message}");
+                }
+
+                continue;
+            }
 
             // Play segment N. While playing, synthesis of segment N+1 is already running.
             try
@@ -244,6 +320,48 @@ public sealed class PlaybackCoordinator : IDisposable
                 System.Diagnostics.Debug.WriteLine($"[PlaybackCoordinator] Playback error: {ex.Message}");
             }
         }
+    }
+
+    private Task<RemoteTtsProvider.RemoteBatchResolution> GetOrCreateRemoteBatchTask(
+        AssembledSegment segment,
+        RemoteTtsProvider remoteProvider,
+        CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(segment.BatchId) || segment.BatchSegments == null || segment.BatchSegments.Count == 0)
+            throw new InvalidOperationException("Segment is missing remote batch metadata.");
+
+        lock (_queueLock)
+        {
+            if (_remoteBatchTasks.TryGetValue(segment.BatchId, out var existing))
+                return existing;
+
+            var created = remoteProvider.SubmitSplitBatchAsync(
+                segment.BatchSegments,
+                segment.Slot,
+                ct,
+                segment.BespokeSampleId,
+                segment.BespokeExaggeration,
+                segment.BespokeCfgWeight,
+                segment.BatchId);
+            _remoteBatchTasks[segment.BatchId] = created;
+            return created;
+        }
+    }
+
+    private async Task<PcmAudio?> SynthesizeBatchSegmentAsync(
+        AssembledSegment segment,
+        RemoteTtsProvider remoteProvider,
+        CancellationToken ct)
+    {
+        var batchTask = GetOrCreateRemoteBatchTask(segment, remoteProvider, ct);
+        var batch = await batchTask;
+        if (string.IsNullOrWhiteSpace(segment.BatchSegmentId) || !batch.Segments.TryGetValue(segment.BatchSegmentId, out var response))
+            throw new InvalidOperationException($"Remote batch response missing segment '{segment.BatchSegmentId ?? "<null>"}'.");
+
+        var oggBytes = await remoteProvider.FetchBatchSegmentResultAsync(batch.BatchId, response.ProgressKey, response.CacheKey, ct);
+        System.Diagnostics.Debug.WriteLine($"[PC] Remote batch synth complete seg={segment.SegmentIndex} batchId={batch.BatchId} batchSeg={segment.BatchSegmentId} progressKey={response.ProgressKey} cacheKey={response.CacheKey} bytes={oggBytes.Length}");
+        var audio = await RemoteTtsProvider.DecodeOggAsync(oggBytes, ct);
+        return DspFilterChain.Apply(audio, _provider.ResolveProfile(segment.Slot)?.Dsp);
     }
 
     // ── Synthesis ─────────────────────────────────────────────────────────────
@@ -277,6 +395,15 @@ public sealed class PlaybackCoordinator : IDisposable
         bool applyBespoke = !string.IsNullOrWhiteSpace(segment.BespokeSampleId)
                             && segment.Slot.Group != Protocol.AccentGroup.Narrator;
 
+        if (_provider is RemoteTtsProvider remoteProvider &&
+            !string.IsNullOrWhiteSpace(segment.BatchId) &&
+            segment.BatchSegments != null && segment.BatchSegments.Count > 1 &&
+            !string.IsNullOrWhiteSpace(segment.BatchSegmentId))
+        {
+            System.Diagnostics.Debug.WriteLine($"[PC] Using remote batch seg={segment.SegmentIndex} batchId={segment.BatchId} batchSeg={segment.BatchSegmentId} primeFrom={segment.PrimeFromBatchSegmentId ?? "-"}");
+            return await SynthesizeBatchSegmentAsync(segment, remoteProvider, ct);
+        }
+
         if (!string.IsNullOrWhiteSpace(segment.BespokeSampleId) && !applyBespoke)
             System.Diagnostics.Debug.WriteLine(
                 $"[PC] Bespoke ignored for narrator seg={segment.SegmentIndex}");
@@ -303,14 +430,14 @@ public sealed class PlaybackCoordinator : IDisposable
         var cached = await _cache.TryGetDecodedAsync(segment.Text, effectiveVoiceId, _provider.ProviderId, "", ct);
         if (cached != null)
         {
-            System.Diagnostics.Debug.WriteLine($"[PC] Cache HIT seg={segment.SegmentIndex} slot={cacheSlotKey} voice={effectiveVoiceId}");
+            System.Diagnostics.Debug.WriteLine($"[PC] Cache HIT seg={segment.SegmentIndex} slot={cacheSlotKey} voice={effectiveVoiceId} words={Regex.Matches(segment.Text ?? string.Empty, @"\b[\p{L}\p{N}']+\b", RegexOptions.CultureInvariant).Count} text='{PreviewSegment(segment.Text)}'");
             return DspFilterChain.Apply(cached, profile?.Dsp);
         }
-        System.Diagnostics.Debug.WriteLine($"[PC] Cache MISS seg={segment.SegmentIndex} slot={cacheSlotKey} voice={effectiveVoiceId}");
+        System.Diagnostics.Debug.WriteLine($"[PC] Cache MISS seg={segment.SegmentIndex} slot={cacheSlotKey} voice={effectiveVoiceId} words={Regex.Matches(segment.Text ?? string.Empty, @"\b[\p{L}\p{N}']+\b", RegexOptions.CultureInvariant).Count} text='{PreviewSegment(segment.Text)}'");
 
-        if (_provider is RemoteTtsProvider remoteProvider)
+        if (_provider is RemoteTtsProvider remoteProviderSingle)
         {
-            var oggBytes = await remoteProvider.SynthesizeOggAsync(
+            var oggBytes = await remoteProviderSingle.SynthesizeOggAsync(
                 segment.Text, segment.Slot, ct,
                 applyBespoke ? segment.BespokeSampleId    : null,
                 applyBespoke ? segment.BespokeExaggeration : null,
@@ -346,6 +473,58 @@ public sealed class PlaybackCoordinator : IDisposable
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────
+
+
+    private async Task WaitForAllDialogSegmentsAsync(CancellationToken ct)
+    {
+        while (true)
+        {
+            Task<PcmAudio?>[]? tasksToAwait = null;
+            int firstNeeded = 0;
+            int remainingNeeded = 0;
+            lock (_queueLock)
+            {
+                firstNeeded = _nextExpectedIndex;
+                remainingNeeded = _expectedDialogSegments - _nextExpectedIndex;
+                if (remainingNeeded > 0 && _synthTasks.Count >= remainingNeeded)
+                {
+                    bool haveAll = true;
+                    for (int i = firstNeeded; i < _expectedDialogSegments; i++)
+                    {
+                        if (!_synthTasks.ContainsKey(i))
+                        {
+                            haveAll = false;
+                            break;
+                        }
+                    }
+
+                    if (haveAll)
+                        tasksToAwait = Enumerable.Range(firstNeeded, remainingNeeded).Select(i => _synthTasks[i]).ToArray();
+                }
+            }
+
+            if (tasksToAwait != null)
+            {
+                AppServices.SetOperationStatus("Waiting for full text…");
+                System.Diagnostics.Debug.WriteLine($"[PC] WaitForFullText holding playback until segs {firstNeeded}-{_expectedDialogSegments - 1} ({tasksToAwait.Length} segment(s)) are synthesized");
+                await Task.WhenAll(tasksToAwait);
+                AppServices.ClearOperationStatus();
+                System.Diagnostics.Debug.WriteLine("[PC] WaitForFullText released playback");
+                return;
+            }
+
+            await Task.Delay(10, ct);
+        }
+    }
+
+    private static async IAsyncEnumerable<PcmAudio> ToAsyncEnumerable(IEnumerable<PcmAudio> audios)
+    {
+        foreach (var audio in audios)
+        {
+            yield return audio;
+            await Task.Yield();
+        }
+    }
 
     private static PcmAudio ConcatenatePcm(List<PcmAudio> chunks)
     {
@@ -399,5 +578,16 @@ public sealed class PlaybackCoordinator : IDisposable
         CancelCurrentSession();
         _sessionCts?.Dispose();
         _queueSignal.Dispose();
+    }
+    private static string PreviewSegment(string? text, int max = 100)
+    {
+        if (string.IsNullOrWhiteSpace(text))
+            return "<empty>";
+
+        var normalized = Regex.Replace(text, @"\s+", " ").Trim();
+        if (normalized.Length <= max)
+            return normalized;
+
+        return normalized[..max] + "...";
     }
 }

@@ -20,6 +20,8 @@
 using System;
 using System.IO;
 using System.Linq;
+using System.Collections.Generic;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using Avalonia;
 using RuneReaderVoice;
@@ -169,6 +171,7 @@ internal static class Program
             provider, cache, player, playbackMode, tempDir, recentSpeechSuppressor);
 
         coordinator.StartSession();
+        var pendingExpandedSegments = new List<AssembledSegment>();
 
         assembler.OnSegmentComplete += seg =>
         {
@@ -182,7 +185,11 @@ internal static class Program
                 Slot                = seg.Slot,
                 DialogId            = seg.DialogId,
                 SegmentIndex        = seg.SegmentIndex,
+                DialogSegmentCount  = seg.DialogSegmentCount,
                 NpcId               = seg.NpcId,
+                PlayerName          = seg.PlayerName,
+                PlayerRealm         = seg.PlayerRealm,
+                PlayerClass         = seg.PlayerClass,
                 BespokeSampleId     = seg.BespokeSampleId,
                 BespokeExaggeration = seg.BespokeExaggeration,
                 BespokeCfgWeight    = seg.BespokeCfgWeight,
@@ -194,10 +201,34 @@ internal static class Program
             AppServices.LastProcessedText = processed.Text ?? string.Empty;
             AppServices.LastTextSpoken    = processed.Text ?? string.Empty;
 
-            coordinator.EnqueueSegment(processed);
+            foreach (var chunk in ExpandPlayerNameSplit(processed, pendingExpandedSegments.Count))
+                pendingExpandedSegments.Add(chunk);
+
+            // The assembler's DialogSegmentCount reflects the original audible segment count
+            // before player-name expansion. For playback, especially WaitForFullText mode,
+            // the coordinator must use the post-split playback count instead.
+            if (seg.SegmentIndex != seg.DialogSegmentCount - 1)
+                return;
+
+            var finalPlaybackCount = pendingExpandedSegments.Count;
+            for (var i = 0; i < pendingExpandedSegments.Count; i++)
+            {
+                var chunk = pendingExpandedSegments[i];
+                coordinator.EnqueueSegment(CloneSegment(
+                    chunk,
+                    chunk.Text,
+                    i,
+                    chunk.BatchId,
+                    chunk.BatchSegmentId,
+                    chunk.PrimeFromBatchSegmentId,
+                    chunk.BatchSegments,
+                    finalPlaybackCount));
+            }
+
+            pendingExpandedSegments.Clear();
         };
 
-        assembler.OnSessionReset += coordinator.OnSessionReset;
+        assembler.OnSessionReset += id => { pendingExpandedSegments.Clear(); coordinator.OnSessionReset(id); };
 
         var monitor = new RvBarcodeMonitor(platform.ScreenCapture);
         monitor.TrySetInitialLockedRegion(settings.LastBarcodeRegion);
@@ -264,4 +295,322 @@ internal static class Program
         return new DialoguePronunciationProcessor(rules);
     }
 
+    private static IEnumerable<AssembledSegment> ExpandPlayerNameSplit(AssembledSegment segment, int startExpandedSegmentIndex)
+    {
+        var mode = (AppServices.Settings.PlayerNameMode ?? "generic").Trim().ToLowerInvariant();
+        var strategy = "containing_sentence";
+        int expandedSegmentIndex = startExpandedSegmentIndex;
+        if (mode != "split" && mode != "generic" && mode != "actual")
+        {
+            Console.WriteLine($"[PlayerSplit] bypass seg={startExpandedSegmentIndex} reason=mode mode={mode}");
+            yield return CloneSegment(segment, segment.Text, expandedSegmentIndex);
+            yield break;
+        }
+
+        var splitTarget = ResolvePlayerSplitTarget(segment, mode);
+        if (string.IsNullOrWhiteSpace(segment.Text) || string.IsNullOrWhiteSpace(splitTarget))
+        {
+            Console.WriteLine($"[PlayerSplit] bypass seg={startExpandedSegmentIndex} reason=missing-text-or-target mode={mode} target='{splitTarget ?? string.Empty}' textLen={segment.Text?.Length ?? 0}");
+            yield return CloneSegment(segment, segment.Text, expandedSegmentIndex);
+            yield break;
+        }
+
+        Console.WriteLine($"[PlayerSplit] evaluate seg={startExpandedSegmentIndex} strategy={strategy} mode={mode} target='{splitTarget}' words={CountWords(segment.Text)} text='{Preview(segment.Text)}'");
+        var parts = SplitAroundPlayerName(segment.Text, splitTarget!, strategy);
+        if (parts == null || parts.Count == 0)
+        {
+            Console.WriteLine($"[PlayerSplit] no-split seg={startExpandedSegmentIndex} strategy={strategy} mode={mode} target='{splitTarget}'");
+            yield return CloneSegment(segment, segment.Text, expandedSegmentIndex);
+            yield break;
+        }
+
+        Console.WriteLine($"[PlayerSplit] split seg={startExpandedSegmentIndex} strategy={strategy} parts={parts.Count}");
+        for (var i = 0; i < parts.Count; i++)
+            Console.WriteLine($"[PlayerSplit] part[{i}] words={CountWords(parts[i])} text='{Preview(parts[i])}'");
+
+        var useRemoteBatch = AppServices.Provider is RemoteTtsProvider && parts.Count > 1;
+        var batchId = useRemoteBatch ? Guid.NewGuid().ToString("N") : null;
+        List<BatchSegmentPlan>? batchPlans = null;
+        if (useRemoteBatch)
+        {
+            batchPlans = new List<BatchSegmentPlan>(parts.Count);
+            for (var i = 0; i < parts.Count; i++)
+            {
+                var part = parts[i];
+                if (string.IsNullOrWhiteSpace(part))
+                    continue;
+
+                var segmentId = $"seg_{i}";
+
+                // Maintain explicit continuity across the client-requested batch chain.
+                //
+                // Why this exists:
+                // - The server's normal internal sentence splitting for large Chatterbox text
+                //   is correct and should remain untouched.
+                // - This client batch path is different: it can split in the middle of a
+                //   sentence (for example around player-name replacement), so continuity must
+                //   be carried explicitly from one returned batch item to the next.
+                // - We therefore chain every batch item to the immediately prior batch item,
+                //   rather than using the older special-case rule that only primed the exact
+                //   player-name segment.
+                //
+                // Maintainer note:
+                // If future testing shows the narrator should remain atomic, make that decision
+                // in the higher-level batch planner. This low-level split batch is one voice
+                // stream and should always submit explicit continuity references.
+                string? primeFrom = batchPlans.Count > 0 ? batchPlans[^1].SegmentId : null;
+
+                batchPlans.Add(new BatchSegmentPlan
+                {
+                    SegmentId = segmentId,
+                    Text = part,
+                    PrimeFromSegmentId = primeFrom,
+                });
+            }
+            Console.WriteLine($"[PlayerSplit] remote-batch batchId={batchId} plans={batchPlans.Count} strategy={strategy}");
+        }
+
+        var planIndex = 0;
+        foreach (var part in parts)
+        {
+            if (string.IsNullOrWhiteSpace(part)) continue;
+            var plan = batchPlans != null && planIndex < batchPlans.Count ? batchPlans[planIndex] : null;
+            yield return CloneSegment(
+                segment,
+                part,
+                expandedSegmentIndex++,
+                batchId,
+                plan?.SegmentId,
+                plan?.PrimeFromSegmentId,
+                batchPlans);
+            planIndex++;
+        }
+    }
+
+    private static AssembledSegment CloneSegment(
+        AssembledSegment segment,
+        string text,
+        int idx,
+        string? batchId = null,
+        string? batchSegmentId = null,
+        string? primeFromBatchSegmentId = null,
+        IReadOnlyList<BatchSegmentPlan>? batchSegments = null,
+        int? dialogSegmentCount = null) => new()
+    {
+        Text = text,
+        Slot = segment.Slot,
+        DialogId = segment.DialogId,
+        SegmentIndex = idx,
+        DialogSegmentCount = dialogSegmentCount ?? segment.DialogSegmentCount,
+        NpcId = segment.NpcId,
+        PlayerName = segment.PlayerName,
+        PlayerRealm = segment.PlayerRealm,
+        PlayerClass = segment.PlayerClass,
+        BatchId = batchId,
+        BatchSegmentId = batchSegmentId,
+        PrimeFromBatchSegmentId = primeFromBatchSegmentId,
+        BatchSegments = batchSegments,
+        BespokeSampleId = segment.BespokeSampleId,
+        BespokeExaggeration = segment.BespokeExaggeration,
+        BespokeCfgWeight = segment.BespokeCfgWeight,
+    };
+
+    private static string? ResolvePlayerSplitTarget(AssembledSegment segment, string mode)
+    {
+        mode = (mode ?? "generic").Trim().ToLowerInvariant();
+
+        if (mode == "actual" || mode == "split")
+        {
+            var actualName = segment.PlayerName;
+            if (string.IsNullOrWhiteSpace(actualName))
+                return null;
+
+            if (AppServices.Settings.PlayerNameAppendRealm && !string.IsNullOrWhiteSpace(segment.PlayerRealm))
+                actualName = $"{actualName} of {segment.PlayerRealm}";
+
+            return actualName;
+        }
+
+        if (mode != "generic")
+            return null;
+
+        // Maintainer note:
+        // All replacement modes now use the same sentence-based cache-preserving split flow,
+        // not just the actual player name. Cache-friendly titles (Hero / Champion /
+        // Player Class Name), actual player names, and optional realm suffixes all fragment
+        // cache identity, so they all need to be isolated into their own segment when present.
+        var preset = (AppServices.Settings.PlayerNameReplacementPreset ?? "hero").Trim().ToLowerInvariant();
+        var replacement = preset switch
+        {
+            "champion" => "Champion",
+            "class" => string.IsNullOrWhiteSpace(segment.PlayerClass) ? "Hero" : segment.PlayerClass!,
+            _ => "Hero",
+        };
+
+        if (AppServices.Settings.PlayerNameAppendRealm && !string.IsNullOrWhiteSpace(segment.PlayerRealm))
+            replacement = $"{replacement} of {segment.PlayerRealm}";
+
+        return replacement;
+    }
+
+    private const int MinimumPlayerNameSentenceWords = 3;
+
+    private static List<string>? SplitAroundPlayerName(string text, string playerName, string strategy)
+    {
+        var escaped = Regex.Escape(playerName);
+        var pattern = $@"(?<![\p{{L}}\p{{N}}_'-]){escaped}(?![\p{{L}}\p{{N}}_'-])";
+        var matches = Regex.Matches(text, pattern, RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+        Console.WriteLine($"[PlayerSplit] matches={matches.Count} player='{playerName}' strategy={strategy} text='{Preview(text)}'");
+        if (matches.Count != 1) return null;
+
+        var match = matches[0];
+        int nameStart = match.Index;
+        int nameEnd = match.Index + match.Length;
+        strategy = (strategy ?? "containing_sentence").Trim().ToLowerInvariant();
+        if (strategy == "surrounding_words")
+            strategy = "containing_sentence";
+
+        int start;
+        int end;
+
+        if (strategy == "name_only")
+        {
+            // Maintainer note:
+            // "name_only" started as a tiny bridge fragment around the player name,
+            // but that proved unstable for Chatterbox-family models even after T3
+            // continuation tuning. Small fragments like "missive for Earwig from"
+            // are not sentence-like enough to synthesize reliably as standalone units.
+            // So this special mode now expands to the full containing sentence instead.
+            // If the sentence is too short, expand to two sentences using the same
+            // rules as the general containing_sentence strategy.
+            start = FindSentenceStart(text, nameStart);
+            end = FindSentenceEnd(text, nameEnd);
+
+            var sentence = text[start..end];
+            var sentenceWords = CountWords(sentence);
+            Console.WriteLine($"[PlayerSplit] strategy=name_only sentenceStart={start} sentenceEnd={end} words={sentenceWords} sentence='{Preview(sentence)}'");
+            if (sentenceWords < MinimumPlayerNameSentenceWords)
+            {
+                ExpandToTwoSentences(text, ref start, ref end);
+                Console.WriteLine($"[PlayerSplit] strategy=name_only expanded_to_two_sentences start={start} end={end} words={CountWords(text[start..end])} text='{Preview(text[start..end])}'");
+            }
+        }
+        else if (strategy == "containing_paragraph")
+        {
+            start = FindParagraphStart(text, nameStart);
+            end = FindParagraphEnd(text, nameEnd);
+            Console.WriteLine($"[PlayerSplit] strategy=containing_paragraph start={start} end={end}");
+        }
+        else
+        {
+            start = FindSentenceStart(text, nameStart);
+            end = FindSentenceEnd(text, nameEnd);
+
+            var sentence = text[start..end];
+            var sentenceWords = CountWords(sentence);
+            Console.WriteLine($"[PlayerSplit] strategy=containing_sentence start={start} end={end} words={sentenceWords} sentence='{Preview(sentence)}'");
+            if (sentenceWords < MinimumPlayerNameSentenceWords)
+            {
+                ExpandToTwoSentences(text, ref start, ref end);
+                Console.WriteLine($"[PlayerSplit] expanded_to_two_sentences start={start} end={end} words={CountWords(text[start..end])} text='{Preview(text[start..end])}'");
+            }
+        }
+
+        var before = text[..start];
+        var middle = text[start..end];
+        var after = text[end..];
+
+        var parts = new List<string>(3);
+        if (!string.IsNullOrWhiteSpace(before)) parts.Add(before);
+        if (!string.IsNullOrWhiteSpace(middle)) parts.Add(middle);
+        if (!string.IsNullOrWhiteSpace(after)) parts.Add(after);
+
+        if (parts.Count <= 1)
+            return null;
+
+        return parts;
+    }
+
+
+    private static string Preview(string? text, int max = 120)
+    {
+        if (string.IsNullOrWhiteSpace(text))
+            return string.Empty;
+
+        var normalized = Regex.Replace(text, @"\s+", " ").Trim();
+        return normalized.Length <= max ? normalized : normalized[..max] + "...";
+    }
+
+    private static int CountWords(string text)
+    {
+        if (string.IsNullOrWhiteSpace(text))
+            return 0;
+
+        return Regex.Matches(text, @"\b[\p{L}\p{N}']+\b", RegexOptions.CultureInvariant).Count;
+    }
+
+
+    private static void ExpandToTwoSentences(string text, ref int start, ref int end)
+    {
+        var hasPrevious = start > 0;
+        var hasNext = end < text.Length;
+
+        if (hasPrevious)
+        {
+            start = FindSentenceStart(text, Math.Max(0, start - 1));
+            return;
+        }
+
+        if (hasNext)
+        {
+            end = FindSentenceEnd(text, end);
+        }
+    }
+
+    private static int FindParagraphStart(string text, int start)
+    {
+        var split = text.LastIndexOf("\n\n", Math.Max(0, start - 1), StringComparison.Ordinal);
+        return split >= 0 ? split + 2 : 0;
+    }
+
+    private static int FindParagraphEnd(string text, int end)
+    {
+        var split = text.IndexOf("\n\n", end, StringComparison.Ordinal);
+        return split >= 0 ? split : text.Length;
+    }
+
+    private static int FindSentenceStart(string text, int start)
+    {
+        for (int i = start - 1; i >= 0; i--)
+            if (text[i] == '.' || text[i] == '!' || text[i] == '?' || text[i] == '\n' || text[i] == '\r')
+                return i + 1;
+        return 0;
+    }
+
+    private static int FindSentenceEnd(string text, int end)
+    {
+        for (int i = end; i < text.Length; i++)
+            if (text[i] == '.' || text[i] == '!' || text[i] == '?' || text[i] == '\n' || text[i] == '\r')
+                return i + 1;
+        return text.Length;
+    }
+
+    private static void LogPlayerSplit(string message)
+    {
+        System.Diagnostics.Debug.WriteLine($"[PlayerSplit] {message}");
+    }
+
+    private static string PreviewText(string? text, int max = 80)
+    {
+        if (string.IsNullOrWhiteSpace(text))
+            return "<empty>";
+
+        var normalized = Regex.Replace(text, @"\s+", " ").Trim();
+        if (normalized.Length <= max)
+            return normalized;
+
+        return normalized[..max] + "...";
+    }
+
+    private static bool IsWordChar(char c) => char.IsLetterOrDigit(c) || c == '_' || c == '-' || c == '\'';
 }

@@ -211,9 +211,12 @@ public partial class MainWindow : Window
 
     private void UpdatePlayerNameReplacementUi()
     {
-        var useGeneric = string.Equals(AppServices.Settings.PlayerNameMode, "generic", StringComparison.OrdinalIgnoreCase);
+        var mode = AppServices.Settings.PlayerNameMode ?? "generic";
+        bool useGeneric = string.Equals(mode, "generic", StringComparison.OrdinalIgnoreCase);
+        bool useActual = string.Equals(mode, "actual", StringComparison.OrdinalIgnoreCase);
+
         PlayerNamePresetSelector.IsEnabled = useGeneric;
-        PlayerNameAppendRealmCheck.IsEnabled = useGeneric;
+        PlayerNameAppendRealmCheck.IsEnabled = useGeneric || useActual;
     }
 
     private static string GetDisplaySlotLabel(VoiceSlot slot)
@@ -235,9 +238,13 @@ public partial class MainWindow : Window
         RescanInterval.Value  = s.ReScanIntervalMs;
         RepeatSuppressionEnabled.IsChecked = s.RepeatSuppressionEnabled;
         RepeatSuppressionWindow.Value = s.RepeatSuppressionWindowSeconds;
+        var playerNameMode = (s.PlayerNameMode ?? "generic").Trim().ToLowerInvariant();
+        if (playerNameMode == "split")
+            playerNameMode = "actual";
+
         foreach (var item in PlayerNameModeSelector.Items.OfType<ComboBoxItem>())
         {
-            if (string.Equals(item.Tag?.ToString(), s.PlayerNameMode, StringComparison.OrdinalIgnoreCase))
+            if (string.Equals(item.Tag?.ToString(), playerNameMode, StringComparison.OrdinalIgnoreCase))
             {
                 PlayerNameModeSelector.SelectedItem = item;
                 break;

@@ -20,8 +20,8 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
-using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Controls.Primitives;
 using Avalonia.Interactivity;
 using Avalonia.Layout;
 using Avalonia.Media;
@@ -187,8 +187,8 @@ So go quickly, keep your wits about you, and return by the main road if you valu
 
         _singleVoiceRadio = new RadioButton { Content = "Single Voice", IsChecked = !_workingProfile.VoiceId.StartsWith(KokoroTtsProvider.MixPrefix, StringComparison.OrdinalIgnoreCase), GroupName = "voiceMode" };
         _blendVoiceRadio  = new RadioButton { Content = "Blend Voices", IsChecked  = _workingProfile.VoiceId.StartsWith(KokoroTtsProvider.MixPrefix, StringComparison.OrdinalIgnoreCase), GroupName = "voiceMode", IsEnabled = supportsBlend };
-        _singleVoiceRadio.Checked += VoiceModeChanged;
-        _blendVoiceRadio.Checked  += VoiceModeChanged;
+        _singleVoiceRadio.IsCheckedChanged += VoiceModeChanged;
+        _blendVoiceRadio.IsCheckedChanged  += VoiceModeChanged;
 
         // Build base samples list — strip known variant suffixes to get distinct bases.
         // Variant suffixes: slow, fast, quiet, loud, breathy
@@ -920,9 +920,10 @@ So go quickly, keep your wits about you, and return by the main road if you valu
             VerticalAlignment = VerticalAlignment.Center,
         };
 
-        var dspCard = Card("Audio Effects (DSP)", new StackPanel
+        var dspContent = new StackPanel
         {
             Spacing = 8,
+            HorizontalAlignment = HorizontalAlignment.Stretch,
             Children =
             {
                 new StackPanel
@@ -939,7 +940,7 @@ So go quickly, keep your wits about you, and return by the main road if you valu
                     Children    = { addEffectBtn, clearAllBtn, _dspSummaryLine },
                 },
             }
-        });
+        };
 
         // ── Preview / Summary ─────────────────────────────────────────────────
 
@@ -961,21 +962,26 @@ So go quickly, keep your wits about you, and return by the main road if you valu
 
         // ── Section cards ─────────────────────────────────────────────────────
 
-        _singleVoiceSection = Card("Single Voice", new StackPanel { Spacing = 8, Children =
+        _singleVoiceSection = Card(string.Empty, new StackPanel { Spacing = 8, Children =
         {
             new StackPanel
             {
                 Orientation = Orientation.Horizontal,
                 Spacing = 8,
                 HorizontalAlignment = HorizontalAlignment.Stretch,
-                Children = { _voiceBaseCombo, _voiceVariantCombo }
+                Children =
+                {
+                    new TextBlock { Text = "Single Voice", FontWeight = FontWeight.SemiBold, VerticalAlignment = VerticalAlignment.Center, Width = 110 },
+                    _voiceBaseCombo,
+                    _voiceVariantCombo
+                }
             },
             _voiceSummaryText
         }});
         _blendVoiceSection  = Card("Blend Voices", new StackPanel { Spacing = 8, Children = { _blendSummaryText, editBlendBtn } });
 
         var presetCard    = Card("Standard Setup", new StackPanel { Spacing = 8, Children = { _presetDescriptionText, _standardStateText, new TextBlock { Text = "Restore Standard resets cache-affecting voice settings for this entry. DSP is left as-is.", Opacity = 0.8, TextWrapping = TextWrapping.Wrap }, new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Children = { restoreStandardBtn } } } });
-        var voiceModeCard = Card("Voice Mode",   new StackPanel { Spacing = 8, Children = { new StackPanel { Orientation = Orientation.Horizontal, Spacing = 16, Children = { _singleVoiceRadio, _blendVoiceRadio } } } });
+        var voiceModeCard = Card(string.Empty, new StackPanel { Spacing = 8, Children = { new StackPanel { Orientation = Orientation.Horizontal, Spacing = 16, Children = { new TextBlock { Text = "Voice Mode", FontWeight = FontWeight.SemiBold, VerticalAlignment = VerticalAlignment.Center, Width = 110 }, _singleVoiceRadio, _blendVoiceRadio } } } });
         var languageCard  = Card("Dialect / Language", new StackPanel { Spacing = 8, Children = { new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Children = { _languageNameText, chooseLangBtn } } } });
         if (isSampleDefaultsEditor)
         {
@@ -996,28 +1002,35 @@ So go quickly, keep your wits about you, and return by the main road if you valu
             topGrid = new Grid
             {
                 ColumnDefinitions = new ColumnDefinitions("*,*"),
-                RowDefinitions = new RowDefinitions("Auto,Auto"),
+                RowDefinitions = new RowDefinitions("Auto"),
                 ColumnSpacing = 10,
                 RowSpacing = 10
             };
-            AddToGrid(topGrid, presetCard,   0, 0);
-            AddToGrid(topGrid, languageCard, 0, 1);
-            AddToGrid(topGrid, rateCard,     1, 1);
+            AddToGrid(topGrid, languageCard, 0, 0);
+            AddToGrid(topGrid, rateCard,     0, 1);
         }
         else
         {
-            topGrid = new Grid { ColumnDefinitions = new ColumnDefinitions("*,*"), RowDefinitions = new RowDefinitions("Auto,Auto,Auto"), ColumnSpacing = 10, RowSpacing = 10 };
-            AddToGrid(topGrid, presetCard,          0, 0);
-            AddToGrid(topGrid, _blendVoiceSection,  0, 1);
-            AddToGrid(topGrid, voiceModeCard,       1, 0);
-            AddToGrid(topGrid, languageCard,        1, 1);
+            // Keep only the controls used constantly in the fixed area.
+            // Standard setup, restore, warnings, DSP, and advanced render knobs
+            // live in the lower scroll region so the common voice->preview loop
+            // does not require scrolling a full-page form on a 1080p display.
+            topGrid = new Grid
+            {
+                ColumnDefinitions = new ColumnDefinitions("*,*"),
+                RowDefinitions = new RowDefinitions("Auto,Auto,Auto"),
+                ColumnSpacing = 10,
+                RowSpacing = 10
+            };
+            AddToGrid(topGrid, _blendVoiceSection,  0, 0);
+            AddToGrid(topGrid, voiceModeCard,       0, 1);
+            AddToGrid(topGrid, languageCard,        1, 0);
+            AddToGrid(topGrid, rateCard,            1, 1);
             AddToGrid(topGrid, _singleVoiceSection, 2, 0);
-            AddToGrid(topGrid, rateCard,            2, 1);
         }
 
-        var contentStack = new StackPanel
+        var headerStack = new StackPanel
         {
-            Margin = new Avalonia.Thickness(12),
             Spacing = 10,
             Children =
             {
@@ -1028,9 +1041,9 @@ So go quickly, keep your wits about you, and return by the main road if you valu
                 {
                     Background = new SolidColorBrush(Color.Parse("#33AA0000")),
                     BorderBrush = new SolidColorBrush(Color.Parse("#CCFF3333")),
-                    BorderThickness = new Thickness(1),
-                    CornerRadius = new CornerRadius(4),
-                    Padding = new Thickness(8),
+                    BorderThickness = new Avalonia.Thickness(1),
+                    CornerRadius = new Avalonia.CornerRadius(4),
+                    Padding = new Avalonia.Thickness(8),
                     Child = new TextBlock
                     {
                         Text = "Warning: changing voice, language, speed, blend, seed, provider controls, or other synthesis-affecting settings changes cache identity and may force regeneration instead of using cached audio.",
@@ -1038,42 +1051,105 @@ So go quickly, keep your wits about you, and return by the main road if you valu
                         TextWrapping = TextWrapping.Wrap,
                         FontWeight = FontWeight.SemiBold
                     }
-                },
-                topGrid,
-                dspCard,
-                Card("Live Preview", new StackPanel { Spacing = 8, Children =
-                {
-                    previewPresetButtons,
-                    _previewText, new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Children = { _previewButton, _stopPreviewButton, _previewStatusText } },
-                    new TextBlock { Text = "Re-synthesizes fresh. Bypasses cache. Includes current DSP.", TextWrapping = TextWrapping.Wrap, Opacity = 0.8 }
-                }}),
-                Card("Summary", new StackPanel { Spacing = 6, Children = { _summaryText } }),
-                new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right, Spacing = 8, Children = { cancelBtn, saveBtn } }
+                }
             }
         };
-        var insertIndex = 4;
-        if (chatterboxControlsCard != null)
-        {
-            contentStack.Children.Insert(insertIndex, chatterboxControlsCard);
-            insertIndex++;
-        }
-        if (f5ControlsCard != null)
-        {
-            contentStack.Children.Insert(insertIndex, f5ControlsCard);
-            insertIndex++;
-        }
-        if (longcatControlsCard != null)
-        {
-            contentStack.Children.Insert(insertIndex, longcatControlsCard);
-            insertIndex++;
-        }
-        if (styleInstructionCard != null)
-            contentStack.Children.Insert(insertIndex, styleInstructionCard);
 
-        Content = new ScrollViewer
+        var previewStatusRow = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto"), ColumnSpacing = 12 };
+        var previewStatusSpacer = new Border();
+        previewStatusRow.Children.Add(previewStatusSpacer);
+        _previewStatusText.HorizontalAlignment = HorizontalAlignment.Right;
+        Grid.SetColumn(_previewStatusText, 1);
+        previewStatusRow.Children.Add(_previewStatusText);
+
+        var previewActionsRow = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto"), ColumnSpacing = 12 };
+        previewActionsRow.Children.Add(previewPresetButtons);
+        var previewButtonsRight = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, HorizontalAlignment = HorizontalAlignment.Right, Children = { _previewButton, _stopPreviewButton } };
+        Grid.SetColumn(previewButtonsRight, 1);
+        previewActionsRow.Children.Add(previewButtonsRight);
+
+        var previewCard = Card("Live Preview", new StackPanel { Spacing = 8, Children =
         {
-            Content = contentStack
+            previewStatusRow,
+            previewActionsRow,
+            _previewText,
+            new TextBlock { Text = "Re-synthesizes fresh. Bypasses cache. Includes current DSP.", TextWrapping = TextWrapping.Wrap, Opacity = 0.8 }
+        }});
+
+        Control WrapAdvancedCard(string title, Control content)
+            => new Expander
+            {
+                Header = new TextBlock { Text = title, FontWeight = FontWeight.SemiBold },
+                IsExpanded = false,
+                Content = content
+            };
+
+        var scrollStack = new StackPanel
+        {
+            Spacing = 10,
+            HorizontalAlignment = HorizontalAlignment.Stretch,
+            Children =
+            {
+                new Expander
+                {
+                    Header = new TextBlock { Text = "Audio Effects (DSP)", FontWeight = FontWeight.SemiBold },
+                    IsExpanded = false,
+                    HorizontalAlignment = HorizontalAlignment.Stretch,
+                    Content = dspContent
+                },
+                headerStack,
+                WrapAdvancedCard("Standard Setup", presetCard),
+                Card("Summary", new StackPanel { Spacing = 6, Children = { _summaryText } })
+            }
         };
+        var insertIndex = 1;
+        if (chatterboxControlsCard != null)
+            scrollStack.Children.Insert(insertIndex++, WrapAdvancedCard("Advanced Render Controls", chatterboxControlsCard));
+        if (f5ControlsCard != null)
+            scrollStack.Children.Insert(insertIndex++, WrapAdvancedCard("Advanced Render Controls", f5ControlsCard));
+        if (longcatControlsCard != null)
+            scrollStack.Children.Insert(insertIndex++, WrapAdvancedCard("Advanced Render Controls", longcatControlsCard));
+        if (styleInstructionCard != null)
+            scrollStack.Children.Insert(insertIndex++, WrapAdvancedCard("Style Instruction", styleInstructionCard));
+
+        var fixedTop = new StackPanel
+        {
+            Spacing = 10,
+            Children =
+            {
+                topGrid,
+                previewCard
+            }
+        };
+
+        var footerButtons = new StackPanel
+        {
+            Orientation = Orientation.Horizontal,
+            HorizontalAlignment = HorizontalAlignment.Right,
+            Spacing = 8,
+            Children = { cancelBtn, saveBtn }
+        };
+
+        var optionsScrollViewer = new ScrollViewer
+        {
+            Content = scrollStack,
+            HorizontalAlignment = HorizontalAlignment.Stretch,
+            VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
+            HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled
+        };
+
+        var rootGrid = new Grid
+        {
+            Margin = new Avalonia.Thickness(12),
+            RowDefinitions = new RowDefinitions("Auto,*,Auto"),
+            RowSpacing = 10
+        };
+        rootGrid.Children.Add(fixedTop);
+        Grid.SetRow(optionsScrollViewer, 1);
+        rootGrid.Children.Add(optionsScrollViewer);
+        Grid.SetRow(footerButtons, 2);
+        rootGrid.Children.Add(footerButtons);
+        Content = rootGrid;
 
         ApplyProfileToControls();
         RefreshStandardStatus();

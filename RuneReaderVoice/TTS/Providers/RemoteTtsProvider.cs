@@ -26,6 +26,7 @@ using System.Threading.Tasks;
 using NVorbis;
 using OggVorbisEncoder;
 using RuneReaderVoice.Protocol;
+using RuneReaderVoice.Session;
 
 namespace RuneReaderVoice.TTS.Providers;
 
@@ -202,6 +203,95 @@ public sealed class RemoteTtsProvider : ITtsProvider
         }
     }
 
+
+    public async Task<RemoteBatchResolution> SubmitSplitBatchAsync(
+        IReadOnlyList<BatchSegmentPlan> batchSegments,
+        VoiceSlot slot,
+        CancellationToken ct,
+        string? bespokeSampleId = null,
+        float? bespokeExaggeration = null,
+        float? bespokeCfgWeight = null,
+        string? batchId = null)
+    {
+        if (batchSegments == null || batchSegments.Count == 0)
+            throw new ArgumentException("Batch must contain at least one segment.", nameof(batchSegments));
+
+        var profile = ResolveProfile(slot);
+        if (!string.IsNullOrWhiteSpace(bespokeSampleId))
+        {
+            profile = ResolveSampleProfile(bespokeSampleId, slot);
+            if (bespokeExaggeration.HasValue) profile.Exaggeration = bespokeExaggeration;
+            if (bespokeCfgWeight.HasValue)    profile.CfgWeight    = bespokeCfgWeight;
+        }
+
+        var voiceSpec = BuildVoiceSpec(profile);
+        var speechRate = profile.SpeechRate <= 0f ? 1.0f : Math.Clamp(profile.SpeechRate, 0.5f, 2.0f);
+        var request = new RemoteSynthesizeV2BatchRequest();
+        foreach (var plan in batchSegments)
+        {
+            var text = plan.Text;
+            var providerId = _descriptor.RemoteProviderId ?? string.Empty;
+            if (providerId.Contains("chatterbox", StringComparison.OrdinalIgnoreCase) ||
+                providerId.Contains("cosyvoice", StringComparison.OrdinalIgnoreCase))
+                text = ChatterboxPreprocess(text);
+
+            request.Segments.Add(new RemoteBatchSegmentRequest
+            {
+                SegmentId = plan.SegmentId,
+                ProviderId = _descriptor.RemoteProviderId!,
+                Text = text,
+                Voice = voiceSpec,
+                LangCode = string.IsNullOrWhiteSpace(profile.LangCode) ? "en" : profile.LangCode,
+                SpeechRate = speechRate,
+                CfgWeight = profile.CfgWeight,
+                Exaggeration = profile.Exaggeration,
+                CbTemperature = profile.ChatterboxTemperature,
+                CbTopP = profile.ChatterboxTopP,
+                CbRepetitionPenalty = profile.ChatterboxRepetitionPenalty,
+                CosyInstruct = string.IsNullOrWhiteSpace(profile.CosyInstruct) ? null : profile.CosyInstruct.Trim(),
+                VoiceInstruct = string.IsNullOrWhiteSpace(profile.VoiceInstruct) ? null : profile.VoiceInstruct.Trim(),
+                LongcatSteps = profile.LongcatSteps,
+                LongcatCfgStrength = profile.LongcatCfgStrength,
+                LongcatGuidance = string.IsNullOrWhiteSpace(profile.LongcatGuidance) ? null : profile.LongcatGuidance.Trim(),
+                SynthesisSeed = profile.SynthesisSeed,
+                CfgStrength = profile.CfgStrength,
+                NfeStep = profile.NfeStep,
+                CrossFadeDuration = profile.CrossFadeDuration,
+                SwaySamplingCoef = profile.SwaysamplingCoef,
+                VoiceContext = slot.ToString(),
+                PrimeFromSegment = plan.PrimeFromSegmentId,
+            });
+        }
+
+        var submitted = await _client.SynthesizeV2BatchAsync(request, ct);
+        System.Diagnostics.Debug.WriteLine($"[RemoteTTS] v2 batch submitted: batchId={submitted.BatchId} segments={submitted.Segments.Count}");
+        foreach (var seg in submitted.Segments)
+            System.Diagnostics.Debug.WriteLine($"[RemoteTTS] v2 batch seg={seg.SegmentId} status={seg.Status} progressKey={seg.ProgressKey} cacheKey={seg.CacheKey}");
+
+        return new RemoteBatchResolution
+        {
+            BatchId = string.IsNullOrWhiteSpace(submitted.BatchId) ? (batchId ?? string.Empty) : submitted.BatchId,
+            Segments = submitted.Segments.ToDictionary(s => s.SegmentId, StringComparer.Ordinal)
+        };
+    }
+
+    public async Task<byte[]> FetchBatchSegmentResultAsync(string batchId, string progressKey, string cacheKey, CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(progressKey))
+            throw new InvalidOperationException($"Batch segment is missing progress_key for batchId={batchId} cacheKey={cacheKey}");
+
+        System.Diagnostics.Debug.WriteLine($"[RemoteTTS] v2 batch wait start: batchId={batchId} progressKey={progressKey} cacheKey={cacheKey}");
+        await _client.WaitForJobAsync(progressKey, ct);
+        System.Diagnostics.Debug.WriteLine($"[RemoteTTS] v2 batch wait complete: batchId={batchId} progressKey={progressKey} cacheKey={cacheKey}");
+
+        var result = await _client.GetV2ResultAsync(progressKey, ct);
+        if (result == null)
+            throw new InvalidOperationException($"Batch job completed but result was not ready for batchId={batchId} progressKey={progressKey} cacheKey={cacheKey}");
+
+        System.Diagnostics.Debug.WriteLine($"[RemoteTTS] v2 batch result fetched: batchId={batchId} progressKey={progressKey} cacheKey={cacheKey} bytes={result.Length}");
+        return result;
+    }
+
     // ── Core synthesis (v2 API) ───────────────────────────────────────────────
 
     /// <summary>
@@ -310,6 +400,13 @@ public sealed class RemoteTtsProvider : ITtsProvider
             bespokeSampleId, bespokeExaggeration, bespokeCfgWeight,
             batchId, batchTotal);
         return await FetchOggResultAsync(submitted, ct);
+    }
+
+
+    public sealed class RemoteBatchResolution
+    {
+        public string BatchId { get; init; } = string.Empty;
+        public Dictionary<string, V2BatchSegmentResponse> Segments { get; init; } = new(StringComparer.Ordinal);
     }
 
     // ── Chatterbox text cleanup ───────────────────────────────────────────────
@@ -870,7 +967,7 @@ public sealed class RemoteTtsProvider : ITtsProvider
         return channelArrays;
     }
 
-    private static async Task<PcmAudio> DecodeOggAsync(byte[] oggBytes, CancellationToken ct)
+    internal static async Task<PcmAudio> DecodeOggAsync(byte[] oggBytes, CancellationToken ct)
     {
         return await Task.Run(() =>
         {

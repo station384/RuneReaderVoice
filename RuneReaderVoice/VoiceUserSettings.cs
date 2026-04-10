@@ -87,7 +87,7 @@ public sealed class VoiceUserSettings
     }
 
     public string PlaybackMode { get; set; } = "WaitForFullText";
-    public bool EnablePhraseChunking { get; set; } = true;
+    public bool EnablePhraseChunking { get; set; } = false;
 
     public float Volume { get; set; } = 0.8f;
     public float PlaybackSpeed { get; set; } = 1.0f;
@@ -103,8 +103,9 @@ public sealed class VoiceUserSettings
     // generic = replace with a cache-friendly preset title
     // actual  = speak detected player name
     public string PlayerNameMode { get; set; } = "generic";
-    public string PlayerNameReplacementPreset { get; set; } = "hero";
+    public string PlayerNameReplacementPreset { get; set; } = "champion";
     public bool PlayerNameAppendRealm { get; set; } = false;
+    public string PlayerNameSplitStrategy { get; set; } = "containing_sentence";
 
     public int CaptureIntervalMs { get; set; } = 5;
     public void NormalizeCaptureSettings()

@@ -68,16 +68,30 @@ public sealed class AssembledSegment
     public VoiceSlot Slot              { get; init; }
     public int       DialogId          { get; init; }
     public int       SegmentIndex      { get; init; }
+    public int       DialogSegmentCount { get; init; }
     public int       NpcId             { get; init; }
     public string?    PlayerName        { get; init; } = null;
     public string?    PlayerRealm       { get; init; } = null;
     public string?    PlayerClass       { get; init; } = null;
+
+    // Experimental remote batch priming metadata for player-name split testing.
+    public string? BatchId { get; init; } = null;
+    public string? BatchSegmentId { get; init; } = null;
+    public string? PrimeFromBatchSegmentId { get; init; } = null;
+    public IReadOnlyList<BatchSegmentPlan>? BatchSegments { get; init; } = null;
 
     // Bespoke voice override resolved at assembly time from NpcRaceOverride.
     // Null means use the race slot defaults.
     public string?   BespokeSampleId    { get; init; } = null;
     public float?    BespokeExaggeration { get; init; } = null;
     public float?    BespokeCfgWeight   { get; init; } = null;
+}
+
+public sealed class BatchSegmentPlan
+{
+    public string SegmentId { get; init; } = string.Empty;
+    public string Text { get; init; } = string.Empty;
+    public string? PrimeFromSegmentId { get; init; } = null;
 }
 
 public sealed class TtsSessionAssembler
@@ -308,13 +322,33 @@ public sealed class TtsSessionAssembler
 
         if (toFire != null)
         {
+            var audibleCount = toFire.Count;
             foreach (var seg in toFire)
             {
+                var emitted = new AssembledSegment
+                {
+                    Text = seg.Text,
+                    Slot = seg.Slot,
+                    DialogId = seg.DialogId,
+                    SegmentIndex = seg.SegmentIndex,
+                    DialogSegmentCount = audibleCount,
+                    NpcId = seg.NpcId,
+                    PlayerName = seg.PlayerName,
+                    PlayerRealm = seg.PlayerRealm,
+                    PlayerClass = seg.PlayerClass,
+                    BatchId = seg.BatchId,
+                    BatchSegmentId = seg.BatchSegmentId,
+                    PrimeFromBatchSegmentId = seg.PrimeFromBatchSegmentId,
+                    BatchSegments = seg.BatchSegments,
+                    BespokeSampleId = seg.BespokeSampleId,
+                    BespokeExaggeration = seg.BespokeExaggeration,
+                    BespokeCfgWeight = seg.BespokeCfgWeight,
+                };
                 System.Diagnostics.Debug.WriteLine(
-                    $"[Assembler] Firing seg={seg.SegmentIndex} slot={seg.Slot} npc={seg.NpcId}" +
-                    $" bespoke={seg.BespokeSampleId ?? "none"} text='{seg.Text.Substring(0, Math.Min(60, seg.Text.Length))}'");
-                AppServices.LastSegment = seg;
-                OnSegmentComplete?.Invoke(seg);
+                    $"[Assembler] Firing seg={emitted.SegmentIndex} slot={emitted.Slot} npc={emitted.NpcId}" +
+                    $" bespoke={emitted.BespokeSampleId ?? "none"} text='{emitted.Text.Substring(0, Math.Min(60, emitted.Text.Length))}'");
+                AppServices.LastSegment = emitted;
+                OnSegmentComplete?.Invoke(emitted);
             }
         }
     }
@@ -480,9 +514,9 @@ public sealed class TtsSessionAssembler
             return text;
 
         var mode = (AppServices.Settings.PlayerNameMode ?? "generic").Trim().ToLowerInvariant();
-        var replacement = _currentPlayerName;
 
-        if (mode != "actual")
+        var replacement = _currentPlayerName;
+        if (mode != "actual" && mode != "split")
         {
             var preset = (AppServices.Settings.PlayerNameReplacementPreset ?? "hero").Trim().ToLowerInvariant();
             replacement = preset switch
@@ -491,10 +525,13 @@ public sealed class TtsSessionAssembler
                 "class" => string.IsNullOrWhiteSpace(_currentPlayerClass) ? "Hero" : _currentPlayerClass,
                 _ => "Hero",
             };
-
-            if (AppServices.Settings.PlayerNameAppendRealm && !string.IsNullOrWhiteSpace(_currentPlayerRealm))
-                replacement = $"{replacement} of {_currentPlayerRealm}";
         }
+
+        if (AppServices.Settings.PlayerNameAppendRealm && !string.IsNullOrWhiteSpace(_currentPlayerRealm))
+            replacement = $"{replacement} of {_currentPlayerRealm}";
+
+        if (string.Equals(replacement, _currentPlayerName, StringComparison.Ordinal))
+            return text;
 
         var escaped = Regex.Escape(_currentPlayerName);
         var pattern = $@"(?<![\p{{L}}\p{{N}}_'-]){escaped}(?![\p{{L}}\p{{N}}_'-])";

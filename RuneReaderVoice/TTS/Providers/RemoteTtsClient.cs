@@ -294,6 +294,24 @@ public sealed class RemoteTtsClient
         }
     }
 
+
+    public async Task<V2BatchSubmitResponse> SynthesizeV2BatchAsync(
+        RemoteSynthesizeV2BatchRequest request, CancellationToken ct)
+    {
+        var json = JsonSerializer.Serialize(request, JsonOptions);
+        using var content  = new StringContent(json, Encoding.UTF8, "application/json");
+        using var response = await _httpClient.PostAsync(
+            BuildUri("/api/v1/synthesize/v2/batch"), content, ct);
+
+        var body = await response.Content.ReadAsStringAsync(ct);
+        if (!response.IsSuccessStatusCode)
+            throw new InvalidOperationException(
+                $"v2 batch submit failed: {(int)response.StatusCode} {body}");
+
+        return JsonSerializer.Deserialize<V2BatchSubmitResponse>(body, JsonOptions)
+               ?? throw new InvalidOperationException("v2 batch submit returned empty response");
+    }
+
     /// <summary>
     /// Subscribe to batch-level progress events via SSE.
     /// Yields V2BatchProgressEvent until the batch completes or ct is cancelled.
@@ -474,6 +492,52 @@ public sealed class RemoteBlendSpec
     [JsonPropertyName("voice_id")] public string? VoiceId { get; set; }
     [JsonPropertyName("sample_id")] public string? SampleId { get; set; }
     [JsonPropertyName("weight")]   public float  Weight  { get; set; }
+}
+
+public sealed class RemoteSynthesizeV2BatchRequest
+{
+    [JsonPropertyName("segments")] public List<RemoteBatchSegmentRequest> Segments { get; set; } = new();
+}
+
+public sealed class RemoteBatchSegmentRequest
+{
+    [JsonPropertyName("segment_id")] public string SegmentId { get; set; } = string.Empty;
+    [JsonPropertyName("provider_id")] public string ProviderId { get; set; } = string.Empty;
+    [JsonPropertyName("text")] public string Text { get; set; } = string.Empty;
+    [JsonPropertyName("voice")] public RemoteVoiceSpec Voice { get; set; } = new();
+    [JsonPropertyName("lang_code")] public string LangCode { get; set; } = "en";
+    [JsonPropertyName("speech_rate")] public float SpeechRate { get; set; } = 1.0f;
+    [JsonPropertyName("cfg_weight")] public float? CfgWeight { get; set; }
+    [JsonPropertyName("exaggeration")] public float? Exaggeration { get; set; }
+    [JsonPropertyName("cb_temperature")] public float? CbTemperature { get; set; }
+    [JsonPropertyName("cb_top_p")] public float? CbTopP { get; set; }
+    [JsonPropertyName("cb_repetition_penalty")] public float? CbRepetitionPenalty { get; set; }
+    [JsonPropertyName("cosy_instruct")] public string? CosyInstruct { get; set; }
+    [JsonPropertyName("voice_instruct")] public string? VoiceInstruct { get; set; }
+    [JsonPropertyName("longcat_steps")] public int? LongcatSteps { get; set; }
+    [JsonPropertyName("longcat_cfg_strength")] public float? LongcatCfgStrength { get; set; }
+    [JsonPropertyName("longcat_guidance")] public string? LongcatGuidance { get; set; }
+    [JsonPropertyName("synthesis_seed")] public int? SynthesisSeed { get; set; }
+    [JsonPropertyName("cfg_strength")] public float? CfgStrength { get; set; }
+    [JsonPropertyName("nfe_step")] public int? NfeStep { get; set; }
+    [JsonPropertyName("cross_fade_duration")] public float? CrossFadeDuration { get; set; }
+    [JsonPropertyName("sway_sampling_coef")] public float? SwaySamplingCoef { get; set; }
+    [JsonPropertyName("voice_context")] public string? VoiceContext { get; set; }
+    [JsonPropertyName("prime_from_segment")] public string? PrimeFromSegment { get; set; }
+}
+
+public sealed class V2BatchSubmitResponse
+{
+    [JsonPropertyName("batch_id")] public string BatchId { get; set; } = string.Empty;
+    [JsonPropertyName("segments")] public List<V2BatchSegmentResponse> Segments { get; set; } = new();
+}
+
+public sealed class V2BatchSegmentResponse
+{
+    [JsonPropertyName("segment_id")] public string SegmentId { get; set; } = string.Empty;
+    [JsonPropertyName("status")] public string Status { get; set; } = string.Empty;
+    [JsonPropertyName("progress_key")] public string ProgressKey { get; set; } = string.Empty;
+    [JsonPropertyName("cache_key")] public string CacheKey { get; set; } = string.Empty;
 }
 
 /// <summary>Response from POST /api/v1/synthesize/v2</summary>
