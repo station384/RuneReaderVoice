@@ -18,11 +18,13 @@
 
 
 using System;
+using System.Threading.Tasks;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Interactivity;
 using Avalonia.Threading;
 using RuneReaderVoice.Protocol;
+using RuneReaderVoice.Sync;
 using RuneReaderVoice.TTS.Providers;
 
 namespace RuneReaderVoice.UI.Views;
@@ -30,6 +32,71 @@ namespace RuneReaderVoice.UI.Views;
 // Settings tab handlers, provider swapping, and capture/playback preferences.
 public partial class MainWindow
 {
+
+    private async Task RebuildRemoteRuntimeAsync(bool refreshUi)
+    {
+        try
+        {
+            AppServices.NpcSync?.Dispose();
+        }
+        catch
+        {
+        }
+
+        NpcSyncService npcSync;
+        if (!string.IsNullOrWhiteSpace(AppServices.Settings.RemoteServerUrl))
+        {
+            var syncClient = new ServerDefaultsClient(
+                AppServices.Settings.RemoteServerUrl,
+                AppServices.Settings.ContributeKey,
+                AppServices.Settings.AdminKey);
+            var assemblerBridge = new TtsSessionAssemblerBridge(AppServices.Assembler, AppServices.NpcOverrides);
+            npcSync = new NpcSyncService(
+                AppServices.Settings,
+                AppServices.NpcOverrides,
+                AppServices.PronunciationRules,
+                AppServices.TextSwapRules,
+                syncClient,
+                assemblerBridge);
+            await npcSync.StartAsync();
+        }
+        else
+        {
+            npcSync = NpcSyncService.CreateNoOp(
+                AppServices.Settings,
+                AppServices.NpcOverrides,
+                AppServices.PronunciationRules,
+                AppServices.TextSwapRules);
+        }
+
+        AppServices.SwapNpcSync(npcSync);
+
+        var activeId = AppServices.Settings.ActiveProvider;
+        var descriptor = AppServices.ProviderRegistry.Get(activeId);
+        if (descriptor != null)
+        {
+            var oldProvider = AppServices.Provider;
+            var newProvider = TtsProviderFactory.CreateProvider(AppServices.Settings, descriptor);
+            TtsProviderFactory.ApplyStoredProfiles(AppServices.Settings, newProvider);
+            HookProviderStatusCallbacks(newProvider);
+            AppServices.SwapProvider(newProvider);
+            try
+            {
+                (oldProvider as IDisposable)?.Dispose();
+            }
+            catch
+            {
+            }
+        }
+
+        if (refreshUi)
+        {
+            PopulateVoiceGrid();
+            PopulateLastNpcSampleDropdown();
+            RefreshNpcOverridesGrid();
+            _ = PopulateSampleDefaultsGridAsync();
+        }
+    }
     private void OnProviderChanged(object? sender, SelectionChangedEventArgs e)
     {
         if (ProviderSelector.SelectedItem is not ComboBoxItem item)
@@ -131,6 +198,7 @@ public partial class MainWindow
             VoiceSettingsManager.SaveSettings(AppServices.Settings);
             AppServices.ProviderRegistry = TtsProviderFactory.BuildRegistry(AppServices.Settings);
             PopulateProviderSelector();
+            await RebuildRemoteRuntimeAsync(refreshUi: true);
             UpdateRemoteProvidersStatus();
             SessionStatus.Text = $"Loaded {providers.Count} remote provider(s).";
         }

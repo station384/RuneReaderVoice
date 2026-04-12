@@ -129,6 +129,9 @@ public static class AppServices
         Coordinator.SetProvider(newProvider);
     }
 
+    public static void SwapNpcSync(NpcSyncService newNpcSync)
+        => NpcSync = newNpcSync;
+
     public static void SetPronunciationProcessor(DialoguePronunciationProcessor processor)
         => PronunciationProcessor = processor;
 
