@@ -344,6 +344,7 @@ So go quickly, keep your wits about you, and return by the main road if you valu
                 return;
 
             ApplyVoiceProfile(slot, updated, providerId, dict);
+            await AppServices.ProviderSlotProfiles.UpsertAsync(providerId, slot.ToString(), updated, "Local");
             VoiceSettingsManager.SaveSettings(AppServices.Settings);
 
             if (_voiceSummaryBlocks.TryGetValue(slot.ToString(), out var summary))
@@ -484,6 +485,7 @@ So go quickly, keep your wits about you, and return by the main road if you valu
                 return;
             }
 
+            await AppServices.ProviderSlotProfiles.ReplaceFromSettingsAsync(AppServices.Settings, "Imported");
             VoiceSettingsManager.SaveSettings(AppServices.Settings);
 
             // Refresh summary labels
@@ -540,6 +542,8 @@ So go quickly, keep your wits about you, and return by the main road if you valu
         try
         {
             var ok = await AppServices.NpcSync.PullAndApplyDefaultsAsync("voice-profiles");
+            if (ok)
+                await AppServices.ProviderSlotProfiles.ReplaceFromSettingsAsync(AppServices.Settings, "Server");
             SessionStatus.Text = ok ? "Voice profiles pulled from server." : "No voice profiles on server.";
         }
         catch (Exception ex)
