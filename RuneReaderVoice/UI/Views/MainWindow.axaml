@@ -152,9 +152,16 @@ along with RuneReaderVoice. If not, see <https://www.gnu.org/licenses/>.
                 <TextBlock Grid.Row="1" Grid.Column="0"
                            Text="Voice accent" Foreground="#888" FontSize="10"
                            VerticalAlignment="Center"/>
-                <ComboBox x:Name="LastNpcRaceDropdown"
-                          Grid.Row="1" Grid.Column="1" Grid.ColumnSpan="3"
-                          FontSize="11" HorizontalAlignment="Stretch"/>
+                <StackPanel Grid.Row="1" Grid.Column="1" Grid.ColumnSpan="3"
+                            Orientation="Horizontal" Spacing="6">
+                    <TextBox x:Name="LastNpcRaceSearchBox"
+                             Width="120"
+                             FontSize="11"
+                             Watermark="Search"
+                             TextChanged="OnLastNpcRaceSearchTextChanged"/>
+                    <ComboBox x:Name="LastNpcRaceDropdown"
+                              FontSize="11" HorizontalAlignment="Stretch" MinWidth="220"/>
+                </StackPanel>
 
                 <!-- Row 2: bespoke sample picker (hidden when no voice-matching provider active) -->
                 <StackPanel x:Name="LastNpcSamplePanel"
@@ -406,6 +413,11 @@ along with RuneReaderVoice. If not, see <https://www.gnu.org/licenses/>.
                                    Foreground="#888" FontSize="11" TextWrapping="Wrap"/>
 
                         <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,4,0,0">
+                            <TextBox x:Name="NpcOverridesFilterBox"
+                                     Width="140"
+                                     FontSize="11"
+                                     Watermark="Search"
+                                     TextChanged="OnNpcOverridesFilterTextChanged"/>
                             <Button Content="Export JSON"
                                     FontSize="11"
                                     Click="OnNpcOverridesExportClicked"/>

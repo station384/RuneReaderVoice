@@ -43,6 +43,8 @@ public partial class MainWindow
 
     // NpcId of the NPC shown in the Last NPC panel. 0 = no NPC (narrator/book).
     private int _lastNpcId;
+    private bool _suppressLastNpcRaceSearchEvents;
+    private IReadOnlyList<NpcRaceOverride> _npcOverridesAllEntries = Array.Empty<NpcRaceOverride>();
 
     // ── Initialization ────────────────────────────────────────────────────────
 
@@ -53,6 +55,7 @@ public partial class MainWindow
             Dispatcher.UIThread.Post(() => OnSegmentCompletedForNpcPanel(seg));
 
         PopulateNpcOverrideRaceDropdown(LastNpcRaceDropdown);
+        SyncLastNpcRaceSearchTextFromSelection();
         PopulateLastNpcSampleDropdown();
         RefreshNpcOverridesGrid();
     }
@@ -254,9 +257,14 @@ public partial class MainWindow
                 LastNpcNotesBox.Text = existing?.Notes ?? string.Empty;
 
                 if (existing != null)
+                {
                     SelectDropdownByRaceId(LastNpcRaceDropdown, existing.RaceId);
+                }
                 else
+                {
                     LastNpcRaceDropdown.SelectedIndex = 0;
+                }
+                SyncLastNpcRaceSearchTextFromSelection();
 
                 // Bespoke sample — select existing or reset to "(no bespoke sample)"
                 SelectLastNpcSampleDropdown(existing?.BespokeSampleId);
@@ -301,6 +309,7 @@ public partial class MainWindow
             {
                 PopulateNpcOverrideRaceDropdown(LastNpcRaceDropdown);
                 SelectDropdownByRaceId(LastNpcRaceDropdown, raceId);
+                SyncLastNpcRaceSearchTextFromSelection();
 
                 PopulateLastNpcSampleDropdown();
                 SelectLastNpcSampleDropdown(bespokeSampleId);
@@ -337,7 +346,11 @@ public partial class MainWindow
         _ = Task.Run(async () =>
         {
             var entries = await AppServices.NpcOverrides.GetAllAsync();
-            Dispatcher.UIThread.Post(() => RenderNpcOverridesGrid(entries));
+            Dispatcher.UIThread.Post(() =>
+            {
+                _npcOverridesAllEntries = entries;
+                ApplyNpcOverridesFilter();
+            });
         });
     }
 
@@ -371,6 +384,30 @@ public partial class MainWindow
             NpcOverridesGrid.RowDefinitions.Add(new RowDefinition(GridLength.Auto));
             AddOverrideDataRow(entry, row++);
         }
+    }
+
+    private void OnNpcOverridesFilterTextChanged(object? sender, TextChangedEventArgs e)
+        => ApplyNpcOverridesFilter();
+
+    private void ApplyNpcOverridesFilter()
+    {
+        var filter = NpcOverridesFilterBox?.Text?.Trim();
+        if (string.IsNullOrWhiteSpace(filter))
+        {
+            RenderNpcOverridesGrid(_npcOverridesAllEntries);
+            return;
+        }
+
+        var needle = filter.Trim();
+        var filtered = _npcOverridesAllEntries
+            .Where(entry =>
+                entry.NpcId.ToString().Contains(needle, StringComparison.OrdinalIgnoreCase) ||
+                (entry.Notes?.Contains(needle, StringComparison.OrdinalIgnoreCase) ?? false) ||
+                entry.Source.ToString().Contains(needle, StringComparison.OrdinalIgnoreCase) ||
+                entry.AccentGroup.ToString().Contains(needle, StringComparison.OrdinalIgnoreCase))
+            .ToList();
+
+        RenderNpcOverridesGrid(filtered);
     }
 
     private void AddOverrideHeaderRow()
@@ -522,6 +559,7 @@ public partial class MainWindow
         LastNpcNotesBox.Text   = entry.Notes ?? string.Empty;
         LastNpcPanel.IsVisible = true;
         SelectDropdownByRaceId(LastNpcRaceDropdown, entry.RaceId);
+        SyncLastNpcRaceSearchTextFromSelection();
         PopulateLastNpcSampleDropdown();
         SelectLastNpcSampleDropdown(entry.BespokeSampleId);
         LastNpcClearButton.IsEnabled = true;
@@ -571,22 +609,21 @@ public partial class MainWindow
     /// Label: "{Race name} — {AccentLabel}"  (male entry used as representative).
     /// Tag  : integer raceId stored in NpcOverride records.
     /// </summary>
-    private void PopulateNpcOverrideRaceDropdown(ComboBox dropdown)
-    {
-        dropdown.Items.Clear();
+    private sealed record RaceOption(int RaceId, string Label);
 
+    private List<RaceOption> GetNpcOverrideRaceOptions(string? filter = null)
+    {
         var playerIds   = RaceAccentMapping.PlayerRaceIds;
         var creatureIds = RaceAccentMapping.CreatureTypeIds;
         var npcOnlyIds  = RaceAccentMapping.NpcOnlyRaceIds;
 
-        var playerEntries   = new System.Collections.Generic.List<(int raceId, string label)>();
-        var creatureEntries = new System.Collections.Generic.List<(int raceId, string label)>();
-        var npcOnlyEntries  = new System.Collections.Generic.List<(int raceId, string label)>();
+        var playerEntries   = new List<(int raceId, string label)>();
+        var creatureEntries = new List<(int raceId, string label)>();
+        var npcOnlyEntries  = new List<(int raceId, string label)>();
 
-        // One row per unique race/group: use the Male (or Narrator) catalog entry as
-        // the representative label; gender is resolved at runtime from NPC data.
-        foreach (var item in NpcVoiceSlotCatalog.All)
+        foreach (var item in AppServices.NpcPeopleCatalog.GetVoiceSlots())
         {
+            if (item.Slot.Group == AccentGroup.Narrator) continue;
             if (item.Slot.Gender == Gender.Female) continue;
 
             var group    = item.Slot.Group;
@@ -601,23 +638,66 @@ public partial class MainWindow
                 creatureEntries.Add((cid, label));
             else if (npcOnlyIds.TryGetValue(group, out int nid))
                 npcOnlyEntries.Add((nid, label));
-            // Narrator slot has no race ID — intentionally excluded
         }
 
-        var sortedEntries = SelectionRecencyHelper.SortRaces(
-            playerEntries.Concat(creatureEntries).Concat(npcOnlyEntries),
-            AppServices.Settings);
+        var options = SelectionRecencyHelper.SortRaces(
+                playerEntries.Concat(creatureEntries).Concat(npcOnlyEntries),
+                AppServices.Settings)
+            .Select(x => new RaceOption(x.raceId, x.label))
+            .GroupBy(x => x.RaceId)
+            .Select(g => g.First())
+            .ToList();
 
-        foreach (var (raceId, label) in sortedEntries)
+        if (string.IsNullOrWhiteSpace(filter))
+            return options;
+
+        var needle = filter.Trim();
+        return options
+            .Where(x => x.Label.Contains(needle, StringComparison.OrdinalIgnoreCase))
+            .OrderByDescending(x => x.Label.StartsWith(needle, StringComparison.OrdinalIgnoreCase))
+            .ThenBy(x => x.Label, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+    }
+
+    private void PopulateNpcOverrideRaceDropdown(ComboBox dropdown, string? filter)
+    {
+        var selectedRaceId = (dropdown.SelectedItem as ComboBoxItem)?.Tag as int?;
+        dropdown.Items.Clear();
+
+        foreach (var option in GetNpcOverrideRaceOptions(filter))
         {
             dropdown.Items.Add(new ComboBoxItem
             {
-                Content = label,
-                Tag     = raceId,
+                Content = option.Label,
+                Tag     = option.RaceId,
             });
         }
 
-        dropdown.SelectedIndex = 0;
+        if (selectedRaceId.HasValue)
+            SelectDropdownByRaceId(dropdown, selectedRaceId.Value);
+        else if (dropdown.ItemCount > 0)
+            dropdown.SelectedIndex = 0;
+    }
+
+    private void OnLastNpcRaceSearchTextChanged(object? sender, TextChangedEventArgs e)
+    {
+        if (_suppressLastNpcRaceSearchEvents) return;
+
+        PopulateNpcOverrideRaceDropdown(LastNpcRaceDropdown, LastNpcRaceSearchBox.Text);
+        if (LastNpcRaceDropdown.ItemCount > 0)
+            LastNpcRaceDropdown.SelectedIndex = 0;
+    }
+
+    private void PopulateNpcOverrideRaceDropdown(ComboBox dropdown)
+    {
+        PopulateNpcOverrideRaceDropdown(dropdown, null);
+    }
+
+    private void SyncLastNpcRaceSearchTextFromSelection()
+    {
+        _suppressLastNpcRaceSearchEvents = true;
+        LastNpcRaceSearchBox.Text = string.Empty;
+        _suppressLastNpcRaceSearchEvents = false;
     }
 
     private static void SelectDropdownByRaceId(ComboBox dropdown, int raceId)
