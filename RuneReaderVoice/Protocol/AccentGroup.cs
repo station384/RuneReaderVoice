@@ -99,24 +99,43 @@ public enum AccentGroup
 
 /// <summary>
 /// Identifies a specific voice slot: accent group + gender.
-/// Narrator group ignores gender and always maps to a single slot.
+/// Narrator supports neutral, male, and female variants.
 /// </summary>
 public readonly record struct VoiceSlot(AccentGroup Group, Gender Gender)
 {
-    public static readonly VoiceSlot Narrator = new(AccentGroup.Narrator, Gender.Unknown);
+    public static readonly VoiceSlot Narrator       = new(AccentGroup.Narrator, Gender.Unknown);
+    public static readonly VoiceSlot MaleNarrator   = new(AccentGroup.Narrator, Gender.Male);
+    public static readonly VoiceSlot FemaleNarrator = new(AccentGroup.Narrator, Gender.Female);
 
     public override string ToString() =>
-        Group == AccentGroup.Narrator ? "Narrator" : $"{Group}/{Gender}";
+        Group == AccentGroup.Narrator
+            ? Gender switch
+            {
+                Gender.Female => "Narrator/Female",
+                Gender.Male   => "Narrator/Male",
+                _             => "Narrator",
+            }
+            : $"{Group}/{Gender}";
 
     /// <summary>
     /// Parses a VoiceSlot from its ToString() representation.
-    /// Valid forms: "Narrator" or "AccentGroup/Gender" (e.g. "Scottish/Male").
+    /// Valid forms: "Narrator", "Narrator/Female", "Narrator/Male", or "AccentGroup/Gender" (e.g. "Scottish/Male").
     /// </summary>
     public static bool TryParse(string s, out VoiceSlot slot)
     {
         if (s == "Narrator")
         {
             slot = Narrator;
+            return true;
+        }
+        if (s == "Narrator/Female")
+        {
+            slot = FemaleNarrator;
+            return true;
+        }
+        if (s == "Narrator/Male")
+        {
+            slot = MaleNarrator;
             return true;
         }
 

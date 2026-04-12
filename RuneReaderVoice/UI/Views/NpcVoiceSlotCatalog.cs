@@ -40,6 +40,7 @@ public static class NpcVoiceSlotCatalog
     {
         // ── Narrator ──────────────────────────────────────────────────────────
         new NpcVoiceSlotCatalogItem(VoiceSlot.Narrator, "Narrator", "Narrator", 0),
+        new NpcVoiceSlotCatalogItem(VoiceSlot.FemaleNarrator, "Female Narrator", "Narrator", 1),
 
         // ── Alliance ──────────────────────────────────────────────────────────
         new NpcVoiceSlotCatalogItem(new VoiceSlot(AccentGroup.Human, Gender.Male),   "Human / Male",   "Neutral American", 10),

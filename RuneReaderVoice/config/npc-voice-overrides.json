@@ -2,274 +2,10 @@
   "Version": "1",
   "Entries": [
     {
-      "NpcId": 68,
-      "RaceId": 1,
-      "Notes": "",
-      "BespokeSampleId": null,
-      "BespokeExaggeration": null,
-      "BespokeCfgWeight": null
-    },
-    {
-      "NpcId": 2879,
-      "RaceId": 3,
-      "Notes": "",
-      "BespokeSampleId": null,
-      "BespokeExaggeration": null,
-      "BespokeCfgWeight": null
-    },
-    {
-      "NpcId": 5517,
-      "RaceId": 3,
-      "Notes": "",
-      "BespokeSampleId": null,
-      "BespokeExaggeration": null,
-      "BespokeCfgWeight": null
-    },
-    {
-      "NpcId": 6491,
-      "RaceId": 85,
-      "Notes": "",
-      "BespokeSampleId": null,
-      "BespokeExaggeration": null,
-      "BespokeCfgWeight": null
-    },
-    {
-      "NpcId": 11069,
-      "RaceId": 3,
-      "Notes": "",
-      "BespokeSampleId": null,
-      "BespokeExaggeration": null,
-      "BespokeCfgWeight": null
-    },
-    {
-      "NpcId": 18222,
-      "RaceId": 545,
-      "Notes": "",
-      "BespokeSampleId": null,
-      "BespokeExaggeration": null,
-      "BespokeCfgWeight": null
-    },
-    {
-      "NpcId": 18224,
-      "RaceId": 545,
-      "Notes": "",
-      "BespokeSampleId": null,
-      "BespokeExaggeration": null,
-      "BespokeCfgWeight": null
-    },
-    {
-      "NpcId": 18353,
-      "RaceId": 11,
-      "Notes": "",
-      "BespokeSampleId": null,
-      "BespokeExaggeration": null,
-      "BespokeCfgWeight": null
-    },
-    {
-      "NpcId": 18416,
-      "RaceId": 11,
-      "Notes": "",
-      "BespokeSampleId": null,
-      "BespokeExaggeration": null,
-      "BespokeCfgWeight": null
-    },
-    {
-      "NpcId": 18914,
-      "RaceId": 11,
-      "Notes": "",
-      "BespokeSampleId": null,
-      "BespokeExaggeration": null,
-      "BespokeCfgWeight": null
-    },
-    {
-      "NpcId": 19012,
-      "RaceId": 545,
-      "Notes": "",
-      "BespokeSampleId": null,
-      "BespokeExaggeration": null,
-      "BespokeCfgWeight": null
-    },
-    {
-      "NpcId": 19021,
-      "RaceId": 11,
-      "Notes": "",
-      "BespokeSampleId": null,
-      "BespokeExaggeration": null,
-      "BespokeCfgWeight": null
-    },
-    {
-      "NpcId": 19137,
-      "RaceId": 3,
-      "Notes": "",
-      "BespokeSampleId": null,
-      "BespokeExaggeration": null,
-      "BespokeCfgWeight": null
-    },
-    {
-      "NpcId": 19141,
-      "RaceId": 545,
-      "Notes": "",
-      "BespokeSampleId": null,
-      "BespokeExaggeration": null,
-      "BespokeCfgWeight": null
-    },
-    {
-      "NpcId": 20407,
-      "RaceId": 11,
-      "Notes": "",
-      "BespokeSampleId": null,
-      "BespokeExaggeration": null,
-      "BespokeCfgWeight": null
-    },
-    {
-      "NpcId": 35642,
-      "RaceId": 87,
-      "Notes": "",
-      "BespokeSampleId": null,
-      "BespokeExaggeration": null,
-      "BespokeCfgWeight": null
-    },
-    {
-      "NpcId": 43034,
-      "RaceId": 1,
-      "Notes": "",
-      "BespokeSampleId": null,
-      "BespokeExaggeration": null,
-      "BespokeCfgWeight": null
-    },
-    {
-      "NpcId": 44235,
-      "RaceId": 3,
-      "Notes": "",
-      "BespokeSampleId": null,
-      "BespokeExaggeration": null,
-      "BespokeCfgWeight": null
-    },
-    {
-      "NpcId": 50270,
-      "RaceId": 1,
-      "Notes": "",
-      "BespokeSampleId": null,
-      "BespokeExaggeration": null,
-      "BespokeCfgWeight": null
-    },
-    {
-      "NpcId": 101759,
-      "RaceId": 10,
-      "Notes": "",
-      "BespokeSampleId": null,
-      "BespokeExaggeration": null,
-      "BespokeCfgWeight": null
-    },
-    {
-      "NpcId": 143208,
-      "RaceId": 1,
-      "Notes": "",
-      "BespokeSampleId": null,
-      "BespokeExaggeration": null,
-      "BespokeCfgWeight": null
-    },
-    {
-      "NpcId": 158276,
-      "RaceId": 3,
-      "Notes": "",
-      "BespokeSampleId": null,
-      "BespokeExaggeration": null,
-      "BespokeCfgWeight": null
-    },
-    {
       "NpcId": 197915,
       "RaceId": 13,
       "Notes": "",
       "BespokeSampleId": null,
-      "BespokeExaggeration": null,
-      "BespokeCfgWeight": null
-    },
-    {
-      "NpcId": 215033,
-      "RaceId": 1,
-      "Notes": "",
-      "BespokeSampleId": null,
-      "BespokeExaggeration": null,
-      "BespokeCfgWeight": null
-    },
-    {
-      "NpcId": 219014,
-      "RaceId": 52,
-      "Notes": "",
-      "BespokeSampleId": null,
-      "BespokeExaggeration": null,
-      "BespokeCfgWeight": null
-    },
-    {
-      "NpcId": 220307,
-      "RaceId": 3,
-      "Notes": "",
-      "BespokeSampleId": null,
-      "BespokeExaggeration": null,
-      "BespokeCfgWeight": null
-    },
-    {
-      "NpcId": 223875,
-      "RaceId": 544,
-      "Notes": "",
-      "BespokeSampleId": null,
-      "BespokeExaggeration": null,
-      "BespokeCfgWeight": null
-    },
-    {
-      "NpcId": 225426,
-      "RaceId": 52,
-      "Notes": "",
-      "BespokeSampleId": null,
-      "BespokeExaggeration": null,
-      "BespokeCfgWeight": null
-    },
-    {
-      "NpcId": 226353,
-      "RaceId": 52,
-      "Notes": "",
-      "BespokeSampleId": null,
-      "BespokeExaggeration": null,
-      "BespokeCfgWeight": null
-    },
-    {
-      "NpcId": 226511,
-      "RaceId": 52,
-      "Notes": "",
-      "BespokeSampleId": null,
-      "BespokeExaggeration": null,
-      "BespokeCfgWeight": null
-    },
-    {
-      "NpcId": 229333,
-      "RaceId": 10,
-      "Notes": "",
-      "BespokeSampleId": null,
-      "BespokeExaggeration": null,
-      "BespokeCfgWeight": null
-    },
-    {
-      "NpcId": 230246,
-      "RaceId": 13,
-      "Notes": "",
-      "BespokeSampleId": null,
-      "BespokeExaggeration": null,
-      "BespokeCfgWeight": null
-    },
-    {
-      "NpcId": 235703,
-      "RaceId": 29,
-      "Notes": "",
-      "BespokeSampleId": null,
-      "BespokeExaggeration": null,
-      "BespokeCfgWeight": null
-    },
-    {
-      "NpcId": 235787,
-      "RaceId": 10,
-      "Notes": "",
-      "BespokeSampleId": "M_Lorthemar_Theron_1",
       "BespokeExaggeration": null,
       "BespokeCfgWeight": null
     },
@@ -290,31 +26,7 @@
       "BespokeCfgWeight": null
     },
     {
-      "NpcId": 236099,
-      "RaceId": 10,
-      "Notes": "",
-      "BespokeSampleId": "F_Liadrin_4",
-      "BespokeExaggeration": null,
-      "BespokeCfgWeight": null
-    },
-    {
       "NpcId": 236100,
-      "RaceId": 10,
-      "Notes": "",
-      "BespokeSampleId": "M_Arator",
-      "BespokeExaggeration": null,
-      "BespokeCfgWeight": null
-    },
-    {
-      "NpcId": 236126,
-      "RaceId": 543,
-      "Notes": "",
-      "BespokeSampleId": "F_Zuljarra_1_Normal",
-      "BespokeExaggeration": null,
-      "BespokeCfgWeight": null
-    },
-    {
-      "NpcId": 236132,
       "RaceId": 10,
       "Notes": "",
       "BespokeSampleId": "M_Arator",
@@ -330,254 +42,6 @@
       "BespokeCfgWeight": null
     },
     {
-      "NpcId": 236363,
-      "RaceId": 29,
-      "Notes": "Umbric",
-      "BespokeSampleId": "M_Umbric",
-      "BespokeExaggeration": null,
-      "BespokeCfgWeight": null
-    },
-    {
-      "NpcId": 236391,
-      "RaceId": 10,
-      "Notes": "Arator",
-      "BespokeSampleId": "M_Arator",
-      "BespokeExaggeration": null,
-      "BespokeCfgWeight": null
-    },
-    {
-      "NpcId": 236436,
-      "RaceId": 10,
-      "Notes": "",
-      "BespokeSampleId": "F_Liadrin_3",
-      "BespokeExaggeration": null,
-      "BespokeCfgWeight": null
-    },
-    {
-      "NpcId": 236461,
-      "RaceId": 543,
-      "Notes": "",
-      "BespokeSampleId": "F_Zuljarra_2_Threat",
-      "BespokeExaggeration": null,
-      "BespokeCfgWeight": null
-    },
-    {
-      "NpcId": 236468,
-      "RaceId": 543,
-      "Notes": "",
-      "BespokeSampleId": "F_Zuljarra_2_Threat",
-      "BespokeExaggeration": null,
-      "BespokeCfgWeight": null
-    },
-    {
-      "NpcId": 236484,
-      "RaceId": 543,
-      "Notes": "",
-      "BespokeSampleId": "M_ZulJan_2_Frustrated",
-      "BespokeExaggeration": null,
-      "BespokeCfgWeight": null
-    },
-    {
-      "NpcId": 236485,
-      "RaceId": 543,
-      "Notes": "",
-      "BespokeSampleId": "F_Liadrin_3",
-      "BespokeExaggeration": null,
-      "BespokeCfgWeight": null
-    },
-    {
-      "NpcId": 236522,
-      "RaceId": 543,
-      "Notes": "",
-      "BespokeSampleId": "M_ZulJan_2_Frustrated",
-      "BespokeExaggeration": null,
-      "BespokeCfgWeight": null
-    },
-    {
-      "NpcId": 236540,
-      "RaceId": 543,
-      "Notes": "",
-      "BespokeSampleId": "M_ZulJan_2_Frustrated",
-      "BespokeExaggeration": null,
-      "BespokeCfgWeight": null
-    },
-    {
-      "NpcId": 236541,
-      "RaceId": 543,
-      "Notes": "",
-      "BespokeSampleId": "F_Zuljarra_1_Normal",
-      "BespokeExaggeration": null,
-      "BespokeCfgWeight": null
-    },
-    {
-      "NpcId": 236542,
-      "RaceId": 10,
-      "Notes": "",
-      "BespokeSampleId": "F_Liadrin_3",
-      "BespokeExaggeration": null,
-      "BespokeCfgWeight": null
-    },
-    {
-      "NpcId": 236558,
-      "RaceId": 543,
-      "Notes": "",
-      "BespokeSampleId": "M_ZulJan_4-Retospective",
-      "BespokeExaggeration": null,
-      "BespokeCfgWeight": null
-    },
-    {
-      "NpcId": 236559,
-      "RaceId": 543,
-      "Notes": "",
-      "BespokeSampleId": "F_Zuljarra_1_Normal",
-      "BespokeExaggeration": null,
-      "BespokeCfgWeight": null
-    },
-    {
-      "NpcId": 236567,
-      "RaceId": 10,
-      "Notes": "",
-      "BespokeSampleId": "M_Arator",
-      "BespokeExaggeration": null,
-      "BespokeCfgWeight": null
-    },
-    {
-      "NpcId": 236568,
-      "RaceId": 10,
-      "Notes": "",
-      "BespokeSampleId": "M_Arator",
-      "BespokeExaggeration": null,
-      "BespokeCfgWeight": null
-    },
-    {
-      "NpcId": 236570,
-      "RaceId": 543,
-      "Notes": "",
-      "BespokeSampleId": "F_Liadrin_3",
-      "BespokeExaggeration": null,
-      "BespokeCfgWeight": null
-    },
-    {
-      "NpcId": 236572,
-      "RaceId": 10,
-      "Notes": "",
-      "BespokeSampleId": "M_Lorthemar_Theron_1",
-      "BespokeExaggeration": null,
-      "BespokeCfgWeight": null
-    },
-    {
-      "NpcId": 236586,
-      "RaceId": 10,
-      "Notes": "",
-      "BespokeSampleId": "F_Liadrin_3",
-      "BespokeExaggeration": null,
-      "BespokeCfgWeight": null
-    },
-    {
-      "NpcId": 236587,
-      "RaceId": 543,
-      "Notes": "",
-      "BespokeSampleId": "F_Zuljarra_1_Normal",
-      "BespokeExaggeration": null,
-      "BespokeCfgWeight": null
-    },
-    {
-      "NpcId": 236588,
-      "RaceId": 543,
-      "Notes": "",
-      "BespokeSampleId": "M_ZulJan_2_Frustrated",
-      "BespokeExaggeration": null,
-      "BespokeCfgWeight": null
-    },
-    {
-      "NpcId": 236590,
-      "RaceId": 543,
-      "Notes": "",
-      "BespokeSampleId": null,
-      "BespokeExaggeration": null,
-      "BespokeCfgWeight": null
-    },
-    {
-      "NpcId": 236591,
-      "RaceId": 543,
-      "Notes": "",
-      "BespokeSampleId": null,
-      "BespokeExaggeration": null,
-      "BespokeCfgWeight": null
-    },
-    {
-      "NpcId": 236594,
-      "RaceId": 543,
-      "Notes": "",
-      "BespokeSampleId": "M_ZulJan_1_Normal",
-      "BespokeExaggeration": null,
-      "BespokeCfgWeight": null
-    },
-    {
-      "NpcId": 236601,
-      "RaceId": 543,
-      "Notes": "",
-      "BespokeSampleId": "F_Zuljarra_1_Normal",
-      "BespokeExaggeration": null,
-      "BespokeCfgWeight": null
-    },
-    {
-      "NpcId": 236602,
-      "RaceId": 543,
-      "Notes": "",
-      "BespokeSampleId": "F_Zuljarra_1_Normal",
-      "BespokeExaggeration": null,
-      "BespokeCfgWeight": null
-    },
-    {
-      "NpcId": 236604,
-      "RaceId": 10,
-      "Notes": "",
-      "BespokeSampleId": "F_Liadrin_4",
-      "BespokeExaggeration": null,
-      "BespokeCfgWeight": null
-    },
-    {
-      "NpcId": 236610,
-      "RaceId": 10,
-      "Notes": "",
-      "BespokeSampleId": "M_Arator_2",
-      "BespokeExaggeration": null,
-      "BespokeCfgWeight": null
-    },
-    {
-      "NpcId": 236611,
-      "RaceId": 10,
-      "Notes": "",
-      "BespokeSampleId": "M_Arator_2",
-      "BespokeExaggeration": null,
-      "BespokeCfgWeight": null
-    },
-    {
-      "NpcId": 236612,
-      "RaceId": 10,
-      "Notes": "",
-      "BespokeSampleId": "M_Lorthemar_Theron_1",
-      "BespokeExaggeration": null,
-      "BespokeCfgWeight": null
-    },
-    {
-      "NpcId": 236659,
-      "RaceId": 543,
-      "Notes": "",
-      "BespokeSampleId": "F_Zuljarra_1_Normal",
-      "BespokeExaggeration": null,
-      "BespokeCfgWeight": null
-    },
-    {
-      "NpcId": 236686,
-      "RaceId": 10,
-      "Notes": "",
-      "BespokeSampleId": "M_Arator",
-      "BespokeExaggeration": null,
-      "BespokeCfgWeight": null
-    },
-    {
       "NpcId": 236716,
       "RaceId": 10,
       "Notes": "",
@@ -586,26 +50,10 @@
       "BespokeCfgWeight": null
     },
     {
-      "NpcId": 236730,
-      "RaceId": 29,
-      "Notes": "",
-      "BespokeSampleId": "M_Umbric",
-      "BespokeExaggeration": null,
-      "BespokeCfgWeight": null
-    },
-    {
       "NpcId": 236736,
       "RaceId": 10,
       "Notes": "",
       "BespokeSampleId": "M_Arator",
-      "BespokeExaggeration": null,
-      "BespokeCfgWeight": null
-    },
-    {
-      "NpcId": 236737,
-      "RaceId": 10,
-      "Notes": "",
-      "BespokeSampleId": "M_Arator_2",
       "BespokeExaggeration": null,
       "BespokeCfgWeight": null
     },
@@ -630,30 +78,6 @@
       "RaceId": 70,
       "Notes": "",
       "BespokeSampleId": "F_Orweyna_1",
-      "BespokeExaggeration": null,
-      "BespokeCfgWeight": null
-    },
-    {
-      "NpcId": 237240,
-      "RaceId": 29,
-      "Notes": "",
-      "BespokeSampleId": "M_Umbric-quiet",
-      "BespokeExaggeration": null,
-      "BespokeCfgWeight": null
-    },
-    {
-      "NpcId": 237301,
-      "RaceId": 543,
-      "Notes": "",
-      "BespokeSampleId": null,
-      "BespokeExaggeration": null,
-      "BespokeCfgWeight": null
-    },
-    {
-      "NpcId": 237433,
-      "RaceId": 1,
-      "Notes": "",
-      "BespokeSampleId": "M_Lorthemar_Theron_1",
       "BespokeExaggeration": null,
       "BespokeCfgWeight": null
     },
@@ -691,22 +115,6 @@
     },
     {
       "NpcId": 237907,
-      "RaceId": 10,
-      "Notes": "",
-      "BespokeSampleId": null,
-      "BespokeExaggeration": null,
-      "BespokeCfgWeight": null
-    },
-    {
-      "NpcId": 238083,
-      "RaceId": 10,
-      "Notes": "",
-      "BespokeSampleId": null,
-      "BespokeExaggeration": null,
-      "BespokeCfgWeight": null
-    },
-    {
-      "NpcId": 238084,
       "RaceId": 10,
       "Notes": "",
       "BespokeSampleId": null,
@@ -786,14 +194,6 @@
       "BespokeCfgWeight": null
     },
     {
-      "NpcId": 239405,
-      "RaceId": 10,
-      "Notes": "",
-      "BespokeSampleId": null,
-      "BespokeExaggeration": null,
-      "BespokeCfgWeight": null
-    },
-    {
       "NpcId": 239406,
       "RaceId": 10,
       "Notes": "",
@@ -804,78 +204,6 @@
     {
       "NpcId": 239457,
       "RaceId": 10,
-      "Notes": "",
-      "BespokeSampleId": null,
-      "BespokeExaggeration": null,
-      "BespokeCfgWeight": null
-    },
-    {
-      "NpcId": 239630,
-      "RaceId": 10,
-      "Notes": "",
-      "BespokeSampleId": null,
-      "BespokeExaggeration": null,
-      "BespokeCfgWeight": null
-    },
-    {
-      "NpcId": 239639,
-      "RaceId": 10,
-      "Notes": "",
-      "BespokeSampleId": null,
-      "BespokeExaggeration": null,
-      "BespokeCfgWeight": null
-    },
-    {
-      "NpcId": 239696,
-      "RaceId": 10,
-      "Notes": "",
-      "BespokeSampleId": "M_Arator",
-      "BespokeExaggeration": null,
-      "BespokeCfgWeight": null
-    },
-    {
-      "NpcId": 240255,
-      "RaceId": 24,
-      "Notes": "",
-      "BespokeSampleId": "F_Thalyssra",
-      "BespokeExaggeration": null,
-      "BespokeCfgWeight": null
-    },
-    {
-      "NpcId": 240260,
-      "RaceId": 29,
-      "Notes": "",
-      "BespokeSampleId": null,
-      "BespokeExaggeration": null,
-      "BespokeCfgWeight": null
-    },
-    {
-      "NpcId": 240266,
-      "RaceId": 10,
-      "Notes": "",
-      "BespokeSampleId": null,
-      "BespokeExaggeration": null,
-      "BespokeCfgWeight": null
-    },
-    {
-      "NpcId": 240267,
-      "RaceId": 10,
-      "Notes": "Arator",
-      "BespokeSampleId": "M_Arator_2",
-      "BespokeExaggeration": null,
-      "BespokeCfgWeight": null
-    },
-    {
-      "NpcId": 240274,
-      "RaceId": 543,
-      "Notes": "",
-      "BespokeSampleId": null,
-      "BespokeExaggeration": null,
-      "BespokeCfgWeight": null
-    },
-    {
-      "NpcId": 240279,
-      "RaceId": 543,
       "Notes": "",
       "BespokeSampleId": null,
       "BespokeExaggeration": null,
@@ -930,42 +258,10 @@
       "BespokeCfgWeight": null
     },
     {
-      "NpcId": 240489,
-      "RaceId": 29,
-      "Notes": "",
-      "BespokeSampleId": null,
-      "BespokeExaggeration": null,
-      "BespokeCfgWeight": null
-    },
-    {
-      "NpcId": 240578,
-      "RaceId": 29,
-      "Notes": "",
-      "BespokeSampleId": null,
-      "BespokeExaggeration": null,
-      "BespokeCfgWeight": null
-    },
-    {
-      "NpcId": 240662,
-      "RaceId": 10,
-      "Notes": "",
-      "BespokeSampleId": "M_Arator_2",
-      "BespokeExaggeration": null,
-      "BespokeCfgWeight": null
-    },
-    {
       "NpcId": 240663,
       "RaceId": 70,
       "Notes": "",
       "BespokeSampleId": "F_Orweyna_1",
-      "BespokeExaggeration": null,
-      "BespokeCfgWeight": null
-    },
-    {
-      "NpcId": 240832,
-      "RaceId": 10,
-      "Notes": "",
-      "BespokeSampleId": "M_Lord_Saltheril",
       "BespokeExaggeration": null,
       "BespokeCfgWeight": null
     },
@@ -986,90 +282,10 @@
       "BespokeCfgWeight": null
     },
     {
-      "NpcId": 240975,
-      "RaceId": 543,
-      "Notes": "",
-      "BespokeSampleId": "F_Amani_3-quiet",
-      "BespokeExaggeration": null,
-      "BespokeCfgWeight": null
-    },
-    {
-      "NpcId": 240976,
-      "RaceId": 543,
-      "Notes": "",
-      "BespokeSampleId": "M_Amani_1",
-      "BespokeExaggeration": null,
-      "BespokeCfgWeight": null
-    },
-    {
-      "NpcId": 240977,
-      "RaceId": 543,
-      "Notes": "",
-      "BespokeSampleId": "M_Amani_3",
-      "BespokeExaggeration": null,
-      "BespokeCfgWeight": null
-    },
-    {
-      "NpcId": 241072,
-      "RaceId": 543,
-      "Notes": "",
-      "BespokeSampleId": "F_Amani_2",
-      "BespokeExaggeration": null,
-      "BespokeCfgWeight": null
-    },
-    {
-      "NpcId": 241082,
-      "RaceId": 543,
-      "Notes": "",
-      "BespokeSampleId": null,
-      "BespokeExaggeration": null,
-      "BespokeCfgWeight": null
-    },
-    {
       "NpcId": 241148,
       "RaceId": 10,
       "Notes": "",
       "BespokeSampleId": "M_Arator",
-      "BespokeExaggeration": null,
-      "BespokeCfgWeight": null
-    },
-    {
-      "NpcId": 241176,
-      "RaceId": 10,
-      "Notes": "",
-      "BespokeSampleId": null,
-      "BespokeExaggeration": null,
-      "BespokeCfgWeight": null
-    },
-    {
-      "NpcId": 241205,
-      "RaceId": 10,
-      "Notes": "",
-      "BespokeSampleId": "M_Arator_2",
-      "BespokeExaggeration": null,
-      "BespokeCfgWeight": null
-    },
-    {
-      "NpcId": 241206,
-      "RaceId": 10,
-      "Notes": "",
-      "BespokeSampleId": "M_Lorthemar_Theron_1",
-      "BespokeExaggeration": null,
-      "BespokeCfgWeight": null
-    },
-    {
-      "NpcId": 241272,
-      "RaceId": 10,
-      "Notes": "",
-      "BespokeSampleId": "M_Lorthemar_Theron_1",
-      "BespokeExaggeration": null,
-      "BespokeCfgWeight": null
-    },
-    {
-      "NpcId": 241303,
-      "RaceId": 543,
-      "Notes": "",
-      "BespokeSampleId": null,
       "BespokeExaggeration": null,
       "BespokeCfgWeight": null
     },
@@ -1170,46 +386,6 @@
       "BespokeCfgWeight": null
     },
     {
-      "NpcId": 241654,
-      "RaceId": 1,
-      "Notes": "",
-      "BespokeSampleId": "M_Turalyon_5",
-      "BespokeExaggeration": null,
-      "BespokeCfgWeight": null
-    },
-    {
-      "NpcId": 241924,
-      "RaceId": 543,
-      "Notes": "",
-      "BespokeSampleId": null,
-      "BespokeExaggeration": null,
-      "BespokeCfgWeight": null
-    },
-    {
-      "NpcId": 242014,
-      "RaceId": 543,
-      "Notes": "",
-      "BespokeSampleId": "F_Amani_3",
-      "BespokeExaggeration": null,
-      "BespokeCfgWeight": null
-    },
-    {
-      "NpcId": 242099,
-      "RaceId": 1,
-      "Notes": "",
-      "BespokeSampleId": "F_Valeera_Sanguinar_1",
-      "BespokeExaggeration": null,
-      "BespokeCfgWeight": null
-    },
-    {
-      "NpcId": 242143,
-      "RaceId": 1,
-      "Notes": "",
-      "BespokeSampleId": "M_Umbric",
-      "BespokeExaggeration": null,
-      "BespokeCfgWeight": null
-    },
-    {
       "NpcId": 242200,
       "RaceId": 10,
       "Notes": "",
@@ -1221,7 +397,7 @@
       "NpcId": 242381,
       "RaceId": 10,
       "Notes": "",
-      "BespokeSampleId": "F_Valeera_Sanguinar_3",
+      "BespokeSampleId": "F_Valeera_Sanguinar_1",
       "BespokeExaggeration": null,
       "BespokeCfgWeight": null
     },
@@ -1236,54 +412,6 @@
     {
       "NpcId": 242399,
       "RaceId": 24,
-      "Notes": "",
-      "BespokeSampleId": null,
-      "BespokeExaggeration": null,
-      "BespokeCfgWeight": null
-    },
-    {
-      "NpcId": 242433,
-      "RaceId": 10,
-      "Notes": "",
-      "BespokeSampleId": "M_Arator",
-      "BespokeExaggeration": null,
-      "BespokeCfgWeight": null
-    },
-    {
-      "NpcId": 242550,
-      "RaceId": 13,
-      "Notes": "",
-      "BespokeSampleId": null,
-      "BespokeExaggeration": null,
-      "BespokeCfgWeight": null
-    },
-    {
-      "NpcId": 242566,
-      "RaceId": 13,
-      "Notes": "",
-      "BespokeSampleId": null,
-      "BespokeExaggeration": null,
-      "BespokeCfgWeight": null
-    },
-    {
-      "NpcId": 242568,
-      "RaceId": 10,
-      "Notes": "",
-      "BespokeSampleId": null,
-      "BespokeExaggeration": null,
-      "BespokeCfgWeight": null
-    },
-    {
-      "NpcId": 242585,
-      "RaceId": 1,
-      "Notes": "",
-      "BespokeSampleId": "M_Khadgar",
-      "BespokeExaggeration": null,
-      "BespokeCfgWeight": null
-    },
-    {
-      "NpcId": 242658,
-      "RaceId": 29,
       "Notes": "",
       "BespokeSampleId": null,
       "BespokeExaggeration": null,
@@ -1322,22 +450,6 @@
       "BespokeCfgWeight": null
     },
     {
-      "NpcId": 243055,
-      "RaceId": 10,
-      "Notes": "",
-      "BespokeSampleId": "M_Arator",
-      "BespokeExaggeration": null,
-      "BespokeCfgWeight": null
-    },
-    {
-      "NpcId": 243152,
-      "RaceId": 10,
-      "Notes": "",
-      "BespokeSampleId": "M_Arator",
-      "BespokeExaggeration": null,
-      "BespokeCfgWeight": null
-    },
-    {
       "NpcId": 243345,
       "RaceId": 10,
       "Notes": "",
@@ -1363,38 +475,6 @@
     },
     {
       "NpcId": 243553,
-      "RaceId": 10,
-      "Notes": "",
-      "BespokeSampleId": null,
-      "BespokeExaggeration": null,
-      "BespokeCfgWeight": null
-    },
-    {
-      "NpcId": 243824,
-      "RaceId": 10,
-      "Notes": "",
-      "BespokeSampleId": "M_Arator",
-      "BespokeExaggeration": null,
-      "BespokeCfgWeight": null
-    },
-    {
-      "NpcId": 243907,
-      "RaceId": 85,
-      "Notes": "Decimus",
-      "BespokeSampleId": "M_Decimus",
-      "BespokeExaggeration": null,
-      "BespokeCfgWeight": null
-    },
-    {
-      "NpcId": 243984,
-      "RaceId": 10,
-      "Notes": "",
-      "BespokeSampleId": "M_Arator",
-      "BespokeExaggeration": null,
-      "BespokeCfgWeight": null
-    },
-    {
-      "NpcId": 244074,
       "RaceId": 10,
       "Notes": "",
       "BespokeSampleId": null,
@@ -1434,118 +514,6 @@
       "BespokeCfgWeight": null
     },
     {
-      "NpcId": 244479,
-      "RaceId": 543,
-      "Notes": "",
-      "BespokeSampleId": null,
-      "BespokeExaggeration": null,
-      "BespokeCfgWeight": null
-    },
-    {
-      "NpcId": 244557,
-      "RaceId": 10,
-      "Notes": "",
-      "BespokeSampleId": "M_Arator_2",
-      "BespokeExaggeration": null,
-      "BespokeCfgWeight": null
-    },
-    {
-      "NpcId": 244562,
-      "RaceId": 559,
-      "Notes": "",
-      "BespokeSampleId": null,
-      "BespokeExaggeration": null,
-      "BespokeCfgWeight": null
-    },
-    {
-      "NpcId": 244574,
-      "RaceId": 10,
-      "Notes": "",
-      "BespokeSampleId": "M_Lorthemar_Theron_1",
-      "BespokeExaggeration": null,
-      "BespokeCfgWeight": null
-    },
-    {
-      "NpcId": 244576,
-      "RaceId": 544,
-      "Notes": "",
-      "BespokeSampleId": "F_Liadrin_4",
-      "BespokeExaggeration": null,
-      "BespokeCfgWeight": null
-    },
-    {
-      "NpcId": 244578,
-      "RaceId": 10,
-      "Notes": "",
-      "BespokeSampleId": null,
-      "BespokeExaggeration": null,
-      "BespokeCfgWeight": null
-    },
-    {
-      "NpcId": 244579,
-      "RaceId": 10,
-      "Notes": "",
-      "BespokeSampleId": "M_Umbric",
-      "BespokeExaggeration": null,
-      "BespokeCfgWeight": null
-    },
-    {
-      "NpcId": 244580,
-      "RaceId": 10,
-      "Notes": "",
-      "BespokeSampleId": null,
-      "BespokeExaggeration": null,
-      "BespokeCfgWeight": null
-    },
-    {
-      "NpcId": 244582,
-      "RaceId": 10,
-      "Notes": "",
-      "BespokeSampleId": "F_Thalyssra",
-      "BespokeExaggeration": null,
-      "BespokeCfgWeight": null
-    },
-    {
-      "NpcId": 244583,
-      "RaceId": 4,
-      "Notes": "",
-      "BespokeSampleId": null,
-      "BespokeExaggeration": null,
-      "BespokeCfgWeight": null
-    },
-    {
-      "NpcId": 244585,
-      "RaceId": 10,
-      "Notes": "",
-      "BespokeSampleId": "F_Vereesa_Windrunner_1",
-      "BespokeExaggeration": null,
-      "BespokeCfgWeight": null
-    },
-    {
-      "NpcId": 244698,
-      "RaceId": 10,
-      "Notes": "",
-      "BespokeSampleId": null,
-      "BespokeExaggeration": null,
-      "BespokeCfgWeight": null
-    },
-    {
-      "NpcId": 244699,
-      "RaceId": 10,
-      "Notes": "",
-      "BespokeSampleId": "F_Vereesa_Windrunner_1",
-      "BespokeExaggeration": null,
-      "BespokeCfgWeight": null
-    },
-    {
-      "NpcId": 244701,
-      "RaceId": 10,
-      "Notes": "",
-      "BespokeSampleId": null,
-      "BespokeExaggeration": null,
-      "BespokeCfgWeight": null
-    },
-    {
       "NpcId": 244840,
       "RaceId": 5,
       "Notes": "",
@@ -1562,40 +530,8 @@
       "BespokeCfgWeight": null
     },
     {
-      "NpcId": 245004,
-      "RaceId": 10,
-      "Notes": "",
-      "BespokeSampleId": null,
-      "BespokeExaggeration": null,
-      "BespokeCfgWeight": null
-    },
-    {
       "NpcId": 245046,
       "RaceId": 10,
-      "Notes": "",
-      "BespokeSampleId": null,
-      "BespokeExaggeration": null,
-      "BespokeCfgWeight": null
-    },
-    {
-      "NpcId": 245061,
-      "RaceId": 10,
-      "Notes": "",
-      "BespokeSampleId": "M_Arator",
-      "BespokeExaggeration": null,
-      "BespokeCfgWeight": null
-    },
-    {
-      "NpcId": 245090,
-      "RaceId": 70,
-      "Notes": "",
-      "BespokeSampleId": "F_Hagar",
-      "BespokeExaggeration": null,
-      "BespokeCfgWeight": null
-    },
-    {
-      "NpcId": 245102,
-      "RaceId": 70,
       "Notes": "",
       "BespokeSampleId": null,
       "BespokeExaggeration": null,
@@ -1642,47 +578,7 @@
       "BespokeCfgWeight": null
     },
     {
-      "NpcId": 245420,
-      "RaceId": 1,
-      "Notes": "",
-      "BespokeSampleId": "M_Arator",
-      "BespokeExaggeration": null,
-      "BespokeCfgWeight": null
-    },
-    {
-      "NpcId": 245469,
-      "RaceId": 5,
-      "Notes": "",
-      "BespokeSampleId": "F_Liadrin_4",
-      "BespokeExaggeration": null,
-      "BespokeCfgWeight": null
-    },
-    {
-      "NpcId": 245589,
-      "RaceId": 557,
-      "Notes": "",
-      "BespokeSampleId": null,
-      "BespokeExaggeration": null,
-      "BespokeCfgWeight": null
-    },
-    {
       "NpcId": 245741,
-      "RaceId": 10,
-      "Notes": "",
-      "BespokeSampleId": null,
-      "BespokeExaggeration": null,
-      "BespokeCfgWeight": null
-    },
-    {
-      "NpcId": 245745,
-      "RaceId": 10,
-      "Notes": "",
-      "BespokeSampleId": null,
-      "BespokeExaggeration": null,
-      "BespokeCfgWeight": null
-    },
-    {
-      "NpcId": 245748,
       "RaceId": 10,
       "Notes": "",
       "BespokeSampleId": null,
@@ -1706,18 +602,10 @@
       "BespokeCfgWeight": null
     },
     {
-      "NpcId": 245979,
-      "RaceId": 557,
-      "Notes": "",
-      "BespokeSampleId": null,
-      "BespokeExaggeration": null,
-      "BespokeCfgWeight": null
-    },
-    {
       "NpcId": 246231,
       "RaceId": 10,
       "Notes": "Astalor Broodsworn",
-      "BespokeSampleId": "M_Astalor_Bloodsworn_1",
+      "BespokeSampleId": "M_Astalor_Bloodsworn",
       "BespokeExaggeration": null,
       "BespokeCfgWeight": null
     },
@@ -1730,23 +618,7 @@
       "BespokeCfgWeight": null
     },
     {
-      "NpcId": 246789,
-      "RaceId": 10,
-      "Notes": "",
-      "BespokeSampleId": "M_Arator_2",
-      "BespokeExaggeration": null,
-      "BespokeCfgWeight": null
-    },
-    {
       "NpcId": 246806,
-      "RaceId": 10,
-      "Notes": "",
-      "BespokeSampleId": null,
-      "BespokeExaggeration": null,
-      "BespokeCfgWeight": null
-    },
-    {
-      "NpcId": 246866,
       "RaceId": 10,
       "Notes": "",
       "BespokeSampleId": null,
@@ -1762,146 +634,10 @@
       "BespokeCfgWeight": null
     },
     {
-      "NpcId": 247262,
-      "RaceId": 10,
-      "Notes": "",
-      "BespokeSampleId": "M_Umbric",
-      "BespokeExaggeration": null,
-      "BespokeCfgWeight": null
-    },
-    {
-      "NpcId": 247394,
-      "RaceId": 10,
-      "Notes": "",
-      "BespokeSampleId": null,
-      "BespokeExaggeration": null,
-      "BespokeCfgWeight": null
-    },
-    {
-      "NpcId": 247395,
-      "RaceId": 10,
-      "Notes": "",
-      "BespokeSampleId": null,
-      "BespokeExaggeration": null,
-      "BespokeCfgWeight": null
-    },
-    {
-      "NpcId": 247424,
-      "RaceId": 543,
-      "Notes": "",
-      "BespokeSampleId": null,
-      "BespokeExaggeration": null,
-      "BespokeCfgWeight": null
-    },
-    {
-      "NpcId": 247452,
-      "RaceId": 10,
-      "Notes": "",
-      "BespokeSampleId": "F_Vereesa_Windrunner_1",
-      "BespokeExaggeration": null,
-      "BespokeCfgWeight": null
-    },
-    {
-      "NpcId": 247500,
-      "RaceId": 10,
-      "Notes": "",
-      "BespokeSampleId": null,
-      "BespokeExaggeration": null,
-      "BespokeCfgWeight": null
-    },
-    {
-      "NpcId": 247503,
-      "RaceId": 10,
-      "Notes": "",
-      "BespokeSampleId": null,
-      "BespokeExaggeration": null,
-      "BespokeCfgWeight": null
-    },
-    {
-      "NpcId": 247593,
-      "RaceId": 10,
-      "Notes": "",
-      "BespokeSampleId": null,
-      "BespokeExaggeration": null,
-      "BespokeCfgWeight": null
-    },
-    {
-      "NpcId": 247594,
-      "RaceId": 29,
-      "Notes": "",
-      "BespokeSampleId": null,
-      "BespokeExaggeration": null,
-      "BespokeCfgWeight": null
-    },
-    {
-      "NpcId": 247596,
-      "RaceId": 10,
-      "Notes": "",
-      "BespokeSampleId": null,
-      "BespokeExaggeration": null,
-      "BespokeCfgWeight": null
-    },
-    {
-      "NpcId": 248060,
-      "RaceId": 5,
-      "Notes": "",
-      "BespokeSampleId": null,
-      "BespokeExaggeration": null,
-      "BespokeCfgWeight": null
-    },
-    {
-      "NpcId": 248307,
-      "RaceId": 10,
-      "Notes": "",
-      "BespokeSampleId": null,
-      "BespokeExaggeration": null,
-      "BespokeCfgWeight": null
-    },
-    {
       "NpcId": 248578,
       "RaceId": 10,
       "Notes": "",
       "BespokeSampleId": null,
-      "BespokeExaggeration": null,
-      "BespokeCfgWeight": null
-    },
-    {
-      "NpcId": 248750,
-      "RaceId": 10,
-      "Notes": "",
-      "BespokeSampleId": "F_Valeera_Sanguinar_3",
-      "BespokeExaggeration": null,
-      "BespokeCfgWeight": null
-    },
-    {
-      "NpcId": 248789,
-      "RaceId": 70,
-      "Notes": "",
-      "BespokeSampleId": null,
-      "BespokeExaggeration": null,
-      "BespokeCfgWeight": null
-    },
-    {
-      "NpcId": 248817,
-      "RaceId": 70,
-      "Notes": "",
-      "BespokeSampleId": null,
-      "BespokeExaggeration": null,
-      "BespokeCfgWeight": null
-    },
-    {
-      "NpcId": 248818,
-      "RaceId": 70,
-      "Notes": "",
-      "BespokeSampleId": null,
-      "BespokeExaggeration": null,
-      "BespokeCfgWeight": null
-    },
-    {
-      "NpcId": 248874,
-      "RaceId": 10,
-      "Notes": "",
-      "BespokeSampleId": "F_Valeera_Sanguinar_3",
       "BespokeExaggeration": null,
       "BespokeCfgWeight": null
     },
@@ -1938,38 +674,6 @@
       "BespokeCfgWeight": null
     },
     {
-      "NpcId": 249211,
-      "RaceId": 543,
-      "Notes": "",
-      "BespokeSampleId": "M_ZulJan_2_Frustrated",
-      "BespokeExaggeration": null,
-      "BespokeCfgWeight": null
-    },
-    {
-      "NpcId": 249337,
-      "RaceId": 10,
-      "Notes": "",
-      "BespokeSampleId": null,
-      "BespokeExaggeration": null,
-      "BespokeCfgWeight": null
-    },
-    {
-      "NpcId": 249614,
-      "RaceId": 10,
-      "Notes": "",
-      "BespokeSampleId": "F_Vereesa_Windrunner_1",
-      "BespokeExaggeration": null,
-      "BespokeCfgWeight": null
-    },
-    {
-      "NpcId": 249615,
-      "RaceId": 10,
-      "Notes": "",
-      "BespokeSampleId": "F_Liadrin_3",
-      "BespokeExaggeration": null,
-      "BespokeCfgWeight": null
-    },
-    {
       "NpcId": 249863,
       "RaceId": 10,
       "Notes": "",
@@ -1978,103 +682,7 @@
       "BespokeCfgWeight": null
     },
     {
-      "NpcId": 250181,
-      "RaceId": 10,
-      "Notes": "",
-      "BespokeSampleId": "M_Lorthemar_Theron_1",
-      "BespokeExaggeration": null,
-      "BespokeCfgWeight": null
-    },
-    {
-      "NpcId": 250291,
-      "RaceId": 10,
-      "Notes": "",
-      "BespokeSampleId": null,
-      "BespokeExaggeration": null,
-      "BespokeCfgWeight": null
-    },
-    {
-      "NpcId": 250298,
-      "RaceId": 10,
-      "Notes": "",
-      "BespokeSampleId": null,
-      "BespokeExaggeration": null,
-      "BespokeCfgWeight": null
-    },
-    {
-      "NpcId": 250408,
-      "RaceId": 7,
-      "Notes": "",
-      "BespokeSampleId": null,
-      "BespokeExaggeration": null,
-      "BespokeCfgWeight": null
-    },
-    {
-      "NpcId": 250415,
-      "RaceId": 1,
-      "Notes": "",
-      "BespokeSampleId": null,
-      "BespokeExaggeration": null,
-      "BespokeCfgWeight": null
-    },
-    {
       "NpcId": 250888,
-      "RaceId": 10,
-      "Notes": "",
-      "BespokeSampleId": null,
-      "BespokeExaggeration": null,
-      "BespokeCfgWeight": null
-    },
-    {
-      "NpcId": 251258,
-      "RaceId": 543,
-      "Notes": "",
-      "BespokeSampleId": null,
-      "BespokeExaggeration": null,
-      "BespokeCfgWeight": null
-    },
-    {
-      "NpcId": 251539,
-      "RaceId": 10,
-      "Notes": "",
-      "BespokeSampleId": null,
-      "BespokeExaggeration": null,
-      "BespokeCfgWeight": null
-    },
-    {
-      "NpcId": 251540,
-      "RaceId": 10,
-      "Notes": "",
-      "BespokeSampleId": null,
-      "BespokeExaggeration": null,
-      "BespokeCfgWeight": null
-    },
-    {
-      "NpcId": 251542,
-      "RaceId": 10,
-      "Notes": "",
-      "BespokeSampleId": null,
-      "BespokeExaggeration": null,
-      "BespokeCfgWeight": null
-    },
-    {
-      "NpcId": 251543,
-      "RaceId": 10,
-      "Notes": "",
-      "BespokeSampleId": null,
-      "BespokeExaggeration": null,
-      "BespokeCfgWeight": null
-    },
-    {
-      "NpcId": 251985,
-      "RaceId": 10,
-      "Notes": "",
-      "BespokeSampleId": null,
-      "BespokeExaggeration": null,
-      "BespokeCfgWeight": null
-    },
-    {
-      "NpcId": 252109,
       "RaceId": 10,
       "Notes": "",
       "BespokeSampleId": null,
@@ -2098,14 +706,6 @@
       "BespokeCfgWeight": null
     },
     {
-      "NpcId": 252370,
-      "RaceId": 29,
-      "Notes": "",
-      "BespokeSampleId": null,
-      "BespokeExaggeration": null,
-      "BespokeCfgWeight": null
-    },
-    {
       "NpcId": 252822,
       "RaceId": 10,
       "Notes": "",
@@ -2122,64 +722,8 @@
       "BespokeCfgWeight": null
     },
     {
-      "NpcId": 253143,
-      "RaceId": 1,
-      "Notes": "",
-      "BespokeSampleId": "U_Anduin_Wrynn",
-      "BespokeExaggeration": null,
-      "BespokeCfgWeight": null
-    },
-    {
-      "NpcId": 253144,
-      "RaceId": 544,
-      "Notes": "",
-      "BespokeSampleId": null,
-      "BespokeExaggeration": null,
-      "BespokeCfgWeight": null
-    },
-    {
-      "NpcId": 253190,
-      "RaceId": 6,
-      "Notes": "",
-      "BespokeSampleId": null,
-      "BespokeExaggeration": null,
-      "BespokeCfgWeight": null
-    },
-    {
-      "NpcId": 253197,
-      "RaceId": 5,
-      "Notes": "",
-      "BespokeSampleId": null,
-      "BespokeExaggeration": null,
-      "BespokeCfgWeight": null
-    },
-    {
-      "NpcId": 253344,
-      "RaceId": 11,
-      "Notes": "",
-      "BespokeSampleId": null,
-      "BespokeExaggeration": null,
-      "BespokeCfgWeight": null
-    },
-    {
-      "NpcId": 253406,
-      "RaceId": 29,
-      "Notes": "",
-      "BespokeSampleId": null,
-      "BespokeExaggeration": null,
-      "BespokeCfgWeight": null
-    },
-    {
       "NpcId": 253468,
       "RaceId": 10,
-      "Notes": "",
-      "BespokeSampleId": null,
-      "BespokeExaggeration": null,
-      "BespokeCfgWeight": null
-    },
-    {
-      "NpcId": 253472,
-      "RaceId": 11,
       "Notes": "",
       "BespokeSampleId": null,
       "BespokeExaggeration": null,
@@ -2194,126 +738,6 @@
       "BespokeCfgWeight": null
     },
     {
-      "NpcId": 253641,
-      "RaceId": 1,
-      "Notes": "",
-      "BespokeSampleId": "F_Jaina_Proudmoore",
-      "BespokeExaggeration": null,
-      "BespokeCfgWeight": null
-    },
-    {
-      "NpcId": 253878,
-      "RaceId": 24,
-      "Notes": "",
-      "BespokeSampleId": null,
-      "BespokeExaggeration": null,
-      "BespokeCfgWeight": null
-    },
-    {
-      "NpcId": 254142,
-      "RaceId": 543,
-      "Notes": "",
-      "BespokeSampleId": null,
-      "BespokeExaggeration": null,
-      "BespokeCfgWeight": null
-    },
-    {
-      "NpcId": 254145,
-      "RaceId": 543,
-      "Notes": "",
-      "BespokeSampleId": null,
-      "BespokeExaggeration": null,
-      "BespokeCfgWeight": null
-    },
-    {
-      "NpcId": 254146,
-      "RaceId": 543,
-      "Notes": "",
-      "BespokeSampleId": null,
-      "BespokeExaggeration": null,
-      "BespokeCfgWeight": null
-    },
-    {
-      "NpcId": 254381,
-      "RaceId": 543,
-      "Notes": "",
-      "BespokeSampleId": null,
-      "BespokeExaggeration": null,
-      "BespokeCfgWeight": null
-    },
-    {
-      "NpcId": 254488,
-      "RaceId": 543,
-      "Notes": "",
-      "BespokeSampleId": null,
-      "BespokeExaggeration": null,
-      "BespokeCfgWeight": null
-    },
-    {
-      "NpcId": 254665,
-      "RaceId": 543,
-      "Notes": "",
-      "BespokeSampleId": null,
-      "BespokeExaggeration": null,
-      "BespokeCfgWeight": null
-    },
-    {
-      "NpcId": 254801,
-      "RaceId": 543,
-      "Notes": "",
-      "BespokeSampleId": null,
-      "BespokeExaggeration": null,
-      "BespokeCfgWeight": null
-    },
-    {
-      "NpcId": 254938,
-      "RaceId": 543,
-      "Notes": "",
-      "BespokeSampleId": null,
-      "BespokeExaggeration": null,
-      "BespokeCfgWeight": null
-    },
-    {
-      "NpcId": 255011,
-      "RaceId": 10,
-      "Notes": "",
-      "BespokeSampleId": null,
-      "BespokeExaggeration": null,
-      "BespokeCfgWeight": null
-    },
-    {
-      "NpcId": 255075,
-      "RaceId": 543,
-      "Notes": "",
-      "BespokeSampleId": null,
-      "BespokeExaggeration": null,
-      "BespokeCfgWeight": null
-    },
-    {
-      "NpcId": 255095,
-      "RaceId": 543,
-      "Notes": "",
-      "BespokeSampleId": null,
-      "BespokeExaggeration": null,
-      "BespokeCfgWeight": null
-    },
-    {
-      "NpcId": 255406,
-      "RaceId": 543,
-      "Notes": "",
-      "BespokeSampleId": null,
-      "BespokeExaggeration": null,
-      "BespokeCfgWeight": null
-    },
-    {
-      "NpcId": 255474,
-      "RaceId": 10,
-      "Notes": "",
-      "BespokeSampleId": null,
-      "BespokeExaggeration": null,
-      "BespokeCfgWeight": null
-    },
-    {
       "NpcId": 255763,
       "RaceId": 70,
       "Notes": "",
@@ -2322,135 +746,7 @@
       "BespokeCfgWeight": null
     },
     {
-      "NpcId": 255907,
-      "RaceId": 543,
-      "Notes": "",
-      "BespokeSampleId": null,
-      "BespokeExaggeration": null,
-      "BespokeCfgWeight": null
-    },
-    {
-      "NpcId": 255925,
-      "RaceId": 543,
-      "Notes": "",
-      "BespokeSampleId": null,
-      "BespokeExaggeration": null,
-      "BespokeCfgWeight": null
-    },
-    {
-      "NpcId": 256203,
-      "RaceId": 10,
-      "Notes": "",
-      "BespokeSampleId": null,
-      "BespokeExaggeration": null,
-      "BespokeCfgWeight": null
-    },
-    {
-      "NpcId": 256510,
-      "RaceId": 543,
-      "Notes": "",
-      "BespokeSampleId": null,
-      "BespokeExaggeration": null,
-      "BespokeCfgWeight": null
-    },
-    {
-      "NpcId": 256867,
-      "RaceId": 543,
-      "Notes": "",
-      "BespokeSampleId": "F_Amani_3",
-      "BespokeExaggeration": null,
-      "BespokeCfgWeight": null
-    },
-    {
-      "NpcId": 256875,
-      "RaceId": 10,
-      "Notes": "",
-      "BespokeSampleId": null,
-      "BespokeExaggeration": null,
-      "BespokeCfgWeight": null
-    },
-    {
-      "NpcId": 257092,
-      "RaceId": 543,
-      "Notes": "",
-      "BespokeSampleId": null,
-      "BespokeExaggeration": null,
-      "BespokeCfgWeight": null
-    },
-    {
       "NpcId": 257384,
-      "RaceId": 10,
-      "Notes": "",
-      "BespokeSampleId": null,
-      "BespokeExaggeration": null,
-      "BespokeCfgWeight": null
-    },
-    {
-      "NpcId": 257797,
-      "RaceId": 543,
-      "Notes": "",
-      "BespokeSampleId": null,
-      "BespokeExaggeration": null,
-      "BespokeCfgWeight": null
-    },
-    {
-      "NpcId": 257807,
-      "RaceId": 543,
-      "Notes": "",
-      "BespokeSampleId": null,
-      "BespokeExaggeration": null,
-      "BespokeCfgWeight": null
-    },
-    {
-      "NpcId": 258559,
-      "RaceId": 10,
-      "Notes": "",
-      "BespokeSampleId": null,
-      "BespokeExaggeration": null,
-      "BespokeCfgWeight": null
-    },
-    {
-      "NpcId": 258560,
-      "RaceId": 10,
-      "Notes": "",
-      "BespokeSampleId": null,
-      "BespokeExaggeration": null,
-      "BespokeCfgWeight": null
-    },
-    {
-      "NpcId": 258561,
-      "RaceId": 10,
-      "Notes": "",
-      "BespokeSampleId": null,
-      "BespokeExaggeration": null,
-      "BespokeCfgWeight": null
-    },
-    {
-      "NpcId": 258562,
-      "RaceId": 11,
-      "Notes": "",
-      "BespokeSampleId": null,
-      "BespokeExaggeration": null,
-      "BespokeCfgWeight": null
-    },
-    {
-      "NpcId": 258564,
-      "RaceId": 11,
-      "Notes": "",
-      "BespokeSampleId": null,
-      "BespokeExaggeration": null,
-      "BespokeCfgWeight": null
-    },
-    {
-      "NpcId": 258565,
-      "RaceId": 10,
-      "Notes": "",
-      "BespokeSampleId": null,
-      "BespokeExaggeration": null,
-      "BespokeCfgWeight": null
-    },
-    {
-      "NpcId": 258566,
       "RaceId": 10,
       "Notes": "",
       "BespokeSampleId": null,
@@ -2474,70 +770,6 @@
       "BespokeCfgWeight": null
     },
     {
-      "NpcId": 258950,
-      "RaceId": 543,
-      "Notes": "",
-      "BespokeSampleId": null,
-      "BespokeExaggeration": null,
-      "BespokeCfgWeight": null
-    },
-    {
-      "NpcId": 258969,
-      "RaceId": 10,
-      "Notes": "",
-      "BespokeSampleId": null,
-      "BespokeExaggeration": null,
-      "BespokeCfgWeight": null
-    },
-    {
-      "NpcId": 259338,
-      "RaceId": 32,
-      "Notes": "",
-      "BespokeSampleId": null,
-      "BespokeExaggeration": null,
-      "BespokeCfgWeight": null
-    },
-    {
-      "NpcId": 259339,
-      "RaceId": 34,
-      "Notes": "",
-      "BespokeSampleId": null,
-      "BespokeExaggeration": null,
-      "BespokeCfgWeight": null
-    },
-    {
-      "NpcId": 259341,
-      "RaceId": 34,
-      "Notes": "",
-      "BespokeSampleId": null,
-      "BespokeExaggeration": null,
-      "BespokeCfgWeight": null
-    },
-    {
-      "NpcId": 259344,
-      "RaceId": 2,
-      "Notes": "",
-      "BespokeSampleId": null,
-      "BespokeExaggeration": null,
-      "BespokeCfgWeight": null
-    },
-    {
-      "NpcId": 259688,
-      "RaceId": 11,
-      "Notes": "",
-      "BespokeSampleId": null,
-      "BespokeExaggeration": null,
-      "BespokeCfgWeight": null
-    },
-    {
-      "NpcId": 259689,
-      "RaceId": 11,
-      "Notes": "",
-      "BespokeSampleId": null,
-      "BespokeExaggeration": null,
-      "BespokeCfgWeight": null
-    },
-    {
       "NpcId": 260475,
       "RaceId": 10,
       "Notes": "",
@@ -2550,14 +782,6 @@
       "RaceId": 10,
       "Notes": "",
       "BespokeSampleId": null,
-      "BespokeExaggeration": null,
-      "BespokeCfgWeight": null
-    },
-    {
-      "NpcId": 15809278,
-      "RaceId": 10,
-      "Notes": "",
-      "BespokeSampleId": "M_Amani_1",
       "BespokeExaggeration": null,
       "BespokeCfgWeight": null
     }

@@ -110,7 +110,7 @@ public sealed partial class KokoroTtsProvider
             return preset.Profile.Clone();
 
         if (slot.Group == AccentGroup.Narrator)
-            return VoiceProfileDefaults.Create("am_adam");
+            return VoiceProfileDefaults.Create(slot.Gender == Gender.Female ? "bf_isabella" : "am_adam");
 
         // Per-race single-voice fallback (no mix, for simplicity).
         bool f = slot.Gender == Gender.Female;

@@ -141,14 +141,15 @@ public partial class MainWindow
                     AppServices.Settings,
                     AppServices.Provider.ProviderId,
                     v => v.VoiceId,
-                    v => v.VoiceId)
+                    v => v.VoiceId,
+                    bespokeOnly: true)
                 .ToList();
 
             foreach (var v in baseSamples)
             {
                 LastNpcSampleDropdown.Items.Add(new ComboBoxItem
                 {
-                    Content = v.VoiceId,
+                    Content = SelectionRecencyHelper.GetVoiceDisplayLabel(v.VoiceId),
                     Tag     = v.VoiceId,
                 });
             }
