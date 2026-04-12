@@ -42,6 +42,7 @@ public sealed class VoiceProfileEditorDialog : Window
         public string VoiceId { get; init; } = string.Empty;
         public string Display { get; init; } = string.Empty;
         public string Summary { get; init; } = string.Empty;
+        public IReadOnlyList<string> MatchKeys { get; init; } = Array.Empty<string>();
         public override string ToString() => Display;
     }
 
@@ -218,7 +219,21 @@ So go quickly, keep your wits about you, and return by the main road if you valu
             {
                 var primary = string.IsNullOrWhiteSpace(v.VoiceId) ? v.Name : v.VoiceId;
                 var summary = string.IsNullOrWhiteSpace(v.Description) ? primary : v.Description;
-                return new VoiceChoice { VoiceId = v.VoiceId, Display = primary, Summary = summary };
+                var matchKeys = new[]
+                {
+                    v.VoiceId,
+                    v.Name,
+                    primary,
+                    summary,
+                    NormalizeVoiceChoiceKey(v.VoiceId),
+                    NormalizeVoiceChoiceKey(v.Name),
+                    NormalizeVoiceChoiceKey(primary),
+                    NormalizeVoiceChoiceKey(summary)
+                }
+                .Where(s => !string.IsNullOrWhiteSpace(s))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToArray();
+                return new VoiceChoice { VoiceId = v.VoiceId, Display = primary, Summary = summary, MatchKeys = matchKeys };
             })
             .ToList();
 
@@ -1516,27 +1531,58 @@ So go quickly, keep your wits about you, and return by the main road if you valu
 
     private void SetVoiceSelection(string voiceId)
     {
+        if (string.IsNullOrWhiteSpace(voiceId))
+            return;
+
         // Determine base and variant
         string baseId = voiceId;
         foreach (var s in new[] { "-slow", "-fast", "-quiet", "-loud", "-breathy" })
             if (voiceId.EndsWith(s, StringComparison.OrdinalIgnoreCase))
             { baseId = voiceId[..^s.Length]; break; }
 
+        static bool MatchesChoice(VoiceChoice choice, string candidate)
+            => choice.MatchKeys.Any(k => string.Equals(k, candidate, StringComparison.OrdinalIgnoreCase));
+
+        static string NormalizeLegacyVoiceId(string candidate)
+        {
+            if (string.IsNullOrWhiteSpace(candidate))
+                return string.Empty;
+            return NormalizeVoiceChoiceKey(candidate);
+        }
+
+        var normalizedVoiceId = NormalizeLegacyVoiceId(voiceId);
+        var normalizedBaseId  = NormalizeLegacyVoiceId(baseId);
+
         // Select base
         var baseMatch = _voiceBaseCombo.ItemsSource?.OfType<VoiceChoice>()
-            .FirstOrDefault(v => string.Equals(v.VoiceId, baseId, StringComparison.OrdinalIgnoreCase));
-        if (baseMatch != null)
+            .FirstOrDefault(v => MatchesChoice(v, baseId) || MatchesChoice(v, normalizedBaseId));
+        if (baseMatch == null)
+            return;
+
+        _voiceBaseCombo.SelectedItem = baseMatch;
+
+        // Variant combo repopulates via SelectionChanged; now select the right variant
+        if (!string.Equals(baseId, voiceId, StringComparison.OrdinalIgnoreCase))
         {
-            _voiceBaseCombo.SelectedItem = baseMatch;
-            // Variant combo repopulates via SelectionChanged; now select the right variant
-            if (!string.Equals(baseId, voiceId, StringComparison.OrdinalIgnoreCase))
-            {
-                var varMatch = _voiceVariantCombo.ItemsSource?.OfType<VoiceChoice>()
-                    .FirstOrDefault(v => string.Equals(v.VoiceId, voiceId, StringComparison.OrdinalIgnoreCase));
-                if (varMatch != null)
-                    _voiceVariantCombo.SelectedItem = varMatch;
-            }
+            var varMatch = _voiceVariantCombo.ItemsSource?.OfType<VoiceChoice>()
+                .FirstOrDefault(v => MatchesChoice(v, voiceId) || MatchesChoice(v, normalizedVoiceId));
+            if (varMatch != null)
+                _voiceVariantCombo.SelectedItem = varMatch;
         }
+    }
+
+
+    private static string NormalizeVoiceChoiceKey(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return string.Empty;
+
+        var s = value.Trim();
+        if (s.StartsWith("U_", StringComparison.OrdinalIgnoreCase))
+            s = s[2..];
+
+        s = s.Replace('_', ' ');
+        return s.Trim();
     }
 
     private void VoiceModeChanged(object? sender, RoutedEventArgs e) { RefreshVoiceModeUi(); RefreshSummary(); }
