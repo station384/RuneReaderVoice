@@ -102,6 +102,12 @@ internal static class Program
 
         var pronunciationRules = new PronunciationRuleStore(db);
         var textSwapRules      = new TextSwapRuleStore(db);
+        var npcPeopleCatalogStore = new NpcPeopleCatalogStore(db);
+        npcPeopleCatalogStore.SeedFromLegacyCatalogAsync().GetAwaiter().GetResult();
+        var providerSlotProfileStore = new ProviderSlotProfileStore(db);
+        providerSlotProfileStore.SeedFromSettingsAsync(settings).GetAwaiter().GetResult();
+        var npcPeopleCatalogService = new NpcPeopleCatalogService(npcPeopleCatalogStore);
+        npcPeopleCatalogService.InitializeAsync().GetAwaiter().GetResult();
 
         if (!dbExisted)
             textSwapRules.AddDefaultRulesAsync().GetAwaiter().GetResult();
@@ -267,7 +273,8 @@ internal static class Program
         AppServices.Initialize(
             settings, platform, provider, cache, player,
             assembler, coordinator, monitor, pronunciationProcessor, textSwapProcessor,
-            npcOverrides, npcSync, db, pronunciationRules, textSwapRules, providerRegistry);
+            npcOverrides, npcSync, npcPeopleCatalogService, providerSlotProfileStore,
+            db, pronunciationRules, textSwapRules, providerRegistry);
 
         return AppBuilder
             .Configure<App>()

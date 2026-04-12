@@ -30,6 +30,8 @@ public enum RvrTable
     PronunciationRules,
     TextSwapRules,
     AudioCacheManifest,
+    NpcPeopleCatalog,
+    ProviderSlotProfiles,
 }
 
 // ── Row types ─────────────────────────────────────────────────────────────────
@@ -86,6 +88,37 @@ public sealed class TextSwapRuleRow
     public string Notes { get; set; } = string.Empty;
 }
 
+
+
+[Table("NpcPeopleCatalog")]
+public sealed class NpcPeopleCatalogRow
+{
+    [PrimaryKey]
+    public string Id { get; set; } = string.Empty;
+    public string DisplayName { get; set; } = string.Empty;
+    public string AccentGroupName { get; set; } = string.Empty;
+    public string AccentLabel { get; set; } = string.Empty;
+    public bool HasMale { get; set; }
+    public bool HasFemale { get; set; }
+    public bool HasNeutral { get; set; }
+    public bool Enabled { get; set; } = true;
+    public int SortOrder { get; set; }
+    public string Source { get; set; } = "Seeded";
+    public long UpdatedUtc { get; set; }
+}
+
+[Table("ProviderSlotProfiles")]
+public sealed class ProviderSlotProfileRow
+{
+    [Indexed(Name = "IX_ProviderSlotProfile", Order = 1, Unique = true)]
+    public string ProviderId { get; set; } = string.Empty;
+    [Indexed(Name = "IX_ProviderSlotProfile", Order = 2, Unique = true)]
+    public string SlotId { get; set; } = string.Empty;
+    public string ProfileJson { get; set; } = string.Empty;
+    public string Source { get; set; } = "Seeded";
+    public long UpdatedUtc { get; set; }
+}
+
 [Table("AudioCacheManifest")]
 public sealed class AudioCacheManifestRow
 {
@@ -124,6 +157,8 @@ public sealed class RvrDb : IDisposable
         await _conn.CreateTableAsync<PronunciationRuleRow>();
         await _conn.CreateTableAsync<TextSwapRuleRow>();
         await _conn.CreateTableAsync<AudioCacheManifestRow>();
+        await _conn.CreateTableAsync<NpcPeopleCatalogRow>();
+        await _conn.CreateTableAsync<ProviderSlotProfileRow>();
 
     }
 
@@ -141,6 +176,8 @@ public sealed class RvrDb : IDisposable
             RvrTable.PronunciationRules  => Connection.DeleteAllAsync<PronunciationRuleRow>(),
             RvrTable.TextSwapRules       => Connection.DeleteAllAsync<TextSwapRuleRow>(),
             RvrTable.AudioCacheManifest  => Connection.DeleteAllAsync<AudioCacheManifestRow>(),
+            RvrTable.NpcPeopleCatalog    => Connection.DeleteAllAsync<NpcPeopleCatalogRow>(),
+            RvrTable.ProviderSlotProfiles=> Connection.DeleteAllAsync<ProviderSlotProfileRow>(),
             _ => throw new ArgumentOutOfRangeException(nameof(table)),
         };
     }

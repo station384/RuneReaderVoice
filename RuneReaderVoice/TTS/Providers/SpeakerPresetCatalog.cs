@@ -67,7 +67,7 @@ public static class SpeakerPresetCatalog
     {
         if (slot.Group == AccentGroup.Narrator)
             return All.FirstOrDefault(p => p.Slot.Equals(slot) && p.IsRecommended)
-                ?? All.FirstOrDefault(p => p.Slot.Group == AccentGroup.Narrator && p.IsRecommended);
+                ?? All.FirstOrDefault(p => p.Slot == VoiceSlot.MaleNarrator && p.IsRecommended);
 
         return All.FirstOrDefault(p => p.Slot.Equals(slot) && p.IsRecommended)
             ?? All.FirstOrDefault(p => p.Slot.Group == slot.Group && p.Slot.Gender == slot.Gender && p.IsRecommended);
@@ -92,13 +92,13 @@ public static class SpeakerPresetCatalog
         var list = new List<SpeakerPreset>();
 
         // ── Narrator ──────────────────────────────────────────────────────────
-        list.Add(P("narrator.male", "Narrator", VoiceSlot.Narrator,
+        list.Add(P("narrator.male", "Narrator / Male", VoiceSlot.MaleNarrator,
             voiceM: Mix("am_adam", 0.20f, "bm_lewis", 0.80f),
             voiceF: Mix("am_adam", 0.20f, "bm_lewis", 0.80f),
             lang: "en-gb", rate: 1.00f, rec: true,
             desc: "Warm authoritative narrator"));
 
-        list.Add(P("narrator.female", "Female Narrator", VoiceSlot.FemaleNarrator,
+        list.Add(P("narrator.female", "Narrator / Female", VoiceSlot.FemaleNarrator,
             voiceM: Mix("bf_isabella", 0.55f, "bf_emma", 0.30f, "af_bella", 0.15f),
             voiceF: Mix("bf_isabella", 0.55f, "bf_emma", 0.30f, "af_bella", 0.15f),
             lang: "en-gb", rate: 1.00f, rec: true,

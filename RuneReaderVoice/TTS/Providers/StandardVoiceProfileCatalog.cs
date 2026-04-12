@@ -32,8 +32,8 @@ public static class StandardVoiceProfileCatalog
 
     private static readonly string[] ChatterboxDonorProviderIds = { "remote:chatterbox_full", "remote:chatterbox" };
     private const string NarratorSlotKey = "Narrator";
-    private const string FemaleNarratorSlotKey = "Narrator/Female";
     private const string MaleNarratorSlotKey = "Narrator/Male";
+    private const string FemaleNarratorSlotKey = "Narrator/Female";
     private const string HardNarratorVoiceId = "M_Narrator";
     private const string HardFemaleNarratorVoiceId = "F_Narrator";
 
@@ -58,13 +58,16 @@ public static class StandardVoiceProfileCatalog
             if (TryGetFirstDonorVoice(slot.ToString(), out var chatterboxDonor))
                 return chatterboxDonor;
 
-            if (slot.Gender == Gender.Female && TryGetFirstDonorFemaleNarrator(out var chatterboxFemaleNarrator))
+            var isFemaleNarratorSlot =
+                slot.ToString().Equals(FemaleNarratorSlotKey, StringComparison.OrdinalIgnoreCase);
+
+            if (isFemaleNarratorSlot && TryGetFirstDonorFemaleNarrator(out var chatterboxFemaleNarrator))
                 return chatterboxFemaleNarrator;
 
             if (TryGetFirstDonorNarrator(out var chatterboxNarrator))
                 return chatterboxNarrator;
 
-            return slot.Gender == Gender.Female
+            return isFemaleNarratorSlot
                 ? CreateHardFemaleNarratorProfile()
                 : CreateHardNarratorProfile();
         }
@@ -92,9 +95,7 @@ public static class StandardVoiceProfileCatalog
         if (TryGetFirstDonorNarrator(out var donorFallbackNarrator))
             return donorFallbackNarrator;
 
-        return slot.Gender == Gender.Female
-            ? CreateHardFemaleNarratorProfile()
-            : CreateHardNarratorProfile();
+        return slot.Gender == Gender.Female ? CreateHardFemaleNarratorProfile() : CreateHardNarratorProfile();
     }
 
     public static VoiceProfile? TryGetSampleStandard(string providerId, string sampleId)
@@ -117,10 +118,19 @@ public static class StandardVoiceProfileCatalog
             if (TryGetFirstDonorSample(sampleId, out var chatterboxDonorSample))
                 return chatterboxDonorSample;
 
+            var isFemaleNarratorSample =
+                sampleId.Equals(HardFemaleNarratorVoiceId, StringComparison.OrdinalIgnoreCase) ||
+                sampleId.Equals(FemaleNarratorSlotKey, StringComparison.OrdinalIgnoreCase);
+
+            if (isFemaleNarratorSample && TryGetFirstDonorFemaleNarrator(out var chatterboxFemaleNarrator))
+                return chatterboxFemaleNarrator;
+
             if (TryGetFirstDonorNarrator(out var chatterboxNarrator))
                 return chatterboxNarrator;
 
-            return CreateHardNarratorProfile();
+            return isFemaleNarratorSample
+                ? CreateHardFemaleNarratorProfile()
+                : CreateHardNarratorProfile();
         }
 
         if (TryGetFirstDonorSample(sampleId, out var donorSample))
@@ -160,8 +170,8 @@ public static class StandardVoiceProfileCatalog
     }
 
     private static bool TryGetFirstDonorNarrator(out VoiceProfile? profile)
-        => TryGetFirstDonorVoice(NarratorSlotKey, out profile) ||
-           TryGetFirstDonorVoice(MaleNarratorSlotKey, out profile);
+        => TryGetFirstDonorVoice(MaleNarratorSlotKey, out profile) ||
+           TryGetFirstDonorVoice(NarratorSlotKey, out profile);
 
     private static bool TryGetFirstDonorFemaleNarrator(out VoiceProfile? profile)
         => TryGetFirstDonorVoice(FemaleNarratorSlotKey, out profile);

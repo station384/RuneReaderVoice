@@ -616,7 +616,7 @@ public sealed class RemoteTtsProvider : ITtsProvider
     private static string GetPreferredSampleStem(VoiceSlot slot)
     {
         if (slot.Group == AccentGroup.Narrator)
-            return "am_adam";
+            return slot.Gender == Gender.Female ? "bf_isabella" : "am_adam";
 
         bool f = slot.Gender == Gender.Female;
         return slot.Group switch

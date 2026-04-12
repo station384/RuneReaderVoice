@@ -99,43 +99,33 @@ public enum AccentGroup
 
 /// <summary>
 /// Identifies a specific voice slot: accent group + gender.
-/// Narrator supports neutral, male, and female variants.
+/// Narrator uses male/female variants; unknown defaults to male.
 /// </summary>
 public readonly record struct VoiceSlot(AccentGroup Group, Gender Gender)
 {
-    public static readonly VoiceSlot Narrator       = new(AccentGroup.Narrator, Gender.Unknown);
+    public static readonly VoiceSlot Narrator       = new(AccentGroup.Narrator, Gender.Male);
     public static readonly VoiceSlot MaleNarrator   = new(AccentGroup.Narrator, Gender.Male);
     public static readonly VoiceSlot FemaleNarrator = new(AccentGroup.Narrator, Gender.Female);
 
     public override string ToString() =>
         Group == AccentGroup.Narrator
-            ? Gender switch
-            {
-                Gender.Female => "Narrator/Female",
-                Gender.Male   => "Narrator/Male",
-                _             => "Narrator",
-            }
+            ? (Gender == Gender.Female ? "Narrator/Female" : "Narrator/Male")
             : $"{Group}/{Gender}";
 
     /// <summary>
     /// Parses a VoiceSlot from its ToString() representation.
-    /// Valid forms: "Narrator", "Narrator/Female", "Narrator/Male", or "AccentGroup/Gender" (e.g. "Scottish/Male").
+    /// Valid forms: "Narrator", "Narrator/Male", "Narrator/Female", or "AccentGroup/Gender" (e.g. "Scottish/Male").
     /// </summary>
     public static bool TryParse(string s, out VoiceSlot slot)
     {
-        if (s == "Narrator")
+        if (s == "Narrator" || s == "Narrator/Male")
         {
-            slot = Narrator;
+            slot = MaleNarrator;
             return true;
         }
         if (s == "Narrator/Female")
         {
             slot = FemaleNarrator;
-            return true;
-        }
-        if (s == "Narrator/Male")
-        {
-            slot = MaleNarrator;
             return true;
         }
 
@@ -279,17 +269,19 @@ public static class RaceAccentMapping
     /// </summary>
     public static VoiceSlot Resolve(int raceByte, int flags, bool isMale, bool isFemale)
     {
+        var narratorFallback = isFemale ? VoiceSlot.FemaleNarrator : VoiceSlot.MaleNarrator;
+
         if ((flags & RvFlags.FlagNarrator) != 0)
-            return VoiceSlot.Narrator;
+            return narratorFallback;
 
         var group = ResolveGroup(raceByte);
 
         if (group == AccentGroup.Narrator)
-            return VoiceSlot.Narrator;
+            return narratorFallback;
 
         var gender = isFemale ? Gender.Female : isMale ? Gender.Male : Gender.Unknown;
         if (gender == Gender.Unknown)
-            return VoiceSlot.Narrator;
+            return VoiceSlot.MaleNarrator;
 
         return new VoiceSlot(group, gender);
     }

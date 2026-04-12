@@ -50,6 +50,8 @@ public static class AppServices
     public static DialogueTextSwapProcessor      TextSwapProcessor      { get; private set; } = null!;
     public static NpcRaceOverrideDb              NpcOverrides           { get; private set; } = null!;
     public static NpcSyncService                 NpcSync                { get; private set; } = null!;
+    public static NpcPeopleCatalogService        NpcPeopleCatalog       { get; private set; } = null!;
+    public static ProviderSlotProfileStore       ProviderSlotProfiles   { get; private set; } = null!;
 
     // ── SQLite back-end (single shared DB) ───────────────────────────────────
     public static RvrDb                Db                 { get; private set; } = null!;
@@ -95,6 +97,8 @@ public static class AppServices
         DialogueTextSwapProcessor textSwapProcessor,
         NpcRaceOverrideDb npcOverrides,
         NpcSyncService npcSync,
+        NpcPeopleCatalogService npcPeopleCatalog,
+        ProviderSlotProfileStore providerSlotProfiles,
         RvrDb db,
         PronunciationRuleStore pronunciationRules,
         TextSwapRuleStore textSwapRules,
@@ -112,6 +116,8 @@ public static class AppServices
         TextSwapProcessor      = textSwapProcessor;
         NpcOverrides           = npcOverrides;
         NpcSync                = npcSync;
+        NpcPeopleCatalog        = npcPeopleCatalog;
+        ProviderSlotProfiles    = providerSlotProfiles;
         Db                     = db;
         PronunciationRules     = pronunciationRules;
         TextSwapRules          = textSwapRules;

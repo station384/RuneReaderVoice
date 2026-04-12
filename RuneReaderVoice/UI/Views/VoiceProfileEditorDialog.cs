@@ -213,13 +213,10 @@ So go quickly, keep your wits about you, and return by the main road if you valu
                 AppServices.Settings,
                 providerForSorting,
                 v => v.VoiceId,
-                v => string.IsNullOrWhiteSpace(v.VoiceId) ? v.Name : v.VoiceId,
-                bespokeLast: true)
+                v => string.IsNullOrWhiteSpace(v.VoiceId) ? v.Name : v.VoiceId)
             .Select(v =>
             {
-                var primary = string.IsNullOrWhiteSpace(v.VoiceId)
-                    ? v.Name
-                    : SelectionRecencyHelper.GetVoiceDisplayLabel(v.VoiceId, preservePrefixForGenerics: true);
+                var primary = string.IsNullOrWhiteSpace(v.VoiceId) ? v.Name : v.VoiceId;
                 var summary = string.IsNullOrWhiteSpace(v.Description) ? primary : v.Description;
                 return new VoiceChoice { VoiceId = v.VoiceId, Display = primary, Summary = summary };
             })

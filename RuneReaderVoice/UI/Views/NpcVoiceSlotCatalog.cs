@@ -39,8 +39,8 @@ public static class NpcVoiceSlotCatalog
     public static IReadOnlyList<NpcVoiceSlotCatalogItem> All { get; } = new[]
     {
         // ── Narrator ──────────────────────────────────────────────────────────
-        new NpcVoiceSlotCatalogItem(VoiceSlot.Narrator, "Narrator", "Narrator", 0),
-        new NpcVoiceSlotCatalogItem(VoiceSlot.FemaleNarrator, "Female Narrator", "Narrator", 1),
+        new NpcVoiceSlotCatalogItem(VoiceSlot.MaleNarrator, "Narrator / Male", "Narrator", 0),
+        new NpcVoiceSlotCatalogItem(VoiceSlot.FemaleNarrator, "Narrator / Female", "Narrator", 1),
 
         // ── Alliance ──────────────────────────────────────────────────────────
         new NpcVoiceSlotCatalogItem(new VoiceSlot(AccentGroup.Human, Gender.Male),   "Human / Male",   "Neutral American", 10),

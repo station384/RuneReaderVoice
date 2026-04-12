@@ -36,6 +36,14 @@ namespace RuneReaderVoice.UI.Views;
 public partial class MainWindow
 {
     private readonly Dictionary<string, TextBlock> _voiceSummaryBlocks = new(StringComparer.OrdinalIgnoreCase);
+    private string _voiceSearchText = string.Empty;
+
+
+    private void OnVoiceSearchTextChanged(object? sender, TextChangedEventArgs e)
+    {
+        _voiceSearchText = VoiceSearchBox?.Text?.Trim() ?? string.Empty;
+        PopulateVoiceGrid();
+    }
 
     private static bool ProviderRequiresExplicitVoiceSelection(ProviderDescriptor? descriptor)
         => descriptor != null && descriptor.TransportKind == ProviderTransportKind.Remote && descriptor.VoiceSourceKind == RemoteVoiceSourceKind.Samples;
@@ -94,7 +102,7 @@ public partial class MainWindow
         };
         VoiceGrid.Children.Add(intro);
 
-        foreach (var item in NpcVoiceSlotCatalog.All.OrderBy(x => x.SortOrder))
+        foreach (var item in GetVoiceCatalogItems())
         {
             var row = new Grid
             {
@@ -138,6 +146,45 @@ public partial class MainWindow
         }
     }
 
+
+    private IReadOnlyList<NpcVoiceSlotCatalogItem> GetVoiceCatalogItems()
+    {
+        var items = AppServices.NpcPeopleCatalog?.GetVoiceSlots();
+        if (items == null || items.Count == 0)
+            return NpcVoiceSlotCatalog.All.OrderBy(x => x.SortOrder).ToList();
+
+        var maleNarrator = new VoiceSlot(AccentGroup.Narrator, Gender.Male);
+        var femaleNarrator = new VoiceSlot(AccentGroup.Narrator, Gender.Female);
+        var narrator = items.Where(x => x.Slot == VoiceSlot.Narrator || x.Slot == maleNarrator || x.Slot == femaleNarrator).ToList();
+        var rest = items.Where(x => x.Slot != VoiceSlot.Narrator && x.Slot != maleNarrator && x.Slot != femaleNarrator)
+            .OrderBy(x => x.NpcLabel.Split(" / ")[0], StringComparer.OrdinalIgnoreCase)
+            .ThenBy(x => x.Slot.Gender == Gender.Male ? 0 : x.Slot.Gender == Gender.Female ? 1 : 2)
+            .ToList();
+        var ordered = narrator.Concat(rest).ToList();
+        if (!string.IsNullOrWhiteSpace(_voiceSearchText))
+        {
+            ordered = ordered.Where(x => VoiceSlotMatchesSearch(x, _voiceSearchText)).ToList();
+        }
+        return ordered;
+    }
+
+
+    private static bool VoiceSlotMatchesSearch(NpcVoiceSlotCatalogItem item, string searchText)
+    {
+        if (string.IsNullOrWhiteSpace(searchText)) return true;
+
+        var q = searchText.Trim();
+        if (q.Length == 0) return true;
+
+        var label = item.NpcLabel ?? string.Empty;
+        var slotText = item.Slot.ToString();
+        var accent = item.AccentLabel ?? string.Empty;
+
+        return label.Contains(q, StringComparison.OrdinalIgnoreCase)
+               || slotText.Contains(q, StringComparison.OrdinalIgnoreCase)
+               || accent.Contains(q, StringComparison.OrdinalIgnoreCase);
+    }
+
     private string DescribeVoiceProfile(VoiceSlot slot)
     {
         var provider   = AppServices.Provider;
@@ -172,7 +219,7 @@ public partial class MainWindow
             ? "Blend"
             : ResolveVoiceDisplayName(provider, profile.VoiceId);
 
-        var accentText = NpcVoiceSlotCatalog.All.FirstOrDefault(x => x.Slot.Equals(slot))?.AccentLabel ?? slot.Group.ToString();
+        var accentText = GetVoiceCatalogItems().FirstOrDefault(x => x.Slot.Equals(slot))?.AccentLabel ?? slot.Group.ToString();
         var standard   = StandardVoiceProfileCatalog.TryGetVoiceStandard(providerId, slot);
 
         if (standard != null && profile.CacheAffectingEquals(standard))
@@ -440,7 +487,7 @@ So go quickly, keep your wits about you, and return by the main road if you valu
             VoiceSettingsManager.SaveSettings(AppServices.Settings);
 
             // Refresh summary labels
-            foreach (var item in NpcVoiceSlotCatalog.All)
+            foreach (var item in GetVoiceCatalogItems())
             {
                 if (_voiceSummaryBlocks.TryGetValue(item.Slot.ToString(), out var summary))
                     summary.Text = DescribeVoiceProfile(item.Slot);
