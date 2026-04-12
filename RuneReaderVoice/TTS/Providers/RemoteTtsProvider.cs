@@ -452,6 +452,15 @@ public sealed class RemoteTtsProvider : ITtsProvider
         return (audio, index);
     }
 
+    public string NormalizeSubmittedTextForCache(string text)
+    {
+        var providerId = _descriptor.RemoteProviderId ?? string.Empty;
+        if (providerId.Contains("chatterbox", StringComparison.OrdinalIgnoreCase) ||
+            providerId.Contains("cosyvoice", StringComparison.OrdinalIgnoreCase))
+            return ChatterboxPreprocess(text);
+        return text;
+    }
+
     public string ResolveVoiceId(VoiceSlot slot)
     {
         var profile = ResolveProfile(slot);

@@ -427,13 +427,46 @@ public sealed class PlaybackCoordinator : IDisposable
             ? $"{cacheSlotKey}:{voiceId}+bespoke:{segment.BespokeSampleId}"
             : $"{cacheSlotKey}:{voiceId}";
 
-        var cached = await _cache.TryGetDecodedAsync(segment.Text, effectiveVoiceId, _provider.ProviderId, "", ct);
+        var cacheText = _provider is RemoteTtsProvider remoteCacheProvider
+            ? remoteCacheProvider.NormalizeSubmittedTextForCache(segment.Text)
+            : segment.Text;
+
+        var cacheKey = TtsAudioCache.ComputeKey(cacheText, effectiveVoiceId, _provider.ProviderId, "");
+        DebugCacheTrace(
+            phase: "Lookup",
+            segmentIndex: segment.SegmentIndex,
+            providerId: _provider.ProviderId,
+            slotKey: cacheSlotKey,
+            voiceId: effectiveVoiceId,
+            cacheText: cacheText,
+            cacheKey: cacheKey,
+            originalText: segment.Text);
+
+        var cached = await _cache.TryGetDecodedAsync(cacheText, effectiveVoiceId, _provider.ProviderId, "", ct);
         if (cached != null)
         {
             System.Diagnostics.Debug.WriteLine($"[PC] Cache HIT seg={segment.SegmentIndex} slot={cacheSlotKey} voice={effectiveVoiceId} words={Regex.Matches(segment.Text ?? string.Empty, @"\b[\p{L}\p{N}']+\b", RegexOptions.CultureInvariant).Count} text='{PreviewSegment(segment.Text)}'");
+            DebugCacheTrace(
+                phase: "Hit",
+                segmentIndex: segment.SegmentIndex,
+                providerId: _provider.ProviderId,
+                slotKey: cacheSlotKey,
+                voiceId: effectiveVoiceId,
+                cacheText: cacheText,
+                cacheKey: cacheKey,
+                originalText: segment.Text);
             return DspFilterChain.Apply(cached, profile?.Dsp);
         }
         System.Diagnostics.Debug.WriteLine($"[PC] Cache MISS seg={segment.SegmentIndex} slot={cacheSlotKey} voice={effectiveVoiceId} words={Regex.Matches(segment.Text ?? string.Empty, @"\b[\p{L}\p{N}']+\b", RegexOptions.CultureInvariant).Count} text='{PreviewSegment(segment.Text)}'");
+        DebugCacheTrace(
+            phase: "Miss",
+            segmentIndex: segment.SegmentIndex,
+            providerId: _provider.ProviderId,
+            slotKey: cacheSlotKey,
+            voiceId: effectiveVoiceId,
+            cacheText: cacheText,
+            cacheKey: cacheKey,
+            originalText: segment.Text);
 
         if (_provider is RemoteTtsProvider remoteProviderSingle)
         {
@@ -445,8 +478,8 @@ public sealed class PlaybackCoordinator : IDisposable
 
             System.Diagnostics.Debug.WriteLine(
                 $"[PC] Remote synth complete seg={segment.SegmentIndex} bytes={oggBytes.Length}");
-            await _cache.StoreOggAsync(oggBytes, segment.Text, effectiveVoiceId, _provider.ProviderId, "", ct);
-            var decoded = await _cache.TryGetDecodedAsync(segment.Text, effectiveVoiceId, _provider.ProviderId, "", ct);
+            await _cache.StoreOggAsync(oggBytes, cacheText, effectiveVoiceId, _provider.ProviderId, "", ct);
+            var decoded = await _cache.TryGetDecodedAsync(cacheText, effectiveVoiceId, _provider.ProviderId, "", ct);
             if (decoded == null)
                 throw new InvalidOperationException("Remote audio cached but could not be decoded.");
 
@@ -579,6 +612,27 @@ public sealed class PlaybackCoordinator : IDisposable
         _sessionCts?.Dispose();
         _queueSignal.Dispose();
     }
+    [System.Diagnostics.Conditional("DEBUG")]
+    private static void DebugCacheTrace(
+        string phase,
+        int segmentIndex,
+        string providerId,
+        string slotKey,
+        string voiceId,
+        string? cacheText,
+        string cacheKey,
+        string? originalText)
+    {
+        System.Diagnostics.Debug.WriteLine($@"[CacheDebug] phase={phase} seg={segmentIndex}
+provider={providerId}
+slot={slotKey}
+key={cacheKey}
+voice={voiceId}
+cacheText={cacheText ?? string.Empty}
+originalText={originalText ?? string.Empty}
+");
+    }
+
     private static string PreviewSegment(string? text, int max = 100)
     {
         if (string.IsNullOrWhiteSpace(text))

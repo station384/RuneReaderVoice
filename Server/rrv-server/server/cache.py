@@ -404,49 +404,93 @@ class AudioCache:
 
 # ── Cache key ─────────────────────────────────────────────────────────────────
 
+CACHE_KEY_SCHEMA_VERSION = "L2V1"
+
+
+def _norm_text(value: str | None) -> str:
+    return value or ""
+
+
+def _norm_id(value: str | None) -> str:
+    return (value or "").strip().lower()
+
+
+def _norm_str(value: str | None, *, lower: bool = False) -> str:
+    if value is None:
+        return ""
+    normalized = value.strip()
+    if not normalized:
+        return ""
+    return normalized.lower() if lower else normalized
+
+
+def _norm_float(value: float | None, decimals: int) -> str:
+    if value is None:
+        return ""
+    return f"{value:.{decimals}f}"
+
+
+def _norm_int(value: int | None) -> str:
+    return "" if value is None else str(value)
+
+
+def _norm_bool(value: bool | None) -> str:
+    return "" if value is None else ("1" if value else "0")
+
+
 def compute_cache_key(
     text: str,
     provider_id: str,
     voice_identity: str,
     lang_code: str,
     speech_rate: float,
-    cfg_weight:          float | None = None,
-    exaggeration:        float | None = None,
-    cfg_strength:        float | None = None,
-    nfe_step:            int   | None = None,
+    cfg_weight: float | None = None,
+    exaggeration: float | None = None,
+    cfg_strength: float | None = None,
+    nfe_step: int | None = None,
     cross_fade_duration: float | None = None,
-    sway_sampling_coef:  float | None = None,
-    voice_context:       str   | None = None,
+    sway_sampling_coef: float | None = None,
+    voice_context: str | None = None,
+    voice_instruct: str | None = None,
+    cosy_instruct: str | None = None,
+    synthesis_seed: int | None = None,
+    cb_temperature: float | None = None,
+    cb_top_p: float | None = None,
+    cb_repetition_penalty: float | None = None,
+    longcat_steps: int | None = None,
+    longcat_cfg_strength: float | None = None,
+    longcat_guidance: str | None = None,
+    lux_num_steps: int | None = None,
+    lux_t_shift: float | None = None,
+    lux_return_smooth: bool | None = None,
 ) -> str:
-    """
-    Compute the 32-char hex server cache key.
-
-    Fields are joined with null-byte separators to prevent collisions
-    from adjacent field concatenation.
-
-    model_version has been removed from the cache key — provider subdirectories
-    (data/cache/{provider_id}/) give per-provider isolation. If you need to
-    invalidate a provider's cache after a model change, clear its subdir.
-
-    voice_identity:
-      - base voice:   the voice_id string
-      - reference:    SHA-256 of the sample file contents (8 hex chars)
-      - blend:        canonical sorted "voice_id:weight" pairs joined by "|"
-    """
-    rate_str  = f"{speech_rate:.2f}"
-    cfg_str   = "" if cfg_weight          is None else f"{cfg_weight:.3f}"
-    exag_str  = "" if exaggeration        is None else f"{exaggeration:.3f}"
-    cfs_str   = "" if cfg_strength        is None else f"{cfg_strength:.3f}"
-    nfe_str   = "" if nfe_step            is None else str(nfe_step)
-    xfade_str = "" if cross_fade_duration is None else f"{cross_fade_duration:.3f}"
-    sway_str  = "" if sway_sampling_coef  is None else f"{sway_sampling_coef:.3f}"
-    ctx_str   = voice_context or ""
-
+    """Compute the 32-char hex server cache key from canonicalized render identity."""
     parts = [
-        text, provider_id, voice_identity,
-        lang_code, rate_str, cfg_str, exag_str,
-        cfs_str, nfe_str, xfade_str, sway_str,
-        ctx_str,
+        CACHE_KEY_SCHEMA_VERSION,
+        _norm_text(text),
+        _norm_id(provider_id),
+        _norm_id(voice_identity),
+        _norm_id(lang_code),
+        _norm_float(speech_rate, 2),
+        _norm_float(cfg_weight, 2),
+        _norm_float(exaggeration, 2),
+        _norm_float(cfg_strength, 2),
+        _norm_int(nfe_step),
+        _norm_float(cross_fade_duration, 3),
+        _norm_float(sway_sampling_coef, 3),
+        _norm_str(voice_context, lower=True),
+        _norm_str(voice_instruct),
+        _norm_str(cosy_instruct),
+        _norm_int(synthesis_seed),
+        _norm_float(cb_temperature, 2),
+        _norm_float(cb_top_p, 2),
+        _norm_float(cb_repetition_penalty, 2),
+        _norm_int(longcat_steps),
+        _norm_float(longcat_cfg_strength, 2),
+        _norm_str(longcat_guidance, lower=True),
+        _norm_int(lux_num_steps),
+        _norm_float(lux_t_shift, 2),
+        _norm_bool(lux_return_smooth),
     ]
     joined = "\x00".join(parts)
     digest = hashlib.sha256(joined.encode("utf-8")).hexdigest()
@@ -462,7 +506,7 @@ def blend_voice_identity(blend: list[dict]) -> str:
     Example sample blend: "M_Dwarf_1:0.30|M_Narrator:0.70"
     """
     pairs = sorted(
-        f"{entry.get('voice_id') or entry.get('sample_id', 'unknown')}:{entry['weight']:.2f}"
+        f"{(entry.get('voice_id') or entry.get('sample_id', 'unknown')).strip().lower()}:{entry['weight']:.2f}"
         for entry in blend
     )
     return "|".join(pairs)

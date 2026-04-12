@@ -280,12 +280,18 @@ So go quickly, keep your wits about you, and return by the main road if you valu
 
         // ── Speech rate ───────────────────────────────────────────────────────
 
-        _speechRateSlider = new Slider { Minimum = 0.25, Maximum = 4.00, Value = _workingProfile.SpeechRate, TickFrequency = 0.05, HorizontalAlignment = HorizontalAlignment.Stretch };
+        _speechRateSlider = new Slider { Minimum = 0.25, Maximum = 4.00, Value = _workingProfile.SpeechRate, TickFrequency = 0.01, HorizontalAlignment = HorizontalAlignment.Stretch };
         _speechRateText   = new TextBox { Width = 80, Text = FormatPercent(_workingProfile.SpeechRate), HorizontalContentAlignment = HorizontalAlignment.Center };
         _speechRateSlider.PropertyChanged += (_, e) =>
         {
             if (e.Property != Slider.ValueProperty) return;
-            _workingProfile.SpeechRate = (float)_speechRateSlider.Value;
+            var snapped = NormalizeSpeechRateForUi((float)_speechRateSlider.Value);
+            if (Math.Abs(_speechRateSlider.Value - snapped) > 0.0005)
+            {
+                _speechRateSlider.Value = snapped;
+                return;
+            }
+            _workingProfile.SpeechRate = snapped;
             var t = FormatPercent(_workingProfile.SpeechRate);
             if (_speechRateText.Text != t) _speechRateText.Text = t;
             RefreshSummary();
@@ -293,10 +299,18 @@ So go quickly, keep your wits about you, and return by the main road if you valu
         _speechRateText.TextChanged += (_, _) =>
         {
             if (!TryParsePercentOrNumber(_speechRateText.Text, out var v)) return;
-            v = Math.Clamp(v, 0.25f, 4.00f);
+            v = NormalizeSpeechRateForUi(Math.Clamp(v, 0.25f, 4.00f));
             _workingProfile.SpeechRate = v;
-            if (Math.Abs(_speechRateSlider.Value - v) > 0.001) _speechRateSlider.Value = v;
+            if (Math.Abs(_speechRateSlider.Value - v) > 0.0005) _speechRateSlider.Value = v;
             RefreshSummary();
+        };
+        _speechRateText.LostFocus += (_, _) =>
+        {
+            var normalized = NormalizeSpeechRateForUi(_workingProfile.SpeechRate);
+            _workingProfile.SpeechRate = normalized;
+            var t = FormatPercent(normalized);
+            if (_speechRateText.Text != t) _speechRateText.Text = t;
+            if (Math.Abs(_speechRateSlider.Value - normalized) > 0.0005) _speechRateSlider.Value = normalized;
         };
 
 
@@ -377,6 +391,14 @@ So go quickly, keep your wits about you, and return by the main road if you valu
                     if (Math.Abs(sliderLocal.Value - v) > 0.001) sliderLocal.Value = v;
                     onValueChanged?.Invoke();
                     RefreshSummary();
+                };
+                textBoxLocal.LostFocus += (_, _) =>
+                {
+                    if (!float.TryParse(textBoxLocal.Text, System.Globalization.NumberStyles.Float, Inv, out var v))
+                        v = (float)sliderLocal.Value;
+                    v = Math.Clamp(v, min, max);
+                    var t = v.ToString(format, Inv);
+                    if (textBoxLocal.Text != t) textBoxLocal.Text = t;
                 };
                 slider = sliderLocal;
                 textBox = textBoxLocal;
@@ -541,6 +563,11 @@ So go quickly, keep your wits about you, and return by the main road if you valu
                     if (Math.Abs(_cfgStrengthSlider.Value - v) > 0.001) _cfgStrengthSlider.Value = v;
                     RefreshSummary();
                 };
+                _cfgStrengthText.LostFocus += (_, _) => {
+                    var v = _workingProfile.CfgStrength ?? (float)_cfgStrengthSlider.Value;
+                    var t = v.ToString("0.00", Inv);
+                    if (_cfgStrengthText.Text != t) _cfgStrengthText.Text = t;
+                };
                 var row = new Grid { ColumnDefinitions = new ColumnDefinitions("130,*,70,70"), ColumnSpacing = 8 };
                 row.Children.Add(new TextBlock { Text = "Cfg Strength", VerticalAlignment = VerticalAlignment.Center, FontWeight = FontWeight.SemiBold });
                 Grid.SetColumn(_cfgStrengthSlider, 1); row.Children.Add(_cfgStrengthSlider);
@@ -577,6 +604,11 @@ So go quickly, keep your wits about you, and return by the main road if you valu
                     if (Math.Abs(_nfeStepSlider.Value - v) > 0.5) _nfeStepSlider.Value = v;
                     RefreshSummary();
                 };
+                _nfeStepText.LostFocus += (_, _) => {
+                    var v = _workingProfile.NfeStep ?? (int)Math.Round(_nfeStepSlider.Value / 8) * 8;
+                    var t = v.ToString();
+                    if (_nfeStepText.Text != t) _nfeStepText.Text = t;
+                };
                 var row = new Grid { ColumnDefinitions = new ColumnDefinitions("130,*,70,70"), ColumnSpacing = 8 };
                 row.Children.Add(new TextBlock { Text = "NFE Steps", VerticalAlignment = VerticalAlignment.Center, FontWeight = FontWeight.SemiBold });
                 Grid.SetColumn(_nfeStepSlider, 1); row.Children.Add(_nfeStepSlider);
@@ -611,6 +643,11 @@ So go quickly, keep your wits about you, and return by the main road if you valu
                     _workingProfile.SwaysamplingCoef = v;
                     if (Math.Abs(_swaySlider.Value - v) > 0.001) _swaySlider.Value = v;
                     RefreshSummary();
+                };
+                _swayText.LostFocus += (_, _) => {
+                    var v = _workingProfile.SwaysamplingCoef ?? (float)_swaySlider.Value;
+                    var t = v.ToString("0.00", Inv);
+                    if (_swayText.Text != t) _swayText.Text = t;
                 };
                 var row = new Grid { ColumnDefinitions = new ColumnDefinitions("130,*,70,70"), ColumnSpacing = 8 };
                 row.Children.Add(new TextBlock { Text = "Sway Coef", VerticalAlignment = VerticalAlignment.Center, FontWeight = FontWeight.SemiBold });
@@ -657,6 +694,12 @@ So go quickly, keep your wits about you, and return by the main road if you valu
                     if (Math.Abs(_longcatStepsSlider.Value - v) > 0.001) _longcatStepsSlider.Value = v;
                     RefreshSummary();
                 };
+                _longcatStepsText.LostFocus += (_, _) =>
+                {
+                    var v = _workingProfile.LongcatSteps ?? (int)Math.Round(_longcatStepsSlider.Value);
+                    var t = v.ToString();
+                    if (_longcatStepsText.Text != t) _longcatStepsText.Text = t;
+                };
                 var row = new Grid { ColumnDefinitions = new ColumnDefinitions("130,*,70"), ColumnSpacing = 8 };
                 row.Children.Add(new TextBlock { Text = "LongCat Steps", VerticalAlignment = VerticalAlignment.Center, FontWeight = FontWeight.SemiBold });
                 Grid.SetColumn(_longcatStepsSlider, 1); row.Children.Add(_longcatStepsSlider);
@@ -691,6 +734,12 @@ So go quickly, keep your wits about you, and return by the main road if you valu
                     _workingProfile.LongcatCfgStrength = v;
                     if (Math.Abs(_longcatCfgStrengthSlider.Value - v) > 0.001) _longcatCfgStrengthSlider.Value = v;
                     RefreshSummary();
+                };
+                _longcatCfgStrengthText.LostFocus += (_, _) =>
+                {
+                    var v = _workingProfile.LongcatCfgStrength ?? (float)_longcatCfgStrengthSlider.Value;
+                    var t = v.ToString("0.00", Inv);
+                    if (_longcatCfgStrengthText.Text != t) _longcatCfgStrengthText.Text = t;
                 };
                 var row = new Grid { ColumnDefinitions = new ColumnDefinitions("130,*,70"), ColumnSpacing = 8 };
                 row.Children.Add(new TextBlock { Text = "Guidance Strength", VerticalAlignment = VerticalAlignment.Center, FontWeight = FontWeight.SemiBold });
@@ -1831,8 +1880,11 @@ So go quickly, keep your wits about you, and return by the main road if you valu
         return true;
     }
 
+    private static float NormalizeSpeechRateForUi(float value)
+        => Math.Clamp((float)Math.Round(value * 100f, MidpointRounding.AwayFromZero) / 100f, 0.25f, 4.00f);
+
     private static string FormatPercent(float value)
-        => $"{value * 100f:0.#}%";
+        => $"{Math.Clamp((int)Math.Round(value * 100f, MidpointRounding.AwayFromZero), 25, 400)}%";
 
     private static (Slider slider, TextBlock label) MakeCompactSlider(
         float min, float max, float initial,

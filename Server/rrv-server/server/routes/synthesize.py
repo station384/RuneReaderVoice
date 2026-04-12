@@ -209,31 +209,6 @@ async def synthesize(body: SynthesizeRequest, request: Request) -> Response:
 
     # 5. Compute cache key
     # voice_instruct affects output — include in cache key via voice_context
-    effective_voice_context = body.voice_context or ""
-    if body.voice_instruct:
-        effective_voice_context = f"{effective_voice_context}|instruct:{body.voice_instruct}"
-    if body.lux_num_steps is not None:
-        effective_voice_context = f"{effective_voice_context}|lux_steps:{body.lux_num_steps}"
-    if body.lux_t_shift is not None:
-        effective_voice_context = f"{effective_voice_context}|lux_t:{body.lux_t_shift:.2f}"
-    if body.lux_return_smooth is not None:
-        effective_voice_context = f"{effective_voice_context}|lux_smooth:{int(body.lux_return_smooth)}"
-    if body.cosy_instruct:
-        effective_voice_context = f"{effective_voice_context}|cosy_instruct:{body.cosy_instruct}"
-    if body.longcat_steps is not None:
-        effective_voice_context = f"{effective_voice_context}|lc_steps:{body.longcat_steps}"
-    if body.longcat_cfg_strength is not None:
-        effective_voice_context = f"{effective_voice_context}|lc_cfg:{body.longcat_cfg_strength:.2f}"
-    if body.longcat_guidance is not None:
-        effective_voice_context = f"{effective_voice_context}|lc_guide:{body.longcat_guidance}"
-    if body.cb_temperature is not None:
-        effective_voice_context = f"{effective_voice_context}|cb_temp:{body.cb_temperature:.2f}"
-    if body.cb_top_p is not None:
-        effective_voice_context = f"{effective_voice_context}|cb_top_p:{body.cb_top_p:.2f}"
-    if body.cb_repetition_penalty is not None:
-        effective_voice_context = f"{effective_voice_context}|cb_rep:{body.cb_repetition_penalty:.2f}"
-    if resolved_seed is not None:
-        effective_voice_context = f"{effective_voice_context}|seed:{resolved_seed}" 
 
     cache_key = compute_cache_key(
         text=normalized_text,
@@ -247,7 +222,19 @@ async def synthesize(body: SynthesizeRequest, request: Request) -> Response:
         nfe_step=body.nfe_step,
         cross_fade_duration=body.cross_fade_duration,
         sway_sampling_coef=body.sway_sampling_coef,
-        voice_context=effective_voice_context,
+        voice_context=body.voice_context,
+        voice_instruct=body.voice_instruct,
+        cosy_instruct=body.cosy_instruct,
+        synthesis_seed=resolved_seed,
+        cb_temperature=body.cb_temperature,
+        cb_top_p=body.cb_top_p,
+        cb_repetition_penalty=body.cb_repetition_penalty,
+        longcat_steps=body.longcat_steps,
+        longcat_cfg_strength=body.longcat_cfg_strength,
+        longcat_guidance=body.longcat_guidance,
+        lux_num_steps=body.lux_num_steps,
+        lux_t_shift=body.lux_t_shift,
+        lux_return_smooth=body.lux_return_smooth,
     )
 
     # ── Input metrics — computed once from the normalized text ────────────────

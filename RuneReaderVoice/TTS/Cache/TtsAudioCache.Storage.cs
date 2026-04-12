@@ -218,15 +218,32 @@ public sealed partial class TtsAudioCache
 
     // ── Key computation ───────────────────────────────────────────────────────
 
+    [Conditional("DEBUG")]
+    private static void DebugCacheKeyTrace(string phase, string key, string text, string voiceId, string providerId)
+    {
+        var fullText = text ?? string.Empty;
+        var preview = fullText.Replace("\r", " ").Replace("\n", " ");
+        if (preview.Length > 160)
+            preview = preview[..160] + "...";
+        Debug.WriteLine($"[CacheKeyDebug] phase={phase} key={key} provider={providerId ?? string.Empty} voice={voiceId ?? string.Empty} textLen={fullText.Length} text=\"{preview}\"");
+    }
+
+
     public static string ComputeKey(string text, string voiceId, string providerId, string dspKey = "")
     {
         // dspKey intentionally excluded — DSP is a client-side post-process applied
         // after cache retrieval. The same raw synthesized audio is valid for any DSP
         // setting; DSP was never server-side. Including it would cause unnecessary
         // cache misses whenever the user changes effect parameters.
-        var input = $"{text}\x00{voiceId}\x00{providerId}";
+        const string schema = "L1V1";
+        var normalizedText = text ?? string.Empty;
+        var normalizedVoiceId = (voiceId ?? string.Empty).Trim();
+        var normalizedProviderId = (providerId ?? string.Empty).Trim().ToLowerInvariant();
+        var input = $"{schema}\x00{normalizedText}\x00{normalizedVoiceId}\x00{normalizedProviderId}";
         var hash  = SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(input));
-        return Convert.ToHexString(hash)[..16].ToLowerInvariant();
+        var key = Convert.ToHexString(hash)[..16].ToLowerInvariant();
+        DebugCacheKeyTrace("Compute", key, normalizedText, normalizedVoiceId, normalizedProviderId);
+        return key;
     }
 
     // ── OGG decode ────────────────────────────────────────────────────────────

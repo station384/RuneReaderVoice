@@ -244,31 +244,6 @@ async def synthesize_v2(body: SynthesizeRequest, request: Request) -> dict:
     if resolved_seed is None:
         resolved_seed = settings.default_synthesis_seed
 
-    effective_voice_context = body.voice_context or ""
-    if body.voice_instruct:
-        effective_voice_context = f"{effective_voice_context}|instruct:{body.voice_instruct}"
-    if body.lux_num_steps is not None:
-        effective_voice_context = f"{effective_voice_context}|lux_steps:{body.lux_num_steps}"
-    if body.lux_t_shift is not None:
-        effective_voice_context = f"{effective_voice_context}|lux_t:{body.lux_t_shift:.2f}"
-    if body.lux_return_smooth is not None:
-        effective_voice_context = f"{effective_voice_context}|lux_smooth:{int(body.lux_return_smooth)}"
-    if body.cosy_instruct:
-        effective_voice_context = f"{effective_voice_context}|cosy_instruct:{body.cosy_instruct}"
-    if body.longcat_steps is not None:
-        effective_voice_context = f"{effective_voice_context}|lc_steps:{body.longcat_steps}"
-    if body.longcat_cfg_strength is not None:
-        effective_voice_context = f"{effective_voice_context}|lc_cfg:{body.longcat_cfg_strength:.2f}"
-    if body.longcat_guidance is not None:
-        effective_voice_context = f"{effective_voice_context}|lc_guide:{body.longcat_guidance}"
-    if body.cb_temperature is not None:
-        effective_voice_context = f"{effective_voice_context}|cb_temp:{body.cb_temperature:.2f}"
-    if body.cb_top_p is not None:
-        effective_voice_context = f"{effective_voice_context}|cb_top_p:{body.cb_top_p:.2f}"
-    if body.cb_repetition_penalty is not None:
-        effective_voice_context = f"{effective_voice_context}|cb_rep:{body.cb_repetition_penalty:.2f}"
-    if resolved_seed is not None:
-        effective_voice_context = f"{effective_voice_context}|seed:{resolved_seed}" 
 
     # Normalize text for TTS (WoW-specific + wetext English TN)
     normalized_text = normalize_text(body.text)
@@ -285,7 +260,19 @@ async def synthesize_v2(body: SynthesizeRequest, request: Request) -> dict:
         nfe_step=body.nfe_step,
         cross_fade_duration=body.cross_fade_duration,
         sway_sampling_coef=body.sway_sampling_coef,
-        voice_context=effective_voice_context,
+        voice_context=body.voice_context,
+        voice_instruct=body.voice_instruct,
+        cosy_instruct=body.cosy_instruct,
+        synthesis_seed=resolved_seed,
+        cb_temperature=body.cb_temperature,
+        cb_top_p=body.cb_top_p,
+        cb_repetition_penalty=body.cb_repetition_penalty,
+        longcat_steps=body.longcat_steps,
+        longcat_cfg_strength=body.longcat_cfg_strength,
+        longcat_guidance=body.longcat_guidance,
+        lux_num_steps=body.lux_num_steps,
+        lux_t_shift=body.lux_t_shift,
+        lux_return_smooth=body.lux_return_smooth,
     )
 
     # 4. Check cache — if hit, job completes immediately
@@ -482,17 +469,6 @@ async def _process_one_segment(
         resolved_seed = settings.default_synthesis_seed
 
     # Effective voice context (for cache key discrimination + prior token gating)
-    effective_voice_context = seg.voice_context or ""
-    if seg.voice_instruct:
-        effective_voice_context = f"{effective_voice_context}|instruct:{seg.voice_instruct}"
-    if seg.cb_temperature is not None:
-        effective_voice_context = f"{effective_voice_context}|cb_temp:{seg.cb_temperature:.2f}"
-    if seg.cb_top_p is not None:
-        effective_voice_context = f"{effective_voice_context}|cb_top_p:{seg.cb_top_p:.2f}"
-    if seg.cb_repetition_penalty is not None:
-        effective_voice_context = f"{effective_voice_context}|cb_rep:{seg.cb_repetition_penalty:.2f}"
-    if resolved_seed is not None:
-        effective_voice_context = f"{effective_voice_context}|seed:{resolved_seed}"
 
     # Explicit continuity is a T3-tail-token concern only.
     # The client may chain same-speaker segments across narrator interjections so
@@ -512,7 +488,19 @@ async def _process_one_segment(
         nfe_step=seg.nfe_step,
         cross_fade_duration=seg.cross_fade_duration,
         sway_sampling_coef=seg.sway_sampling_coef,
-        voice_context=effective_voice_context,
+        voice_context=seg.voice_context,
+        voice_instruct=seg.voice_instruct,
+        cosy_instruct=seg.cosy_instruct,
+        synthesis_seed=resolved_seed,
+        cb_temperature=seg.cb_temperature,
+        cb_top_p=seg.cb_top_p,
+        cb_repetition_penalty=seg.cb_repetition_penalty,
+        longcat_steps=seg.longcat_steps,
+        longcat_cfg_strength=seg.longcat_cfg_strength,
+        longcat_guidance=seg.longcat_guidance,
+        lux_num_steps=seg.lux_num_steps,
+        lux_t_shift=seg.lux_t_shift,
+        lux_return_smooth=seg.lux_return_smooth,
     )
 
     progress_key = str(uuid.uuid4()).replace("-", "")
@@ -576,17 +564,17 @@ async def _process_one_segment(
         voice_instruct=seg.voice_instruct,
         voice_description=seg.voice.voice_description,
         voice_context=seg.voice_context,
-        lux_num_steps=seg.lux_num_steps,
-        lux_t_shift=seg.lux_t_shift,
-        lux_return_smooth=seg.lux_return_smooth,
         cosy_instruct=seg.cosy_instruct,
-        longcat_steps=seg.longcat_steps,
-        longcat_cfg_strength=seg.longcat_cfg_strength,
-        longcat_guidance=seg.longcat_guidance,
+        synthesis_seed=resolved_seed,
         cb_temperature=seg.cb_temperature,
         cb_top_p=seg.cb_top_p,
         cb_repetition_penalty=seg.cb_repetition_penalty,
-        synthesis_seed=resolved_seed,
+        longcat_steps=seg.longcat_steps,
+        longcat_cfg_strength=seg.longcat_cfg_strength,
+        longcat_guidance=seg.longcat_guidance,
+        lux_num_steps=seg.lux_num_steps,
+        lux_t_shift=seg.lux_t_shift,
+        lux_return_smooth=seg.lux_return_smooth,
         cache_key=cache_key,
         cache_dir=str(settings.cache_dir),
         continue_from_cache_key=continue_from_cache_key,

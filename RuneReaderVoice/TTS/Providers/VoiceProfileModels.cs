@@ -324,46 +324,54 @@ public sealed class VoiceProfile
     public bool CacheAffectingEquals(VoiceProfile? other)
     {
         if (other == null) return false;
-
-        return string.Equals(VoiceId, other.VoiceId, StringComparison.OrdinalIgnoreCase)
-            && string.Equals(LangCode, other.LangCode, StringComparison.OrdinalIgnoreCase)
-            && Math.Abs(SpeechRate - other.SpeechRate) < 0.0001f
-            && Nullable.Equals(CfgWeight, other.CfgWeight)
-            && Nullable.Equals(Exaggeration, other.Exaggeration)
-            && Nullable.Equals(CfgStrength, other.CfgStrength)
-            && Nullable.Equals(NfeStep, other.NfeStep)
-            && Nullable.Equals(CrossFadeDuration, other.CrossFadeDuration)
-            && Nullable.Equals(SwaysamplingCoef, other.SwaysamplingCoef)
-            && string.Equals((VoiceInstruct ?? string.Empty).Trim(), (other.VoiceInstruct ?? string.Empty).Trim(), StringComparison.Ordinal)
-            && string.Equals((CosyInstruct ?? string.Empty).Trim(), (other.CosyInstruct ?? string.Empty).Trim(), StringComparison.Ordinal)
-            && Nullable.Equals(SynthesisSeed, other.SynthesisSeed)
-            && Nullable.Equals(ChatterboxTemperature, other.ChatterboxTemperature)
-            && Nullable.Equals(ChatterboxTopP, other.ChatterboxTopP)
-            && Nullable.Equals(ChatterboxRepetitionPenalty, other.ChatterboxRepetitionPenalty)
-            && Nullable.Equals(LongcatSteps, other.LongcatSteps)
-            && Nullable.Equals(LongcatCfgStrength, other.LongcatCfgStrength)
-            && string.Equals((LongcatGuidance ?? string.Empty).Trim(), (other.LongcatGuidance ?? string.Empty).Trim(), StringComparison.OrdinalIgnoreCase)
-            && DisableChunking == other.DisableChunking;
+        return string.Equals(BuildIdentityKey(), other.BuildIdentityKey(), StringComparison.Ordinal);
     }
+
+    private static string NormalizeCacheId(string? value)
+        => string.IsNullOrWhiteSpace(value) ? "-" : value.Trim().ToLowerInvariant().Replace("|", "/");
+
+    private static string NormalizeCacheString(string? value, bool lower = false)
+    {
+        if (string.IsNullOrWhiteSpace(value)) return "-";
+        var normalized = value.Trim().Replace("|", "/");
+        return lower ? normalized.ToLowerInvariant() : normalized;
+    }
+
+    private static string NormalizeCacheFloat(float? value, string format)
+        => value.HasValue
+            ? value.Value.ToString(format, System.Globalization.CultureInfo.InvariantCulture)
+            : "-";
+
+    private static string NormalizeCacheFloat(float value, string format)
+        => value.ToString(format, System.Globalization.CultureInfo.InvariantCulture);
+
+    private static string NormalizeCacheInt(int? value)
+        => value.HasValue
+            ? value.Value.ToString(System.Globalization.CultureInfo.InvariantCulture)
+            : "-";
 
     public string BuildIdentityKey()
     {
-        var inv = System.Globalization.CultureInfo.InvariantCulture;
-        var cfg      = CfgWeight.HasValue ? CfgWeight.Value.ToString("0.00", inv) : "-";
-        var exg      = Exaggeration.HasValue ? Exaggeration.Value.ToString("0.00", inv) : "-";
-        var cfs      = CfgStrength.HasValue ? CfgStrength.Value.ToString("0.00", inv) : "-";
-        var nfe      = NfeStep.HasValue ? NfeStep.Value.ToString() : "-";
-        var sway     = SwaysamplingCoef.HasValue ? SwaysamplingCoef.Value.ToString("0.00", inv) : "-";
-        var vInstr   = string.IsNullOrWhiteSpace(VoiceInstruct) ? "-" : VoiceInstruct.Trim().Replace("|", "/");
-        var cInstr   = string.IsNullOrWhiteSpace(CosyInstruct) ? "-" : CosyInstruct.Trim().Replace("|", "/");
-        var seed     = SynthesisSeed.HasValue ? SynthesisSeed.Value.ToString(inv) : "-";
-        var cbTemp   = ChatterboxTemperature.HasValue ? ChatterboxTemperature.Value.ToString("0.00", inv) : "-";
-        var cbTopP   = ChatterboxTopP.HasValue ? ChatterboxTopP.Value.ToString("0.00", inv) : "-";
-        var cbRep    = ChatterboxRepetitionPenalty.HasValue ? ChatterboxRepetitionPenalty.Value.ToString("0.00", inv) : "-";
-        var lcSteps  = LongcatSteps.HasValue ? LongcatSteps.Value.ToString(inv) : "-";
-        var lcCfg    = LongcatCfgStrength.HasValue ? LongcatCfgStrength.Value.ToString("0.00", inv) : "-";
-        var lcGuide  = string.IsNullOrWhiteSpace(LongcatGuidance) ? "-" : LongcatGuidance.Trim().ToLowerInvariant().Replace("|", "/");
-        return $"{VoiceId}|{LangCode}|{SpeechRate:0.00}|cfg:{cfg}|ex:{exg}|cfs:{cfs}|nfe:{nfe}|sway:{sway}|vinstr:{vInstr}|cinstr:{cInstr}|seed:{seed}|cbt:{cbTemp}|cbp:{cbTopP}|cbr:{cbRep}|lcs:{lcSteps}|lcc:{lcCfg}|lcg:{lcGuide}";
+        const string schema = "L1V1";
+        var voiceId  = NormalizeCacheId(VoiceId);
+        var langCode = NormalizeCacheId(LangCode);
+        var rate     = NormalizeCacheFloat(SpeechRate, "0.00");
+        var cfg      = NormalizeCacheFloat(CfgWeight, "0.00");
+        var exg      = NormalizeCacheFloat(Exaggeration, "0.00");
+        var cfs      = NormalizeCacheFloat(CfgStrength, "0.00");
+        var nfe      = NormalizeCacheInt(NfeStep);
+        var xfade    = NormalizeCacheFloat(CrossFadeDuration, "0.000");
+        var sway     = NormalizeCacheFloat(SwaysamplingCoef, "0.000");
+        var vInstr   = NormalizeCacheString(VoiceInstruct);
+        var cInstr   = NormalizeCacheString(CosyInstruct);
+        var seed     = NormalizeCacheInt(SynthesisSeed);
+        var cbTemp   = NormalizeCacheFloat(ChatterboxTemperature, "0.00");
+        var cbTopP   = NormalizeCacheFloat(ChatterboxTopP, "0.00");
+        var cbRep    = NormalizeCacheFloat(ChatterboxRepetitionPenalty, "0.00");
+        var lcSteps  = NormalizeCacheInt(LongcatSteps);
+        var lcCfg    = NormalizeCacheFloat(LongcatCfgStrength, "0.00");
+        var lcGuide  = NormalizeCacheString(LongcatGuidance, lower: true);
+        return $"{schema}|vid:{voiceId}|lang:{langCode}|rate:{rate}|cfg:{cfg}|ex:{exg}|cfs:{cfs}|nfe:{nfe}|xfd:{xfade}|sway:{sway}|vinstr:{vInstr}|cinstr:{cInstr}|seed:{seed}|cbt:{cbTemp}|cbp:{cbTopP}|cbr:{cbRep}|lcs:{lcSteps}|lcc:{lcCfg}|lcg:{lcGuide}";
     }
 }
 
