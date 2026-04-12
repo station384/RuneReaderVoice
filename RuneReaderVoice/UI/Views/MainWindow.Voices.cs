@@ -38,6 +38,14 @@ public partial class MainWindow
     private readonly Dictionary<string, TextBlock> _voiceSummaryBlocks = new(StringComparer.OrdinalIgnoreCase);
     private string _voiceSearchText = string.Empty;
 
+    private void SetVoicesStatus(string message)
+    {
+        if (VoicesStatus != null)
+            VoicesStatus.Text = message;
+
+        SessionStatus.Text = message;
+    }
+
 
     private void OnVoiceSearchTextChanged(object? sender, TextChangedEventArgs e)
     {
@@ -396,7 +404,7 @@ So go quickly, keep your wits about you, and return by the main road if you valu
         }
         catch (Exception ex)
         {
-            SessionStatus.Text = $"Voice export failed: {ex.Message}";
+            SetVoicesStatus($"Voice export failed: {ex.Message}");
         }
     }
 
@@ -478,7 +486,7 @@ So go quickly, keep your wits about you, and return by the main road if you valu
                 var import = JsonSerializer.Deserialize<VoiceProfileExport>(json);
                 if (import?.Profiles == null || import.Profiles.Count == 0)
                 {
-                    SessionStatus.Text = "No voice profiles found in file.";
+                    SetVoicesStatus("No voice profiles found in file."); return;
                     return;
                 }
 
@@ -526,7 +534,7 @@ So go quickly, keep your wits about you, and return by the main road if you valu
 
             if (importedProfiles == 0)
             {
-                SessionStatus.Text = "No voice profiles found in file.";
+                SetVoicesStatus("No voice profiles found in file.");
                 return;
             }
 
@@ -541,11 +549,11 @@ So go quickly, keep your wits about you, and return by the main road if you valu
                     summary.Text = DescribeVoiceProfile(item.Slot);
             }
 
-            SessionStatus.Text = $"Imported {importedProfiles} voice profiles across {importedProviders} providers.";
+            SetVoicesStatus($"Imported {importedProfiles} voice profiles across {importedProviders} providers.");
         }
         catch (Exception ex)
         {
-            SessionStatus.Text = $"Voice import failed: {ex.Message}";
+            SetVoicesStatus($"Voice import failed: {ex.Message}");
         }
     }
 
@@ -553,7 +561,7 @@ So go quickly, keep your wits about you, and return by the main road if you valu
     {
         if (string.IsNullOrWhiteSpace(AppServices.Settings.RemoteServerUrl))
         {
-            SessionStatus.Text = "No server URL configured.";
+            SetVoicesStatus("No server URL configured.");
             return;
         }
 
@@ -566,17 +574,12 @@ So go quickly, keep your wits about you, and return by the main road if you valu
                                     kvp => new Dictionary<string, VoiceProfile>(kvp.Value, StringComparer.OrdinalIgnoreCase),
                                     StringComparer.OrdinalIgnoreCase);
 
-            var export = new MultiProviderVoiceProfileExport
-            {
-                Providers = providers,
-            };
-            var json = System.Text.Json.JsonSerializer.Serialize(export, _jsonVoiceOptions);
-            var ok   = await AppServices.NpcSync.PushDefaultsAsync("voice-profiles", json);
-            SessionStatus.Text = ok ? "Voice profiles pushed to server." : "Push failed — check server logs.";
+            var upserted = await AppServices.NpcSync.PushProviderSlotProfilesAsync("voice_slot", providers);
+            SetVoicesStatus(upserted >= 0 ? $"Voice profiles pushed to server ({upserted} row(s))." : "Push failed — check server logs.");
         }
         catch (Exception ex)
         {
-            SessionStatus.Text = $"Push failed: {ex.Message}";
+            SetVoicesStatus($"Push failed: {ex.Message}");
         }
     }
 
@@ -584,23 +587,23 @@ So go quickly, keep your wits about you, and return by the main road if you valu
     {
         if (string.IsNullOrWhiteSpace(AppServices.Settings.RemoteServerUrl))
         {
-            SessionStatus.Text = "No server URL configured.";
+            SetVoicesStatus("No server URL configured.");
             return;
         }
 
         try
         {
-            var ok = await AppServices.NpcSync.PullAndApplyDefaultsAsync("voice-profiles");
+            var ok = await AppServices.NpcSync.PullAndApplyProviderSlotProfilesAsync("voice_slot");
             if (ok && AppServices.ProviderSlotProfiles != null)
             {
                 AppServices.ProviderSlotProfiles.WriteBackToSettings(AppServices.Settings);
                 RefreshCurrentProviderVoiceAssignments();
             }
-            SessionStatus.Text = ok ? "Voice profiles pulled from server." : "No voice profiles on server.";
+            SetVoicesStatus(ok ? "Voice profiles pulled from server." : "No voice profiles on server.");
         }
         catch (Exception ex)
         {
-            SessionStatus.Text = $"Pull failed: {ex.Message}";
+            SetVoicesStatus($"Pull failed: {ex.Message}");
         }
     }
 

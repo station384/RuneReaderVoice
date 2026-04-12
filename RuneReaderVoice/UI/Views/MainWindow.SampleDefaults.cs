@@ -311,13 +311,8 @@ public partial class MainWindow
                                     kvp => new Dictionary<string, VoiceProfile>(kvp.Value, StringComparer.OrdinalIgnoreCase),
                                     StringComparer.OrdinalIgnoreCase);
 
-            var export = new MultiProviderSampleProfileExport
-            {
-                Providers = providers
-            };
-            var json = JsonSerializer.Serialize(export, _jsonSampleVoiceOptions);
-            var ok = await AppServices.NpcSync.PushDefaultsAsync("voice-sample-profiles", json);
-            SampleDefaultsStatus.Text = ok ? "Voice sample defaults pushed to server." : "Push failed — check server logs.";
+            var upserted = await AppServices.NpcSync.PushProviderSlotProfilesAsync("sample", providers);
+            SampleDefaultsStatus.Text = upserted >= 0 ? $"Voice sample defaults pushed to server ({upserted} row(s))." : "Push failed — check server logs.";
         }
         catch (Exception ex)
         {
@@ -334,7 +329,7 @@ public partial class MainWindow
         }
         try
         {
-            var ok = await AppServices.NpcSync.PullAndApplyDefaultsAsync("voice-sample-profiles");
+            var ok = await AppServices.NpcSync.PullAndApplyProviderSlotProfilesAsync("sample");
             if (ok)
             {
                 if (AppServices.ProviderSlotProfiles != null)

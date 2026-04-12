@@ -17,6 +17,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Net.Http;
 using System.Net.Http.Json;
 using System.Text;
@@ -58,11 +59,68 @@ public sealed class ServerNpcOverrideSinceResponse
     [JsonPropertyName("count")]   public int Count { get; set; }
 }
 
+
+public sealed class ServerNpcOverrideBatchRequest
+{
+    [JsonPropertyName("records")] public List<ServerNpcOverrideBatchRecord> Records { get; set; } = new();
+}
+
+public sealed class ServerNpcOverrideBatchRecord
+{
+    [JsonPropertyName("npc_id")] public int NpcId { get; set; }
+    [JsonPropertyName("race_id")] public int RaceId { get; set; }
+    [JsonPropertyName("notes")] public string Notes { get; set; } = string.Empty;
+    [JsonPropertyName("bespoke_sample_id")] public string? BespokeSampleId { get; set; }
+    [JsonPropertyName("bespoke_exaggeration")] public float? BespokeExaggeration { get; set; }
+    [JsonPropertyName("bespoke_cfg_weight")] public float? BespokeCfgWeight { get; set; }
+}
+
+public sealed class ServerNpcOverrideBatchResponse
+{
+    [JsonPropertyName("upserted")] public int Upserted { get; set; }
+    [JsonPropertyName("count")] public int Count { get; set; }
+}
+
 public sealed class ServerDefaultsResponse
 {
     [JsonPropertyName("data_type")] public string       DataType { get; set; } = string.Empty;
     [JsonPropertyName("payload")]   public JsonElement? Payload  { get; set; }
     [JsonPropertyName("exists")]    public bool         Exists   { get; set; }
+}
+
+public sealed class ServerProviderSlotProfileRecord
+{
+    [JsonPropertyName("provider_id")] public string ProviderId { get; set; } = string.Empty;
+    [JsonPropertyName("profile_kind")] public string ProfileKind { get; set; } = string.Empty;
+    [JsonPropertyName("profile_id")] public string ProfileId { get; set; } = string.Empty;
+    [JsonPropertyName("profile_json")] public JsonElement ProfileJson { get; set; }
+    [JsonPropertyName("source")] public string? Source { get; set; }
+    [JsonPropertyName("created_at")] public double? CreatedAt { get; set; }
+    [JsonPropertyName("updated_at")] public double? UpdatedAt { get; set; }
+}
+
+public sealed class ServerProviderSlotProfilesResponse
+{
+    [JsonPropertyName("records")] public List<ServerProviderSlotProfileRecord> Records { get; set; } = new();
+    [JsonPropertyName("count")] public int Count { get; set; }
+}
+
+public sealed class ServerProviderSlotProfileBatchRequest
+{
+    [JsonPropertyName("records")] public List<ServerProviderSlotProfileBatchRecord> Records { get; set; } = new();
+}
+
+public sealed class ServerProviderSlotProfileBatchRecord
+{
+    [JsonPropertyName("provider_id")] public string ProviderId { get; set; } = string.Empty;
+    [JsonPropertyName("profile_kind")] public string ProfileKind { get; set; } = string.Empty;
+    [JsonPropertyName("profile_id")] public string ProfileId { get; set; } = string.Empty;
+    [JsonPropertyName("profile_json")] public object ProfileJson { get; set; } = new();
+}
+
+public sealed class ServerProviderSlotProfilesBatchResponse
+{
+    [JsonPropertyName("upserted")] public int Upserted { get; set; }
 }
 
 // ── Client ────────────────────────────────────────────────────────────────────
@@ -163,6 +221,51 @@ public sealed class ServerDefaultsClient
         }
     }
 
+
+    public async Task<int> ContributeNpcOverridesBatchAsync(
+        IReadOnlyList<NpcRaceOverride> entries,
+        CancellationToken ct = default)
+    {
+        try
+        {
+            var payload = new ServerNpcOverrideBatchRequest
+            {
+                Records = entries.Select(entry => new ServerNpcOverrideBatchRecord
+                {
+                    NpcId = entry.NpcId,
+                    RaceId = entry.RaceId,
+                    Notes = entry.Notes ?? string.Empty,
+                    BespokeSampleId = entry.BespokeSampleId,
+                    BespokeExaggeration = entry.BespokeExaggeration,
+                    BespokeCfgWeight = entry.BespokeCfgWeight,
+                }).ToList(),
+            };
+
+            var request = new HttpRequestMessage(HttpMethod.Post, "api/v1/npc-overrides/batch")
+            {
+                Content = JsonContent.Create(payload),
+            };
+
+            if (!string.IsNullOrWhiteSpace(_contributeKey))
+                request.Headers.Authorization =
+                    new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", _contributeKey);
+
+            using var response = await _http.SendAsync(request, ct).ConfigureAwait(false);
+            if (!response.IsSuccessStatusCode)
+                return 0;
+
+            var body = await response.Content.ReadFromJsonAsync<ServerNpcOverrideBatchResponse>(
+                _jsonOptions,
+                ct).ConfigureAwait(false);
+            return body?.Upserted ?? 0;
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"[ServerDefaultsClient] ContributeNpcOverridesBatch failed: {ex.Message}");
+            return 0;
+        }
+    }
+
     // ── Defaults ──────────────────────────────────────────────────────────────
 
     /// <summary>
@@ -224,6 +327,63 @@ public sealed class ServerDefaultsClient
         {
             System.Diagnostics.Debug.WriteLine($"[ServerDefaultsClient] PutDefaults({dataType}) failed: {ex.Message}");
             return false;
+        }
+    }
+
+    public async Task<List<ServerProviderSlotProfileRecord>?> GetProviderSlotProfilesAsync(
+        string? providerId = null, string? kind = null, double? sinceTs = null, CancellationToken ct = default)
+    {
+        try
+        {
+            var path = sinceTs.HasValue ? $"api/v1/provider-slot-profiles/since?t={sinceTs.Value}" : "api/v1/provider-slot-profiles";
+            var queryParts = new List<string>();
+            if (!string.IsNullOrWhiteSpace(providerId))
+                queryParts.Add($"provider_id={Uri.EscapeDataString(providerId)}");
+            if (!string.IsNullOrWhiteSpace(kind))
+                queryParts.Add($"kind={Uri.EscapeDataString(kind)}");
+            if (queryParts.Count > 0)
+                path += (path.Contains('?') ? "&" : "?") + string.Join("&", queryParts);
+
+            using var request = new HttpRequestMessage(HttpMethod.Get, path);
+            using var response = await _http.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, ct).ConfigureAwait(false);
+            response.EnsureSuccessStatusCode();
+
+            var payload = await response.Content.ReadFromJsonAsync<ServerProviderSlotProfilesResponse>(_jsonOptions, ct).ConfigureAwait(false);
+            return payload?.Records;
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"[ServerDefaultsClient] GetProviderSlotProfiles failed: {ex.Message}");
+            return null;
+        }
+    }
+
+    public async Task<int?> UpsertProviderSlotProfilesBatchAsync(
+        IEnumerable<ServerProviderSlotProfileBatchRecord> records, CancellationToken ct = default)
+    {
+        try
+        {
+            var body = new ServerProviderSlotProfileBatchRequest { Records = records.ToList() };
+            var request = new HttpRequestMessage(HttpMethod.Post, "api/v1/provider-slot-profiles/batch")
+            {
+                Content = JsonContent.Create(body),
+            };
+
+            if (!string.IsNullOrWhiteSpace(_adminKey))
+                request.Headers.Authorization =
+                    new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", _adminKey);
+
+            using var response = await _http.SendAsync(request, ct).ConfigureAwait(false);
+            if (!response.IsSuccessStatusCode)
+                return null;
+
+            var payload = await response.Content.ReadFromJsonAsync<ServerProviderSlotProfilesBatchResponse>(_jsonOptions, ct).ConfigureAwait(false);
+            return payload?.Upserted ?? 0;
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"[ServerDefaultsClient] UpsertProviderSlotProfilesBatch failed: {ex.Message}");
+            return null;
         }
     }
 }

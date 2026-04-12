@@ -58,6 +58,11 @@ class NpcOverrideAdminRequest(BaseModel):
     source:               str   = "confirmed"
 
 
+
+class NpcOverrideBatchRequest(BaseModel):
+    records: list[NpcOverrideContributeRequest] = Field(default_factory=list, max_length=100)
+
+
 # ── Auth helpers ──────────────────────────────────────────────────────────────
 
 def _check_contribute_token(authorization: str | None, settings) -> None:
@@ -142,6 +147,40 @@ async def contribute_npc_override(
         body.npc_id, body.race_id, record["confidence"],
     )
     return {"record": record}
+
+
+@router.post("/api/v1/npc-overrides/batch", status_code=201)
+async def contribute_npc_override_batch(
+    request: Request,
+    body: NpcOverrideBatchRequest,
+    authorization: Optional[str] = Header(default=None),
+):
+    """
+    Batch contribute crowd-sourced NPC override records.
+    Requires contribute token if configured.
+    """
+    cfg = request.app.state.settings
+    _check_contribute_token(authorization, cfg)
+
+    db = request.app.state.community_db
+    payload = [
+        {
+            "npc_id": r.npc_id,
+            "race_id": r.race_id,
+            "notes": r.notes,
+            "bespoke_sample_id": r.bespoke_sample_id,
+            "bespoke_exaggeration": r.bespoke_exaggeration,
+            "bespoke_cfg_weight": r.bespoke_cfg_weight,
+        }
+        for r in body.records
+    ]
+    upserted, records = await db.upsert_many(
+        payload,
+        source="crowdsourced",
+        confidence_delta=1,
+    )
+    log.info("NPC override batch contributed: %d row(s)", upserted)
+    return {"upserted": upserted, "count": upserted, "records": records}
 
 
 @router.put("/api/v1/npc-overrides/{npc_id}", status_code=200)

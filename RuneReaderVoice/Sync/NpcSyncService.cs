@@ -111,8 +111,8 @@ public sealed class NpcSyncService : IDisposable
         await PollNpcOverridesAsync(sinceTs: 0.0).ConfigureAwait(false);
 
         // Pull the three seed types
-        await PullAndApplyDefaultsAsync("voice-profiles").ConfigureAwait(false);
-        await PullAndApplyDefaultsAsync("voice-sample-profiles").ConfigureAwait(false);
+        await PullAndApplyProviderSlotProfilesAsync("voice_slot").ConfigureAwait(false);
+        await PullAndApplyProviderSlotProfilesAsync("sample").ConfigureAwait(false);
         await PullAndApplyDefaultsAsync("pronunciation").ConfigureAwait(false);
         await PullAndApplyDefaultsAsync("text-shaping").ConfigureAwait(false);
 
@@ -239,6 +239,24 @@ public sealed class NpcSyncService : IDisposable
         });
     }
 
+
+    public async Task<(int Upserted, int Batches)> ContributeManyAsync(IReadOnlyList<NpcRaceOverride> entries, int batchSize = 100)
+    {
+        if (entries == null || entries.Count == 0)
+            return (0, 0);
+
+        int upserted = 0;
+        int batches = 0;
+        for (int i = 0; i < entries.Count; i += batchSize)
+        {
+            var batch = entries.Skip(i).Take(batchSize).ToList();
+            int wrote = await _client.ContributeNpcOverridesBatchAsync(batch).ConfigureAwait(false);
+            upserted += wrote;
+            batches++;
+        }
+        return (upserted, batches);
+    }
+
     // ── Defaults push/pull ────────────────────────────────────────────────────
 
     /// <summary>
@@ -298,6 +316,155 @@ public sealed class NpcSyncService : IDisposable
             System.Diagnostics.Debug.WriteLine($"[NpcSyncService] Apply {dataType} failed: {ex.Message}");
             return false;
         }
+    }
+
+    public async Task<int> PushProviderSlotProfilesAsync(string kind, Dictionary<string, Dictionary<string, TTS.Providers.VoiceProfile>> providers)
+    {
+        var normalizedKind = NormalizeProfileKind(kind);
+        var batch = new List<ServerProviderSlotProfileBatchRecord>();
+
+        foreach (var (providerId, profiles) in providers)
+        {
+            if (string.IsNullOrWhiteSpace(providerId) || profiles == null)
+                continue;
+
+            foreach (var (profileId, profile) in profiles)
+            {
+                if (string.IsNullOrWhiteSpace(profileId) || profile == null)
+                    continue;
+
+                batch.Add(new ServerProviderSlotProfileBatchRecord
+                {
+                    ProviderId = providerId,
+                    ProfileKind = normalizedKind,
+                    ProfileId = profileId,
+                    ProfileJson = profile,
+                });
+            }
+        }
+
+        var total = 0;
+        for (int i = 0; i < batch.Count; i += 100)
+        {
+            var chunk = batch.Skip(i).Take(100).ToList();
+            var upserted = await _client.UpsertProviderSlotProfilesBatchAsync(chunk).ConfigureAwait(false);
+            if (!upserted.HasValue)
+                return -1;
+            total += upserted.Value;
+        }
+
+        return total;
+    }
+
+    public async Task<bool> PullAndApplyProviderSlotProfilesAsync(string kind, string? providerId = null, double sinceTs = 0.0)
+    {
+        var normalizedKind = NormalizeProfileKind(kind);
+        var records = await _client.GetProviderSlotProfilesAsync(providerId, normalizedKind, sinceTs).ConfigureAwait(false);
+        if (records == null)
+            return false;
+
+        if (normalizedKind == "voice_slot")
+            await ApplyProviderSlotProfileRecordsAsVoiceProfilesAsync(records).ConfigureAwait(false);
+        else
+            await ApplyProviderSlotProfileRecordsAsSampleProfilesAsync(records).ConfigureAwait(false);
+
+        return true;
+    }
+
+    private static string NormalizeProfileKind(string kind)
+        => string.Equals(kind, "voice-profiles", StringComparison.OrdinalIgnoreCase) ||
+           string.Equals(kind, "voice_slot", StringComparison.OrdinalIgnoreCase)
+            ? "voice_slot"
+            : "sample";
+
+    private async Task ApplyProviderSlotProfileRecordsAsVoiceProfilesAsync(List<ServerProviderSlotProfileRecord> records)
+    {
+        var grouped = new Dictionary<string, Dictionary<string, TTS.Providers.VoiceProfile>>(StringComparer.OrdinalIgnoreCase);
+        foreach (var record in records)
+        {
+            if (!string.Equals(record.ProfileKind, "voice_slot", StringComparison.OrdinalIgnoreCase) ||
+                string.IsNullOrWhiteSpace(record.ProviderId) || string.IsNullOrWhiteSpace(record.ProfileId))
+                continue;
+
+            var profile = record.ProfileJson.Deserialize<TTS.Providers.VoiceProfile>(new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+            if (profile == null)
+                continue;
+
+            if (!grouped.TryGetValue(record.ProviderId, out var map))
+            {
+                map = new Dictionary<string, TTS.Providers.VoiceProfile>(StringComparer.OrdinalIgnoreCase);
+                grouped[record.ProviderId] = map;
+            }
+            map[record.ProfileId] = profile;
+        }
+
+        if (AppServices.ProviderSlotProfiles != null)
+        {
+            foreach (var (pid, map) in grouped)
+                await AppServices.ProviderSlotProfiles.MergeVoiceProfilesFromServerAsync(pid, map, "ServerSync");
+            AppServices.ProviderSlotProfiles.WriteBackToSettings(_settings);
+        }
+        else
+        {
+            foreach (var (pid, map) in grouped)
+            {
+                if (!_settings.PerProviderVoiceProfiles.TryGetValue(pid, out var existing))
+                {
+                    existing = new Dictionary<string, TTS.Providers.VoiceProfile>(StringComparer.OrdinalIgnoreCase);
+                    _settings.PerProviderVoiceProfiles[pid] = existing;
+                }
+
+                foreach (var (slotId, profile) in map)
+                    existing.TryAdd(slotId, profile);
+            }
+        }
+
+        VoiceSettingsManager.SaveSettings(_settings);
+    }
+
+    private async Task ApplyProviderSlotProfileRecordsAsSampleProfilesAsync(List<ServerProviderSlotProfileRecord> records)
+    {
+        var grouped = new Dictionary<string, Dictionary<string, TTS.Providers.VoiceProfile>>(StringComparer.OrdinalIgnoreCase);
+        foreach (var record in records)
+        {
+            if (!string.Equals(record.ProfileKind, "sample", StringComparison.OrdinalIgnoreCase) ||
+                string.IsNullOrWhiteSpace(record.ProviderId) || string.IsNullOrWhiteSpace(record.ProfileId))
+                continue;
+
+            var profile = record.ProfileJson.Deserialize<TTS.Providers.VoiceProfile>(new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+            if (profile == null)
+                continue;
+
+            if (!grouped.TryGetValue(record.ProviderId, out var map))
+            {
+                map = new Dictionary<string, TTS.Providers.VoiceProfile>(StringComparer.OrdinalIgnoreCase);
+                grouped[record.ProviderId] = map;
+            }
+            map[record.ProfileId] = profile;
+        }
+
+        if (AppServices.ProviderSlotProfiles != null)
+        {
+            foreach (var (pid, map) in grouped)
+                await AppServices.ProviderSlotProfiles.MergeSampleProfilesFromServerAsync(pid, map, "ServerSync");
+            AppServices.ProviderSlotProfiles.WriteBackToSettings(_settings);
+        }
+        else
+        {
+            foreach (var (pid, map) in grouped)
+            {
+                if (!_settings.PerProviderSampleProfiles.TryGetValue(pid, out var existing))
+                {
+                    existing = new Dictionary<string, TTS.Providers.VoiceProfile>(StringComparer.OrdinalIgnoreCase);
+                    _settings.PerProviderSampleProfiles[pid] = existing;
+                }
+
+                foreach (var (sampleId, profile) in map)
+                    existing.TryAdd(sampleId, profile);
+            }
+        }
+
+        VoiceSettingsManager.SaveSettings(_settings);
     }
 
     private async Task ApplyNpcOverridesDefaultsAsync(string json)

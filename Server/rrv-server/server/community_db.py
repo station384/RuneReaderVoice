@@ -192,6 +192,38 @@ class CommunityDb:
             row = await cursor.fetchone()
         return dict(row)
 
+
+
+    async def upsert_many(
+        self,
+        records: list[dict[str, Any]],
+        *,
+        source: str = "crowdsourced",
+        confidence_delta: int = 1,
+    ) -> tuple[int, list[dict[str, Any]]]:
+        """
+        Batch insert/update records. Uses the same merge rules as upsert().
+        Returns (count, updated_rows).
+        """
+        assert self._conn
+        if not records:
+            return 0, []
+
+        out: list[dict[str, Any]] = []
+        for rec in records:
+            row = await self.upsert(
+                npc_id=int(rec["npc_id"]),
+                race_id=int(rec["race_id"]),
+                notes=str(rec.get("notes") or ""),
+                bespoke_sample_id=rec.get("bespoke_sample_id"),
+                bespoke_exaggeration=rec.get("bespoke_exaggeration"),
+                bespoke_cfg_weight=rec.get("bespoke_cfg_weight"),
+                source=source,
+                confidence_delta=confidence_delta,
+            )
+            out.append(row)
+        return len(out), out
+
     async def confirm(self, npc_id: int, **fields) -> dict[str, Any] | None:
         """Promote a record to confirmed and optionally update fields."""
         return await self.upsert(npc_id, source="confirmed", **fields)

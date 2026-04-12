@@ -952,14 +952,8 @@ public partial class MainWindow
             var entries = await AppServices.NpcOverrides.GetAllAsync();
             var local   = entries.Where(x => x.Source == NpcOverrideSource.Local).ToList();
 
-            int ok = 0;
-            foreach (var entry in local)
-            {
-                if (await AppServices.NpcSync.ContributeOneAsync(entry))
-                    ok++;
-            }
-
-            NpcOverridesStatus.Text = $"Pushed {ok}/{local.Count} override(s) to server.";
+            var result = await AppServices.NpcSync.ContributeManyAsync(local, batchSize: 100);
+            NpcOverridesStatus.Text = $"Pushed {result.Upserted}/{local.Count} override(s) to server in {result.Batches} batch(es).";
         }
         catch (Exception ex)
         {

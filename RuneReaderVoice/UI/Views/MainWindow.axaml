@@ -371,6 +371,7 @@ along with RuneReaderVoice. If not, see <https://www.gnu.org/licenses/>.
                             <Button Content="Pull from Server" FontSize="11"
                                     Click="OnVoicesPullFromServerClicked"/>
                         </StackPanel>
+                        <TextBlock x:Name="VoicesStatus" Foreground="#888" FontSize="11"/>
                         <TextBox x:Name="VoiceSearchBox"
                                  Watermark="Search voices..."
                                  TextChanged="OnVoiceSearchTextChanged"/>

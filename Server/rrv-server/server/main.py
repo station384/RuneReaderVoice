@@ -59,6 +59,7 @@ from .transcriber import TranscriptionService
 from .asr import load_asr_provider, AsrRegistry
 from .manager import create_manager
 from .community_db import CommunityDb
+from .sync_db import SyncDb
 
 log = logging.getLogger(__name__)
 
@@ -81,6 +82,11 @@ async def lifespan(app: FastAPI):
     community_db = CommunityDb(settings.community_db_path)
     await community_db.initialize()
     app.state.community_db = community_db
+
+    # Sync DB (DB-backed profile/catalog sync store)
+    sync_db = SyncDb(settings.community_db_path, settings.defaults_dir)
+    await sync_db.initialize()
+    app.state.sync_db = sync_db
 
     # Audio cache
     cache = AudioCache(
@@ -191,6 +197,7 @@ async def lifespan(app: FastAPI):
 
     await cache.close()
     await community_db.close()
+    await sync_db.close()
     log.info("Server shut down cleanly")
 
 
@@ -280,6 +287,8 @@ from .routes.synthesize    import router as synthesize_router
 from .routes.synthesize_v2 import router as synthesize_v2_router
 from .routes.npc_overrides import router as npc_overrides_router
 from .routes.defaults      import router as defaults_router
+from .routes.npc_people import router as npc_people_router
+from .routes.provider_slot_profiles import router as provider_slot_profiles_router
 
 app.include_router(health_router)
 app.include_router(capabilities_router)
@@ -288,6 +297,8 @@ app.include_router(synthesize_router)
 app.include_router(synthesize_v2_router)
 app.include_router(npc_overrides_router)
 app.include_router(defaults_router)
+app.include_router(npc_people_router)
+app.include_router(provider_slot_profiles_router)
 
 
 # ── CLI entry point ───────────────────────────────────────────────────────────
