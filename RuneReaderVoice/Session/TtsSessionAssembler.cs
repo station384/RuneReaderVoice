@@ -206,16 +206,13 @@ public sealed class TtsSessionAssembler
                     $"[Assembler] New dialog 0x{packet.DialogId:X4} seqTotal={packet.SeqTotal}");
             }
 
-            // ── NPC race override lookup ──────────────────────────────────────
-            // Priority: user override (in-memory) > packet race > Narrator fallback
-            int effectiveRace = packet.Race;
-            if (packet.NpcId != 0)
-            {
-                if (_npcVoiceStore.TryGetValue(packet.NpcId, out var stored))
-                    effectiveRace = stored.RaceId;
-                else if (packet.Race != 0)
-                    _npcVoiceStore[packet.NpcId] = new NpcVoiceOverride(packet.Race, null, null, null);
-            }
+            // ── NPC override lookup ───────────────────────────────────────────
+            // Explicit NPC override wins. Otherwise NPCs no longer fall back to
+            // packet race / creature type; they fall back to narrator-family
+            // resolution via race=0 + packet gender flags.
+            int effectiveRace = packet.NpcId != 0 ? 0 : packet.Race;
+            if (packet.NpcId != 0 && _npcVoiceStore.TryGetValue(packet.NpcId, out var stored))
+                effectiveRace = stored.RaceId;
 
             if (packet.SubIndex == 0)
             {

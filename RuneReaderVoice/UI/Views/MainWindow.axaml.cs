@@ -220,10 +220,8 @@ public partial class MainWindow : Window
     }
 
     private static string GetDisplaySlotLabel(VoiceSlot slot)
-    {
-        return NpcVoiceSlotCatalog.All.FirstOrDefault(x => x.Slot.Equals(slot))?.NpcLabel
-               ?? slot.ToString();
-    }
+        => AppServices.NpcPeopleCatalog?.GetSlotLabel(slot)
+           ?? slot.ToString();
 
     // ── Population helpers ────────────────────────────────────────────────────
 

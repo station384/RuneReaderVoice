@@ -469,12 +469,8 @@ public sealed class RemoteTtsProvider : ITtsProvider
 
     public VoiceProfile? ResolveProfile(VoiceSlot slot)
     {
-        if (_settings.PerProviderVoiceProfiles.TryGetValue(ProviderId, out var dict) &&
-            dict.TryGetValue(slot.ToString(), out var profile) &&
-            profile != null)
-        {
-            return profile;
-        }
+        if (AppServices.TryGetStoredVoiceProfile(ProviderId, slot, out var storedProfile) && storedProfile != null)
+            return storedProfile;
 
         if (_descriptor.VoiceSourceKind == RemoteVoiceSourceKind.Samples)
             return GetDefaultSampleProfile(slot);
@@ -484,9 +480,7 @@ public sealed class RemoteTtsProvider : ITtsProvider
 
     public VoiceProfile ResolveSampleProfile(string sampleId, VoiceSlot? fallbackSlot = null)
     {
-        if (_settings.PerProviderSampleProfiles.TryGetValue(ProviderId, out var dict) &&
-            dict.TryGetValue(sampleId, out var stored) &&
-            stored != null)
+        if (AppServices.TryGetStoredSampleProfile(ProviderId, sampleId, out var stored) && stored != null)
         {
             var cloned = stored.Clone();
             if (string.IsNullOrWhiteSpace(cloned.VoiceId))

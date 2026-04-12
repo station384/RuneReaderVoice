@@ -21,6 +21,7 @@
 // through the Avalonia application lifecycle.
 
 using System;
+using System.Collections.Generic;
 using RuneReaderVoice.Data;
 using RuneReaderVoice.Platform;
 using RuneReaderVoice.Protocol;
@@ -143,4 +144,42 @@ public static class AppServices
 
     public static void SetTextSwapProcessor(DialogueTextSwapProcessor processor)
         => TextSwapProcessor = processor;
+
+    public static bool TryGetStoredVoiceProfile(string providerId, VoiceSlot slot, out VoiceProfile? profile)
+    {
+        profile = null;
+        if (ProviderSlotProfiles != null && ProviderSlotProfiles.TryGetProfile(providerId, slot.ToString(), out var stored) && stored != null)
+        {
+            profile = stored;
+            return true;
+        }
+
+        if (Settings.PerProviderVoiceProfiles.TryGetValue(providerId, out var dict) &&
+            dict.TryGetValue(slot.ToString(), out var fallback) && fallback != null)
+        {
+            profile = fallback;
+            return true;
+        }
+
+        return false;
+    }
+
+    public static bool TryGetStoredSampleProfile(string providerId, string sampleId, out VoiceProfile? profile)
+    {
+        profile = null;
+        if (ProviderSlotProfiles != null && ProviderSlotProfiles.TryGetSampleProfile(providerId, sampleId, out var stored) && stored != null)
+        {
+            profile = stored;
+            return true;
+        }
+
+        if (Settings.PerProviderSampleProfiles.TryGetValue(providerId, out var dict) &&
+            dict.TryGetValue(sampleId, out var fallback) && fallback != null)
+        {
+            profile = fallback;
+            return true;
+        }
+
+        return false;
+    }
 }

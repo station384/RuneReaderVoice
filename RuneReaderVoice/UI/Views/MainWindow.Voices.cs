@@ -147,11 +147,11 @@ public partial class MainWindow
     }
 
 
-    private IReadOnlyList<NpcVoiceSlotCatalogItem> GetVoiceCatalogItems()
+    private IReadOnlyList<RuneReaderVoice.Data.VoiceSlotCatalogRow> GetVoiceCatalogItems()
     {
         var items = AppServices.NpcPeopleCatalog?.GetVoiceSlots();
         if (items == null || items.Count == 0)
-            return NpcVoiceSlotCatalog.All.OrderBy(x => x.SortOrder).ToList();
+            return Array.Empty<RuneReaderVoice.Data.VoiceSlotCatalogRow>();
 
         var maleNarrator = new VoiceSlot(AccentGroup.Narrator, Gender.Male);
         var femaleNarrator = new VoiceSlot(AccentGroup.Narrator, Gender.Female);
@@ -169,7 +169,7 @@ public partial class MainWindow
     }
 
 
-    private static bool VoiceSlotMatchesSearch(NpcVoiceSlotCatalogItem item, string searchText)
+    private static bool VoiceSlotMatchesSearch(RuneReaderVoice.Data.VoiceSlotCatalogRow item, string searchText)
     {
         if (string.IsNullOrWhiteSpace(searchText)) return true;
 
@@ -192,9 +192,7 @@ public partial class MainWindow
 
         VoiceProfile? profile = null;
 
-        if (AppServices.Settings.PerProviderVoiceProfiles.TryGetValue(providerId, out var dict) &&
-            dict.TryGetValue(slot.ToString(), out var stored) &&
-            stored != null)
+        if (AppServices.TryGetStoredVoiceProfile(providerId, slot, out var stored) && stored != null)
         {
             profile = stored;
         }
@@ -219,11 +217,11 @@ public partial class MainWindow
             ? "Blend"
             : ResolveVoiceDisplayName(provider, profile.VoiceId);
 
-        var accentText = GetVoiceCatalogItems().FirstOrDefault(x => x.Slot.Equals(slot))?.AccentLabel ?? slot.Group.ToString();
+        var accentText = AppServices.NpcPeopleCatalog?.GetSlotAccentLabel(slot) ?? slot.Group.ToString();
         var standard   = StandardVoiceProfileCatalog.TryGetVoiceStandard(providerId, slot);
 
         if (standard != null && profile.CacheAffectingEquals(standard))
-            return $"Standard Setup · {lang} · {profile.SpeechRate * 100:0.#}%";
+            return $"Standard Setup · {voiceText} · {lang} · {profile.SpeechRate * 100:0.#}%";
 
         return $"{voiceText} · {lang} · {profile.SpeechRate * 100:0.#}% · {accentText}";
     }
@@ -302,11 +300,7 @@ So go quickly, keep your wits about you, and return by the main road if you valu
             return;
 
         var providerId = AppServices.Provider.ProviderId;
-        if (!AppServices.Settings.PerProviderVoiceProfiles.TryGetValue(providerId, out var dict))
-        {
-            dict = new Dictionary<string, VoiceProfile>(StringComparer.OrdinalIgnoreCase);
-            AppServices.Settings.PerProviderVoiceProfiles[providerId] = dict;
-        }
+        var dict = new Dictionary<string, VoiceProfile>(StringComparer.OrdinalIgnoreCase);
 
         btn.IsEnabled = false;
         try
@@ -315,7 +309,11 @@ So go quickly, keep your wits about you, and return by the main road if you valu
             var availableVoices = await GetActiveProviderVoicesForUiAsync();
 
             VoiceProfile profile;
-            if (!dict.TryGetValue(slot.ToString(), out var existing) || existing == null)
+            if (AppServices.TryGetStoredVoiceProfile(providerId, slot, out var existingStored) && existingStored != null)
+            {
+                profile = existingStored.Clone();
+            }
+            else
             {
                 profile = AppServices.Provider.ResolveProfile(slot)?.Clone()
                           ?? VoiceProfileDefaults.Create(string.Empty);
@@ -323,12 +321,9 @@ So go quickly, keep your wits about you, and return by the main road if you valu
                 if (string.IsNullOrWhiteSpace(profile.VoiceId) && !ProviderRequiresExplicitVoiceSelection(descriptor))
                     profile.VoiceId = availableVoices.FirstOrDefault()?.VoiceId ?? string.Empty;
             }
-            else
-            {
-                profile = existing.Clone();
-            }
 
-            var catalog = NpcVoiceSlotCatalog.All.First(x => x.Slot.Equals(slot));
+            var catalog = GetVoiceCatalogItems().FirstOrDefault(x => x.Slot.Equals(slot))
+                          ?? new RuneReaderVoice.Data.VoiceSlotCatalogRow(slot, GetDisplaySlotLabel(slot), AppServices.NpcPeopleCatalog?.GetSlotAccentLabel(slot) ?? slot.Group.ToString(), 0);
             var voiceSourceLabel = descriptor?.VoiceSourceKind == RemoteVoiceSourceKind.Samples ? "sample" : "voice";
             var supportsPresets = AppServices.Provider is KokoroTtsProvider;
             // Blend is supported by local Kokoro and remote Kokoro backends.
@@ -345,6 +340,7 @@ So go quickly, keep your wits about you, and return by the main road if you valu
 
             ApplyVoiceProfile(slot, updated, providerId, dict);
             await AppServices.ProviderSlotProfiles.UpsertAsync(providerId, slot.ToString(), updated, "Local");
+            AppServices.ProviderSlotProfiles.WriteBackToSettings(AppServices.Settings);
             VoiceSettingsManager.SaveSettings(AppServices.Settings);
 
             if (_voiceSummaryBlocks.TryGetValue(slot.ToString(), out var summary))
@@ -367,13 +363,16 @@ So go quickly, keep your wits about you, and return by the main road if you valu
     {
         try
         {
+            var providers = AppServices.ProviderSlotProfiles?.GetVoiceProfilesSnapshot()
+                            ?? AppServices.Settings.PerProviderVoiceProfiles
+                                .ToDictionary(
+                                    kvp => kvp.Key,
+                                    kvp => new Dictionary<string, VoiceProfile>(kvp.Value, StringComparer.OrdinalIgnoreCase),
+                                    StringComparer.OrdinalIgnoreCase);
+
             var export = new MultiProviderVoiceProfileExport
             {
-                Providers = AppServices.Settings.PerProviderVoiceProfiles
-                    .ToDictionary(
-                        kvp => kvp.Key,
-                        kvp => new Dictionary<string, VoiceProfile>(kvp.Value, StringComparer.OrdinalIgnoreCase),
-                        StringComparer.OrdinalIgnoreCase),
+                Providers = providers,
             };
             var json = JsonSerializer.Serialize(export, _jsonVoiceOptions);
 
@@ -430,18 +429,41 @@ So go quickly, keep your wits about you, and return by the main road if you valu
                     if (string.IsNullOrWhiteSpace(providerId) || profiles == null)
                         continue;
 
-                    if (!AppServices.Settings.PerProviderVoiceProfiles.TryGetValue(providerId, out var dict))
+                    Dictionary<string, VoiceProfile>? dict = null;
+                    if (AppServices.ProviderSlotProfiles == null)
                     {
-                        dict = new Dictionary<string, VoiceProfile>(StringComparer.OrdinalIgnoreCase);
-                        AppServices.Settings.PerProviderVoiceProfiles[providerId] = dict;
+                        if (!AppServices.Settings.PerProviderVoiceProfiles.TryGetValue(providerId, out dict))
+                        {
+                            dict = new Dictionary<string, VoiceProfile>(StringComparer.OrdinalIgnoreCase);
+                            AppServices.Settings.PerProviderVoiceProfiles[providerId] = dict;
+                        }
                     }
 
+                    var providerImportedProfiles = new Dictionary<string, VoiceProfile>(StringComparer.OrdinalIgnoreCase);
                     var providerImported = 0;
                     foreach (var (slotKey, profile) in profiles)
                     {
                         if (!VoiceSlot.TryParse(slotKey, out var slot)) continue;
-                        ApplyVoiceProfile(slot, profile, providerId, dict);
+                        if (dict != null)
+                            ApplyVoiceProfile(slot, profile, providerId, dict);
+                        else
+                            providerImportedProfiles[slot.ToString()] = profile.Clone();
                         providerImported++;
+                    }
+
+                    if (AppServices.ProviderSlotProfiles != null && providerImportedProfiles.Count > 0)
+                    {
+                        await AppServices.ProviderSlotProfiles.ReplaceVoiceProfilesAsync(providerId, providerImportedProfiles, "Imported");
+
+                        if (string.Equals(providerId, AppServices.Provider.ProviderId, StringComparison.OrdinalIgnoreCase))
+                        {
+                            var runtimeDict = new Dictionary<string, VoiceProfile>(StringComparer.OrdinalIgnoreCase);
+                            foreach (var (slotId, profile) in providerImportedProfiles)
+                            {
+                                if (VoiceSlot.TryParse(slotId, out var runtimeSlot))
+                                    ApplyVoiceProfile(runtimeSlot, profile, providerId, runtimeDict);
+                            }
+                        }
                     }
 
                     if (providerImported > 0)
@@ -463,17 +485,40 @@ So go quickly, keep your wits about you, and return by the main road if you valu
                 var providerId = string.IsNullOrWhiteSpace(import.ProviderId)
                     ? AppServices.Provider.ProviderId
                     : import.ProviderId;
-                if (!AppServices.Settings.PerProviderVoiceProfiles.TryGetValue(providerId, out var dict))
+                Dictionary<string, VoiceProfile>? dict = null;
+                if (AppServices.ProviderSlotProfiles == null)
                 {
-                    dict = new Dictionary<string, VoiceProfile>(StringComparer.OrdinalIgnoreCase);
-                    AppServices.Settings.PerProviderVoiceProfiles[providerId] = dict;
+                    if (!AppServices.Settings.PerProviderVoiceProfiles.TryGetValue(providerId, out dict))
+                    {
+                        dict = new Dictionary<string, VoiceProfile>(StringComparer.OrdinalIgnoreCase);
+                        AppServices.Settings.PerProviderVoiceProfiles[providerId] = dict;
+                    }
                 }
 
+                var importedProviderProfiles = new Dictionary<string, VoiceProfile>(StringComparer.OrdinalIgnoreCase);
                 foreach (var (slotKey, profile) in import.Profiles)
                 {
                     if (!VoiceSlot.TryParse(slotKey, out var slot)) continue;
-                    ApplyVoiceProfile(slot, profile, providerId, dict);
+                    if (dict != null)
+                        ApplyVoiceProfile(slot, profile, providerId, dict);
+                    else
+                        importedProviderProfiles[slot.ToString()] = profile.Clone();
                     importedProfiles++;
+                }
+
+                if (AppServices.ProviderSlotProfiles != null && importedProviderProfiles.Count > 0)
+                {
+                    await AppServices.ProviderSlotProfiles.ReplaceVoiceProfilesAsync(providerId, importedProviderProfiles, "Imported");
+
+                    if (string.Equals(providerId, AppServices.Provider.ProviderId, StringComparison.OrdinalIgnoreCase))
+                    {
+                        var runtimeDict = new Dictionary<string, VoiceProfile>(StringComparer.OrdinalIgnoreCase);
+                        foreach (var (slotId, profile) in importedProviderProfiles)
+                        {
+                            if (VoiceSlot.TryParse(slotId, out var runtimeSlot))
+                                ApplyVoiceProfile(runtimeSlot, profile, providerId, runtimeDict);
+                        }
+                    }
                 }
 
                 importedProviders = importedProfiles > 0 ? 1 : 0;
@@ -485,7 +530,8 @@ So go quickly, keep your wits about you, and return by the main road if you valu
                 return;
             }
 
-            await AppServices.ProviderSlotProfiles.ReplaceFromSettingsAsync(AppServices.Settings, "Imported");
+            if (AppServices.ProviderSlotProfiles != null)
+                AppServices.ProviderSlotProfiles.WriteBackToSettings(AppServices.Settings);
             VoiceSettingsManager.SaveSettings(AppServices.Settings);
 
             // Refresh summary labels
@@ -513,13 +559,16 @@ So go quickly, keep your wits about you, and return by the main road if you valu
 
         try
         {
+            var providers = AppServices.ProviderSlotProfiles?.GetVoiceProfilesSnapshot()
+                            ?? AppServices.Settings.PerProviderVoiceProfiles
+                                .ToDictionary(
+                                    kvp => kvp.Key,
+                                    kvp => new Dictionary<string, VoiceProfile>(kvp.Value, StringComparer.OrdinalIgnoreCase),
+                                    StringComparer.OrdinalIgnoreCase);
+
             var export = new MultiProviderVoiceProfileExport
             {
-                Providers = AppServices.Settings.PerProviderVoiceProfiles
-                    .ToDictionary(
-                        kvp => kvp.Key,
-                        kvp => new Dictionary<string, VoiceProfile>(kvp.Value, StringComparer.OrdinalIgnoreCase),
-                        StringComparer.OrdinalIgnoreCase),
+                Providers = providers,
             };
             var json = System.Text.Json.JsonSerializer.Serialize(export, _jsonVoiceOptions);
             var ok   = await AppServices.NpcSync.PushDefaultsAsync("voice-profiles", json);
@@ -542,13 +591,34 @@ So go quickly, keep your wits about you, and return by the main road if you valu
         try
         {
             var ok = await AppServices.NpcSync.PullAndApplyDefaultsAsync("voice-profiles");
-            if (ok)
-                await AppServices.ProviderSlotProfiles.ReplaceFromSettingsAsync(AppServices.Settings, "Server");
+            if (ok && AppServices.ProviderSlotProfiles != null)
+            {
+                AppServices.ProviderSlotProfiles.WriteBackToSettings(AppServices.Settings);
+                RefreshCurrentProviderVoiceAssignments();
+            }
             SessionStatus.Text = ok ? "Voice profiles pulled from server." : "No voice profiles on server.";
         }
         catch (Exception ex)
         {
             SessionStatus.Text = $"Pull failed: {ex.Message}";
+        }
+    }
+
+    private static void RefreshCurrentProviderVoiceAssignments()
+    {
+        var providerId = AppServices.Provider.ProviderId;
+        var dict = AppServices.ProviderSlotProfiles?.GetVoiceProfilesSnapshot().GetValueOrDefault(providerId)
+                   ?? (AppServices.Settings.PerProviderVoiceProfiles.TryGetValue(providerId, out var settingsDict) ? settingsDict : null);
+        if (dict == null)
+            return;
+
+        var runtimeDict = new Dictionary<string, VoiceProfile>(StringComparer.OrdinalIgnoreCase);
+        foreach (var (slotId, profile) in dict)
+        {
+            if (profile == null || !VoiceSlot.TryParse(slotId, out var slot))
+                continue;
+
+            ApplyVoiceProfile(slot, profile, providerId, runtimeDict);
         }
     }
 

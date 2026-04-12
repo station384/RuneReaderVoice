@@ -319,62 +319,104 @@ public sealed class NpcSyncService : IDisposable
         await _npcDb.MergeFromServerAsync(records).ConfigureAwait(false);
     }
 
-    private Task ApplyVoiceProfilesDefaultsAsync(string json)
+    private async Task ApplyVoiceProfilesDefaultsAsync(string json)
     {
         var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
 
         var multi = JsonSerializer.Deserialize<TTS.Providers.MultiProviderVoiceProfileExport>(json, options);
         if (multi?.Providers != null && multi.Providers.Count > 0)
         {
+            if (AppServices.ProviderSlotProfiles != null)
+            {
+                foreach (var (providerId, incomingProfiles) in multi.Providers)
+                {
+                    if (string.IsNullOrWhiteSpace(providerId) || incomingProfiles == null)
+                        continue;
+
+                    await AppServices.ProviderSlotProfiles.ReplaceVoiceProfilesAsync(
+                        providerId,
+                        new System.Collections.Generic.Dictionary<string, TTS.Providers.VoiceProfile>(incomingProfiles, StringComparer.OrdinalIgnoreCase),
+                        "ServerSeed");
+                }
+
+                AppServices.ProviderSlotProfiles.WriteBackToSettings(_settings);
+            }
+            else
+            {
+                foreach (var (providerId, incomingProfiles) in multi.Providers)
+                {
+                    if (string.IsNullOrWhiteSpace(providerId) || incomingProfiles == null)
+                        continue;
+
+                    _settings.PerProviderVoiceProfiles[providerId] = new System.Collections.Generic.Dictionary<string, TTS.Providers.VoiceProfile>(
+                        incomingProfiles,
+                        StringComparer.OrdinalIgnoreCase);
+                }
+            }
+
+            VoiceSettingsManager.SaveSettings(_settings);
+            return;
+        }
+
+        var single = JsonSerializer.Deserialize<TTS.Providers.VoiceProfileExport>(json, options);
+        if (single?.Profiles == null || string.IsNullOrWhiteSpace(single.ProviderId))
+            return;
+
+        if (AppServices.ProviderSlotProfiles != null)
+        {
+            await AppServices.ProviderSlotProfiles.ReplaceVoiceProfilesAsync(
+                single.ProviderId,
+                new System.Collections.Generic.Dictionary<string, TTS.Providers.VoiceProfile>(single.Profiles, StringComparer.OrdinalIgnoreCase),
+                "ServerSeed");
+            AppServices.ProviderSlotProfiles.WriteBackToSettings(_settings);
+        }
+        else
+        {
+            _settings.PerProviderVoiceProfiles[single.ProviderId] = new System.Collections.Generic.Dictionary<string, TTS.Providers.VoiceProfile>(
+                single.Profiles,
+                StringComparer.OrdinalIgnoreCase);
+        }
+
+        VoiceSettingsManager.SaveSettings(_settings);
+    }
+
+
+    private async Task ApplyVoiceSampleProfilesDefaultsAsync(string json)
+    {
+        var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+        var multi = JsonSerializer.Deserialize<TTS.Providers.MultiProviderSampleProfileExport>(json, options);
+        if (multi?.Providers == null || multi.Providers.Count == 0)
+            return;
+
+        if (AppServices.ProviderSlotProfiles != null)
+        {
             foreach (var (providerId, incomingProfiles) in multi.Providers)
             {
                 if (string.IsNullOrWhiteSpace(providerId) || incomingProfiles == null)
                     continue;
 
-                var replacement = new System.Collections.Generic.Dictionary<string, TTS.Providers.VoiceProfile>(
-                    incomingProfiles,
-                    StringComparer.OrdinalIgnoreCase);
-                _settings.PerProviderVoiceProfiles[providerId] = replacement;
+                await AppServices.ProviderSlotProfiles.ReplaceSampleProfilesAsync(
+                    providerId,
+                    new System.Collections.Generic.Dictionary<string, TTS.Providers.VoiceProfile>(incomingProfiles, StringComparer.OrdinalIgnoreCase),
+                    "ServerSeed");
             }
 
-            VoiceSettingsManager.SaveSettings(_settings);
-            return Task.CompletedTask;
+            AppServices.ProviderSlotProfiles.WriteBackToSettings(_settings);
         }
-
-        var single = JsonSerializer.Deserialize<TTS.Providers.VoiceProfileExport>(json, options);
-        if (single?.Profiles == null || string.IsNullOrWhiteSpace(single.ProviderId))
-            return Task.CompletedTask;
-
-        var existing = new System.Collections.Generic.Dictionary<string, TTS.Providers.VoiceProfile>(
-            single.Profiles,
-            StringComparer.OrdinalIgnoreCase);
-        _settings.PerProviderVoiceProfiles[single.ProviderId] = existing;
-
-        VoiceSettingsManager.SaveSettings(_settings);
-        return Task.CompletedTask;
-    }
-
-
-    private Task ApplyVoiceSampleProfilesDefaultsAsync(string json)
-    {
-        var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
-        var multi = JsonSerializer.Deserialize<TTS.Providers.MultiProviderSampleProfileExport>(json, options);
-        if (multi?.Providers == null || multi.Providers.Count == 0)
-            return Task.CompletedTask;
-
-        foreach (var (providerId, incomingProfiles) in multi.Providers)
+        else
         {
-            if (string.IsNullOrWhiteSpace(providerId) || incomingProfiles == null)
-                continue;
+            foreach (var (providerId, incomingProfiles) in multi.Providers)
+            {
+                if (string.IsNullOrWhiteSpace(providerId) || incomingProfiles == null)
+                    continue;
 
-            var replacement = new System.Collections.Generic.Dictionary<string, TTS.Providers.VoiceProfile>(
-                incomingProfiles,
-                StringComparer.OrdinalIgnoreCase);
-            _settings.PerProviderSampleProfiles[providerId] = replacement;
+                _settings.PerProviderSampleProfiles[providerId] = new System.Collections.Generic.Dictionary<string, TTS.Providers.VoiceProfile>(
+                    incomingProfiles,
+                    StringComparer.OrdinalIgnoreCase);
+            }
         }
 
         VoiceSettingsManager.SaveSettings(_settings);
-        return Task.CompletedTask;
     }
 
     private async Task ApplyPronunciationDefaultsAsync(string json)

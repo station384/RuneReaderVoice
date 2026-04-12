@@ -31,6 +31,8 @@ public static class StandardVoiceProfileCatalog
     private static Dictionary<string, Dictionary<string, VoiceProfile>>? _sampleProfiles;
 
     private static readonly string[] ChatterboxDonorProviderIds = { "remote:chatterbox_full", "remote:chatterbox" };
+    // TODO(migration-cleanup): remove generic Narrator alias after all tester configs have migrated
+    // to Narrator/Male and Narrator/Female only.
     private const string NarratorSlotKey = "Narrator";
     private const string MaleNarratorSlotKey = "Narrator/Male";
     private const string FemaleNarratorSlotKey = "Narrator/Female";
@@ -39,6 +41,9 @@ public static class StandardVoiceProfileCatalog
 
     public static VoiceProfile? TryGetVoiceStandard(string providerId, VoiceSlot slot)
     {
+        if (AppServices.TryGetStoredVoiceProfile(providerId, slot, out var storedProfile) && storedProfile != null)
+            return storedProfile.Clone();
+
         EnsureLoaded();
 
         if (IsKokoroProvider(providerId))
@@ -100,6 +105,9 @@ public static class StandardVoiceProfileCatalog
 
     public static VoiceProfile? TryGetSampleStandard(string providerId, string sampleId)
     {
+        if (AppServices.TryGetStoredSampleProfile(providerId, sampleId, out var storedProfile) && storedProfile != null)
+            return storedProfile.Clone();
+
         EnsureLoaded();
 
         if (IsKokoroProvider(providerId))

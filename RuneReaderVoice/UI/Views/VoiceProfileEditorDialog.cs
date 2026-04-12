@@ -1764,28 +1764,45 @@ So go quickly, keep your wits about you, and return by the main road if you valu
             return;
 
         var original = provider.ResolveProfile(_slot)?.Clone();
+        VoiceProfile? originalStoredSlotProfile = null;
+        var hadStoredSlotProfile = false;
+        if (AppServices.TryGetStoredVoiceProfile(provider.ProviderId, _slot, out var existingStoredSlot) && existingStoredSlot != null)
+        {
+            originalStoredSlotProfile = existingStoredSlot.Clone();
+            hadStoredSlotProfile = true;
+        }
+
         VoiceProfile? originalSampleProfile = null;
+        var hadStoredSampleProfile = false;
         try
         {
             if (!string.IsNullOrWhiteSpace(_sampleProfileKey))
             {
-                if (!AppServices.Settings.PerProviderSampleProfiles.TryGetValue(provider.ProviderId, out var sampleDict))
+                if (AppServices.TryGetStoredSampleProfile(provider.ProviderId, _sampleProfileKey, out var existingSample) && existingSample != null)
                 {
-                    sampleDict = new Dictionary<string, VoiceProfile>(StringComparer.OrdinalIgnoreCase);
-                    AppServices.Settings.PerProviderSampleProfiles[provider.ProviderId] = sampleDict;
-                }
-
-                if (sampleDict.TryGetValue(_sampleProfileKey, out var existingSample) && existingSample != null)
                     originalSampleProfile = existingSample.Clone();
+                    hadStoredSampleProfile = true;
+                }
 
                 var sampleProfile = _workingProfile.Clone();
                 sampleProfile.VoiceId = _sampleProfileKey;
-                sampleDict[_sampleProfileKey] = sampleProfile;
+                if (AppServices.ProviderSlotProfiles != null)
+                    await AppServices.ProviderSlotProfiles.UpsertSampleAsync(provider.ProviderId, _sampleProfileKey, sampleProfile.Clone(), "PreviewTemp");
             }
             else if (provider is KokoroTtsProvider kokoro)
                 kokoro.SetVoiceProfile(_slot, _workingProfile);
-            else if (AppServices.Settings.PerProviderVoiceProfiles.TryGetValue(provider.ProviderId, out var dict))
-                dict[_slot.ToString()] = _workingProfile.Clone();
+            else
+            {
+                if (provider is WinRtTtsProvider winRt)
+                    winRt.SetVoice(_slot, _workingProfile.VoiceId);
+#if LINUX
+                else if (provider is LinuxPiperTtsProvider piper)
+                    piper.SetModel(_slot, _workingProfile.VoiceId);
+#endif
+
+                if (AppServices.ProviderSlotProfiles != null)
+                    await AppServices.ProviderSlotProfiles.UpsertAsync(provider.ProviderId, _slot.ToString(), _workingProfile.Clone(), "PreviewTemp");
+            }
 
             var previewText = _previewText.Text ?? string.Empty;
             PcmAudio pcm;
@@ -1842,18 +1859,32 @@ So go quickly, keep your wits about you, and return by the main road if you valu
             {
                 if (!string.IsNullOrWhiteSpace(_sampleProfileKey))
                 {
-                    if (AppServices.Settings.PerProviderSampleProfiles.TryGetValue(provider.ProviderId, out var sampleDict))
+                    if (AppServices.ProviderSlotProfiles != null)
                     {
-                        if (originalSampleProfile != null) sampleDict[_sampleProfileKey] = originalSampleProfile;
-                        else sampleDict.Remove(_sampleProfileKey);
+                        if (hadStoredSampleProfile && originalSampleProfile != null)
+                            await AppServices.ProviderSlotProfiles.UpsertSampleAsync(provider.ProviderId, _sampleProfileKey, originalSampleProfile, "Restore");
+                        else
+                            await AppServices.ProviderSlotProfiles.RemoveSampleAsync(provider.ProviderId, _sampleProfileKey);
                     }
                 }
                 else if (provider is KokoroTtsProvider kokoro)
                     kokoro.SetVoiceProfile(_slot, original ?? VoiceProfileDefaults.Create(""));
-                else if (AppServices.Settings.PerProviderVoiceProfiles.TryGetValue(provider.ProviderId, out var dict))
+                else
                 {
-                    if (original != null) dict[_slot.ToString()] = original;
-                    else dict.Remove(_slot.ToString());
+                    if (provider is WinRtTtsProvider restoreWinRt)
+                        restoreWinRt.SetVoice(_slot, original?.VoiceId ?? string.Empty);
+#if LINUX
+                    else if (provider is LinuxPiperTtsProvider restorePiper)
+                        restorePiper.SetModel(_slot, original?.VoiceId ?? string.Empty);
+#endif
+
+                    if (AppServices.ProviderSlotProfiles != null)
+                    {
+                        if (hadStoredSlotProfile && originalStoredSlotProfile != null)
+                            await AppServices.ProviderSlotProfiles.UpsertAsync(provider.ProviderId, _slot.ToString(), originalStoredSlotProfile, "Restore");
+                        else
+                            await AppServices.ProviderSlotProfiles.RemoveAsync(provider.ProviderId, _slot.ToString());
+                    }
                 }
             }
             _stopPreviewButton.IsEnabled = false;
