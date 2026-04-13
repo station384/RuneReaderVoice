@@ -59,6 +59,7 @@ public sealed class NpcRaceOverrideDb
         string? bespokeSampleId = null,
         float? bespokeExaggeration = null,
         float? bespokeCfgWeight = null,
+        bool useNpcIdAsSeed = false,
         string source = "Local",
         int confidence = 0)
     {
@@ -71,6 +72,7 @@ public sealed class NpcRaceOverrideDb
             BespokeSampleId     = bespokeSampleId,
             BespokeExaggeration = bespokeExaggeration,
             BespokeCfgWeight    = bespokeCfgWeight,
+            UseNpcIdAsSeed     = useNpcIdAsSeed,
             Source              = source,
             Confidence          = confidence,
             UpdatedAt           = now,
@@ -107,6 +109,7 @@ public sealed class NpcRaceOverrideDb
                 BespokeSampleId     = record.BespokeSampleId,
                 BespokeExaggeration = record.BespokeExaggeration,
                 BespokeCfgWeight    = record.BespokeCfgWeight,
+                UseNpcIdAsSeed     = record.UseNpcIdAsSeed,
                 Source              = record.Source.ToString(),
                 Confidence          = record.Confidence ?? 0,
                 UpdatedAt           = record.UpdatedAt,
@@ -127,6 +130,7 @@ public sealed class NpcRaceOverrideDb
             BespokeSampleId     = row.BespokeSampleId,
             BespokeExaggeration = row.BespokeExaggeration,
             BespokeCfgWeight    = row.BespokeCfgWeight,
+            UseNpcIdAsSeed      = row.UseNpcIdAsSeed,
             AccentGroup         = RaceAccentMapping.ResolveAccentGroup(row.RaceId)
                                   ?? AccentGroup.Narrator,
             Source              = source,

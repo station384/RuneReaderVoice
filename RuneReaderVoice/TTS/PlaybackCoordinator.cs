@@ -342,7 +342,8 @@ public sealed class PlaybackCoordinator : IDisposable
                 segment.BespokeSampleId,
                 segment.BespokeExaggeration,
                 segment.BespokeCfgWeight,
-                segment.BatchId);
+                segment.BatchId,
+                segment.UseNpcIdAsSeed && segment.NpcId > 0 ? segment.NpcId : null);
             _remoteBatchTasks[segment.BatchId] = created;
             return created;
         }
@@ -394,6 +395,7 @@ public sealed class PlaybackCoordinator : IDisposable
         // always use the narrator voice profile, not the NPC's bespoke sample.
         bool applyBespoke = !string.IsNullOrWhiteSpace(segment.BespokeSampleId)
                             && segment.Slot.Group != Protocol.AccentGroup.Narrator;
+        int? forcedNpcSeed = segment.UseNpcIdAsSeed && segment.NpcId > 0 ? segment.NpcId : null;
 
         if (_provider is RemoteTtsProvider remoteProvider &&
             !string.IsNullOrWhiteSpace(segment.BatchId) &&
@@ -414,6 +416,12 @@ public sealed class PlaybackCoordinator : IDisposable
         var profile = applyBespoke && _provider is RemoteTtsProvider remoteProviderForSample
             ? remoteProviderForSample.ResolveSampleProfile(segment.BespokeSampleId!, segment.Slot)
             : _provider.ResolveProfile(segment.Slot);
+
+        if (forcedNpcSeed.HasValue && _provider is RemoteTtsProvider && profile != null)
+        {
+            profile = profile.Clone();
+            profile.SynthesisSeed = forcedNpcSeed;
+        }
 
         var voiceId = applyBespoke
             ? $"sample:{profile?.BuildIdentityKey() ?? segment.BespokeSampleId!}"
@@ -474,7 +482,10 @@ public sealed class PlaybackCoordinator : IDisposable
                 segment.Text, segment.Slot, ct,
                 applyBespoke ? segment.BespokeSampleId    : null,
                 applyBespoke ? segment.BespokeExaggeration : null,
-                applyBespoke ? segment.BespokeCfgWeight   : null);
+                applyBespoke ? segment.BespokeCfgWeight   : null,
+                null,
+                null,
+                forcedNpcSeed);
 
             System.Diagnostics.Debug.WriteLine(
                 $"[PC] Remote synth complete seg={segment.SegmentIndex} bytes={oggBytes.Length}");

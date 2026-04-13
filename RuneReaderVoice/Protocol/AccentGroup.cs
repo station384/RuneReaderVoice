@@ -98,23 +98,51 @@ public enum AccentGroup
 }
 
 /// <summary>
-/// Identifies a specific voice slot: accent group + gender.
-/// Narrator uses male/female variants; unknown defaults to male.
+/// Identifies a specific voice slot.
+///
+/// Historical note:
+/// Voice slots originally used AccentGroup + Gender as their full identity.
+/// The Race Editor and catalog runtime are moving toward catalog-owned row IDs as
+/// the real slot key, so VoiceSlot now carries a catalog/runtime slot key plus an
+/// optional legacy AccentGroup compatibility hint.
+///
+/// SlotKey is the authoritative runtime identity used for profile storage,
+/// voice-context namespacing, and Race Voices UI generation.
+/// LegacyGroup is kept only so older fallback/default logic can continue to work
+/// while the rest of the runtime is converted away from AccentGroup assumptions.
 /// </summary>
-public readonly record struct VoiceSlot(AccentGroup Group, Gender Gender)
+public readonly record struct VoiceSlot(string SlotKey, Gender Gender, AccentGroup? LegacyGroup = null)
 {
-    public static readonly VoiceSlot Narrator       = new(AccentGroup.Narrator, Gender.Male);
-    public static readonly VoiceSlot MaleNarrator   = new(AccentGroup.Narrator, Gender.Male);
-    public static readonly VoiceSlot FemaleNarrator = new(AccentGroup.Narrator, Gender.Female);
+    public static readonly VoiceSlot Narrator       = new("Narrator", Gender.Male, AccentGroup.Narrator);
+    public static readonly VoiceSlot MaleNarrator   = new("Narrator", Gender.Male, AccentGroup.Narrator);
+    public static readonly VoiceSlot FemaleNarrator = new("Narrator", Gender.Female, AccentGroup.Narrator);
 
-    public override string ToString() =>
-        Group == AccentGroup.Narrator
-            ? (Gender == Gender.Female ? "Narrator/Female" : "Narrator/Male")
-            : $"{Group}/{Gender}";
+    public VoiceSlot(AccentGroup group, Gender gender)
+        : this(group.ToString(), gender, group)
+    {
+    }
+
+    public static VoiceSlot CreateCatalog(string catalogId, Gender gender, AccentGroup? legacyGroup = null)
+        => new(catalogId, gender, legacyGroup);
+
+    public bool IsNarrator => string.Equals(SlotKey, "Narrator", StringComparison.OrdinalIgnoreCase);
 
     /// <summary>
-    /// Parses a VoiceSlot from its ToString() representation.
-    /// Valid forms: "Narrator", "Narrator/Male", "Narrator/Female", or "AccentGroup/Gender" (e.g. "Scottish/Male").
+    /// Legacy compatibility accessor. This is no longer the authoritative runtime
+    /// slot identity. Callers should prefer SlotKey unless they specifically need
+    /// an AccentGroup-based fallback/default path.
+    /// </summary>
+    public AccentGroup Group => LegacyGroup ?? AccentGroup.Narrator;
+
+    public override string ToString() =>
+        IsNarrator
+            ? (Gender == Gender.Female ? "Narrator/Female" : "Narrator/Male")
+            : $"{SlotKey}/{Gender}";
+
+    /// <summary>
+    /// Parses a VoiceSlot from its stored string form.
+    /// Supports narrator aliases, legacy AccentGroup/Gender values, and the newer
+    /// catalog-slot-key/Gender form (e.g. "human/Male").
     /// </summary>
     public static bool TryParse(string s, out VoiceSlot slot)
     {
@@ -129,13 +157,19 @@ public readonly record struct VoiceSlot(AccentGroup Group, Gender Gender)
             return true;
         }
 
-        var parts = s.Split('/');
-        if (parts.Length == 2
-            && Enum.TryParse<AccentGroup>(parts[0], out var group)
-            && Enum.TryParse<Gender>(parts[1], out var gender))
+        var idx = s.LastIndexOf('/');
+        if (idx > 0)
         {
-            slot = new VoiceSlot(group, gender);
-            return true;
+            var slotKey = s[..idx];
+            var genderText = s[(idx + 1)..];
+            if (Enum.TryParse<Gender>(genderText, out var gender))
+            {
+                if (Enum.TryParse<AccentGroup>(slotKey, out var legacyGroup))
+                    slot = new VoiceSlot(slotKey, gender, legacyGroup);
+                else
+                    slot = new VoiceSlot(slotKey, gender);
+                return true;
+            }
         }
 
         slot = default;

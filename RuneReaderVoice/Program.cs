@@ -200,6 +200,7 @@ internal static class Program
                 BespokeSampleId     = seg.BespokeSampleId,
                 BespokeExaggeration = seg.BespokeExaggeration,
                 BespokeCfgWeight    = seg.BespokeCfgWeight,
+                UseNpcIdAsSeed      = seg.UseNpcIdAsSeed,
             };
             var processed = activeProvider.SupportsInlinePronunciationHints
                 ? AppServices.PronunciationProcessor.Process(shapedSegment)
@@ -421,6 +422,7 @@ internal static class Program
         BespokeSampleId = segment.BespokeSampleId,
         BespokeExaggeration = segment.BespokeExaggeration,
         BespokeCfgWeight = segment.BespokeCfgWeight,
+        UseNpcIdAsSeed = segment.UseNpcIdAsSeed,
     };
 
     private static string? ResolvePlayerSplitTarget(AssembledSegment segment, string mode)

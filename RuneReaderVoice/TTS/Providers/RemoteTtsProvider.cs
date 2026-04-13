@@ -100,7 +100,8 @@ public sealed class RemoteTtsProvider : ITtsProvider
         float?  bespokeExaggeration = null,
         float?  bespokeCfgWeight    = null,
         string? batchId             = null,
-        int?    batchTotal          = null)
+        int?    batchTotal          = null,
+        int?    forcedSynthesisSeed = null)
     {
         if (string.IsNullOrWhiteSpace(_descriptor.RemoteProviderId))
             throw new InvalidOperationException("Remote provider id is missing.");
@@ -129,7 +130,7 @@ public sealed class RemoteTtsProvider : ITtsProvider
             if (phrases.Count <= 1)
                 return await SynthesizeOggCoreAsync(text, slot, profile, ct,
                     bespokeSampleId, bespokeExaggeration, bespokeCfgWeight,
-                    effectiveBatchId, effectiveBatchTotal);
+                    effectiveBatchId, effectiveBatchTotal, forcedSynthesisSeed);
 
             // Multi-chunk pipeline:
             //   Phase 1: Submit ALL chunks immediately (fast, ~5ms each, no concurrency limit)
@@ -141,7 +142,7 @@ public sealed class RemoteTtsProvider : ITtsProvider
             var submitTasks = phrases
                 .Select(phrase => SubmitOggCoreAsync(phrase, slot, profile, ct,
                     bespokeSampleId, bespokeExaggeration, bespokeCfgWeight,
-                    effectiveBatchId, effectiveBatchTotal))
+                    effectiveBatchId, effectiveBatchTotal, forcedSynthesisSeed))
                 .ToArray();
             var submitted = await Task.WhenAll(submitTasks);
 
@@ -211,7 +212,8 @@ public sealed class RemoteTtsProvider : ITtsProvider
         string? bespokeSampleId = null,
         float? bespokeExaggeration = null,
         float? bespokeCfgWeight = null,
-        string? batchId = null)
+        string? batchId = null,
+        int? forcedSynthesisSeed = null)
     {
         if (batchSegments == null || batchSegments.Count == 0)
             throw new ArgumentException("Batch must contain at least one segment.", nameof(batchSegments));
@@ -222,6 +224,17 @@ public sealed class RemoteTtsProvider : ITtsProvider
             profile = ResolveSampleProfile(bespokeSampleId, slot);
             if (bespokeExaggeration.HasValue) profile.Exaggeration = bespokeExaggeration;
             if (bespokeCfgWeight.HasValue)    profile.CfgWeight    = bespokeCfgWeight;
+        }
+        if (forcedSynthesisSeed.HasValue)
+        {
+            profile = profile.Clone();
+            profile.SynthesisSeed = forcedSynthesisSeed;
+        }
+
+        if (forcedSynthesisSeed.HasValue)
+        {
+            profile = profile.Clone();
+            profile.SynthesisSeed = forcedSynthesisSeed;
         }
 
         var voiceSpec = BuildVoiceSpec(profile);
@@ -306,7 +319,8 @@ public sealed class RemoteTtsProvider : ITtsProvider
         float?  bespokeExaggeration = null,
         float?  bespokeCfgWeight    = null,
         string? batchId             = null,
-        int?    batchTotal          = null)
+        int?    batchTotal          = null,
+        int?    forcedSynthesisSeed = null)
     {
         if (!string.IsNullOrWhiteSpace(bespokeSampleId))
         {
@@ -393,12 +407,13 @@ public sealed class RemoteTtsProvider : ITtsProvider
         float?  bespokeExaggeration = null,
         float?  bespokeCfgWeight    = null,
         string? batchId             = null,
-        int?    batchTotal          = null)
+        int?    batchTotal          = null,
+        int?    forcedSynthesisSeed = null)
     {
         // Convenience wrapper — submit then fetch.
         var (submitted, _) = await SubmitOggCoreAsync(text, slot, profile, ct,
             bespokeSampleId, bespokeExaggeration, bespokeCfgWeight,
-            batchId, batchTotal);
+            batchId, batchTotal, forcedSynthesisSeed);
         return await FetchOggResultAsync(submitted, ct);
     }
 

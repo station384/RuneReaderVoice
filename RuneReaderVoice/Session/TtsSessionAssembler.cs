@@ -85,6 +85,7 @@ public sealed class AssembledSegment
     public string?   BespokeSampleId    { get; init; } = null;
     public float?    BespokeExaggeration { get; init; } = null;
     public float?    BespokeCfgWeight   { get; init; } = null;
+    public bool      UseNpcIdAsSeed    { get; init; } = false;
 }
 
 public sealed class BatchSegmentPlan
@@ -146,7 +147,8 @@ public sealed class TtsSessionAssembler
         int     RaceId,
         string? BespokeSampleId,
         float?  BespokeExaggeration,
-        float?  BespokeCfgWeight);
+        float?  BespokeCfgWeight,
+        bool    UseNpcIdAsSeed);
 
     private readonly Dictionary<int, NpcVoiceOverride> _npcVoiceStore = new();
     private readonly NpcRaceOverrideDb                 _overrideDb;
@@ -176,7 +178,8 @@ public sealed class TtsSessionAssembler
                     entry.RaceId,
                     entry.BespokeSampleId,
                     entry.BespokeExaggeration,
-                    entry.BespokeCfgWeight);
+                    entry.BespokeCfgWeight,
+                    entry.UseNpcIdAsSeed);
         }
     }
 
@@ -340,6 +343,7 @@ public sealed class TtsSessionAssembler
                     BespokeSampleId = seg.BespokeSampleId,
                     BespokeExaggeration = seg.BespokeExaggeration,
                     BespokeCfgWeight = seg.BespokeCfgWeight,
+                    UseNpcIdAsSeed = seg.UseNpcIdAsSeed,
                 };
                 System.Diagnostics.Debug.WriteLine(
                     $"[Assembler] Firing seg={emitted.SegmentIndex} slot={emitted.Slot} npc={emitted.NpcId}" +
@@ -359,13 +363,14 @@ public sealed class TtsSessionAssembler
     public void ApplyRaceOverride(int npcId, int raceId,
         string? bespokeSampleId = null,
         float? bespokeExaggeration = null,
-        float? bespokeCfgWeight = null)
+        float? bespokeCfgWeight = null,
+        bool useNpcIdAsSeed = false)
     {
         if (npcId == 0) return;
         lock (_lock)
         {
             _npcVoiceStore[npcId] = new NpcVoiceOverride(
-                raceId, bespokeSampleId, bespokeExaggeration, bespokeCfgWeight);
+                raceId, bespokeSampleId, bespokeExaggeration, bespokeCfgWeight, useNpcIdAsSeed);
         }
     }
 
@@ -426,6 +431,7 @@ public sealed class TtsSessionAssembler
             BespokeSampleId     = voiceOverride.BespokeSampleId,
             BespokeExaggeration = voiceOverride.BespokeExaggeration,
             BespokeCfgWeight    = voiceOverride.BespokeCfgWeight,
+            UseNpcIdAsSeed      = voiceOverride.UseNpcIdAsSeed,
         };
     }
 

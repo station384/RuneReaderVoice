@@ -3,7 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
-
+using SQLite;
 
 namespace RuneReaderVoice.Data;
 
@@ -14,6 +14,30 @@ public sealed class NpcPeopleCatalogStore
 
     public Task<List<NpcPeopleCatalogRow>> GetAllAsync()
         => _db.Connection.Table<NpcPeopleCatalogRow>().ToListAsync();
+
+
+    public Task<NpcPeopleCatalogRow?> GetByIdAsync(string id)
+        => _db.Connection.FindAsync<NpcPeopleCatalogRow>(id);
+
+    public async Task UpsertAsync(NpcPeopleCatalogRow row)
+    {
+        var existing = await GetByIdAsync(row.Id);
+        if (existing == null)
+            await _db.Connection.InsertAsync(row);
+        else
+            await _db.Connection.InsertOrReplaceAsync(row);
+    }
+
+    public async Task SetEnabledAsync(string id, bool enabled)
+    {
+        var row = await GetByIdAsync(id);
+        if (row == null)
+            return;
+
+        row.Enabled = enabled;
+        row.UpdatedUtc = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+        await _db.Connection.InsertOrReplaceAsync(row);
+    }
 
     public async Task SeedFromLegacyCatalogAsync()
     {

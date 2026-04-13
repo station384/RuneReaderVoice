@@ -53,6 +53,7 @@ public partial class MainWindow : Window
         WireExpanderStateSaving();
         PopulateAudioDevices();
         PopulateVoiceGrid();
+        InitRaceEditorUi();
         _ = PopulateSampleDefaultsGridAsync();
         PopulateVolumeTrimGrid();
         SetPlatformVisibility();

@@ -176,6 +176,11 @@ along with RuneReaderVoice. If not, see <https://www.gnu.org/licenses/>.
                     <ComboBox x:Name="LastNpcVariantDropdown"
                               FontSize="11" MinWidth="120"
                               ToolTip.Tip="Select a variant of the chosen sample (e.g. slow, fast, quiet)."/>
+                    <CheckBox x:Name="LastNpcUseNpcIdAsSeedCheckBox"
+                              Content="Use NPC ID as seed"
+                              FontSize="11"
+                              VerticalAlignment="Center"
+                              ToolTip.Tip="When enabled, this NPC's numeric ID is sent to the remote TTS server as the synthesis seed. This gives stable per-NPC variation without changing the base voice profile."/>
                 </StackPanel>
 
             </Grid>
@@ -351,7 +356,7 @@ along with RuneReaderVoice. If not, see <https://www.gnu.org/licenses/>.
             </TabItem>
 
             <!-- Voice assignment tab -->
-            <TabItem Header="Voices">
+            <TabItem Header="Race Voices">
                 <ScrollViewer>
                     <StackPanel Margin="12" Spacing="6">
                         <TextBlock Text="NPC Voice Profiles"
@@ -380,6 +385,86 @@ along with RuneReaderVoice. If not, see <https://www.gnu.org/licenses/>.
                 </ScrollViewer>
             </TabItem>
 
+
+            <TabItem Header="Race Editor">
+                <ScrollViewer>
+                    <Grid Margin="12" ColumnDefinitions="0.95*,1.05*" ColumnSpacing="12">
+                        <StackPanel Grid.Column="0" Spacing="8">
+                            <TextBlock Text="Race / Dialect Catalog"
+                                       FontWeight="SemiBold"
+                                       FontSize="16"/>
+                            <TextBlock Text="Create, edit, and deactivate race or dialect catalog entries. This tab edits catalog rows only. Existing Race Voices and NPC Voice override tabs remain separate."
+                                       TextWrapping="Wrap"
+                                       Foreground="#888"
+                                       FontSize="11"/>
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <Button Content="New" Click="OnRaceEditorNewClicked"/>
+                                <Button Content="Refresh" Click="OnRaceEditorRefreshClicked"/>
+                                <Button Content="Activate" Click="OnRaceEditorActivateClicked"/>
+                                <Button Content="Deactivate" Click="OnRaceEditorDeactivateClicked"/>
+                            </StackPanel>
+                            <TextBlock x:Name="RaceEditorStatus" Foreground="#888" FontSize="11"/>
+                            <TextBox x:Name="RaceEditorSearchBox"
+                                     Watermark="Search race catalog..."
+                                     TextChanged="OnRaceEditorSearchTextChanged"/>
+                            <ListBox x:Name="RaceEditorList"
+                                     MinHeight="280"
+                                     SelectionChanged="OnRaceEditorListSelectionChanged"/>
+                        </StackPanel>
+
+                        <StackPanel Grid.Column="1" Spacing="8">
+                            <TextBlock Text="Editor" Foreground="#4ECDC4" FontWeight="SemiBold"/>
+
+                            <TextBlock Text="Catalog Id" Foreground="#888" FontSize="11"/>
+                            <TextBox x:Name="RaceEditorIdBox"
+                                     Watermark="human, murloc, arathi"
+                                     TextChanged="OnRaceEditorFormTextChanged"/>
+
+                            <TextBlock Text="Display Name" Foreground="#888" FontSize="11"/>
+                            <TextBox x:Name="RaceEditorDisplayNameBox"
+                                     Watermark="Human"
+                                     TextChanged="OnRaceEditorFormTextChanged"/>
+
+                            <TextBlock Text="Accent Label" Foreground="#888" FontSize="11"/>
+                            <TextBox x:Name="RaceEditorAccentLabelBox"
+                                     Watermark="Alliance, Troll, Neutral"
+                                     TextChanged="OnRaceEditorFormTextChanged"/>
+
+                            <Grid ColumnDefinitions="*,*" ColumnSpacing="10">
+                                <StackPanel Grid.Column="0" Spacing="6">
+                                    <TextBlock Text="Sort Order" Foreground="#888" FontSize="11"/>
+                                    <NumericUpDown x:Name="RaceEditorSortOrderBox"
+                                                   Minimum="0" Maximum="10000" Value="0"
+                                                   ValueChanged="OnRaceEditorSortOrderChanged"/>
+                                </StackPanel>
+                                <StackPanel Grid.Column="1" Spacing="6">
+                                    <TextBlock Text="State" Foreground="#888" FontSize="11"/>
+                                    <CheckBox x:Name="RaceEditorEnabledCheck"
+                                              Content="Enabled"
+                                              Click="OnRaceEditorEnabledClicked"/>
+                                </StackPanel>
+                            </Grid>
+
+                            <StackPanel Orientation="Horizontal" Spacing="14">
+                                <CheckBox x:Name="RaceEditorHasMaleCheck" Content="Male" Click="OnRaceEditorFlagsClicked"/>
+                                <CheckBox x:Name="RaceEditorHasFemaleCheck" Content="Female" Click="OnRaceEditorFlagsClicked"/>
+                                <CheckBox x:Name="RaceEditorHasNeutralCheck" Content="Neutral" Click="OnRaceEditorFlagsClicked"/>
+                            </StackPanel>
+
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <Button Content="Save" Click="OnRaceEditorSaveClicked"/>
+                                <Button Content="Clear Form" Click="OnRaceEditorClearClicked"/>
+                            </StackPanel>
+
+                            <TextBlock Text="Notes" Foreground="#888" FontSize="11" Margin="0,8,0,0"/>
+                            <TextBlock Text="Insert and edit supported. Delete intentionally not exposed yet. Catalog rows still use existing AccentGroup enum values in this slice."
+                                       TextWrapping="Wrap"
+                                       Foreground="#888"
+                                       FontSize="11"/>
+                        </StackPanel>
+                    </Grid>
+                </ScrollViewer>
+            </TabItem>
 
             <TabItem Header="Voice Defaults">
                 <ScrollViewer>

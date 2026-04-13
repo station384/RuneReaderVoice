@@ -268,6 +268,7 @@ public partial class MainWindow
 
                 // Bespoke sample — select existing or reset to "(no bespoke sample)"
                 SelectLastNpcSampleDropdown(existing?.BespokeSampleId);
+                LastNpcUseNpcIdAsSeedCheckBox.IsChecked = existing?.UseNpcIdAsSeed ?? false;
 
                 LastNpcSaveButton.IsEnabled  = true;
                 LastNpcClearButton.IsEnabled = existing != null;
@@ -283,6 +284,7 @@ public partial class MainWindow
         var raceId          = (int)(item.Tag ?? 0);
         var notes           = LastNpcNotesBox.Text?.Trim();
         var bespokeSampleId = GetSelectedLastNpcSampleId();
+        var useNpcIdAsSeed  = LastNpcUseNpcIdAsSeedCheckBox.IsChecked == true;
         SelectionRecencyHelper.BumpRace(AppServices.Settings, raceId);
         SelectionRecencyHelper.BumpVoice(AppServices.Settings, AppServices.Provider.ProviderId, bespokeSampleId);
         VoiceSettingsManager.SaveSettings(AppServices.Settings);
@@ -291,11 +293,13 @@ public partial class MainWindow
         {
             await AppServices.NpcOverrides.UpsertAsync(
                 _lastNpcId, raceId, notes,
-                bespokeSampleId: bespokeSampleId);
+                bespokeSampleId: bespokeSampleId,
+                useNpcIdAsSeed: useNpcIdAsSeed);
 
             AppServices.Assembler.ApplyRaceOverride(
                 _lastNpcId, raceId,
-                bespokeSampleId: bespokeSampleId);
+                bespokeSampleId: bespokeSampleId,
+                useNpcIdAsSeed: useNpcIdAsSeed);
 
             // Contribute to server if enabled
             if (AppServices.Settings.ContributeByDefault)
@@ -313,6 +317,7 @@ public partial class MainWindow
 
                 PopulateLastNpcSampleDropdown();
                 SelectLastNpcSampleDropdown(bespokeSampleId);
+                LastNpcUseNpcIdAsSeedCheckBox.IsChecked = useNpcIdAsSeed;
 
                 LastNpcClearButton.IsEnabled = true;
                 RefreshNpcOverridesGrid();
@@ -333,6 +338,7 @@ public partial class MainWindow
             {
                 LastNpcRaceDropdown.SelectedIndex = 0;
                 LastNpcNotesBox.Text = string.Empty;
+                LastNpcUseNpcIdAsSeedCheckBox.IsChecked = false;
                 LastNpcClearButton.IsEnabled = false;
                 RefreshNpcOverridesGrid();
             });
@@ -808,6 +814,7 @@ public partial class MainWindow
         public string? BespokeSampleId     { get; set; }
         public float?  BespokeExaggeration { get; set; }
         public float?  BespokeCfgWeight    { get; set; }
+        public bool    UseNpcIdAsSeed     { get; set; }
     }
 
     private sealed class NpcOverrideExportFile
@@ -833,6 +840,7 @@ public partial class MainWindow
                     BespokeSampleId     = x.BespokeSampleId,
                     BespokeExaggeration = x.BespokeExaggeration,
                     BespokeCfgWeight    = x.BespokeCfgWeight,
+                    UseNpcIdAsSeed     = x.UseNpcIdAsSeed,
                 }).ToList(),
             };
 
@@ -892,13 +900,15 @@ public partial class MainWindow
                     entry.NpcId, entry.RaceId, entry.Notes,
                     bespokeSampleId:     entry.BespokeSampleId,
                     bespokeExaggeration: entry.BespokeExaggeration,
-                    bespokeCfgWeight:    entry.BespokeCfgWeight);
+                    bespokeCfgWeight:    entry.BespokeCfgWeight,
+                    useNpcIdAsSeed:     entry.UseNpcIdAsSeed);
 
                 AppServices.Assembler.ApplyRaceOverride(
                     entry.NpcId, entry.RaceId,
                     bespokeSampleId:     entry.BespokeSampleId,
                     bespokeExaggeration: entry.BespokeExaggeration,
-                    bespokeCfgWeight:    entry.BespokeCfgWeight);
+                    bespokeCfgWeight:    entry.BespokeCfgWeight,
+                    useNpcIdAsSeed:     entry.UseNpcIdAsSeed);
 
                 count++;
             }

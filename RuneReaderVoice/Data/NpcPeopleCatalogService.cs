@@ -16,6 +16,26 @@ public sealed class NpcPeopleCatalogService
 
     public async Task InitializeAsync() => _rows = await _store.GetAllAsync();
 
+    public Task ReloadAsync() => InitializeAsync();
+
+    public IReadOnlyList<NpcPeopleCatalogRow> GetAllRows()
+        => _rows
+            .OrderBy(x => x.SortOrder)
+            .ThenBy(x => x.DisplayName, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+    public async Task UpsertAsync(NpcPeopleCatalogRow row)
+    {
+        await _store.UpsertAsync(row);
+        await ReloadAsync();
+    }
+
+    public async Task SetEnabledAsync(string id, bool enabled)
+    {
+        await _store.SetEnabledAsync(id, enabled);
+        await ReloadAsync();
+    }
+
     public IReadOnlyList<VoiceSlotCatalogRow> GetVoiceSlots()
     {
         var result = new List<VoiceSlotCatalogRow>();
@@ -25,17 +45,18 @@ public sealed class NpcPeopleCatalogService
         result.Add(maleNarrator);
         result.Add(femaleNarrator);
 
-        foreach (var row in _rows.Where(x => x.Enabled).OrderBy(x => x.DisplayName, StringComparer.OrdinalIgnoreCase))
+        foreach (var row in _rows.Where(x => x.Enabled).OrderBy(x => x.SortOrder).ThenBy(x => x.DisplayName, StringComparer.OrdinalIgnoreCase))
         {
-            if (!Enum.TryParse<AccentGroup>(row.AccentGroupName, out var group))
-                continue;
+            AccentGroup? legacyGroup = Enum.TryParse<AccentGroup>(row.AccentGroupName, out var parsed)
+                ? parsed
+                : null;
 
             if (row.HasMale)
-                result.Add(new VoiceSlotCatalogRow(new VoiceSlot(group, Gender.Male), $"{row.DisplayName} / Male", row.AccentLabel, row.SortOrder));
+                result.Add(new VoiceSlotCatalogRow(VoiceSlot.CreateCatalog(row.Id, Gender.Male, legacyGroup), $"{row.DisplayName} / Male", row.AccentLabel, row.SortOrder));
             if (row.HasFemale)
-                result.Add(new VoiceSlotCatalogRow(new VoiceSlot(group, Gender.Female), $"{row.DisplayName} / Female", row.AccentLabel, row.SortOrder + 1));
+                result.Add(new VoiceSlotCatalogRow(VoiceSlot.CreateCatalog(row.Id, Gender.Female, legacyGroup), $"{row.DisplayName} / Female", row.AccentLabel, row.SortOrder + 1));
             if (row.HasNeutral)
-                result.Add(new VoiceSlotCatalogRow(new VoiceSlot(group, Gender.Unknown), row.DisplayName, row.AccentLabel, row.SortOrder + 2));
+                result.Add(new VoiceSlotCatalogRow(VoiceSlot.CreateCatalog(row.Id, Gender.Unknown, legacyGroup), row.DisplayName, row.AccentLabel, row.SortOrder + 2));
         }
 
         return result;
@@ -47,6 +68,6 @@ public sealed class NpcPeopleCatalogService
 
     public string GetSlotAccentLabel(VoiceSlot slot)
         => GetVoiceSlots().FirstOrDefault(x => x.Slot.Equals(slot))?.AccentLabel
-           ?? slot.Group.ToString();
+           ?? (slot.LegacyGroup?.ToString() ?? slot.SlotKey);
 }
 

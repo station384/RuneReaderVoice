@@ -17,6 +17,7 @@
 
 using System;
 using System.IO;
+using System.Linq;
 using System.Threading.Tasks;
 using SQLite;
 using RuneReaderVoice.TTS.Pronunciation;
@@ -48,6 +49,7 @@ public sealed class NpcRaceOverrideRow
     public string? BespokeSampleId     { get; set; } = null;
     public float?  BespokeExaggeration { get; set; } = null;
     public float?  BespokeCfgWeight    { get; set; } = null;
+    public bool    UseNpcIdAsSeed     { get; set; } = false;
 
     // Sync metadata
     // Source: "Local" | "CrowdSourced" | "Confirmed"
@@ -159,7 +161,25 @@ public sealed class RvrDb : IDisposable
         await _conn.CreateTableAsync<AudioCacheManifestRow>();
         await _conn.CreateTableAsync<NpcPeopleCatalogRow>();
         await _conn.CreateTableAsync<ProviderSlotProfileRow>();
+        await EnsureNpcRaceOverrideSchemaAsync();
 
+    }
+
+    private async Task EnsureNpcRaceOverrideSchemaAsync()
+    {
+        var cols = await Connection.QueryAsync<TableInfoRow>("PRAGMA table_info('NpcRaceOverrides')");
+        if (!cols.Any(c => string.Equals(c.name, "UseNpcIdAsSeed", StringComparison.OrdinalIgnoreCase)))
+            await Connection.ExecuteAsync("ALTER TABLE NpcRaceOverrides ADD COLUMN UseNpcIdAsSeed INTEGER NOT NULL DEFAULT 0");
+    }
+
+    private sealed class TableInfoRow
+    {
+        public int cid { get; set; }
+        public string name { get; set; } = string.Empty;
+        public string type { get; set; } = string.Empty;
+        public int notnull { get; set; }
+        public string dflt_value { get; set; } = string.Empty;
+        public int pk { get; set; }
     }
 
     public Task VacuumAsync()

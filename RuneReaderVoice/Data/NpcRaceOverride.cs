@@ -75,6 +75,14 @@ public sealed class NpcRaceOverride
     /// </summary>
     public float? BespokeCfgWeight { get; set; } = null;
 
+    /// <summary>
+    /// When true, the NPC's numeric ID is passed to the remote TTS server as the
+    /// synthesis seed. This is intentionally per-NPC rather than global so a voice
+    /// can keep its normal profile seed behavior everywhere else while gaining stable
+    /// NPC-specific variance for this override.
+    /// </summary>
+    public bool UseNpcIdAsSeed { get; set; } = false;
+
     /// <summary>Where this entry came from.</summary>
     public NpcOverrideSource Source { get; set; } = NpcOverrideSource.Local;
 
