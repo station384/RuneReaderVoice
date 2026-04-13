@@ -245,9 +245,6 @@ class AudioCache:
         except Exception as e:
             log.debug("Tail token load failed (non-fatal): %s", e)
             return None
-        if key not in self._key_locks:
-            self._key_locks[key] = asyncio.Lock()
-        return self._key_locks[key]
 
     async def stats(self) -> dict:
         """Return cache statistics for the health/diagnostics endpoint."""

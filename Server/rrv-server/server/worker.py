@@ -231,6 +231,7 @@ def _build_request(msg: dict):
         cosy_instruct=msg.get("cosy_instruct"),
         cache_key=msg.get("cache_key"),
         cache_dir=msg.get("cache_dir"),
+        continue_from_cache_key=msg.get("continue_from_cache_key"),
         progress_callback=None,
     )
 

@@ -625,5 +625,7 @@ def _request_to_dict(request: SynthesisRequest) -> dict:
         d["cache_key"] = request.cache_key
     if request.cache_dir is not None:
         d["cache_dir"] = request.cache_dir
+    if request.continue_from_cache_key is not None:
+        d["continue_from_cache_key"] = request.continue_from_cache_key
     # progress_callback is not serializable — skip it; host handles progress
     return d

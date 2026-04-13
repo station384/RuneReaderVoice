@@ -321,7 +321,7 @@ async def synthesize_v2(body: SynthesizeRequest, request: Request) -> dict:
     # 5. Build synthesis request
     # Single-request v2 calls do not participate in the explicit T3 batch continuity chain.
     # That chain is only resolved in the batch submit path where the client provides
-    # continue_from_segment_id links between related same-speaker segments.
+    # prime_from_segment links between related same-speaker segments.
     continue_from_cache_key = None
 
     synth_request = SynthesisRequest(
@@ -384,7 +384,7 @@ async def synthesize_v2(body: SynthesizeRequest, request: Request) -> dict:
 class BatchSegmentRequest(_SynthesizeRequestBase):
     """One segment in a batch submit. Identical fields to SynthesizeRequest."""
     segment_id: str = ""   # client-assigned ID echoed back in response
-    continue_from_segment_id: str = ""  # optional client continuity link to prior same-speaker segment
+    prime_from_segment: str = ""  # optional client continuity link to prior same-speaker segment
 
 
 class BatchSubmitRequest(BaseModel):
@@ -627,8 +627,8 @@ async def synthesize_v2_batch(body: BatchSubmitRequest, request: Request) -> dic
     segment_cache_keys: dict[str, str] = {}
     for batch_index, seg in enumerate(body.segments):
         continue_from_cache_key = None
-        if seg.continue_from_segment_id:
-            continue_from_cache_key = segment_cache_keys.get(seg.continue_from_segment_id)
+        if seg.prime_from_segment:
+            continue_from_cache_key = segment_cache_keys.get(seg.prime_from_segment)
         result = await _process_one_segment(
             seg,
             batch_id,
