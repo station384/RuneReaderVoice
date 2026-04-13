@@ -504,6 +504,25 @@ along with RuneReaderVoice. If not, see <https://www.gnu.org/licenses/>.
                                      FontSize="11"
                                      Watermark="Search"
                                      TextChanged="OnNpcOverridesFilterTextChanged"/>
+                            <Button x:Name="NpcOverridesPrevButton"
+                                    Content="Prev"
+                                    FontSize="11"
+                                    Click="OnNpcOverridesPrevPageClicked"/>
+                            <Button x:Name="NpcOverridesNextButton"
+                                    Content="Next"
+                                    FontSize="11"
+                                    Click="OnNpcOverridesNextPageClicked"/>
+                            <ComboBox x:Name="NpcOverridesPageSizeDropdown"
+                                      Width="80"
+                                      FontSize="11"
+                                      SelectionChanged="OnNpcOverridesPageSizeChanged">
+                                <ComboBoxItem Content="50 / page" Tag="50"/>
+                                <ComboBoxItem Content="100 / page" Tag="100"/>
+                                <ComboBoxItem Content="250 / page" Tag="250"/>
+                            </ComboBox>
+                            <TextBlock x:Name="NpcOverridesPageInfoText"
+                                       FontSize="11" Foreground="#888"
+                                       VerticalAlignment="Center"/>
                             <Button Content="Export JSON"
                                     FontSize="11"
                                     Click="OnNpcOverridesExportClicked"/>

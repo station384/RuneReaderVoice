@@ -44,7 +44,11 @@ public partial class MainWindow
     // NpcId of the NPC shown in the Last NPC panel. 0 = no NPC (narrator/book).
     private int _lastNpcId;
     private bool _suppressLastNpcRaceSearchEvents;
-    private IReadOnlyList<NpcRaceOverride> _npcOverridesAllEntries = Array.Empty<NpcRaceOverride>();
+    private int _npcOverridesPageNumber = 1;
+    private int _npcOverridesPageSize = 100;
+    private int _npcOverridesTotalCount;
+    private string _npcOverridesFilter = string.Empty;
+    private IReadOnlyList<NpcRaceOverride> _npcOverridesPageItems = Array.Empty<NpcRaceOverride>();
 
     // ── Initialization ────────────────────────────────────────────────────────
 
@@ -57,6 +61,8 @@ public partial class MainWindow
         PopulateNpcOverrideRaceDropdown(LastNpcRaceDropdown);
         SyncLastNpcRaceSearchTextFromSelection();
         PopulateLastNpcSampleDropdown();
+        if (NpcOverridesPageSizeDropdown != null)
+            NpcOverridesPageSizeDropdown.SelectedIndex = 1;
         RefreshNpcOverridesGrid();
     }
 
@@ -354,13 +360,32 @@ public partial class MainWindow
     {
         _ = Task.Run(async () =>
         {
-            var entries = await AppServices.NpcOverrides.GetAllAsync();
+            var page = await AppServices.NpcOverrides.QueryPageAsync(
+                _npcOverridesFilter,
+                _npcOverridesPageNumber,
+                _npcOverridesPageSize);
+
             Dispatcher.UIThread.Post(() =>
             {
-                _npcOverridesAllEntries = entries;
-                ApplyNpcOverridesFilter();
+                _npcOverridesPageItems = page.Items;
+                _npcOverridesTotalCount = page.TotalCount;
+                _npcOverridesPageNumber = page.PageNumber;
+                _npcOverridesPageSize = page.PageSize;
+                UpdateNpcOverridesPagingUi();
+                RenderNpcOverridesGrid(_npcOverridesPageItems);
             });
         });
+    }
+
+    private void UpdateNpcOverridesPagingUi()
+    {
+        var totalPages = Math.Max(1, (_npcOverridesTotalCount + _npcOverridesPageSize - 1) / _npcOverridesPageSize);
+        if (NpcOverridesPageInfoText != null)
+            NpcOverridesPageInfoText.Text = $"Page {_npcOverridesPageNumber} / {totalPages}  •  {_npcOverridesTotalCount} rows";
+        if (NpcOverridesPrevButton != null)
+            NpcOverridesPrevButton.IsEnabled = _npcOverridesPageNumber > 1;
+        if (NpcOverridesNextButton != null)
+            NpcOverridesNextButton.IsEnabled = _npcOverridesPageNumber < totalPages;
     }
 
     private void RenderNpcOverridesGrid(IReadOnlyList<NpcRaceOverride> entries)
@@ -382,7 +407,7 @@ public partial class MainWindow
                 Margin     = new Avalonia.Thickness(4, 8, 4, 4),
             };
             Grid.SetRow(empty, 1);
-            Grid.SetColumnSpan(empty, 5);
+            Grid.SetColumnSpan(empty, 6);
             NpcOverridesGrid.Children.Add(empty);
             return;
         }
@@ -396,27 +421,38 @@ public partial class MainWindow
     }
 
     private void OnNpcOverridesFilterTextChanged(object? sender, TextChangedEventArgs e)
-        => ApplyNpcOverridesFilter();
-
-    private void ApplyNpcOverridesFilter()
     {
-        var filter = NpcOverridesFilterBox?.Text?.Trim();
-        if (string.IsNullOrWhiteSpace(filter))
-        {
-            RenderNpcOverridesGrid(_npcOverridesAllEntries);
+        _npcOverridesFilter = NpcOverridesFilterBox?.Text?.Trim() ?? string.Empty;
+        _npcOverridesPageNumber = 1;
+        RefreshNpcOverridesGrid();
+    }
+
+    private void OnNpcOverridesPrevPageClicked(object? sender, RoutedEventArgs e)
+    {
+        if (_npcOverridesPageNumber <= 1)
             return;
+        _npcOverridesPageNumber--;
+        RefreshNpcOverridesGrid();
+    }
+
+    private void OnNpcOverridesNextPageClicked(object? sender, RoutedEventArgs e)
+    {
+        var totalPages = Math.Max(1, (_npcOverridesTotalCount + _npcOverridesPageSize - 1) / _npcOverridesPageSize);
+        if (_npcOverridesPageNumber >= totalPages)
+            return;
+        _npcOverridesPageNumber++;
+        RefreshNpcOverridesGrid();
+    }
+
+    private void OnNpcOverridesPageSizeChanged(object? sender, SelectionChangedEventArgs e)
+    {
+        if (NpcOverridesPageSizeDropdown?.SelectedItem is ComboBoxItem item
+            && int.TryParse(item.Tag?.ToString(), out var size))
+        {
+            _npcOverridesPageSize = size;
+            _npcOverridesPageNumber = 1;
+            RefreshNpcOverridesGrid();
         }
-
-        var needle = filter.Trim();
-        var filtered = _npcOverridesAllEntries
-            .Where(entry =>
-                entry.NpcId.ToString().Contains(needle, StringComparison.OrdinalIgnoreCase) ||
-                (entry.Notes?.Contains(needle, StringComparison.OrdinalIgnoreCase) ?? false) ||
-                entry.Source.ToString().Contains(needle, StringComparison.OrdinalIgnoreCase) ||
-                GetNpcOverrideCatalogLabel(entry).Contains(needle, StringComparison.OrdinalIgnoreCase))
-            .ToList();
-
-        RenderNpcOverridesGrid(filtered);
     }
 
     private void AddOverrideHeaderRow()
@@ -441,67 +477,10 @@ public partial class MainWindow
     {
         var isLocal = !entry.IsReadOnly;
 
-        // NPC ID
         AddCell(entry.NpcId.ToString(), rowIndex, 0);
+        AddCell(entry.Notes ?? string.Empty, rowIndex, 1, Brushes.LightGray);
+        AddCell(GetNpcOverrideCatalogLabel(entry), rowIndex, 2, Brushes.LightGray);
 
-        // Notes (editable inline for local entries)
-        if (isLocal)
-        {
-            var notesBox = new TextBox
-            {
-                Text              = entry.Notes ?? string.Empty,
-                Watermark         = "optional label",
-                FontSize          = 11,
-                Margin            = new Avalonia.Thickness(4, 1, 4, 1),
-                Background        = Brushes.Transparent,
-                BorderBrush       = Brushes.DimGray,
-            };
-            notesBox.LostFocus += (_, _) =>
-            {
-                var notes = notesBox.Text?.Trim();
-                _ = Task.Run(async () =>
-                    await AppServices.NpcOverrides.UpsertAsync(entry.NpcId, entry.CatalogId, notes, raceId: 0));
-            };
-            Grid.SetRow(notesBox, rowIndex);
-            Grid.SetColumn(notesBox, 1);
-            NpcOverridesGrid.Children.Add(notesBox);
-        }
-        else
-        {
-            AddCell(entry.Notes ?? "—", rowIndex, 1, Brushes.Gray);
-        }
-
-        // Race dropdown (editable for local entries)
-        if (isLocal)
-        {
-            var dropdown = new ComboBox { FontSize = 11, Margin = new Avalonia.Thickness(4, 1, 4, 1) };
-            PopulateNpcOverrideRaceDropdown(dropdown);
-            SelectDropdownByCatalogId(dropdown, entry.CatalogId);
-
-            dropdown.SelectionChanged += (_, _) =>
-            {
-                if (dropdown.SelectedItem is not ComboBoxItem item) return;
-                var catalogId = item.Tag as string ?? string.Empty;
-                var raceId = 0;
-                BumpNpcCatalogSelection(catalogId);
-                VoiceSettingsManager.SaveSettings(AppServices.Settings);
-                _ = Task.Run(async () =>
-                {
-                    await AppServices.NpcOverrides.UpsertAsync(entry.NpcId, catalogId, entry.Notes, raceId: raceId);
-                    AppServices.Assembler.ApplyRaceOverride(entry.NpcId, catalogId, raceId: raceId);
-                });
-            };
-
-            Grid.SetRow(dropdown, rowIndex);
-            Grid.SetColumn(dropdown, 2);
-            NpcOverridesGrid.Children.Add(dropdown);
-        }
-        else
-        {
-            AddCell(GetNpcOverrideCatalogLabel(entry), rowIndex, 2, Brushes.Gray);
-        }
-
-        // Source badge
         var sourceBrush = entry.Source switch
         {
             NpcOverrideSource.Confirmed    => Brushes.Gold,
@@ -510,7 +489,6 @@ public partial class MainWindow
         };
         AddCell(entry.Source.ToString(), rowIndex, 3, sourceBrush, fontSize: 10);
 
-        // Edit button — jump to Last NPC panel pre-filled with this entry
         if (isLocal)
         {
             var editBtn = new Button
@@ -526,7 +504,6 @@ public partial class MainWindow
             Grid.SetColumn(editBtn, 4);
             NpcOverridesGrid.Children.Add(editBtn);
 
-            // Delete button
             var delBtn = new Button
             {
                 Content    = "Delete",
@@ -543,7 +520,6 @@ public partial class MainWindow
         }
         else
         {
-            // Read-only: show "Override" button to create a local shadow entry
             var overrideBtn = new Button
             {
                 Content  = "Override locally",

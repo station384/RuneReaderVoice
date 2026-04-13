@@ -20,6 +20,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using SQLite;
 using RuneReaderVoice.Protocol;
 
 namespace RuneReaderVoice.Data;
@@ -28,6 +29,13 @@ namespace RuneReaderVoice.Data;
 /// Exposes the NpcRaceOverrides table via the shared RvrDb.
 /// NpcRaceOverride domain model and NpcOverrideSource enum are defined elsewhere in the project.
 /// </summary>
+
+public sealed record NpcRaceOverridePage(
+    IReadOnlyList<NpcRaceOverride> Items,
+    int TotalCount,
+    int PageNumber,
+    int PageSize);
+
 public sealed class NpcRaceOverrideDb
 {
     private readonly RvrDb _db;
@@ -54,6 +62,50 @@ public sealed class NpcRaceOverrideDb
             .FirstOrDefaultAsync();
         return row == null ? null : ToModel(row);
     }
+
+    public async Task<NpcRaceOverridePage> QueryPageAsync(
+        string? filter,
+        int pageNumber,
+        int pageSize,
+        CancellationToken ct = default)
+    {
+        pageNumber = Math.Max(1, pageNumber);
+        pageSize   = Math.Clamp(pageSize, 25, 500);
+
+        var whereClauses = new List<string>();
+        var args = new List<object>();
+
+        if (!string.IsNullOrWhiteSpace(filter))
+        {
+            var like = $"%{filter.Trim()}%";
+            whereClauses.Add("(CAST(NpcId AS TEXT) LIKE ? OR Notes LIKE ? OR Source LIKE ? OR CatalogId LIKE ?)");
+            args.Add(like);
+            args.Add(like);
+            args.Add(like);
+            args.Add(like);
+        }
+
+        var whereSql = whereClauses.Count == 0
+            ? string.Empty
+            : " WHERE " + string.Join(" AND ", whereClauses);
+
+        var countSql = "SELECT COUNT(*) AS Value FROM NpcRaceOverrides" + whereSql;
+        var total = (await _db.Connection.QueryAsync<CountRow>(countSql, args.ToArray()))
+            .FirstOrDefault()?.Value ?? 0;
+
+        var offset = (pageNumber - 1) * pageSize;
+        var pageArgs = new List<object>(args) { pageSize, offset };
+        var pageSql = "SELECT * FROM NpcRaceOverrides" + whereSql + " ORDER BY NpcId LIMIT ? OFFSET ?";
+        var rows = await _db.Connection.QueryAsync<NpcRaceOverrideRow>(pageSql, pageArgs.ToArray());
+
+        return new NpcRaceOverridePage(rows.Select(ToModel).ToList(), total, pageNumber, pageSize);
+    }
+
+    private sealed class CountRow
+    {
+        public int Value { get; set; }
+    }
+
 
     public Task UpsertAsync(int npcId, string catalogId, string? notes,
         int raceId = 0,
