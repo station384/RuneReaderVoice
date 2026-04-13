@@ -35,6 +35,8 @@ namespace RuneReaderVoice.UI.Views;
 public partial class MainWindow
 {
     private readonly JsonSerializerOptions _jsonSampleVoiceOptions = new() { WriteIndented = true };
+    private int _sampleDefaultsPageNumber = 1;
+    private int _sampleDefaultsPageSize = 25;
 
     private async Task PopulateSampleDefaultsGridAsync()
     {
@@ -44,12 +46,42 @@ public partial class MainWindow
 
             var provider = AppServices.Provider;
             var descriptor = AppServices.ProviderRegistry.Get(provider.ProviderId);
-            var voices = await GetActiveProviderVoicesForUiAsync();
+            var voices = (await GetActiveProviderVoicesForUiAsync())
+                .OrderBy(v => v.Name, StringComparer.OrdinalIgnoreCase)
+                .ThenBy(v => v.VoiceId, StringComparer.OrdinalIgnoreCase)
+                .ToList();
             var providerLabel = descriptor?.DisplayName ?? provider.ProviderId;
 
-            SampleDefaultsStatus.Text = $"Provider: {providerLabel} — {voices.Count} voice(s)";
+            var totalCount = voices.Count;
+            var totalPages = Math.Max(1, (int)Math.Ceiling(totalCount / (double)_sampleDefaultsPageSize));
+            if (_sampleDefaultsPageNumber > totalPages)
+                _sampleDefaultsPageNumber = totalPages;
+            if (_sampleDefaultsPageNumber < 1)
+                _sampleDefaultsPageNumber = 1;
 
-            if (voices.Count == 0)
+            var pageVoices = voices
+                .Skip((_sampleDefaultsPageNumber - 1) * _sampleDefaultsPageSize)
+                .Take(_sampleDefaultsPageSize)
+                .ToList();
+
+            SampleDefaultsStatus.Text = $"Provider: {providerLabel} — {totalCount} voice(s)";
+            SampleDefaultsPageInfoText.Text = $"Page {_sampleDefaultsPageNumber} / {totalPages}";
+            SampleDefaultsPrevButton.IsEnabled = _sampleDefaultsPageNumber > 1;
+            SampleDefaultsNextButton.IsEnabled = _sampleDefaultsPageNumber < totalPages;
+
+            if (SampleDefaultsPageSizeDropdown.SelectedItem == null)
+            {
+                foreach (var item in SampleDefaultsPageSizeDropdown.Items.OfType<ComboBoxItem>())
+                {
+                    if (string.Equals(item.Tag?.ToString(), _sampleDefaultsPageSize.ToString(), StringComparison.Ordinal))
+                    {
+                        SampleDefaultsPageSizeDropdown.SelectedItem = item;
+                        break;
+                    }
+                }
+            }
+
+            if (totalCount == 0)
             {
                 SampleDefaultsGrid.Children.Add(new TextBlock
                 {
@@ -59,7 +91,7 @@ public partial class MainWindow
                 return;
             }
 
-            foreach (var voice in voices.OrderBy(v => v.Name, StringComparer.OrdinalIgnoreCase))
+            foreach (var voice in pageVoices)
             {
                 var row = new Grid
                 {
@@ -207,7 +239,37 @@ public partial class MainWindow
     }
 
     private async void OnSampleDefaultsRefreshClicked(object? sender, RoutedEventArgs e)
-        => await PopulateSampleDefaultsGridAsync();
+    {
+        _sampleDefaultsPageNumber = 1;
+        await PopulateSampleDefaultsGridAsync();
+    }
+
+    private async void OnSampleDefaultsPrevPageClicked(object? sender, RoutedEventArgs e)
+    {
+        if (_sampleDefaultsPageNumber <= 1)
+            return;
+
+        _sampleDefaultsPageNumber--;
+        await PopulateSampleDefaultsGridAsync();
+    }
+
+    private async void OnSampleDefaultsNextPageClicked(object? sender, RoutedEventArgs e)
+    {
+        _sampleDefaultsPageNumber++;
+        await PopulateSampleDefaultsGridAsync();
+    }
+
+    private async void OnSampleDefaultsPageSizeChanged(object? sender, SelectionChangedEventArgs e)
+    {
+        if (SampleDefaultsPageSizeDropdown.SelectedItem is ComboBoxItem item
+            && int.TryParse(item.Tag?.ToString(), out var pageSize)
+            && pageSize > 0)
+        {
+            _sampleDefaultsPageSize = pageSize;
+            _sampleDefaultsPageNumber = 1;
+            await PopulateSampleDefaultsGridAsync();
+        }
+    }
 
     private async void OnSampleDefaultsExportClicked(object? sender, RoutedEventArgs e)
     {

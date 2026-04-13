@@ -503,6 +503,28 @@ along with RuneReaderVoice. If not, see <https://www.gnu.org/licenses/>.
                             <Button Content="Pull from Server" FontSize="11" Click="OnSampleDefaultsPullFromServerClicked"/>
                         </StackPanel>
                         <TextBlock x:Name="SampleDefaultsStatus" Foreground="#888" FontSize="11"/>
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <Button x:Name="SampleDefaultsPrevButton"
+                                    Content="Prev"
+                                    FontSize="11"
+                                    Click="OnSampleDefaultsPrevPageClicked"/>
+                            <Button x:Name="SampleDefaultsNextButton"
+                                    Content="Next"
+                                    FontSize="11"
+                                    Click="OnSampleDefaultsNextPageClicked"/>
+                            <ComboBox x:Name="SampleDefaultsPageSizeDropdown"
+                                      Width="90"
+                                      FontSize="11"
+                                      SelectionChanged="OnSampleDefaultsPageSizeChanged">
+                                <ComboBoxItem Content="25 / page" Tag="25"/>
+                                <ComboBoxItem Content="50 / page" Tag="50"/>
+                                <ComboBoxItem Content="100 / page" Tag="100"/>
+                            </ComboBox>
+                            <TextBlock x:Name="SampleDefaultsPageInfoText"
+                                       VerticalAlignment="Center"
+                                       Foreground="#888"
+                                       FontSize="11"/>
+                        </StackPanel>
                         <StackPanel x:Name="SampleDefaultsGrid" Spacing="6"/>
                     </StackPanel>
                 </ScrollViewer>
