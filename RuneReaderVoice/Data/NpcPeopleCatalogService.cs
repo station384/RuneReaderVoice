@@ -18,6 +18,12 @@ public sealed class NpcPeopleCatalogService
 
     public Task ReloadAsync() => InitializeAsync();
 
+    public Task<NpcPeopleCatalogPage> QueryPageAsync(string? filter, int pageNumber, int pageSize)
+        => _store.QueryPageAsync(filter, pageNumber, pageSize);
+
+    public Task<NpcPeopleCatalogRow?> GetByIdAsync(string id)
+        => _store.GetByIdAsync(id);
+
     public IReadOnlyList<NpcPeopleCatalogRow> GetAllRows()
         => _rows
             .OrderBy(x => x.SortOrder)

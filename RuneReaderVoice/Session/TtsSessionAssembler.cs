@@ -111,13 +111,19 @@ public sealed class TtsSessionAssembler
         public VoiceSlot Slot         { get; init; }
         public int       NpcId        { get; init; }
         public int       SeqIndex     { get; init; }    // position within dialog, assigned at creation
+        public bool      IsNarrator   { get; init; }
+        public bool      IsFemale     { get; init; }
+        public bool      IsMale       { get; init; }
 
-        public SegmentAccumulator(int subTotal, VoiceSlot slot, int npcId, int seqIndex)
+        public SegmentAccumulator(int subTotal, VoiceSlot slot, int npcId, int seqIndex, bool isNarrator, bool isFemale, bool isMale)
         {
-            Subs     = new string?[subTotal];
-            Slot     = slot;
-            NpcId    = npcId;
-            SeqIndex = seqIndex;
+            Subs       = new string?[subTotal];
+            Slot       = slot;
+            NpcId      = npcId;
+            SeqIndex   = seqIndex;
+            IsNarrator = isNarrator;
+            IsFemale   = isFemale;
+            IsMale     = isMale;
         }
     }
 
@@ -139,20 +145,7 @@ public sealed class TtsSessionAssembler
 
     private readonly object _lock = new();
 
-    // ── NPC voice override store ──────────────────────────────────────────────
-    // Pre-loaded from NpcRaceOverrideDb at startup. Feed() is synchronous so
-    // we maintain an in-memory copy here — the DB is the durable backing store.
-
-    private record struct NpcVoiceOverride(
-        string? CatalogId,
-        int     RaceId,
-        string? BespokeSampleId,
-        float?  BespokeExaggeration,
-        float?  BespokeCfgWeight,
-        bool    UseNpcIdAsSeed);
-
-    private readonly Dictionary<int, NpcVoiceOverride> _npcVoiceStore = new();
-    private readonly NpcRaceOverrideDb                 _overrideDb;
+    private readonly NpcRaceOverrideDb _overrideDb;
 
     private string _currentPlayerName  = string.Empty;
     private string _currentPlayerRealm = string.Empty;
@@ -163,26 +156,6 @@ public sealed class TtsSessionAssembler
     public TtsSessionAssembler(NpcRaceOverrideDb overrideDb)
     {
         _overrideDb = overrideDb;
-    }
-
-    /// <summary>
-    /// Pre-loads all local overrides from the DB into the in-memory race store.
-    /// Call once at startup after the DB is initialized.
-    /// </summary>
-    public async Task LoadOverridesAsync(CancellationToken ct = default)
-    {
-        var all = await _overrideDb.GetAllAsync(ct);
-        lock (_lock)
-        {
-            foreach (var entry in all)
-                _npcVoiceStore[entry.NpcId] = new NpcVoiceOverride(
-                    entry.CatalogId,
-                    entry.RaceId,
-                    entry.BespokeSampleId,
-                    entry.BespokeExaggeration,
-                    entry.BespokeCfgWeight,
-                    entry.UseNpcIdAsSeed);
-        }
     }
 
     // ── Public API ────────────────────────────────────────────────────────────
@@ -211,31 +184,12 @@ public sealed class TtsSessionAssembler
                     $"[Assembler] New dialog 0x{packet.DialogId:X4} seqTotal={packet.SeqTotal}");
             }
 
-            // ── NPC override lookup ───────────────────────────────────────────
-            // Runtime no longer resolves NPC speech from packet race. The packet race
-            // remains in the protocol for compatibility, but in practice almost every
-            // NPC arrives as Humanoid and the real assignment is done manually by NPCID.
-            // So resolution is now simple:
-            //   1. Explicit NPC override by catalog id.
-            //   2. Otherwise narrator fallback using packet gender.
+            // ── Runtime routing baseline ─────────────────────────────────────
+            // DB is source of truth. Feed() only chooses immediate narrator/default
+            // fallback routing. Final NPC override resolution happens when the
+            // segment completes and is read directly from SQLite by NPCID.
             int effectiveRace = 0;
-            VoiceSlot resolvedSlot;
-            if (packet.IsNarrator)
-            {
-                // Narrator-marked segments must always honor narrator routing first.
-                // NPC override/catalog resolution applies only to non-narrator NPC speech.
-                resolvedSlot = packet.IsFemale ? VoiceSlot.FemaleNarrator : VoiceSlot.MaleNarrator;
-            }
-            else if (packet.NpcId != 0 && _npcVoiceStore.TryGetValue(packet.NpcId, out var stored) && !string.IsNullOrWhiteSpace(stored.CatalogId))
-            {
-                var g = packet.IsMale ? Gender.Male : packet.IsFemale ? Gender.Female : Gender.Unknown;
-                resolvedSlot = AppServices.NpcPeopleCatalog?.ResolveCatalogSlot(stored.CatalogId!, g)
-                               ?? (g == Gender.Female ? VoiceSlot.FemaleNarrator : VoiceSlot.MaleNarrator);
-            }
-            else
-            {
-                resolvedSlot = packet.IsFemale ? VoiceSlot.FemaleNarrator : VoiceSlot.MaleNarrator;
-            }
+            var resolvedSlot = packet.IsFemale ? VoiceSlot.FemaleNarrator : VoiceSlot.MaleNarrator;
 
             if (packet.SubIndex == 0)
             {
@@ -250,7 +204,7 @@ public sealed class TtsSessionAssembler
                 if (!_segments.TryGetValue(key, out var acc))
                 {
                     acc = new SegmentAccumulator(packet.SubTotal, slot, packet.NpcId,
-                                                 packet.SeqIndex);
+                                                 packet.SeqIndex, packet.IsNarrator, packet.IsFemale, packet.IsMale);
                     _segments[key] = acc;
                     System.Diagnostics.Debug.WriteLine(
                         $"[Assembler] New acc seq={packet.SeqIndex} sub=0/{packet.SubTotal} npc={packet.NpcId} slot={slot}");
@@ -373,39 +327,6 @@ public sealed class TtsSessionAssembler
         }
     }
 
-    /// <summary>
-    /// Applies a new NPC voice override at runtime (called from the UI after the
-    /// user saves an assignment). Runtime now keys strictly by catalog id. Legacy
-    /// race values are ignored.
-    /// </summary>
-    public void ApplyRaceOverride(int npcId, string catalogId,
-        int raceId = 0,
-        string? bespokeSampleId = null,
-        float? bespokeExaggeration = null,
-        float? bespokeCfgWeight = null,
-        bool useNpcIdAsSeed = false)
-    {
-        if (npcId == 0) return;
-        lock (_lock)
-        {
-            _npcVoiceStore[npcId] = new NpcVoiceOverride(
-                catalogId, raceId, bespokeSampleId, bespokeExaggeration, bespokeCfgWeight, useNpcIdAsSeed);
-        }
-    }
-
-    /// <summary>
-    /// Removes an NPC voice override from the in-memory store (called from the UI
-    /// after the user deletes a local override).
-    /// The caller is responsible for deleting from the DB via NpcRaceOverrideDb.
-    /// </summary>
-    public void RemoveRaceOverride(int npcId)
-    {
-        lock (_lock)
-        {
-            _npcVoiceStore.Remove(npcId);
-        }
-    }
-
     public void SignalSourceGone()
     {
         // No-op: playback continues; same dialog may reappear.
@@ -434,23 +355,45 @@ public sealed class TtsSessionAssembler
         _completedKeys.Add(key);
         _completedUtteranceKeys.Add(utteranceKey);
 
-        // Resolve bespoke override for this NPC (null if not set)
-        _npcVoiceStore.TryGetValue(acc.NpcId, out var voiceOverride);
+        var slot = acc.Slot;
+        string? bespokeSampleId = null;
+        float? bespokeExaggeration = null;
+        float? bespokeCfgWeight = null;
+        var useNpcIdAsSeed = false;
+
+        if (!acc.IsNarrator && acc.NpcId != 0)
+        {
+            var entry = _overrideDb.GetOverrideAsync(acc.NpcId).GetAwaiter().GetResult();
+            if (entry != null)
+            {
+                var g = acc.IsMale ? Gender.Male : acc.IsFemale ? Gender.Female : Gender.Unknown;
+                if (!string.IsNullOrWhiteSpace(entry.CatalogId))
+                {
+                    slot = AppServices.NpcPeopleCatalog?.ResolveCatalogSlot(entry.CatalogId, g)
+                           ?? (g == Gender.Female ? VoiceSlot.FemaleNarrator : VoiceSlot.MaleNarrator);
+                }
+
+                bespokeSampleId = entry.BespokeSampleId;
+                bespokeExaggeration = entry.BespokeExaggeration;
+                bespokeCfgWeight = entry.BespokeCfgWeight;
+                useNpcIdAsSeed = entry.UseNpcIdAsSeed;
+            }
+        }
 
         _completedSegments[acc.SeqIndex] = new AssembledSegment
         {
             Text                = text,
-            Slot                = acc.Slot,
+            Slot                = slot,
             DialogId            = _currentDialogId,
             SegmentIndex        = acc.SeqIndex,
             NpcId               = acc.NpcId,
             PlayerName          = string.IsNullOrWhiteSpace(_currentPlayerName) ? null : _currentPlayerName,
             PlayerRealm         = string.IsNullOrWhiteSpace(_currentPlayerRealm) ? null : _currentPlayerRealm,
             PlayerClass         = string.IsNullOrWhiteSpace(_currentPlayerClass) ? null : _currentPlayerClass,
-            BespokeSampleId     = voiceOverride.BespokeSampleId,
-            BespokeExaggeration = voiceOverride.BespokeExaggeration,
-            BespokeCfgWeight    = voiceOverride.BespokeCfgWeight,
-            UseNpcIdAsSeed      = voiceOverride.UseNpcIdAsSeed,
+            BespokeSampleId     = bespokeSampleId,
+            BespokeExaggeration = bespokeExaggeration,
+            BespokeCfgWeight    = bespokeCfgWeight,
+            UseNpcIdAsSeed      = useNpcIdAsSeed,
         };
     }
 

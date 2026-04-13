@@ -137,7 +137,6 @@ internal static class Program
         npcOverrides.InitializeAsync().GetAwaiter().GetResult();
 
         var assembler = new TtsSessionAssembler(npcOverrides);
-        assembler.LoadOverridesAsync().GetAwaiter().GetResult();
 
         // ── Community sync service ────────────────────────────────────────────
         NpcSyncService npcSync;

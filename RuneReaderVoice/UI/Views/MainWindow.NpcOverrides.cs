@@ -304,12 +304,6 @@ public partial class MainWindow
                 bespokeSampleId: bespokeSampleId,
                 useNpcIdAsSeed: useNpcIdAsSeed);
 
-            AppServices.Assembler.ApplyRaceOverride(
-                _lastNpcId, catalogId,
-                raceId: raceId,
-                bespokeSampleId: bespokeSampleId,
-                useNpcIdAsSeed: useNpcIdAsSeed);
-
             // Contribute to server if enabled
             if (AppServices.Settings.ContributeByDefault)
             {
@@ -341,7 +335,6 @@ public partial class MainWindow
         _ = Task.Run(async () =>
         {
             await AppServices.NpcOverrides.DeleteAsync(_lastNpcId);
-            AppServices.Assembler.RemoveRaceOverride(_lastNpcId);
 
             Dispatcher.UIThread.Post(() =>
             {
@@ -558,7 +551,6 @@ public partial class MainWindow
         _ = Task.Run(async () =>
         {
             await AppServices.NpcOverrides.DeleteAsync(entry.NpcId);
-            AppServices.Assembler.RemoveRaceOverride(entry.NpcId);
             Dispatcher.UIThread.Post(RefreshNpcOverridesGrid);
         });
     }
@@ -572,7 +564,6 @@ public partial class MainWindow
         _ = Task.Run(async () =>
         {
             await AppServices.NpcOverrides.UpsertAsync(entry.NpcId, entry.CatalogId, entry.Notes, raceId: 0);
-            AppServices.Assembler.ApplyRaceOverride(entry.NpcId, entry.CatalogId, raceId: 0);
             Dispatcher.UIThread.Post(() =>
             {
                 RefreshNpcOverridesGrid();
@@ -892,14 +883,6 @@ public partial class MainWindow
 
                 await AppServices.NpcOverrides.UpsertAsync(
                     entry.NpcId, resolvedCatalogId, entry.Notes,
-                    raceId: entry.RaceId,
-                    bespokeSampleId:     entry.BespokeSampleId,
-                    bespokeExaggeration: entry.BespokeExaggeration,
-                    bespokeCfgWeight:    entry.BespokeCfgWeight,
-                    useNpcIdAsSeed:     entry.UseNpcIdAsSeed);
-
-                AppServices.Assembler.ApplyRaceOverride(
-                    entry.NpcId, resolvedCatalogId,
                     raceId: entry.RaceId,
                     bespokeSampleId:     entry.BespokeSampleId,
                     bespokeExaggeration: entry.BespokeExaggeration,

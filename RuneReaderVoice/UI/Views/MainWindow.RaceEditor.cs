@@ -22,9 +22,15 @@ public partial class MainWindow
     private string _raceEditorSearchText = string.Empty;
     private string? _raceEditorSelectedId;
     private bool _raceEditorLoading;
+    private int _raceEditorPageNumber = 1;
+    private int _raceEditorPageSize = 50;
+    private int _raceEditorTotalCount;
+    private IReadOnlyList<NpcPeopleCatalogRow> _raceEditorPageItems = Array.Empty<NpcPeopleCatalogRow>();
 
     private void InitRaceEditorUi()
     {
+        if (RaceEditorPageSizeDropdown != null)
+            RaceEditorPageSizeDropdown.SelectedIndex = 1;
         _ = ReloadRaceEditorAsync();
         ClearRaceEditorForm();
     }
@@ -32,23 +38,24 @@ public partial class MainWindow
     private async Task ReloadRaceEditorAsync()
     {
         await AppServices.NpcPeopleCatalog.ReloadAsync();
-        PopulateRaceEditorList();
+        await RefreshRaceEditorListAsync();
         PopulateVoiceGrid();
         await RefreshNpcOverrideUiAfterRaceCatalogChangeAsync();
     }
 
-    private void PopulateRaceEditorList()
+    private async Task RefreshRaceEditorListAsync()
     {
-        var rows = AppServices.NpcPeopleCatalog.GetAllRows();
-        if (!string.IsNullOrWhiteSpace(_raceEditorSearchText))
-        {
-            rows = rows.Where(x =>
-                    x.Id.Contains(_raceEditorSearchText, StringComparison.OrdinalIgnoreCase) ||
-                    x.AccentLabel.Contains(_raceEditorSearchText, StringComparison.OrdinalIgnoreCase))
-                .ToList();
-        }
+        var page = await AppServices.NpcPeopleCatalog.QueryPageAsync(
+            _raceEditorSearchText,
+            _raceEditorPageNumber,
+            _raceEditorPageSize);
 
-        RaceEditorList.ItemsSource = rows
+        _raceEditorPageItems = page.Items;
+        _raceEditorTotalCount = page.TotalCount;
+        _raceEditorPageNumber = page.PageNumber;
+        _raceEditorPageSize = page.PageSize;
+
+        RaceEditorList.ItemsSource = _raceEditorPageItems
             .Select(x => new RaceEditorListItem
             {
                 Id = x.Id,
@@ -56,11 +63,23 @@ public partial class MainWindow
             })
             .ToList();
 
-        if (!string.IsNullOrWhiteSpace(_raceEditorSelectedId))
+        UpdateRaceEditorPagingUi();
+
+        if (!string.IsNullOrWhiteSpace(_raceEditorSelectedId) && RaceEditorList.ItemsSource is IEnumerable<RaceEditorListItem> items)
         {
-            var match = ((IEnumerable<RaceEditorListItem>)RaceEditorList.ItemsSource!).FirstOrDefault(x => x.Id == _raceEditorSelectedId);
-            RaceEditorList.SelectedItem = match;
+            RaceEditorList.SelectedItem = items.FirstOrDefault(x => x.Id == _raceEditorSelectedId);
         }
+    }
+
+    private void UpdateRaceEditorPagingUi()
+    {
+        var totalPages = Math.Max(1, (_raceEditorTotalCount + _raceEditorPageSize - 1) / _raceEditorPageSize);
+        if (RaceEditorPageInfoText != null)
+            RaceEditorPageInfoText.Text = $"Page {_raceEditorPageNumber} / {totalPages}  •  {_raceEditorTotalCount} rows";
+        if (RaceEditorPrevButton != null)
+            RaceEditorPrevButton.IsEnabled = _raceEditorPageNumber > 1;
+        if (RaceEditorNextButton != null)
+            RaceEditorNextButton.IsEnabled = _raceEditorPageNumber < totalPages;
     }
 
     private async Task RefreshNpcOverrideUiAfterRaceCatalogChangeAsync()
@@ -174,7 +193,7 @@ public partial class MainWindow
 
             await AppServices.NpcPeopleCatalog.UpsertAsync(row);
             _raceEditorSelectedId = row.Id;
-            PopulateRaceEditorList();
+            await RefreshRaceEditorListAsync();
             LoadRaceEditorRow(row);
             PopulateVoiceGrid();
             await RefreshNpcOverrideUiAfterRaceCatalogChangeAsync();
@@ -209,7 +228,7 @@ public partial class MainWindow
 
             await AppServices.NpcPeopleCatalog.SetEnabledAsync(id, enabled);
             await ReloadRaceEditorAsync();
-            var row = AppServices.NpcPeopleCatalog.GetAllRows().FirstOrDefault(x => x.Id == id);
+            var row = await AppServices.NpcPeopleCatalog.GetByIdAsync(id);
             if (row != null)
                 LoadRaceEditorRow(row);
             SetRaceEditorStatus(enabled ? $"Activated {id}." : $"Deactivated {id}.");
@@ -249,7 +268,8 @@ public partial class MainWindow
     private void OnRaceEditorSearchTextChanged(object? sender, TextChangedEventArgs e)
     {
         _raceEditorSearchText = RaceEditorSearchBox.Text?.Trim() ?? string.Empty;
-        PopulateRaceEditorList();
+        _raceEditorPageNumber = 1;
+        _ = RefreshRaceEditorListAsync();
     }
 
     private void OnRaceEditorListSelectionChanged(object? sender, SelectionChangedEventArgs e)
@@ -257,7 +277,7 @@ public partial class MainWindow
         if (RaceEditorList.SelectedItem is not RaceEditorListItem item)
             return;
 
-        var row = AppServices.NpcPeopleCatalog.GetAllRows().FirstOrDefault(x => x.Id == item.Id);
+        var row = _raceEditorPageItems.FirstOrDefault(x => x.Id == item.Id);
         if (row == null)
             return;
 
@@ -279,5 +299,33 @@ public partial class MainWindow
 
     private void OnRaceEditorSortOrderChanged(object? sender, NumericUpDownValueChangedEventArgs e)
     {
+    }
+
+    private void OnRaceEditorPrevPageClicked(object? sender, RoutedEventArgs e)
+    {
+        if (_raceEditorPageNumber <= 1)
+            return;
+        _raceEditorPageNumber--;
+        _ = RefreshRaceEditorListAsync();
+    }
+
+    private void OnRaceEditorNextPageClicked(object? sender, RoutedEventArgs e)
+    {
+        var totalPages = Math.Max(1, (_raceEditorTotalCount + _raceEditorPageSize - 1) / _raceEditorPageSize);
+        if (_raceEditorPageNumber >= totalPages)
+            return;
+        _raceEditorPageNumber++;
+        _ = RefreshRaceEditorListAsync();
+    }
+
+    private void OnRaceEditorPageSizeChanged(object? sender, SelectionChangedEventArgs e)
+    {
+        if (RaceEditorPageSizeDropdown?.SelectedItem is ComboBoxItem item
+            && int.TryParse(item.Tag?.ToString(), out var size))
+        {
+            _raceEditorPageSize = size;
+            _raceEditorPageNumber = 1;
+            _ = RefreshRaceEditorListAsync();
+        }
     }
 }

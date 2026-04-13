@@ -182,16 +182,7 @@ public sealed class NpcSyncService : IDisposable
 
         if (merged > 0)
         {
-            // Apply to in-memory assembler store so next dialog picks up new entries
-            foreach (var record in domainRecords)
-            {
-                await _assemblerBridge.ApplyIfNotLocalAsync(
-                    record.NpcId, record.CatalogId, record.RaceId,
-                    record.BespokeSampleId,
-                    record.BespokeExaggeration,
-                    record.BespokeCfgWeight);
-            }
-
+            // DB is source of truth. No assembler-side mirror to update.
             NpcRecordsMerged?.Invoke(merged);
             SetStatus($"Synced {merged} NPC override(s) from server.");
         }
@@ -619,48 +610,24 @@ public sealed class NpcSyncService : IDisposable
 }
 
 // ── Bridge to TtsSessionAssembler ─────────────────────────────────────────────
-// Thin wrapper so NpcSyncService doesn't depend directly on TtsSessionAssembler.
-// Avoids circular dependency between Session and Sync namespaces.
+// Legacy compatibility wrapper. Runtime no longer keeps an in-memory NPC
+// override mirror; SQLite is authoritative. Kept so constructor wiring does
+// not need to change yet.
 
 public sealed class TtsSessionAssemblerBridge
 {
-    private readonly Session.TtsSessionAssembler _assembler;
-    private readonly NpcRaceOverrideDb           _npcDb;
-
     public TtsSessionAssemblerBridge(
         Session.TtsSessionAssembler assembler,
         NpcRaceOverrideDb npcDb)
     {
-        _assembler = assembler;
-        _npcDb     = npcDb;
     }
 
-    /// <summary>
-    /// Applies a server record to the in-memory assembler store
-    /// only if no Local entry exists for this NpcId.
-    /// </summary>
-    public async Task ApplyIfNotLocalAsync(
+    public Task ApplyIfNotLocalAsync(
         int npcId, string? catalogId, int raceId,
         string? bespokeSampleId,
         float? bespokeExaggeration,
         float? bespokeCfgWeight)
-    {
-        if (_assembler == null) return;
-
-        var existing = await _npcDb.GetOverrideAsync(npcId).ConfigureAwait(false);
-        if (existing?.Source == NpcOverrideSource.Local)
-            return;
-
-        if (string.IsNullOrWhiteSpace(catalogId))
-            return;
-
-        _assembler.ApplyRaceOverride(
-            npcId, catalogId,
-            raceId: 0,
-            bespokeSampleId:     bespokeSampleId,
-            bespokeExaggeration: bespokeExaggeration,
-            bespokeCfgWeight:    bespokeCfgWeight);
-    }
+        => Task.CompletedTask;
 }
 
 // ── Export file DTOs (mirrors client export format) ───────────────────────────

@@ -7,6 +7,12 @@ using SQLite;
 
 namespace RuneReaderVoice.Data;
 
+public sealed record NpcPeopleCatalogPage(
+    IReadOnlyList<NpcPeopleCatalogRow> Items,
+    int TotalCount,
+    int PageNumber,
+    int PageSize);
+
 public sealed class NpcPeopleCatalogStore
 {
     private readonly RvrDb _db;
@@ -15,6 +21,44 @@ public sealed class NpcPeopleCatalogStore
     public Task<List<NpcPeopleCatalogRow>> GetAllAsync()
         => _db.Connection.Table<NpcPeopleCatalogRow>().ToListAsync();
 
+    public async Task<NpcPeopleCatalogPage> QueryPageAsync(string? filter, int pageNumber, int pageSize)
+    {
+        pageNumber = Math.Max(1, pageNumber);
+        pageSize   = Math.Clamp(pageSize, 25, 500);
+
+        var whereClauses = new List<string>();
+        var args = new List<object>();
+
+        if (!string.IsNullOrWhiteSpace(filter))
+        {
+            var like = $"%{filter.Trim()}%";
+            whereClauses.Add("(Id LIKE ? OR DisplayName LIKE ? OR AccentLabel LIKE ? OR Source LIKE ?)");
+            args.Add(like);
+            args.Add(like);
+            args.Add(like);
+            args.Add(like);
+        }
+
+        var whereSql = whereClauses.Count == 0
+            ? string.Empty
+            : " WHERE " + string.Join(" AND ", whereClauses);
+
+        var countSql = "SELECT COUNT(*) AS Value FROM NpcPeopleCatalog" + whereSql;
+        var total = (await _db.Connection.QueryAsync<CountRow>(countSql, args.ToArray()))
+            .FirstOrDefault()?.Value ?? 0;
+
+        var offset = (pageNumber - 1) * pageSize;
+        var pageArgs = new List<object>(args) { pageSize, offset };
+        var pageSql = "SELECT * FROM NpcPeopleCatalog" + whereSql + " ORDER BY SortOrder, DisplayName COLLATE NOCASE LIMIT ? OFFSET ?";
+        var rows = await _db.Connection.QueryAsync<NpcPeopleCatalogRow>(pageSql, pageArgs.ToArray());
+
+        return new NpcPeopleCatalogPage(rows, total, pageNumber, pageSize);
+    }
+
+    private sealed class CountRow
+    {
+        public int Value { get; set; }
+    }
 
     public Task<NpcPeopleCatalogRow?> GetByIdAsync(string id)
         => _db.Connection.FindAsync<NpcPeopleCatalogRow>(id);
