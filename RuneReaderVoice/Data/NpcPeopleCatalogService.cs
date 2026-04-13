@@ -10,13 +10,12 @@ namespace RuneReaderVoice.Data;
 public sealed class NpcPeopleCatalogService
 {
     private readonly NpcPeopleCatalogStore _store;
-    private List<NpcPeopleCatalogRow> _rows = new();
 
     public NpcPeopleCatalogService(NpcPeopleCatalogStore store) => _store = store;
 
-    public async Task InitializeAsync() => _rows = await _store.GetAllAsync();
+    public Task InitializeAsync() => Task.CompletedTask;
 
-    public Task ReloadAsync() => InitializeAsync();
+    public Task ReloadAsync() => Task.CompletedTask;
 
     public Task<NpcPeopleCatalogPage> QueryPageAsync(string? filter, int pageNumber, int pageSize)
         => _store.QueryPageAsync(filter, pageNumber, pageSize);
@@ -25,22 +24,23 @@ public sealed class NpcPeopleCatalogService
         => _store.GetByIdAsync(id);
 
     public IReadOnlyList<NpcPeopleCatalogRow> GetAllRows()
-        => _rows
+        => _store.GetAllAsync().GetAwaiter().GetResult()
+            .OrderBy(x => x.SortOrder)
+            .ThenBy(x => x.DisplayName, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+    public IReadOnlyList<NpcPeopleCatalogRow> GetEnabledRows()
+        => _store.GetEnabledAsync().GetAwaiter().GetResult()
+            .Where(x => x.HasMale || x.HasFemale || x.HasNeutral)
             .OrderBy(x => x.SortOrder)
             .ThenBy(x => x.DisplayName, StringComparer.OrdinalIgnoreCase)
             .ToList();
 
     public async Task UpsertAsync(NpcPeopleCatalogRow row)
-    {
-        await _store.UpsertAsync(row);
-        await ReloadAsync();
-    }
+        => await _store.UpsertAsync(row);
 
     public async Task SetEnabledAsync(string id, bool enabled)
-    {
-        await _store.SetEnabledAsync(id, enabled);
-        await ReloadAsync();
-    }
+        => await _store.SetEnabledAsync(id, enabled);
 
     public IReadOnlyList<VoiceSlotCatalogRow> GetVoiceSlots()
     {
@@ -51,7 +51,7 @@ public sealed class NpcPeopleCatalogService
         result.Add(maleNarrator);
         result.Add(femaleNarrator);
 
-        foreach (var row in _rows.Where(x => x.Enabled).OrderBy(x => x.SortOrder).ThenBy(x => x.DisplayName, StringComparer.OrdinalIgnoreCase))
+        foreach (var row in GetEnabledRows())
         {
             if (row.HasMale)
                 result.Add(new VoiceSlotCatalogRow(VoiceSlot.CreateCatalog(row.Id, Gender.Male), $"{row.DisplayName} / Male", row.AccentLabel, row.SortOrder));
@@ -66,8 +66,8 @@ public sealed class NpcPeopleCatalogService
 
     public VoiceSlot ResolveCatalogSlot(string catalogId, Gender packetGender)
     {
-        var row = _rows.FirstOrDefault(x => x.Enabled && string.Equals(x.Id, catalogId, StringComparison.OrdinalIgnoreCase));
-        if (row == null)
+        var row = _store.GetByIdAsync(catalogId).GetAwaiter().GetResult();
+        if (row == null || !row.Enabled)
             return packetGender == Gender.Female ? VoiceSlot.FemaleNarrator : VoiceSlot.MaleNarrator;
 
         if (packetGender == Gender.Female && row.HasFemale)
@@ -95,4 +95,3 @@ public sealed class NpcPeopleCatalogService
         => GetVoiceSlots().FirstOrDefault(x => x.Slot.Equals(slot))?.AccentLabel
            ?? slot.SlotKey;
 }
-

@@ -21,6 +21,11 @@ public sealed class NpcPeopleCatalogStore
     public Task<List<NpcPeopleCatalogRow>> GetAllAsync()
         => _db.Connection.Table<NpcPeopleCatalogRow>().ToListAsync();
 
+    public Task<List<NpcPeopleCatalogRow>> GetEnabledAsync()
+        => _db.Connection.Table<NpcPeopleCatalogRow>()
+            .Where(x => x.Enabled)
+            .ToListAsync();
+
     public async Task<NpcPeopleCatalogPage> QueryPageAsync(string? filter, int pageNumber, int pageSize)
     {
         pageNumber = Math.Max(1, pageNumber);

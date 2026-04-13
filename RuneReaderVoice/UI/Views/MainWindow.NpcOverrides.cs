@@ -603,7 +603,7 @@ public partial class MainWindow
 
     private string GetNpcOverrideCatalogLabel(NpcRaceOverride entry)
     {
-        var row = AppServices.NpcPeopleCatalog.GetAllRows().FirstOrDefault(x => string.Equals(x.Id, entry.CatalogId, StringComparison.OrdinalIgnoreCase));
+        var row = AppServices.NpcPeopleCatalog.GetByIdAsync(entry.CatalogId ?? string.Empty).GetAwaiter().GetResult();
         if (row != null)
             return $"{row.DisplayName} — {row.AccentLabel}";
         if (!string.IsNullOrWhiteSpace(entry.CatalogId))
@@ -613,8 +613,7 @@ public partial class MainWindow
 
     private List<CatalogOption> GetNpcOverrideRaceOptions(string? filter = null)
     {
-        var options = AppServices.NpcPeopleCatalog.GetAllRows()
-            .Where(x => x.Enabled && (x.HasMale || x.HasFemale || x.HasNeutral))
+        var options = AppServices.NpcPeopleCatalog.GetEnabledRows()
             .Select(x => new CatalogOption(x.Id, $"{x.DisplayName} — {x.AccentLabel}"))
             .OrderByDescending(x => GetNpcCatalogSelectionRank(x.CatalogId))
             .ThenBy(x => x.Label, StringComparer.OrdinalIgnoreCase)
