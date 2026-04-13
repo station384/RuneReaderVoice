@@ -166,12 +166,10 @@ public sealed class ProviderSlotProfileStore
         if (string.IsNullOrWhiteSpace(providerId) || string.IsNullOrWhiteSpace(slotId))
             return;
 
-        var row = await _db.Connection.Table<ProviderSlotProfileRow>()
-            .Where(x => x.ProviderId == providerId && x.SlotId == slotId)
-            .FirstOrDefaultAsync();
-
-        if (row != null)
-            await _db.Connection.DeleteAsync(row);
+        await _db.Connection.ExecuteAsync(
+            "DELETE FROM ProviderSlotProfiles WHERE ProviderId = ? AND SlotId = ?",
+            providerId,
+            slotId);
 
         RemoveCachedProfile(providerId, slotId);
     }
@@ -414,12 +412,10 @@ public sealed class ProviderSlotProfileStore
         if (string.IsNullOrWhiteSpace(providerId))
             return;
 
-        var existingRows = await _db.Connection.Table<ProviderSlotProfileRow>()
-            .Where(x => x.ProviderId == providerId && !x.SlotId.StartsWith(SampleKeyPrefix))
-            .ToListAsync();
-
-        foreach (var row in existingRows)
-            await _db.Connection.DeleteAsync(row);
+        await _db.Connection.ExecuteAsync(
+            "DELETE FROM ProviderSlotProfiles WHERE ProviderId = ? AND SlotId NOT LIKE ?",
+            providerId,
+            SampleKeyPrefix + "%");
 
         if (_cache.TryGetValue(providerId, out var dict))
         {
@@ -464,12 +460,10 @@ public sealed class ProviderSlotProfileStore
         if (string.IsNullOrWhiteSpace(providerId))
             return;
 
-        var existingRows = await _db.Connection.Table<ProviderSlotProfileRow>()
-            .Where(x => x.ProviderId == providerId && x.SlotId.StartsWith(SampleKeyPrefix))
-            .ToListAsync();
-
-        foreach (var row in existingRows)
-            await _db.Connection.DeleteAsync(row);
+        await _db.Connection.ExecuteAsync(
+            "DELETE FROM ProviderSlotProfiles WHERE ProviderId = ? AND SlotId LIKE ?",
+            providerId,
+            SampleKeyPrefix + "%");
 
         if (_cache.TryGetValue(providerId, out var dict))
         {

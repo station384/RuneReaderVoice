@@ -63,8 +63,8 @@ public sealed class LanguagePickerDialog : Window
             }
             else
             {
-                _detailName.Text = "";
-                _detailCode.Text = "";
+                _detailName.Text = string.Empty;
+                _detailCode.Text = string.Empty;
             }
         };
 

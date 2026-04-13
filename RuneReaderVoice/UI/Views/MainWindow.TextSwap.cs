@@ -87,7 +87,7 @@ public partial class MainWindow
     {
         TextSwapRuleList.Items.Clear();
 
-        if (TextSwapPageSizeComboBox != null && TextSwapPageSizeComboBox.SelectedItem == null)
+        if (TextSwapPageSizeComboBox?.SelectedItem == null)
             TextSwapPageSizeComboBox.SelectedIndex = 0;
 
         var page = await AppServices.TextSwapRules.QueryPageAsync(_textSwapPageNumber, _textSwapPageSize);

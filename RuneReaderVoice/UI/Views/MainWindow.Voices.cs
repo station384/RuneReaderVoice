@@ -436,13 +436,22 @@ So go quickly, keep your wits about you, and return by the main road if you valu
 
             var json = await File.ReadAllTextAsync(files[0].Path.LocalPath);
 
-            var multi = JsonSerializer.Deserialize<MultiProviderVoiceProfileExport>(json);
+            Dictionary<string, Dictionary<string, VoiceProfile>>? importedProviderMap = null;
+            using (var doc = JsonDocument.Parse(json))
+            {
+                if (doc.RootElement.ValueKind == JsonValueKind.Object &&
+                    doc.RootElement.TryGetProperty("Providers", out _))
+                {
+                    importedProviderMap = JsonSerializer.Deserialize<MultiProviderVoiceProfileExport>(json)?.Providers;
+                }
+            }
+
             var importedProviders = 0;
             var importedProfiles = 0;
 
-            if (multi?.Providers != null && multi.Providers.Count > 0)
+            if (importedProviderMap != null && importedProviderMap.Count > 0)
             {
-                foreach (var (providerId, profiles) in multi.Providers)
+                foreach (var (providerId, profiles) in importedProviderMap)
                 {
                     if (string.IsNullOrWhiteSpace(providerId) || profiles == null)
                         continue;

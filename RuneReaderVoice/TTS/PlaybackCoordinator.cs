@@ -305,14 +305,10 @@ public sealed class PlaybackCoordinator : IDisposable
                 int segIdx = _nextExpectedIndex - 1;
                 System.Diagnostics.Debug.WriteLine(
                     $"[PC] Play start seg={segIdx} samples={audio?.Samples.Length} pending={_synthTasks.Count}");
-                if (audio == null)
+                if (audio != null)
                 {
-                    System.Diagnostics.Debug.WriteLine($"[PC] Play skipped seg={segIdx} reason=null-audio");
-                    AppServices.ClearOperationStatus();
-                    continue;
+                    await _player.PlayAsync(audio, ct);
                 }
-
-                await _player.PlayAsync(audio, ct);
                 AppServices.ClearOperationStatus();
                 System.Diagnostics.Debug.WriteLine($"[PC] Play done seg={segIdx}");
             }
@@ -379,20 +375,13 @@ public sealed class PlaybackCoordinator : IDisposable
 
     private async Task<PcmAudio?> SynthesizeSegmentAsync(AssembledSegment segment, CancellationToken ct)
     {
-        var segmentText = segment.Text ?? string.Empty;
-        if (string.IsNullOrWhiteSpace(segmentText))
-        {
-            System.Diagnostics.Debug.WriteLine($"[PC] Synth skipped seg={segment.SegmentIndex} slot={segment.Slot} reason=empty-text");
-            return null;
-        }
-
         System.Diagnostics.Debug.WriteLine(
             $"[PC] Synth start seg={segment.SegmentIndex} slot={segment.Slot} provider={_provider.ProviderId}");
         // Suppressor key includes SegmentIndex so two segments with identical text
         // at different positions in the same dialog (e.g. "You flip to the next
         // section." at seq=5 and seq=7) are never suppressed by each other.
         var suppressorKey = $"{segment.Slot}:{segment.SegmentIndex}";
-        if (_recentSpeechSuppressor.ShouldSuppress(segmentText, suppressorKey))
+        if (_recentSpeechSuppressor.ShouldSuppress(segment.Text, suppressorKey))
         {
             System.Diagnostics.Debug.WriteLine($"[PC] Suppressed seg={segment.SegmentIndex} slot={suppressorKey} (recent repeat)");
             return null;
@@ -459,8 +448,8 @@ public sealed class PlaybackCoordinator : IDisposable
             : $"{cacheSlotKey}:{voiceId}";
 
         var cacheText = _provider is RemoteTtsProvider remoteCacheProvider
-            ? remoteCacheProvider.NormalizeSubmittedTextForCache(segmentText)
-             : segmentText;
+            ? remoteCacheProvider.NormalizeSubmittedTextForCache(segment.Text)
+            : segment.Text;
 
         var cacheKey = TtsAudioCache.ComputeKey(cacheText, effectiveVoiceId, _provider.ProviderId, "");
         DebugCacheTrace(
@@ -471,12 +460,12 @@ public sealed class PlaybackCoordinator : IDisposable
             voiceId: effectiveVoiceId,
             cacheText: cacheText,
             cacheKey: cacheKey,
-            originalText: segmentText);
+            originalText: segment.Text);
 
         var cached = await _cache.TryGetDecodedAsync(cacheText, effectiveVoiceId, _provider.ProviderId, "", ct);
         if (cached != null)
         {
-            System.Diagnostics.Debug.WriteLine($"[PC] Cache HIT seg={segment.SegmentIndex} slot={cacheSlotKey} voice={effectiveVoiceId} words={Regex.Matches(segmentText, @"\b[\p{L}\p{N}']+\b", RegexOptions.CultureInvariant).Count} text='{PreviewSegment(segmentText)}'");
+            System.Diagnostics.Debug.WriteLine($"[PC] Cache HIT seg={segment.SegmentIndex} slot={cacheSlotKey} voice={effectiveVoiceId} words={Regex.Matches(segment.Text ?? string.Empty, @"\b[\p{L}\p{N}']+\b", RegexOptions.CultureInvariant).Count} text='{PreviewSegment(segment.Text)}'");
             DebugCacheTrace(
                 phase: "Hit",
                 segmentIndex: segment.SegmentIndex,
@@ -488,7 +477,7 @@ public sealed class PlaybackCoordinator : IDisposable
                 originalText: segment.Text);
             return DspFilterChain.Apply(cached, profile?.Dsp);
         }
-        System.Diagnostics.Debug.WriteLine($"[PC] Cache MISS seg={segment.SegmentIndex} slot={cacheSlotKey} voice={effectiveVoiceId} words={Regex.Matches(segmentText, @"\b[\p{L}\p{N}']+\b", RegexOptions.CultureInvariant).Count} text='{PreviewSegment(segmentText)}'");
+        System.Diagnostics.Debug.WriteLine($"[PC] Cache MISS seg={segment.SegmentIndex} slot={cacheSlotKey} voice={effectiveVoiceId} words={Regex.Matches(segment.Text ?? string.Empty, @"\b[\p{L}\p{N}']+\b", RegexOptions.CultureInvariant).Count} text='{PreviewSegment(segment.Text)}'");
         DebugCacheTrace(
             phase: "Miss",
             segmentIndex: segment.SegmentIndex,
@@ -497,12 +486,12 @@ public sealed class PlaybackCoordinator : IDisposable
             voiceId: effectiveVoiceId,
             cacheText: cacheText,
             cacheKey: cacheKey,
-            originalText: segmentText);
+            originalText: segment.Text);
 
         if (_provider is RemoteTtsProvider remoteProviderSingle)
         {
             var oggBytes = await remoteProviderSingle.SynthesizeOggAsync(
-                segmentText, segment.Slot, ct,
+                segment.Text, segment.Slot, ct,
                 applyBespoke ? segment.BespokeSampleId    : null,
                 applyBespoke ? segment.BespokeExaggeration : null,
                 applyBespoke ? segment.BespokeCfgWeight   : null,
@@ -524,14 +513,14 @@ public sealed class PlaybackCoordinator : IDisposable
 
         // Local provider — synthesize and concatenate all phrase chunks
         var sw         = System.Diagnostics.Stopwatch.StartNew();
-        var chunkTexts = TextChunkingPolicy.GetChunkTexts(segmentText, _provider, profile, AppServices.Settings);
+        var chunkTexts = TextChunkingPolicy.GetChunkTexts(segment.Text, _provider, profile, AppServices.Settings);
         var chunks     = new List<PcmAudio>();
 
         await foreach (var (audio, phraseIndex, phraseCount) in
-            _provider.SynthesizePhraseStreamAsync(segmentText, segment.Slot, _tempDirectory, ct))
+            _provider.SynthesizePhraseStreamAsync(segment.Text, segment.Slot, _tempDirectory, ct))
         {
             if (phraseIndex == 0) { sw.Stop(); LastSynthesisLatency = sw.Elapsed; }
-            var phraseText = GetPhraseText(segmentText, phraseIndex, phraseCount, chunkTexts);
+            var phraseText = GetPhraseText(segment.Text, phraseIndex, phraseCount, chunkTexts);
             await _cache.StoreAsync(audio, phraseText, effectiveVoiceId, _provider.ProviderId, "", ct);
             chunks.Add(DspFilterChain.Apply(audio, profile?.Dsp));
         }
