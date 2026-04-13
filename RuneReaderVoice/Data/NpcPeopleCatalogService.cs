@@ -42,6 +42,10 @@ public sealed class NpcPeopleCatalogService
     public async Task SetEnabledAsync(string id, bool enabled)
         => await _store.SetEnabledAsync(id, enabled);
 
+
+    public IReadOnlyList<NpcPeopleCatalogRow> SearchEnabledRows(string? filter, int limit = 500)
+        => _store.QueryEnabledAsync(filter, limit).GetAwaiter().GetResult();
+
     public IReadOnlyList<VoiceSlotCatalogRow> GetVoiceSlots()
     {
         var result = new List<VoiceSlotCatalogRow>();
@@ -88,10 +92,29 @@ public sealed class NpcPeopleCatalogService
     }
 
     public string GetSlotLabel(VoiceSlot slot)
-        => GetVoiceSlots().FirstOrDefault(x => x.Slot.Equals(slot))?.NpcLabel
-           ?? slot.ToString();
+    {
+        if (slot.IsNarrator)
+            return slot.Gender == Gender.Female ? "Narrator / Female" : "Narrator / Male";
+
+        var row = _store.GetByIdAsync(slot.SlotKey).GetAwaiter().GetResult();
+        if (row == null || !row.Enabled)
+            return slot.ToString();
+
+        return slot.Gender switch
+        {
+            Gender.Male when row.HasMale => $"{row.DisplayName} / Male",
+            Gender.Female when row.HasFemale => $"{row.DisplayName} / Female",
+            Gender.Unknown when row.HasNeutral => row.DisplayName,
+            _ => row.DisplayName
+        };
+    }
 
     public string GetSlotAccentLabel(VoiceSlot slot)
-        => GetVoiceSlots().FirstOrDefault(x => x.Slot.Equals(slot))?.AccentLabel
-           ?? slot.SlotKey;
+    {
+        if (slot.IsNarrator)
+            return "Narrator";
+
+        var row = _store.GetByIdAsync(slot.SlotKey).GetAwaiter().GetResult();
+        return row?.AccentLabel ?? slot.SlotKey;
+    }
 }

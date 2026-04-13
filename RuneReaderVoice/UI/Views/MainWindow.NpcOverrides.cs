@@ -613,7 +613,9 @@ public partial class MainWindow
 
     private List<CatalogOption> GetNpcOverrideRaceOptions(string? filter = null)
     {
-        var options = AppServices.NpcPeopleCatalog.GetEnabledRows()
+        var rows = AppServices.NpcPeopleCatalog.SearchEnabledRows(filter, 500);
+
+        var options = rows
             .Select(x => new CatalogOption(x.Id, $"{x.DisplayName} — {x.AccentLabel}"))
             .OrderByDescending(x => GetNpcCatalogSelectionRank(x.CatalogId))
             .ThenBy(x => x.Label, StringComparer.OrdinalIgnoreCase)
@@ -624,7 +626,6 @@ public partial class MainWindow
 
         var needle = filter.Trim();
         return options
-            .Where(x => x.Label.Contains(needle, StringComparison.OrdinalIgnoreCase))
             .OrderByDescending(x => x.Label.StartsWith(needle, StringComparison.OrdinalIgnoreCase))
             .ThenByDescending(x => GetNpcCatalogSelectionRank(x.CatalogId))
             .ThenBy(x => x.Label, StringComparer.OrdinalIgnoreCase)

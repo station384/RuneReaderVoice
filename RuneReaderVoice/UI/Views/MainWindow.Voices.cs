@@ -35,6 +35,7 @@ namespace RuneReaderVoice.UI.Views;
 // Voice slot grid, profile import/export, and slot-level editing flows.
 public partial class MainWindow
 {
+    private const int VoiceGridMaxRows = 250;
     private readonly Dictionary<string, TextBlock> _voiceSummaryBlocks = new(StringComparer.OrdinalIgnoreCase);
     private string _voiceSearchText = string.Empty;
 
@@ -101,16 +102,21 @@ public partial class MainWindow
         VoiceGrid.Children.Clear();
         _voiceSummaryBlocks.Clear();
 
+        var items = GetVoiceCatalogItems(out var totalCount);
+        var introText = "Choose how RuneReader should read text for each NPC type. These settings affect RuneReader speech only and do not change the game's own audio.";
+        if (totalCount > items.Count)
+            introText += $" Showing first {items.Count} of {totalCount} slots. Use search to narrow results.";
+
         var intro = new TextBlock
         {
-            Text = "Choose how RuneReader should read text for each NPC type. These settings affect RuneReader speech only and do not change the game's own audio.",
+            Text = introText,
             TextWrapping = Avalonia.Media.TextWrapping.Wrap,
             Foreground = Avalonia.Media.Brushes.LightGray,
             Margin = new Avalonia.Thickness(0, 0, 0, 8)
         };
         VoiceGrid.Children.Add(intro);
 
-        foreach (var item in GetVoiceCatalogItems())
+        foreach (var item in items)
         {
             var row = new Grid
             {
@@ -155,11 +161,14 @@ public partial class MainWindow
     }
 
 
-    private IReadOnlyList<RuneReaderVoice.Data.VoiceSlotCatalogRow> GetVoiceCatalogItems()
+    private IReadOnlyList<RuneReaderVoice.Data.VoiceSlotCatalogRow> GetVoiceCatalogItems(out int totalCount)
     {
         var items = AppServices.NpcPeopleCatalog?.GetVoiceSlots();
         if (items == null || items.Count == 0)
+        {
+            totalCount = 0;
             return Array.Empty<RuneReaderVoice.Data.VoiceSlotCatalogRow>();
+        }
 
         var maleNarrator = VoiceSlot.MaleNarrator;
         var femaleNarrator = VoiceSlot.FemaleNarrator;
@@ -170,9 +179,12 @@ public partial class MainWindow
             .ToList();
         var ordered = narrator.Concat(rest).ToList();
         if (!string.IsNullOrWhiteSpace(_voiceSearchText))
-        {
             ordered = ordered.Where(x => VoiceSlotMatchesSearch(x, _voiceSearchText)).ToList();
-        }
+
+        totalCount = ordered.Count;
+        if (ordered.Count > VoiceGridMaxRows)
+            ordered = ordered.Take(VoiceGridMaxRows).ToList();
+
         return ordered;
     }
 
@@ -330,7 +342,7 @@ So go quickly, keep your wits about you, and return by the main road if you valu
                     profile.VoiceId = availableVoices.FirstOrDefault()?.VoiceId ?? string.Empty;
             }
 
-            var catalog = GetVoiceCatalogItems().FirstOrDefault(x => x.Slot.Equals(slot))
+            var catalog = GetVoiceCatalogItems(out _).FirstOrDefault(x => x.Slot.Equals(slot))
                           ?? new RuneReaderVoice.Data.VoiceSlotCatalogRow(slot, GetDisplaySlotLabel(slot), AppServices.NpcPeopleCatalog?.GetSlotAccentLabel(slot) ?? slot.SlotKey, 0);
             var voiceSourceLabel = descriptor?.VoiceSourceKind == RemoteVoiceSourceKind.Samples ? "sample" : "voice";
             var supportsPresets = AppServices.Provider is KokoroTtsProvider;
@@ -484,7 +496,7 @@ So go quickly, keep your wits about you, and return by the main road if you valu
                 var import = JsonSerializer.Deserialize<VoiceProfileExport>(json);
                 if (import?.Profiles == null || import.Profiles.Count == 0)
                 {
-                    SetVoicesStatus("No voice profiles found in file."); return;
+                    SetVoicesStatus("No voice profiles found in file.");
                     return;
                 }
 
@@ -538,7 +550,7 @@ So go quickly, keep your wits about you, and return by the main road if you valu
 
 
             // Refresh summary labels
-            foreach (var item in GetVoiceCatalogItems())
+            foreach (var item in GetVoiceCatalogItems(out _))
             {
                 if (_voiceSummaryBlocks.TryGetValue(item.Slot.ToString(), out var summary))
                     summary.Text = DescribeVoiceProfile(item.Slot);

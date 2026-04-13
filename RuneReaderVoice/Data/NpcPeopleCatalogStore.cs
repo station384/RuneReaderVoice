@@ -26,6 +26,29 @@ public sealed class NpcPeopleCatalogStore
             .Where(x => x.Enabled)
             .ToListAsync();
 
+
+    public Task<List<NpcPeopleCatalogRow>> QueryEnabledAsync(string? filter, int limit = 500)
+    {
+        limit = Math.Clamp(limit, 25, 1000);
+
+        var whereClauses = new List<string> { "Enabled = 1" };
+        var args = new List<object>();
+
+        if (!string.IsNullOrWhiteSpace(filter))
+        {
+            var like = $"%{filter.Trim()}%";
+            whereClauses.Add("(Id LIKE ? OR DisplayName LIKE ? OR AccentLabel LIKE ? OR Source LIKE ?)");
+            args.Add(like);
+            args.Add(like);
+            args.Add(like);
+            args.Add(like);
+        }
+
+        var sql = "SELECT * FROM NpcPeopleCatalog WHERE " + string.Join(" AND ", whereClauses) +
+                  " ORDER BY SortOrder, DisplayName COLLATE NOCASE LIMIT ?";
+        args.Add(limit);
+        return _db.Connection.QueryAsync<NpcPeopleCatalogRow>(sql, args.ToArray());
+    }
     public async Task<NpcPeopleCatalogPage> QueryPageAsync(string? filter, int pageNumber, int pageSize)
     {
         pageNumber = Math.Max(1, pageNumber);

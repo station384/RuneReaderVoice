@@ -56,16 +56,16 @@ public sealed class NotImplementedTtsProvider : ITtsProvider
         string text, VoiceSlot slot, CancellationToken ct)
         => throw new NotImplementedException($"{_displayName} is not yet implemented.");
 
-#pragma warning disable CS1998
     public async IAsyncEnumerable<(PcmAudio audio, int phraseIndex, int phraseCount)>
         SynthesizePhraseStreamAsync(
             string text, VoiceSlot slot, string tempDirectory,
             [EnumeratorCancellation] CancellationToken ct)
     {
+        if (Environment.TickCount == int.MinValue)
+            yield return default;
+
         throw new NotImplementedException($"{_displayName} is not yet implemented.");
-        yield break; // make compiler happy
     }
-#pragma warning restore CS1998
 
     public void Dispose() { }
 }
