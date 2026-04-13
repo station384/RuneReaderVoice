@@ -225,7 +225,7 @@ internal static class Program
                 var chunk = pendingExpandedSegments[i];
                 coordinator.EnqueueSegment(CloneSegment(
                     chunk,
-                    chunk.Text,
+                    chunk.Text ?? string.Empty,
                     i,
                     chunk.BatchId,
                     chunk.BatchSegmentId,
@@ -313,7 +313,7 @@ internal static class Program
         if (mode != "split" && mode != "generic" && mode != "actual")
         {
             Console.WriteLine($"[PlayerSplit] bypass seg={startExpandedSegmentIndex} reason=mode mode={mode}");
-            yield return CloneSegment(segment, segment.Text, expandedSegmentIndex);
+            yield return CloneSegment(segment, segment.Text ?? string.Empty, expandedSegmentIndex);
             yield break;
         }
 
@@ -321,7 +321,7 @@ internal static class Program
         if (string.IsNullOrWhiteSpace(segment.Text) || string.IsNullOrWhiteSpace(splitTarget))
         {
             Console.WriteLine($"[PlayerSplit] bypass seg={startExpandedSegmentIndex} reason=missing-text-or-target mode={mode} target='{splitTarget ?? string.Empty}' textLen={segment.Text?.Length ?? 0}");
-            yield return CloneSegment(segment, segment.Text, expandedSegmentIndex);
+            yield return CloneSegment(segment, segment.Text ?? string.Empty, expandedSegmentIndex);
             yield break;
         }
 
@@ -330,7 +330,7 @@ internal static class Program
         if (parts == null || parts.Count == 0)
         {
             Console.WriteLine($"[PlayerSplit] no-split seg={startExpandedSegmentIndex} strategy={strategy} mode={mode} target='{splitTarget}'");
-            yield return CloneSegment(segment, segment.Text, expandedSegmentIndex);
+            yield return CloneSegment(segment, segment.Text ?? string.Empty, expandedSegmentIndex);
             yield break;
         }
 

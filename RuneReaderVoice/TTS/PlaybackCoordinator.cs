@@ -490,8 +490,9 @@ public sealed class PlaybackCoordinator : IDisposable
 
         if (_provider is RemoteTtsProvider remoteProviderSingle)
         {
+            var segmentText = segment.Text ?? string.Empty;
             var oggBytes = await remoteProviderSingle.SynthesizeOggAsync(
-                segment.Text, segment.Slot, ct,
+                segmentText, segment.Slot, ct,
                 applyBespoke ? segment.BespokeSampleId    : null,
                 applyBespoke ? segment.BespokeExaggeration : null,
                 applyBespoke ? segment.BespokeCfgWeight   : null,
@@ -501,7 +502,7 @@ public sealed class PlaybackCoordinator : IDisposable
 
             System.Diagnostics.Debug.WriteLine(
                 $"[PC] Remote synth complete seg={segment.SegmentIndex} bytes={oggBytes.Length}");
-            await _cache.StoreOggAsync(oggBytes, cacheText, effectiveVoiceId, _provider.ProviderId, "", ct);
+            await _cache.StoreOggAsync(oggBytes, cacheText, effectiveVoiceId, _provider.ProviderId, string.Empty, ct);
             var decoded = await _cache.TryGetDecodedAsync(cacheText, effectiveVoiceId, _provider.ProviderId, "", ct);
             if (decoded == null)
                 throw new InvalidOperationException("Remote audio cached but could not be decoded.");
@@ -513,7 +514,7 @@ public sealed class PlaybackCoordinator : IDisposable
 
         // Local provider — synthesize and concatenate all phrase chunks
         var sw         = System.Diagnostics.Stopwatch.StartNew();
-        var chunkTexts = TextChunkingPolicy.GetChunkTexts(segment.Text, _provider, profile, AppServices.Settings);
+        var chunkTexts = TextChunkingPolicy.GetChunkTexts(segment.Text ?? string.Empty, _provider, profile, AppServices.Settings);
         var chunks     = new List<PcmAudio>();
 
         await foreach (var (audio, phraseIndex, phraseCount) in

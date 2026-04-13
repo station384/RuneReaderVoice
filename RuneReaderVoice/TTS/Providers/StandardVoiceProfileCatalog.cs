@@ -260,12 +260,15 @@ public static class StandardVoiceProfileCatalog
 
     private static string? ResolveConfigPath(string fileName)
     {
-        var candidates = new[]
-        {
-            Path.Combine(AppContext.BaseDirectory, "config", fileName),
-            Path.Combine(Directory.GetCurrentDirectory(), "config", fileName),
-        };
+        var configRoot = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "config"));
+        var candidate = Path.GetFullPath(Path.Combine(configRoot, fileName));
 
-        return candidates.FirstOrDefault(File.Exists) ?? candidates[0];
+        if (!candidate.StartsWith(configRoot + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase) &&
+            !string.Equals(candidate, configRoot, StringComparison.OrdinalIgnoreCase))
+        {
+            return null;
+        }
+
+        return candidate;
     }
 }

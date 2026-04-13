@@ -647,19 +647,24 @@ So go quickly, keep your wits about you, and return by the main road if you valu
         VoiceSlot slot, VoiceProfile profile,
         string providerId, Dictionary<string, VoiceProfile> dict)
     {
-        dict[slot.ToString()] = profile.Clone();
+        var cloned = profile.Clone();
+        dict[slot.ToString()] = cloned;
+
+        var currentProviderId = AppServices.Provider.ProviderId;
+        if (!string.Equals(providerId, currentProviderId, StringComparison.OrdinalIgnoreCase))
+            return;
 
         if (AppServices.Provider is KokoroTtsProvider kokoro)
-            kokoro.SetVoiceProfile(slot, profile);
+            kokoro.SetVoiceProfile(slot, cloned.Clone());
 
 #if WINDOWS
         if (AppServices.Provider is WinRtTtsProvider winRt)
-            winRt.SetVoice(slot, profile.VoiceId);
+            winRt.SetVoice(slot, cloned.VoiceId);
 #endif
 
 #if LINUX
         if (AppServices.Provider is LinuxPiperTtsProvider piper)
-            piper.SetModel(slot, profile.VoiceId);
+            piper.SetModel(slot, cloned.VoiceId);
 #endif
     }
 }
