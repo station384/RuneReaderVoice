@@ -88,8 +88,11 @@ public sealed class NpcPeopleCatalogStore
         public int Value { get; set; }
     }
 
-    public Task<NpcPeopleCatalogRow?> GetByIdAsync(string id)
-        => _db.Connection.FindAsync<NpcPeopleCatalogRow>(id);
+    public async Task<NpcPeopleCatalogRow?> GetByIdAsync(string id)
+    {
+        NpcPeopleCatalogRow? row = await _db.Connection.FindAsync<NpcPeopleCatalogRow>(id);
+        return row;
+    }
 
     public async Task UpsertAsync(NpcPeopleCatalogRow row)
     {

@@ -21,7 +21,6 @@ public partial class MainWindow
 
     private string _raceEditorSearchText = string.Empty;
     private string? _raceEditorSelectedId;
-    private bool _raceEditorLoading;
     private int _raceEditorPageNumber = 1;
     private int _raceEditorPageSize = 50;
     private int _raceEditorTotalCount;
@@ -103,7 +102,6 @@ public partial class MainWindow
 
     private void ClearRaceEditorForm(bool keepStatus = true)
     {
-        _raceEditorLoading = true;
         _raceEditorSelectedId = null;
 
         RaceEditorIdBox.Text = string.Empty;
@@ -116,14 +114,12 @@ public partial class MainWindow
         RaceEditorHasFemaleCheck.IsChecked = true;
         RaceEditorHasNeutralCheck.IsChecked = false;
 
-        _raceEditorLoading = false;
         if (!keepStatus)
             SetRaceEditorStatus(string.Empty);
     }
 
     private void LoadRaceEditorRow(NpcPeopleCatalogRow row)
     {
-        _raceEditorLoading = true;
         _raceEditorSelectedId = row.Id;
 
         RaceEditorIdBox.Text = row.Id;
@@ -136,7 +132,6 @@ public partial class MainWindow
         RaceEditorHasFemaleCheck.IsChecked = row.HasFemale;
         RaceEditorHasNeutralCheck.IsChecked = row.HasNeutral;
 
-        _raceEditorLoading = false;
     }
 
     private NpcPeopleCatalogRow? BuildRaceEditorRowFromForm()

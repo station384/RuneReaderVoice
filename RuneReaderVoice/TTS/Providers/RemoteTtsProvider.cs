@@ -221,7 +221,7 @@ public sealed class RemoteTtsProvider : ITtsProvider
         if (batchSegments == null || batchSegments.Count == 0)
             throw new ArgumentException("Batch must contain at least one segment.", nameof(batchSegments));
 
-        var profile = ResolveProfile(slot);
+        var profile = ResolveProfile(slot) ?? throw new InvalidOperationException($"No remote voice profile resolved for slot {slot}.");
         if (!string.IsNullOrWhiteSpace(bespokeSampleId))
         {
             profile = ResolveSampleProfile(bespokeSampleId, slot);
@@ -490,7 +490,7 @@ public sealed class RemoteTtsProvider : ITtsProvider
 
     public string ResolveVoiceId(VoiceSlot slot)
     {
-        var profile = ResolveProfile(slot);
+        var profile = ResolveProfile(slot) ?? throw new InvalidOperationException($"No remote voice profile resolved for slot {slot}.");
         return profile?.BuildIdentityKey() ?? string.Empty;
     }
 

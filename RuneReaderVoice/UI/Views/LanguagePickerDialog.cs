@@ -50,6 +50,9 @@ public sealed class LanguagePickerDialog : Window
         _searchBox = new TextBox { Watermark = "Search languages or codes..." };
         _searchBox.TextChanged += (_, _) => RefreshList(_searchBox.Text ?? "");
 
+        _detailName = new TextBlock { FontWeight = Avalonia.Media.FontWeight.SemiBold };
+        _detailCode = new TextBlock();
+
         _listBox = new ListBox();
         _listBox.SelectionChanged += (_, _) =>
         {
@@ -64,9 +67,6 @@ public sealed class LanguagePickerDialog : Window
                 _detailCode.Text = "";
             }
         };
-
-        _detailName = new TextBlock { FontWeight = Avalonia.Media.FontWeight.SemiBold };
-        _detailCode = new TextBlock();
 
         var selectButton = new Button { Content = "Select", Width = 90 };
         selectButton.Click += SelectButton_Click;

@@ -45,7 +45,7 @@ public partial class MainWindow
     {
         PronRuleList.Items.Clear();
 
-        if (PronRulePageSizeComboBox?.SelectedItem == null)
+        if (PronRulePageSizeComboBox != null && PronRulePageSizeComboBox.SelectedItem == null)
             PronRulePageSizeComboBox.SelectedIndex = 0;
 
         var page = await AppServices.PronunciationRules.QueryPageAsync(_pronRulePageNumber, _pronRulePageSize);

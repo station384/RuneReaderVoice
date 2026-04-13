@@ -460,7 +460,7 @@ public sealed class RvBarcodeMonitor : IDisposable
     private byte[] _singleScanBuffer = new byte[1];
     // this needs to be re done so it doesn't do MultiDecode.  
     // Maybe even use OpenCV's qr decoder since its faster than ZXing.  will need to try it out.
-    private string DecodeSingle(Mat frame)
+    private string? DecodeSingle(Mat frame)
     {
         Mat gray = new Mat();
         try
