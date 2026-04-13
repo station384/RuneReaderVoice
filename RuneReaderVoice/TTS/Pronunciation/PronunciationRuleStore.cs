@@ -82,15 +82,14 @@ public sealed class PronunciationRuleStore
         if (pageNumber < 1) pageNumber = 1;
         if (pageSize < 1) pageSize = 25;
 
-        var rows = await _db.Connection.Table<PronunciationRuleRow>().ToListAsync();
-        var ordered = rows
-            .Select(r => r.ToEntry())
-            .OrderByDescending(r => r.Priority)
-            .ThenBy(r => r.MatchText, StringComparer.OrdinalIgnoreCase)
-            .ToList();
+        var offset = (pageNumber - 1) * pageSize;
+        var totalCount = await _db.Connection.ExecuteScalarAsync<int>("SELECT COUNT(*) FROM PronunciationRules");
+        var rows = await _db.Connection.QueryAsync<PronunciationRuleRow>(
+            "SELECT * FROM PronunciationRules ORDER BY Priority DESC, MatchText COLLATE NOCASE ASC, Id ASC LIMIT ? OFFSET ?",
+            pageSize,
+            offset);
 
-        var totalCount = ordered.Count;
-        var items = ordered.Skip((pageNumber - 1) * pageSize).Take(pageSize).ToList();
+        var items = rows.Select(r => r.ToEntry()).ToList();
         return new PronunciationRulePage(items, totalCount, pageNumber, pageSize);
     }
 

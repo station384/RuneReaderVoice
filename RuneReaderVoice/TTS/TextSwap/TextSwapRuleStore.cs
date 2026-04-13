@@ -79,15 +79,14 @@ public sealed class TextSwapRuleStore
         if (pageNumber < 1) pageNumber = 1;
         if (pageSize < 1) pageSize = 25;
 
-        var rows = await _db.Connection.Table<TextSwapRuleRow>().ToListAsync();
-        var ordered = rows
-            .Select(r => r.ToEntry())
-            .OrderByDescending(r => r.Priority)
-            .ThenBy(r => r.FindText, StringComparer.OrdinalIgnoreCase)
-            .ToList();
+        var offset = (pageNumber - 1) * pageSize;
+        var totalCount = await _db.Connection.ExecuteScalarAsync<int>("SELECT COUNT(*) FROM TextSwapRules");
+        var rows = await _db.Connection.QueryAsync<TextSwapRuleRow>(
+            "SELECT * FROM TextSwapRules ORDER BY Priority DESC, FindText COLLATE NOCASE ASC, Id ASC LIMIT ? OFFSET ?",
+            pageSize,
+            offset);
 
-        var totalCount = ordered.Count;
-        var items = ordered.Skip((pageNumber - 1) * pageSize).Take(pageSize).ToList();
+        var items = rows.Select(r => r.ToEntry()).ToList();
         return new TextSwapRulePage(items, totalCount, pageNumber, pageSize);
     }
 
