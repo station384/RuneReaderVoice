@@ -408,9 +408,9 @@ public sealed class NpcSyncService : IDisposable
                 foreach (var (slotId, profile) in map)
                     existing.TryAdd(slotId, profile);
             }
-        }
 
-        VoiceSettingsManager.SaveSettings(_settings);
+            VoiceSettingsManager.SaveSettings(_settings);
+        }
     }
 
     private async Task ApplyProviderSlotProfileRecordsAsSampleProfilesAsync(List<ServerProviderSlotProfileRecord> records)
@@ -452,9 +452,9 @@ public sealed class NpcSyncService : IDisposable
                 foreach (var (sampleId, profile) in map)
                     existing.TryAdd(sampleId, profile);
             }
-        }
 
-        VoiceSettingsManager.SaveSettings(_settings);
+            VoiceSettingsManager.SaveSettings(_settings);
+        }
     }
 
     private async Task ApplyNpcOverridesDefaultsAsync(string json)
@@ -510,7 +510,8 @@ public sealed class NpcSyncService : IDisposable
                 }
             }
 
-            VoiceSettingsManager.SaveSettings(_settings);
+            if (AppServices.ProviderSlotProfiles == null)
+                VoiceSettingsManager.SaveSettings(_settings);
             return;
         }
 
@@ -532,7 +533,8 @@ public sealed class NpcSyncService : IDisposable
                 StringComparer.OrdinalIgnoreCase);
         }
 
-        VoiceSettingsManager.SaveSettings(_settings);
+        if (AppServices.ProviderSlotProfiles == null)
+            VoiceSettingsManager.SaveSettings(_settings);
     }
 
 
@@ -570,7 +572,8 @@ public sealed class NpcSyncService : IDisposable
             }
         }
 
-        VoiceSettingsManager.SaveSettings(_settings);
+        if (AppServices.ProviderSlotProfiles == null)
+            VoiceSettingsManager.SaveSettings(_settings);
     }
 
     private async Task ApplyPronunciationDefaultsAsync(string json)

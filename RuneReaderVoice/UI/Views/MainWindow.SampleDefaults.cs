@@ -199,8 +199,8 @@ public partial class MainWindow
             }
 
             profiles[sampleId] = updated.Clone();
+            VoiceSettingsManager.SaveSettings(AppServices.Settings);
         }
-        VoiceSettingsManager.SaveSettings(AppServices.Settings);
         await PopulateSampleDefaultsGridAsync();
     }
 
@@ -339,14 +339,14 @@ public partial class MainWindow
                         new Dictionary<string, VoiceProfile>(profiles, StringComparer.OrdinalIgnoreCase),
                         "Import");
                 }
-
-                }
+            }
             else
             {
                 foreach (var (providerId, profiles) in import.Providers)
                     AppServices.Settings.PerProviderSampleProfiles[providerId] = new Dictionary<string, VoiceProfile>(profiles, StringComparer.OrdinalIgnoreCase);
+
+                VoiceSettingsManager.SaveSettings(AppServices.Settings);
             }
-            VoiceSettingsManager.SaveSettings(AppServices.Settings);
             await PopulateSampleDefaultsGridAsync();
             SampleDefaultsStatus.Text = $"Imported voice sample defaults for {import.Providers.Count} provider(s).";
         }

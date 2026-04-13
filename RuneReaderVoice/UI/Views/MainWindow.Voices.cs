@@ -348,7 +348,6 @@ So go quickly, keep your wits about you, and return by the main road if you valu
 
             ApplyVoiceProfile(slot, updated, providerId, dict);
             await AppServices.ProviderSlotProfiles.UpsertAsync(providerId, slot.ToString(), updated, "Local");
-            VoiceSettingsManager.SaveSettings(AppServices.Settings);
 
             if (_voiceSummaryBlocks.TryGetValue(slot.ToString(), out var summary))
                 summary.Text = DescribeVoiceProfile(slot);
@@ -537,8 +536,6 @@ So go quickly, keep your wits about you, and return by the main road if you valu
                 return;
             }
 
-            if (AppServices.ProviderSlotProfiles != null)
-                VoiceSettingsManager.SaveSettings(AppServices.Settings);
 
             // Refresh summary labels
             foreach (var item in GetVoiceCatalogItems())
