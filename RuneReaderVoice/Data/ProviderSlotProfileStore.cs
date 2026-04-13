@@ -13,51 +13,83 @@ public sealed class ProviderSlotProfileStore
     private const string SampleKeyPrefix = "sample:";
 
     private readonly RvrDb _db;
+    // Read-through passthru cache. Do not mirror entire DB in memory.
     private readonly Dictionary<string, Dictionary<string, VoiceProfile>> _cache = new(StringComparer.OrdinalIgnoreCase);
+
     public ProviderSlotProfileStore(RvrDb db) => _db = db;
 
     private static string SampleSlotId(string sampleId) => $"{SampleKeyPrefix}{sampleId}";
+
+    private static VoiceProfile? DeserializeProfile(string? json)
+    {
+        if (string.IsNullOrWhiteSpace(json))
+            return null;
+
+        try
+        {
+            return JsonSerializer.Deserialize<VoiceProfile>(json);
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    private bool TryGetCachedProfile(string providerId, string slotId, out VoiceProfile? profile)
+    {
+        profile = null;
+        if (_cache.TryGetValue(providerId, out var dict) && dict.TryGetValue(slotId, out var stored) && stored != null)
+        {
+            profile = stored.Clone();
+            return true;
+        }
+
+        return false;
+    }
+
+    private void CacheProfile(string providerId, string slotId, VoiceProfile profile)
+    {
+        if (!_cache.TryGetValue(providerId, out var dict))
+        {
+            dict = new Dictionary<string, VoiceProfile>(StringComparer.OrdinalIgnoreCase);
+            _cache[providerId] = dict;
+        }
+
+        dict[slotId] = profile.Clone();
+    }
+
+    private void RemoveCachedProfile(string providerId, string slotId)
+    {
+        if (_cache.TryGetValue(providerId, out var dict))
+            dict.Remove(slotId);
+    }
 
     public bool TryGetProfile(string providerId, string slotId, out VoiceProfile? profile)
     {
         profile = null;
         if (string.IsNullOrWhiteSpace(providerId) || string.IsNullOrWhiteSpace(slotId))
             return false;
-        if (_cache.TryGetValue(providerId, out var dict) && dict.TryGetValue(slotId, out var stored) && stored != null)
-        {
-            profile = stored.Clone();
-            return true;
-        }
-        return false;
-    }
 
+        if (TryGetCachedProfile(providerId, slotId, out profile) && profile != null)
+            return true;
+
+        var row = _db.Connection.Table<ProviderSlotProfileRow>()
+            .Where(x => x.ProviderId == providerId && x.SlotId == slotId)
+            .FirstOrDefaultAsync()
+            .GetAwaiter()
+            .GetResult();
+
+        var loaded = DeserializeProfile(row?.ProfileJson);
+        if (loaded == null)
+            return false;
+
+        CacheProfile(providerId, slotId, loaded);
+        profile = loaded.Clone();
+        return true;
+    }
 
     public bool TryGetSampleProfile(string providerId, string sampleId, out VoiceProfile? profile)
         => TryGetProfile(providerId, SampleSlotId(sampleId), out profile);
-
-    private void RebuildCacheFromSettings(VoiceUserSettings settings)
-    {
-        _cache.Clear();
-        foreach (var provider in settings.PerProviderVoiceProfiles)
-        {
-            var dict = new Dictionary<string, VoiceProfile>(StringComparer.OrdinalIgnoreCase);
-            foreach (var slot in provider.Value)
-                dict[slot.Key] = slot.Value.Clone();
-            _cache[provider.Key] = dict;
-        }
-
-        foreach (var provider in settings.PerProviderSampleProfiles)
-        {
-            if (!_cache.TryGetValue(provider.Key, out var dict))
-            {
-                dict = new Dictionary<string, VoiceProfile>(StringComparer.OrdinalIgnoreCase);
-                _cache[provider.Key] = dict;
-            }
-
-            foreach (var sample in provider.Value)
-                dict[SampleSlotId(sample.Key)] = sample.Value.Clone();
-        }
-    }
 
     public async Task SeedFromSettingsAsync(VoiceUserSettings settings)
     {
@@ -80,16 +112,7 @@ public sealed class ProviderSlotProfileStore
             if (string.IsNullOrWhiteSpace(row.ProviderId) || string.IsNullOrWhiteSpace(row.SlotId) || string.IsNullOrWhiteSpace(row.ProfileJson))
                 continue;
 
-            VoiceProfile? profile;
-            try
-            {
-                profile = JsonSerializer.Deserialize<VoiceProfile>(row.ProfileJson);
-            }
-            catch
-            {
-                continue;
-            }
-
+            var profile = DeserializeProfile(row.ProfileJson);
             if (profile == null)
                 continue;
 
@@ -117,7 +140,7 @@ public sealed class ProviderSlotProfileStore
         }
 
         settings.NormalizeVoiceProfiles();
-        RebuildCacheFromSettings(settings);
+        _cache.Clear();
     }
 
     public async Task UpsertAsync(string providerId, string slotId, VoiceProfile profile, string source = "Local")
@@ -135,15 +158,8 @@ public sealed class ProviderSlotProfileStore
         };
 
         await _db.Connection.InsertOrReplaceAsync(row);
-
-        if (!_cache.TryGetValue(providerId, out var dict))
-        {
-            dict = new Dictionary<string, VoiceProfile>(StringComparer.OrdinalIgnoreCase);
-            _cache[providerId] = dict;
-        }
-        dict[slotId] = profile.Clone();
+        CacheProfile(providerId, slotId, profile);
     }
-
 
     public async Task RemoveAsync(string providerId, string slotId)
     {
@@ -157,10 +173,8 @@ public sealed class ProviderSlotProfileStore
         if (row != null)
             await _db.Connection.DeleteAsync(row);
 
-        if (_cache.TryGetValue(providerId, out var dict))
-            dict.Remove(slotId);
+        RemoveCachedProfile(providerId, slotId);
     }
-
 
     public Task UpsertSampleAsync(string providerId, string sampleId, VoiceProfile profile, string source = "Local")
         => UpsertAsync(providerId, SampleSlotId(sampleId), profile, source);
@@ -168,24 +182,83 @@ public sealed class ProviderSlotProfileStore
     public Task RemoveSampleAsync(string providerId, string sampleId)
         => RemoveAsync(providerId, SampleSlotId(sampleId));
 
+
+    public Dictionary<string, VoiceProfile> GetVoiceProfilesForProvider(string providerId)
+    {
+        var result = new Dictionary<string, VoiceProfile>(StringComparer.OrdinalIgnoreCase);
+        if (string.IsNullOrWhiteSpace(providerId))
+            return result;
+
+        var rows = _db.Connection.Table<ProviderSlotProfileRow>()
+            .Where(x => x.ProviderId == providerId && !x.SlotId.StartsWith(SampleKeyPrefix))
+            .ToListAsync()
+            .GetAwaiter()
+            .GetResult();
+
+        foreach (var row in rows)
+        {
+            if (string.IsNullOrWhiteSpace(row.SlotId))
+                continue;
+
+            var profile = DeserializeProfile(row.ProfileJson);
+            if (profile == null)
+                continue;
+
+            result[row.SlotId] = profile;
+            CacheProfile(providerId, row.SlotId, profile);
+        }
+
+        return result;
+    }
+
+    public Dictionary<string, VoiceProfile> GetSampleProfilesForProvider(string providerId)
+    {
+        var result = new Dictionary<string, VoiceProfile>(StringComparer.OrdinalIgnoreCase);
+        if (string.IsNullOrWhiteSpace(providerId))
+            return result;
+
+        var rows = _db.Connection.Table<ProviderSlotProfileRow>()
+            .Where(x => x.ProviderId == providerId && x.SlotId.StartsWith(SampleKeyPrefix))
+            .ToListAsync()
+            .GetAwaiter()
+            .GetResult();
+
+        foreach (var row in rows)
+        {
+            if (string.IsNullOrWhiteSpace(row.SlotId))
+                continue;
+
+            var profile = DeserializeProfile(row.ProfileJson);
+            if (profile == null)
+                continue;
+
+            var sampleId = row.SlotId.Substring(SampleKeyPrefix.Length);
+            result[sampleId] = profile;
+            CacheProfile(providerId, row.SlotId, profile);
+        }
+
+        return result;
+    }
     public Dictionary<string, Dictionary<string, VoiceProfile>> GetVoiceProfilesSnapshot()
     {
         var result = new Dictionary<string, Dictionary<string, VoiceProfile>>(StringComparer.OrdinalIgnoreCase);
-        foreach (var (providerId, dict) in _cache)
+        var rows = _db.Connection.Table<ProviderSlotProfileRow>().ToListAsync().GetAwaiter().GetResult();
+        foreach (var row in rows)
         {
-            foreach (var (slotId, profile) in dict)
+            if (string.IsNullOrWhiteSpace(row.ProviderId) || string.IsNullOrWhiteSpace(row.SlotId) || row.SlotId.StartsWith(SampleKeyPrefix, StringComparison.OrdinalIgnoreCase))
+                continue;
+
+            var profile = DeserializeProfile(row.ProfileJson);
+            if (profile == null)
+                continue;
+
+            if (!result.TryGetValue(row.ProviderId, out var providerDict))
             {
-                if (slotId.StartsWith(SampleKeyPrefix, StringComparison.OrdinalIgnoreCase) || profile == null)
-                    continue;
-
-                if (!result.TryGetValue(providerId, out var providerDict))
-                {
-                    providerDict = new Dictionary<string, VoiceProfile>(StringComparer.OrdinalIgnoreCase);
-                    result[providerId] = providerDict;
-                }
-
-                providerDict[slotId] = profile.Clone();
+                providerDict = new Dictionary<string, VoiceProfile>(StringComparer.OrdinalIgnoreCase);
+                result[row.ProviderId] = providerDict;
             }
+
+            providerDict[row.SlotId] = profile;
         }
 
         return result;
@@ -194,27 +267,27 @@ public sealed class ProviderSlotProfileStore
     public Dictionary<string, Dictionary<string, VoiceProfile>> GetSampleProfilesSnapshot()
     {
         var result = new Dictionary<string, Dictionary<string, VoiceProfile>>(StringComparer.OrdinalIgnoreCase);
-        foreach (var (providerId, dict) in _cache)
+        var rows = _db.Connection.Table<ProviderSlotProfileRow>().ToListAsync().GetAwaiter().GetResult();
+        foreach (var row in rows)
         {
-            foreach (var (slotId, profile) in dict)
+            if (string.IsNullOrWhiteSpace(row.ProviderId) || string.IsNullOrWhiteSpace(row.SlotId) || !row.SlotId.StartsWith(SampleKeyPrefix, StringComparison.OrdinalIgnoreCase))
+                continue;
+
+            var profile = DeserializeProfile(row.ProfileJson);
+            if (profile == null)
+                continue;
+
+            if (!result.TryGetValue(row.ProviderId, out var providerDict))
             {
-                if (!slotId.StartsWith(SampleKeyPrefix, StringComparison.OrdinalIgnoreCase) || profile == null)
-                    continue;
-
-                if (!result.TryGetValue(providerId, out var providerDict))
-                {
-                    providerDict = new Dictionary<string, VoiceProfile>(StringComparer.OrdinalIgnoreCase);
-                    result[providerId] = providerDict;
-                }
-
-                providerDict[slotId.Substring(SampleKeyPrefix.Length)] = profile.Clone();
+                providerDict = new Dictionary<string, VoiceProfile>(StringComparer.OrdinalIgnoreCase);
+                result[row.ProviderId] = providerDict;
             }
+
+            providerDict[row.SlotId.Substring(SampleKeyPrefix.Length)] = profile;
         }
 
         return result;
     }
-
-
 
     private static bool IsServerOwnedSource(string? source)
         => string.Equals(source, "ServerSync", StringComparison.OrdinalIgnoreCase)
@@ -238,12 +311,6 @@ public sealed class ProviderSlotProfileStore
         var updated = 0;
         var skippedLocal = 0;
 
-        if (!_cache.TryGetValue(providerId, out var cacheDict))
-        {
-            cacheDict = new Dictionary<string, VoiceProfile>(StringComparer.OrdinalIgnoreCase);
-            _cache[providerId] = cacheDict;
-        }
-
         foreach (var (slotId, profile) in profiles)
         {
             if (string.IsNullOrWhiteSpace(slotId) || profile == null)
@@ -254,16 +321,9 @@ public sealed class ProviderSlotProfileStore
                 if (!IsServerOwnedSource(row.Source))
                 {
                     skippedLocal++;
-                    if (!cacheDict.ContainsKey(slotId))
-                    {
-                        try
-                        {
-                            var localProfile = JsonSerializer.Deserialize<VoiceProfile>(row.ProfileJson);
-                            if (localProfile != null)
-                                cacheDict[slotId] = localProfile.Clone();
-                        }
-                        catch { }
-                    }
+                    var localProfile = DeserializeProfile(row.ProfileJson);
+                    if (localProfile != null)
+                        CacheProfile(providerId, slotId, localProfile);
                     continue;
                 }
 
@@ -271,7 +331,7 @@ public sealed class ProviderSlotProfileStore
                 row.Source = source;
                 row.UpdatedUtc = now;
                 await _db.Connection.InsertOrReplaceAsync(row);
-                cacheDict[slotId] = profile.Clone();
+                CacheProfile(providerId, slotId, profile);
                 updated++;
                 continue;
             }
@@ -285,7 +345,7 @@ public sealed class ProviderSlotProfileStore
                 UpdatedUtc = now,
             };
             await _db.Connection.InsertOrReplaceAsync(newRow);
-            cacheDict[slotId] = profile.Clone();
+            CacheProfile(providerId, slotId, profile);
             inserted++;
         }
 
@@ -307,12 +367,6 @@ public sealed class ProviderSlotProfileStore
         var updated = 0;
         var skippedLocal = 0;
 
-        if (!_cache.TryGetValue(providerId, out var cacheDict))
-        {
-            cacheDict = new Dictionary<string, VoiceProfile>(StringComparer.OrdinalIgnoreCase);
-            _cache[providerId] = cacheDict;
-        }
-
         foreach (var (sampleId, profile) in profiles)
         {
             if (string.IsNullOrWhiteSpace(sampleId) || profile == null)
@@ -324,16 +378,9 @@ public sealed class ProviderSlotProfileStore
                 if (!IsServerOwnedSource(row.Source))
                 {
                     skippedLocal++;
-                    if (!cacheDict.ContainsKey(slotId))
-                    {
-                        try
-                        {
-                            var localProfile = JsonSerializer.Deserialize<VoiceProfile>(row.ProfileJson);
-                            if (localProfile != null)
-                                cacheDict[slotId] = localProfile.Clone();
-                        }
-                        catch { }
-                    }
+                    var localProfile = DeserializeProfile(row.ProfileJson);
+                    if (localProfile != null)
+                        CacheProfile(providerId, slotId, localProfile);
                     continue;
                 }
 
@@ -341,7 +388,7 @@ public sealed class ProviderSlotProfileStore
                 row.Source = source;
                 row.UpdatedUtc = now;
                 await _db.Connection.InsertOrReplaceAsync(row);
-                cacheDict[slotId] = profile.Clone();
+                CacheProfile(providerId, slotId, profile);
                 updated++;
                 continue;
             }
@@ -355,7 +402,7 @@ public sealed class ProviderSlotProfileStore
                 UpdatedUtc = now,
             };
             await _db.Connection.InsertOrReplaceAsync(newRow);
-            cacheDict[slotId] = profile.Clone();
+            CacheProfile(providerId, slotId, profile);
             inserted++;
         }
 
@@ -403,18 +450,12 @@ public sealed class ProviderSlotProfileStore
         if (rows.Count > 0)
             await _db.Connection.InsertAllAsync(rows);
 
-        if (!_cache.TryGetValue(providerId, out var cacheDict))
-        {
-            cacheDict = new Dictionary<string, VoiceProfile>(StringComparer.OrdinalIgnoreCase);
-            _cache[providerId] = cacheDict;
-        }
-
         foreach (var (slotId, profile) in profiles)
         {
             if (string.IsNullOrWhiteSpace(slotId) || profile == null)
                 continue;
 
-            cacheDict[slotId] = profile.Clone();
+            CacheProfile(providerId, slotId, profile);
         }
     }
 
@@ -459,18 +500,12 @@ public sealed class ProviderSlotProfileStore
         if (rows.Count > 0)
             await _db.Connection.InsertAllAsync(rows);
 
-        if (!_cache.TryGetValue(providerId, out var cacheDict))
-        {
-            cacheDict = new Dictionary<string, VoiceProfile>(StringComparer.OrdinalIgnoreCase);
-            _cache[providerId] = cacheDict;
-        }
-
         foreach (var (sampleId, profile) in profiles)
         {
             if (string.IsNullOrWhiteSpace(sampleId) || profile == null)
                 continue;
 
-            cacheDict[SampleSlotId(sampleId)] = profile.Clone();
+            CacheProfile(providerId, SampleSlotId(sampleId), profile);
         }
     }
 
@@ -519,9 +554,10 @@ public sealed class ProviderSlotProfileStore
                 });
             }
         }
+
         if (rows.Count > 0)
             await _db.Connection.InsertAllAsync(rows);
 
-        RebuildCacheFromSettings(settings);
+        _cache.Clear();
     }
 }

@@ -189,7 +189,6 @@ public partial class MainWindow
         if (AppServices.ProviderSlotProfiles != null)
         {
             await AppServices.ProviderSlotProfiles.UpsertSampleAsync(provider.ProviderId, sampleId, updated.Clone(), "Local");
-            AppServices.ProviderSlotProfiles.WriteBackToSettings(AppServices.Settings);
         }
         else
         {
@@ -341,8 +340,7 @@ public partial class MainWindow
                         "Import");
                 }
 
-                AppServices.ProviderSlotProfiles.WriteBackToSettings(AppServices.Settings);
-            }
+                }
             else
             {
                 foreach (var (providerId, profiles) in import.Providers)
@@ -395,8 +393,7 @@ public partial class MainWindow
             if (ok)
             {
                 if (AppServices.ProviderSlotProfiles != null)
-                    AppServices.ProviderSlotProfiles.WriteBackToSettings(AppServices.Settings);
-                await PopulateSampleDefaultsGridAsync();
+                        await PopulateSampleDefaultsGridAsync();
                 SampleDefaultsStatus.Text = "Voice sample defaults pulled from server.";
             }
             else

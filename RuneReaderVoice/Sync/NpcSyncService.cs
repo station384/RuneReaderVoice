@@ -394,7 +394,6 @@ public sealed class NpcSyncService : IDisposable
         {
             foreach (var (pid, map) in grouped)
                 await AppServices.ProviderSlotProfiles.MergeVoiceProfilesFromServerAsync(pid, map, "ServerSync");
-            AppServices.ProviderSlotProfiles.WriteBackToSettings(_settings);
         }
         else
         {
@@ -439,7 +438,6 @@ public sealed class NpcSyncService : IDisposable
         {
             foreach (var (pid, map) in grouped)
                 await AppServices.ProviderSlotProfiles.MergeSampleProfilesFromServerAsync(pid, map, "ServerSync");
-            AppServices.ProviderSlotProfiles.WriteBackToSettings(_settings);
         }
         else
         {
@@ -498,8 +496,7 @@ public sealed class NpcSyncService : IDisposable
                         "ServerSeed");
                 }
 
-                AppServices.ProviderSlotProfiles.WriteBackToSettings(_settings);
-            }
+                }
             else
             {
                 foreach (var (providerId, incomingProfiles) in multi.Providers)
@@ -527,7 +524,6 @@ public sealed class NpcSyncService : IDisposable
                 single.ProviderId,
                 new System.Collections.Generic.Dictionary<string, TTS.Providers.VoiceProfile>(single.Profiles, StringComparer.OrdinalIgnoreCase),
                 "ServerSeed");
-            AppServices.ProviderSlotProfiles.WriteBackToSettings(_settings);
         }
         else
         {
@@ -560,7 +556,6 @@ public sealed class NpcSyncService : IDisposable
                     "ServerSeed");
             }
 
-            AppServices.ProviderSlotProfiles.WriteBackToSettings(_settings);
         }
         else
         {

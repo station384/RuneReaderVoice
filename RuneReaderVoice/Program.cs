@@ -106,7 +106,6 @@ internal static class Program
         npcPeopleCatalogStore.SeedFromLegacyCatalogAsync().GetAwaiter().GetResult();
         var providerSlotProfileStore = new ProviderSlotProfileStore(db);
         providerSlotProfileStore.SeedFromSettingsAsync(settings).GetAwaiter().GetResult();
-        providerSlotProfileStore.LoadIntoSettingsAsync(settings).GetAwaiter().GetResult();
         var npcPeopleCatalogService = new NpcPeopleCatalogService(npcPeopleCatalogStore);
         npcPeopleCatalogService.InitializeAsync().GetAwaiter().GetResult();
 

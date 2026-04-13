@@ -348,7 +348,6 @@ So go quickly, keep your wits about you, and return by the main road if you valu
 
             ApplyVoiceProfile(slot, updated, providerId, dict);
             await AppServices.ProviderSlotProfiles.UpsertAsync(providerId, slot.ToString(), updated, "Local");
-            AppServices.ProviderSlotProfiles.WriteBackToSettings(AppServices.Settings);
             VoiceSettingsManager.SaveSettings(AppServices.Settings);
 
             if (_voiceSummaryBlocks.TryGetValue(slot.ToString(), out var summary))
@@ -539,8 +538,7 @@ So go quickly, keep your wits about you, and return by the main road if you valu
             }
 
             if (AppServices.ProviderSlotProfiles != null)
-                AppServices.ProviderSlotProfiles.WriteBackToSettings(AppServices.Settings);
-            VoiceSettingsManager.SaveSettings(AppServices.Settings);
+                VoiceSettingsManager.SaveSettings(AppServices.Settings);
 
             // Refresh summary labels
             foreach (var item in GetVoiceCatalogItems())
@@ -596,8 +594,7 @@ So go quickly, keep your wits about you, and return by the main road if you valu
             var ok = await AppServices.NpcSync.PullAndApplyProviderSlotProfilesAsync("voice_slot");
             if (ok && AppServices.ProviderSlotProfiles != null)
             {
-                AppServices.ProviderSlotProfiles.WriteBackToSettings(AppServices.Settings);
-                RefreshCurrentProviderVoiceAssignments();
+                    RefreshCurrentProviderVoiceAssignments();
             }
             SetVoicesStatus(ok ? "Voice profiles pulled from server." : "No voice profiles on server.");
         }
@@ -610,9 +607,10 @@ So go quickly, keep your wits about you, and return by the main road if you valu
     private static void RefreshCurrentProviderVoiceAssignments()
     {
         var providerId = AppServices.Provider.ProviderId;
-        var dict = AppServices.ProviderSlotProfiles?.GetVoiceProfilesSnapshot().GetValueOrDefault(providerId)
-                   ?? (AppServices.Settings.PerProviderVoiceProfiles.TryGetValue(providerId, out var settingsDict) ? settingsDict : null);
-        if (dict == null)
+        var dict = AppServices.ProviderSlotProfiles != null
+            ? AppServices.ProviderSlotProfiles.GetVoiceProfilesForProvider(providerId)
+            : (AppServices.Settings.PerProviderVoiceProfiles.TryGetValue(providerId, out var settingsDict) ? settingsDict : null);
+        if (dict == null || dict.Count == 0)
             return;
 
         var runtimeDict = new Dictionary<string, VoiceProfile>(StringComparer.OrdinalIgnoreCase);
