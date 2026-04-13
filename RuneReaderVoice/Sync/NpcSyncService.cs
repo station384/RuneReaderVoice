@@ -164,6 +164,7 @@ public sealed class NpcSyncService : IDisposable
         var domainRecords = records.Select(r => new NpcRaceOverride
         {
             NpcId               = r.NpcId,
+            CatalogId           = r.CatalogId ?? string.Empty,
             RaceId              = r.RaceId,
             Notes               = r.Notes,
             BespokeSampleId     = r.BespokeSampleId,
@@ -185,7 +186,7 @@ public sealed class NpcSyncService : IDisposable
             foreach (var record in domainRecords)
             {
                 await _assemblerBridge.ApplyIfNotLocalAsync(
-                    record.NpcId, record.RaceId,
+                    record.NpcId, record.CatalogId, record.RaceId,
                     record.BespokeSampleId,
                     record.BespokeExaggeration,
                     record.BespokeCfgWeight);
@@ -639,7 +640,7 @@ public sealed class TtsSessionAssemblerBridge
     /// only if no Local entry exists for this NpcId.
     /// </summary>
     public async Task ApplyIfNotLocalAsync(
-        int npcId, int raceId,
+        int npcId, string? catalogId, int raceId,
         string? bespokeSampleId,
         float? bespokeExaggeration,
         float? bespokeCfgWeight)
@@ -650,8 +651,12 @@ public sealed class TtsSessionAssemblerBridge
         if (existing?.Source == NpcOverrideSource.Local)
             return;
 
+        if (string.IsNullOrWhiteSpace(catalogId))
+            return;
+
         _assembler.ApplyRaceOverride(
-            npcId, raceId,
+            npcId, catalogId,
+            raceId: 0,
             bespokeSampleId:     bespokeSampleId,
             bespokeExaggeration: bespokeExaggeration,
             bespokeCfgWeight:    bespokeCfgWeight);

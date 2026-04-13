@@ -457,7 +457,7 @@ along with RuneReaderVoice. If not, see <https://www.gnu.org/licenses/>.
                             </StackPanel>
 
                             <TextBlock Text="Notes" Foreground="#888" FontSize="11" Margin="0,8,0,0"/>
-                            <TextBlock Text="Insert and edit supported. Delete intentionally not exposed yet. Catalog rows still use existing AccentGroup enum values in this slice."
+                            <TextBlock Text="Insert and edit supported. Disable instead of delete. Catalog rows now drive Race Voices directly."
                                        TextWrapping="Wrap"
                                        Foreground="#888"
                                        FontSize="11"/>
@@ -612,7 +612,7 @@ along with RuneReaderVoice. If not, see <https://www.gnu.org/licenses/>.
                                 <StackPanel Margin="0,8,0,0" Spacing="6" HorizontalAlignment="Stretch">
                                     <TextBlock Text="Per-Accent-Group Volume Trim (dB)" Foreground="#888" FontSize="11"/>
                                     <StackPanel x:Name="VolumeTrimGrid" Spacing="4">
-                                        <!-- Populated in code-behind from AccentGroup enum -->
+                                        <!-- Populated in code-behind from catalog/runtime slot rows -->
                                     </StackPanel>
                                 </StackPanel>
                             </Expander>

@@ -65,23 +65,23 @@ public static class SpeakerPresetCatalog
 
     public static SpeakerPreset? GetRecommendedForSlot(VoiceSlot slot)
     {
-        if (slot.Group == AccentGroup.Narrator)
-            return All.FirstOrDefault(p => p.Slot.Equals(slot) && p.IsRecommended)
+        if (slot.IsNarrator)
+            return All.FirstOrDefault(p => p.Slot.IsNarrator && p.IsRecommended && p.Slot.Gender == slot.Gender)
                 ?? All.FirstOrDefault(p => p.Slot == VoiceSlot.MaleNarrator && p.IsRecommended);
 
-        return All.FirstOrDefault(p => p.Slot.Equals(slot) && p.IsRecommended)
-            ?? All.FirstOrDefault(p => p.Slot.Group == slot.Group && p.Slot.Gender == slot.Gender && p.IsRecommended);
+        return All.FirstOrDefault(p => p.Slot.Equals(slot) && p.IsRecommended);
     }
 
     public static IReadOnlyList<SpeakerPreset> GetForSlot(VoiceSlot slot)
     {
         IEnumerable<SpeakerPreset> query =
-            slot.Group == AccentGroup.Narrator
-                ? All.Where(p => p.Slot.Group == AccentGroup.Narrator)
-                : All.Where(p => p.Slot.Group != AccentGroup.Narrator && p.Slot.Gender == slot.Gender);
+            slot.IsNarrator
+                ? All.Where(p => p.Slot.IsNarrator)
+                : All.Where(p => !p.Slot.IsNarrator && p.Slot.Gender == slot.Gender);
 
         return query
             .OrderByDescending(p => p.Slot.Equals(slot))
+            .ThenByDescending(p => string.Equals(p.Slot.SlotKey, slot.SlotKey, StringComparison.OrdinalIgnoreCase) && p.Slot.Gender == slot.Gender)
             .ThenByDescending(p => p.IsRecommended)
             .ThenBy(p => p.DisplayName, StringComparer.OrdinalIgnoreCase)
             .ToList();
@@ -106,73 +106,73 @@ public static class SpeakerPresetCatalog
 
         // ── Alliance ──────────────────────────────────────────────────────────
 
-        AddBoth(list, "human", "Human", AccentGroup.Human,
+        AddBoth(list, "human", "Human",
             maleVoice:   Mix("am_michael", 0.70f, "am_adam", 0.30f),
             femaleVoice: Mix("af_sarah", 0.65f, "af_bella", 0.35f),
             lang: "en-us", rate: 1.00f, rec: true,
             desc: "Neutral approachable human voice");
 
-        AddBoth(list, "nightelf", "Night Elf", AccentGroup.NightElf,
+        AddBoth(list, "nightelf", "Night Elf",
             maleVoice:   Mix("bm_george", 0.40f, "bm_lewis", 0.40f, "am_liam", 0.20f),
             femaleVoice: Mix("bf_alice", 0.50f, "af_river", 0.30f, "af_aoede", 0.20f),
             lang: "en-gb", rate: 0.96f, rec: true,
             desc: "Calm ancient night elf voice");
 
-        AddBoth(list, "dwarf", "Dwarf", AccentGroup.Dwarf,
+        AddBoth(list, "dwarf", "Dwarf",
             maleVoice:   Mix("bm_george", 0.70f, "bm_daniel", 0.30f),
             femaleVoice: Mix("bf_alice", 0.60f, "bf_emma", 0.40f),
             lang: "en-gb-scotland", rate: 0.98f, rec: true,
             desc: "Scottish dwarven voice");
 
-        AddBoth(list, "darkirondwarf", "Dark Iron Dwarf", AccentGroup.DarkIronDwarf,
+        AddBoth(list, "darkirondwarf", "Dark Iron Dwarf",
             maleVoice:   Mix("bm_george", 0.45f, "bm_daniel", 0.25f, "am_onyx", 0.30f),
             femaleVoice: Mix("bf_alice", 0.45f, "af_alloy", 0.35f, "bf_emma", 0.20f),
             lang: "en-gb-scotland", rate: 0.97f, rec: true,
             desc: "Harsher smoky dark iron dwarf voice");
 
-        AddBoth(list, "gnome", "Gnome", AccentGroup.Gnome,
+        AddBoth(list, "gnome", "Gnome",
             maleVoice:   Mix("am_puck", 0.60f, "am_adam", 0.40f),
             femaleVoice: Mix("af_nova", 0.60f, "af_sky", 0.40f),
             lang: "en-us", rate: 1.06f, rec: true,
             desc: "Bright playful gnome voice");
 
-        AddBoth(list, "mechagnome", "Mechagnome", AccentGroup.Mechagnome,
+        AddBoth(list, "mechagnome", "Mechagnome",
             maleVoice:   Mix("am_puck", 0.50f, "am_liam", 0.50f),
             femaleVoice: Mix("af_nova", 0.35f, "af_jessica", 0.35f, "bf_emma", 0.30f),
             lang: "en-us", rate: 1.02f, rec: true,
             desc: "Sharper mechanized gnome voice");
 
-        AddBoth(list, "draenei", "Draenei", AccentGroup.Draenei,
+        AddBoth(list, "draenei", "Draenei",
             maleVoice:   Mix("bm_lewis", 0.45f, "bm_george", 0.35f, "am_adam", 0.20f),
             femaleVoice: Mix("bf_isabella", 0.40f, "bf_emma", 0.25f, "af_bella", 0.35f),
             lang: "sk", rate: 0.95f, rec: true,
             desc: "Formal otherworldly draenei voice");
 
-        AddBoth(list, "lightforged", "Lightforged Draenei", AccentGroup.LightforgedDraenei,
+        AddBoth(list, "lightforged", "Lightforged Draenei",
             maleVoice:   Mix("bm_george", 0.50f, "am_adam", 0.35f, "am_onyx", 0.15f),
             femaleVoice: Mix("bf_isabella", 0.40f, "af_bella", 0.35f, "bf_emma", 0.25f),
             lang: "sk", rate: 0.96f, rec: true,
             desc: "Brighter resolute lightforged voice");
 
-        AddBoth(list, "worgen", "Worgen", AccentGroup.Worgen,
+        AddBoth(list, "worgen", "Worgen",
             maleVoice:   Mix("bm_daniel", 0.55f, "am_fenrir", 0.45f),
             femaleVoice: Mix("bf_emma", 0.55f, "bf_alice", 0.45f),
             lang: "en-gb", rate: 1.00f, rec: true,
             desc: "Rugged British worgen voice");
 
-        AddBoth(list, "kultiran", "Kul Tiran", AccentGroup.KulTiran,
+        AddBoth(list, "kultiran", "Kul Tiran",
             maleVoice:   Mix("bm_george", 0.50f, "am_eric", 0.30f, "am_adam", 0.20f),
             femaleVoice: Mix("bf_emma", 0.45f, "af_alloy", 0.25f, "bf_alice", 0.30f),
             lang: "en-gb", rate: 0.96f, rec: true,
             desc: "Weathered maritime Kul Tiran voice");
 
-        AddBoth(list, "bloodelf", "Blood Elf", AccentGroup.BloodElf,
+        AddBoth(list, "bloodelf", "Blood Elf",
             maleVoice:   Mix("bm_lewis", 0.60f, "bm_daniel", 0.40f),
             femaleVoice: Mix("bf_isabella", 0.55f, "bf_lily", 0.45f),
             lang: "en-gb-x-rp", rate: 0.98f, rec: true,
             desc: "Elegant Silvermoon noble voice");
 
-        AddBoth(list, "voidelf", "Void Elf", AccentGroup.VoidElf,
+        AddBoth(list, "voidelf", "Void Elf",
             maleVoice:   Mix("bm_lewis", 0.40f, "bm_daniel", 0.30f, "am_echo", 0.30f),
             femaleVoice: Mix("bf_isabella", 0.40f, "bf_lily", 0.30f, "af_nova", 0.30f),
             lang: "en-gb-x-rp", rate: 0.94f, rec: true,
@@ -180,64 +180,64 @@ public static class SpeakerPresetCatalog
 
         // ── Horde ─────────────────────────────────────────────────────────────
 
-        AddBoth(list, "orc", "Orc", AccentGroup.Orc,
+        AddBoth(list, "orc", "Orc",
             maleVoice:   Mix("am_fenrir", 0.60f, "am_onyx", 0.40f),
             femaleVoice: Mix("af_alloy", 0.65f, "af_kore", 0.35f),
             lang: "en-us", rate: 0.96f, rec: true,
             desc: "Broad strong orc voice");
 
-        AddBoth(list, "maghar", "Mag'har Orc", AccentGroup.MagharOrc,
+        AddBoth(list, "maghar", "Mag'har Orc",
             maleVoice:   Mix("am_fenrir", 0.50f, "am_adam", 0.50f),
             femaleVoice: Mix("af_alloy", 0.40f, "af_kore", 0.30f, "bf_emma", 0.30f),
             lang: "en-us", rate: 0.95f, rec: true,
             desc: "Older-world Mag'har orc voice");
 
-        AddBoth(list, "undead", "Forsaken", AccentGroup.Undead,
+        AddBoth(list, "undead", "Forsaken",
             maleVoice:   Mix("am_onyx", 0.55f, "bm_fable", 0.20f, "bm_daniel", 0.25f),
             femaleVoice: Mix("af_alloy", 0.55f, "bf_isabella", 0.20f, "af_kore", 0.25f),
             lang: "en-us", rate: 0.93f, rec: true,
             desc: "Dry hollow undead voice");
 
-        AddBoth(list, "tauren", "Tauren", AccentGroup.Tauren,
+        AddBoth(list, "tauren", "Tauren",
             maleVoice:   Mix("am_fenrir", 0.50f, "am_onyx", 0.35f, "am_adam", 0.15f),
             femaleVoice: Mix("af_bella", 0.35f, "af_kore", 0.30f, "bf_emma", 0.35f),
             lang: "en-us", rate: 0.90f, rec: true,
             disableChunking: true,
             desc: "Deep grounded tauren voice");
 
-        AddBoth(list, "highmountain", "Highmountain Tauren", AccentGroup.HighmountainTauren,
+        AddBoth(list, "highmountain", "Highmountain Tauren",
             maleVoice:   Mix("am_fenrir", 0.45f, "am_onyx", 0.35f, "bm_george", 0.20f),
             femaleVoice: Mix("af_bella", 0.40f, "af_kore", 0.30f, "bf_alice", 0.30f),
             lang: "en-us", rate: 0.90f, rec: true,
             disableChunking: true,
             desc: "Rugged highmountain tauren voice");
 
-        AddBoth(list, "troll", "Troll", AccentGroup.Troll,
+        AddBoth(list, "troll", "Troll",
             maleVoice:   Mix("am_echo", 0.50f, "am_liam", 0.30f, "af_aoede", 0.20f),
             femaleVoice: Mix("af_aoede", 0.45f, "af_nova", 0.25f, "af_bella", 0.30f),
             lang: "en-029", rate: 1.02f, rec: true,
             desc: "Island troll voice");
 
-        AddBoth(list, "zandalari", "Zandalari Troll", AccentGroup.ZandalariTroll,
+        AddBoth(list, "zandalari", "Zandalari Troll",
             maleVoice:   Mix("am_adam", 0.45f, "am_onyx", 0.35f, "am_echo", 0.20f),
             femaleVoice: Mix("bf_fable", 0.35f, "af_aoede", 0.25f, "bf_isabella", 0.25f, "af_bella", 0.15f),
             lang: "sw", rate: 0.95f, rec: true,
             disableChunking: true,
             desc: "Regal Zandalari voice");
 
-        AddBoth(list, "goblin", "Goblin", AccentGroup.Goblin,
+        AddBoth(list, "goblin", "Goblin",
             maleVoice:   Mix("am_eric", 0.55f, "am_puck", 0.45f),
             femaleVoice: Mix("af_nova", 0.50f, "af_jessica", 0.25f, "af_sky", 0.25f),
             lang: "en-us-nyc", rate: 1.06f, rec: true,
             desc: "Fast streetwise goblin voice");
 
-        AddBoth(list, "nightborne", "Nightborne", AccentGroup.Nightborne,
+        AddBoth(list, "nightborne", "Nightborne",
             maleVoice:   Mix("bm_fable", 0.60f, "bm_lewis", 0.40f),
             femaleVoice: Mix("zf_xiaoni", 0.30f, "bf_lily", 0.40f, "bf_fable", 0.30f),
             lang: "fr-fr", rate: 0.96f, rec: true,
             desc: "Arcane court nightborne voice");
 
-        AddBoth(list, "vulpera", "Vulpera", AccentGroup.Vulpera,
+        AddBoth(list, "vulpera", "Vulpera",
             maleVoice:   Mix("am_puck", 0.35f, "am_liam", 0.30f, "am_eric", 0.20f, "bm_fable", 0.15f),
             femaleVoice: Mix("af_sky", 0.35f, "af_nova", 0.30f, "af_bella", 0.20f, "bf_emma", 0.15f),
             lang: "en-us", rate: 1.03f, rec: true,
@@ -245,26 +245,26 @@ public static class SpeakerPresetCatalog
 
         // ── Neutral / Cross-faction ───────────────────────────────────────────
 
-        AddBoth(list, "pandaren", "Pandaren", AccentGroup.Pandaren,
+        AddBoth(list, "pandaren", "Pandaren",
             maleVoice:   Mix("zm_yunjian", 0.50f, "am_onyx", 0.50f),
             femaleVoice: Mix("zf_xiaoxiao", 0.55f, "af_bella", 0.45f),
             lang: "cmn", rate: 0.95f, rec: true,
             desc: "Warm centered pandaren voice");
 
-        AddBoth(list, "earthen", "Earthen", AccentGroup.Earthen,
+        AddBoth(list, "earthen", "Earthen",
             maleVoice:   Mix("am_adam", 0.40f, "am_onyx", 0.35f, "bm_george", 0.25f),
             femaleVoice: Mix("bf_emma", 0.40f, "af_alloy", 0.30f, "bf_alice", 0.30f),
             lang: "en-gb", rate: 0.88f, rec: true,
             disableChunking: true,
             desc: "Flat steady stonebound voice");
 
-        AddBoth(list, "haranir", "Haranir", AccentGroup.Haranir,
+        AddBoth(list, "haranir", "Haranir",
             maleVoice:   Mix("am_adam", 0.35f, "bm_george", 0.35f, "jm_kumo", 0.30f),
             femaleVoice: Mix("af_bella", 0.35f, "bf_alice", 0.35f, "jf_alpha", 0.30f),
             lang: "sw", rate: 0.94f, rec: true,
             desc: "Primordial forest guardian haranir voice");
 
-        AddBoth(list, "dracthyr", "Dracthyr", AccentGroup.Dracthyr,
+        AddBoth(list, "dracthyr", "Dracthyr",
             maleVoice:   Mix("bm_lewis", 0.40f, "bm_fable", 0.35f, "am_fenrir", 0.25f),
             femaleVoice: Mix("bf_isabella", 0.45f, "bf_emma", 0.35f, "af_alloy", 0.20f),
             lang: "en-gb", rate: 0.97f, rec: true,
@@ -272,25 +272,25 @@ public static class SpeakerPresetCatalog
 
         // ── Creature types ────────────────────────────────────────────────────
 
-        AddBoth(list, "dragonkin", "Dragonkin NPC", AccentGroup.Dragonkin,
+        AddBoth(list, "dragonkin", "Dragonkin NPC",
             maleVoice:   Mix("am_onyx", 0.45f, "am_adam", 0.35f, "bm_george", 0.20f),
             femaleVoice: Mix("bf_isabella", 0.45f, "af_alloy", 0.35f, "bf_alice", 0.20f),
             lang: "en-gb", rate: 0.90f, rec: true,
             desc: "Deep ancient dragonkin NPC voice");
 
-        AddBoth(list, "elemental", "Elemental NPC", AccentGroup.Elemental,
+        AddBoth(list, "elemental", "Elemental NPC",
             maleVoice:   Mix("am_onyx", 0.55f, "am_fenrir", 0.45f),
             femaleVoice: Mix("af_alloy", 0.55f, "af_kore", 0.45f),
             lang: "en-us", rate: 0.88f, rec: true,
             desc: "Booming elemental NPC voice");
 
-        AddBoth(list, "giant", "Giant NPC", AccentGroup.Giant,
+        AddBoth(list, "giant", "Giant NPC",
             maleVoice:   Mix("am_fenrir", 0.50f, "am_onyx", 0.30f, "bm_george", 0.20f),
             femaleVoice: Mix("af_kore", 0.50f, "af_alloy", 0.30f, "bf_emma", 0.20f),
             lang: "en-us", rate: 0.85f, rec: true,
             desc: "Rumbling giant NPC voice");
 
-        AddBoth(list, "mechanical", "Mechanical NPC", AccentGroup.Mechanical,
+        AddBoth(list, "mechanical", "Mechanical NPC",
             maleVoice:   Mix("am_puck", 0.50f, "am_liam", 0.50f),
             femaleVoice: Mix("af_nova", 0.50f, "af_jessica", 0.50f),
             lang: "en-us", rate: 1.04f, rec: true,
@@ -309,7 +309,6 @@ public static class SpeakerPresetCatalog
         List<SpeakerPreset> list,
         string idRoot,
         string displayName,
-        AccentGroup group,
         string maleVoice,
         string femaleVoice,
         string lang,
@@ -319,8 +318,8 @@ public static class SpeakerPresetCatalog
         bool disableChunking = false,
         DspProfile? dsp = null)
     {
-        list.Add(MakePreset(idRoot + ".male",   displayName, new VoiceSlot(group, Gender.Male),   maleVoice,   lang, rate, rec, desc, disableChunking, dsp));
-        list.Add(MakePreset(idRoot + ".female", displayName, new VoiceSlot(group, Gender.Female), femaleVoice, lang, rate, rec, desc, disableChunking, dsp));
+        list.Add(MakePreset(idRoot + ".male",   displayName, VoiceSlot.CreateCatalog(idRoot, Gender.Male),   maleVoice,   lang, rate, rec, desc, disableChunking, dsp));
+        list.Add(MakePreset(idRoot + ".female", displayName, VoiceSlot.CreateCatalog(idRoot, Gender.Female), femaleVoice, lang, rate, rec, desc, disableChunking, dsp));
     }
 
     /// <summary>Single-slot preset (Narrator only).</summary>

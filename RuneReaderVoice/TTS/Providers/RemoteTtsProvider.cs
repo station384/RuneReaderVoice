@@ -101,7 +101,8 @@ public sealed class RemoteTtsProvider : ITtsProvider
         float?  bespokeCfgWeight    = null,
         string? batchId             = null,
         int?    batchTotal          = null,
-        int?    forcedSynthesisSeed = null)
+        int?    forcedSynthesisSeed = null,
+        bool    suppressStoredSeed  = false)
     {
         if (string.IsNullOrWhiteSpace(_descriptor.RemoteProviderId))
             throw new InvalidOperationException("Remote provider id is missing.");
@@ -130,7 +131,7 @@ public sealed class RemoteTtsProvider : ITtsProvider
             if (phrases.Count <= 1)
                 return await SynthesizeOggCoreAsync(text, slot, profile, ct,
                     bespokeSampleId, bespokeExaggeration, bespokeCfgWeight,
-                    effectiveBatchId, effectiveBatchTotal, forcedSynthesisSeed);
+                    effectiveBatchId, effectiveBatchTotal, forcedSynthesisSeed, suppressStoredSeed);
 
             // Multi-chunk pipeline:
             //   Phase 1: Submit ALL chunks immediately (fast, ~5ms each, no concurrency limit)
@@ -142,7 +143,7 @@ public sealed class RemoteTtsProvider : ITtsProvider
             var submitTasks = phrases
                 .Select(phrase => SubmitOggCoreAsync(phrase, slot, profile, ct,
                     bespokeSampleId, bespokeExaggeration, bespokeCfgWeight,
-                    effectiveBatchId, effectiveBatchTotal, forcedSynthesisSeed))
+                    effectiveBatchId, effectiveBatchTotal, forcedSynthesisSeed, suppressStoredSeed))
                 .ToArray();
             var submitted = await Task.WhenAll(submitTasks);
 
@@ -213,7 +214,9 @@ public sealed class RemoteTtsProvider : ITtsProvider
         float? bespokeExaggeration = null,
         float? bespokeCfgWeight = null,
         string? batchId = null,
-        int? forcedSynthesisSeed = null)
+        int? batchTotal = null,
+        int? forcedSynthesisSeed = null,
+        bool suppressStoredSeed = false)
     {
         if (batchSegments == null || batchSegments.Count == 0)
             throw new ArgumentException("Batch must contain at least one segment.", nameof(batchSegments));
@@ -225,17 +228,15 @@ public sealed class RemoteTtsProvider : ITtsProvider
             if (bespokeExaggeration.HasValue) profile.Exaggeration = bespokeExaggeration;
             if (bespokeCfgWeight.HasValue)    profile.CfgWeight    = bespokeCfgWeight;
         }
-        if (forcedSynthesisSeed.HasValue)
-        {
+
+        if (suppressStoredSeed || forcedSynthesisSeed.HasValue)
             profile = profile.Clone();
-            profile.SynthesisSeed = forcedSynthesisSeed;
-        }
+
+        if (suppressStoredSeed)
+            profile.SynthesisSeed = null;
 
         if (forcedSynthesisSeed.HasValue)
-        {
-            profile = profile.Clone();
             profile.SynthesisSeed = forcedSynthesisSeed;
-        }
 
         var voiceSpec = BuildVoiceSpec(profile);
         var speechRate = profile.SpeechRate <= 0f ? 1.0f : Math.Clamp(profile.SpeechRate, 0.5f, 2.0f);
@@ -320,7 +321,8 @@ public sealed class RemoteTtsProvider : ITtsProvider
         float?  bespokeCfgWeight    = null,
         string? batchId             = null,
         int?    batchTotal          = null,
-        int?    forcedSynthesisSeed = null)
+        int?    forcedSynthesisSeed = null,
+        bool    suppressStoredSeed  = false)
     {
         if (!string.IsNullOrWhiteSpace(bespokeSampleId))
         {
@@ -328,6 +330,15 @@ public sealed class RemoteTtsProvider : ITtsProvider
             if (bespokeExaggeration.HasValue) profile.Exaggeration = bespokeExaggeration;
             if (bespokeCfgWeight.HasValue)    profile.CfgWeight    = bespokeCfgWeight;
         }
+
+        if (suppressStoredSeed || forcedSynthesisSeed.HasValue)
+            profile = profile.Clone();
+
+        if (suppressStoredSeed)
+            profile.SynthesisSeed = null;
+
+        if (forcedSynthesisSeed.HasValue)
+            profile.SynthesisSeed = forcedSynthesisSeed;
 
         var providerId = _descriptor.RemoteProviderId ?? string.Empty;
         if (providerId.Contains("chatterbox", StringComparison.OrdinalIgnoreCase) ||
@@ -408,12 +419,13 @@ public sealed class RemoteTtsProvider : ITtsProvider
         float?  bespokeCfgWeight    = null,
         string? batchId             = null,
         int?    batchTotal          = null,
-        int?    forcedSynthesisSeed = null)
+        int?    forcedSynthesisSeed = null,
+        bool    suppressStoredSeed  = false)
     {
         // Convenience wrapper — submit then fetch.
         var (submitted, _) = await SubmitOggCoreAsync(text, slot, profile, ct,
             bespokeSampleId, bespokeExaggeration, bespokeCfgWeight,
-            batchId, batchTotal, forcedSynthesisSeed);
+            batchId, batchTotal, forcedSynthesisSeed, suppressStoredSeed);
         return await FetchOggResultAsync(submitted, ct);
     }
 
@@ -624,64 +636,64 @@ public sealed class RemoteTtsProvider : ITtsProvider
 
     private static string GetPreferredSampleStem(VoiceSlot slot)
     {
-        if (slot.Group == AccentGroup.Narrator)
+        if (slot.IsNarrator)
             return slot.Gender == Gender.Female ? "bf_isabella" : "am_adam";
 
         bool f = slot.Gender == Gender.Female;
-        return slot.Group switch
+        return slot.SlotKey.Trim().ToLowerInvariant() switch
         {
-            AccentGroup.Human               => f ? "af_sarah"    : "am_michael",
-            AccentGroup.NightElf            => f ? "bf_alice"    : "bm_george",
-            AccentGroup.Dwarf               => f ? "bf_alice"    : "bm_george",
-            AccentGroup.DarkIronDwarf       => f ? "bf_alice"    : "bm_george",
-            AccentGroup.Gnome               => f ? "af_nova"     : "am_puck",
-            AccentGroup.Mechagnome          => f ? "af_nova"     : "am_puck",
-            AccentGroup.Draenei             => f ? "bf_isabella" : "bm_lewis",
-            AccentGroup.LightforgedDraenei  => f ? "bf_isabella" : "bm_george",
-            AccentGroup.Worgen              => f ? "bf_emma"     : "bm_daniel",
-            AccentGroup.KulTiran            => f ? "bf_emma"     : "bm_george",
-            AccentGroup.BloodElf            => f ? "bf_isabella" : "bm_lewis",
-            AccentGroup.VoidElf             => f ? "bf_isabella" : "bm_lewis",
-            AccentGroup.Orc                 => f ? "af_alloy"    : "am_fenrir",
-            AccentGroup.MagharOrc           => f ? "af_alloy"    : "am_fenrir",
-            AccentGroup.Undead              => f ? "af_alloy"    : "am_onyx",
-            AccentGroup.Tauren              => f ? "af_bella"    : "am_fenrir",
-            AccentGroup.HighmountainTauren  => f ? "af_bella"    : "am_fenrir",
-            AccentGroup.Troll               => f ? "af_aoede"    : "am_echo",
-            AccentGroup.ZandalariTroll      => f ? "bf_alice"    : "am_adam",
-            AccentGroup.Goblin              => f ? "af_nova"     : "am_eric",
-            AccentGroup.Nightborne          => f ? "bf_alice"    : "bm_fable",
-            AccentGroup.Vulpera             => f ? "af_sky"      : "am_puck",
-            AccentGroup.Pandaren            => f ? "jf_alpha"    : "jm_kumo",
-            AccentGroup.Earthen             => f ? "bf_emma"     : "am_adam",
-            AccentGroup.Haranir             => f ? "af_bella"    : "am_adam",
-            AccentGroup.Dracthyr            => f ? "bf_isabella" : "bm_lewis",
-            AccentGroup.Dragonkin           => f ? "bf_isabella" : "am_onyx",
-            AccentGroup.Elemental           => f ? "af_alloy"    : "am_onyx",
-            AccentGroup.Giant               => f ? "af_kore"     : "am_fenrir",
-            AccentGroup.Mechanical          => f ? "af_nova"     : "am_puck",
-            AccentGroup.Amani               => f ? "af_aoede"    : "am_echo",
-            AccentGroup.Arathi              => f ? "bf_alice"    : "bm_george",
-            AccentGroup.Broken              => f ? "bf_isabella" : "bm_lewis",
-            AccentGroup.Centaur             => f ? "af_bella"    : "am_fenrir",
-            AccentGroup.DarkTroll           => f ? "af_aoede"    : "am_fenrir",
-            AccentGroup.Dredger             => f ? "af_alloy"    : "am_onyx",
-            AccentGroup.Dryad               => f ? "bf_alice"    : "bf_alice",
-            AccentGroup.Faerie              => f ? "af_nova"     : "af_sky",
-            AccentGroup.Fungarian           => f ? "af_nova"     : "am_puck",
-            AccentGroup.Grummle             => f ? "af_sky"      : "am_puck",
-            AccentGroup.Hobgoblin           => f ? "af_nova"     : "am_eric",
-            AccentGroup.Kyrian              => f ? "bf_alice"    : "bm_george",
-            AccentGroup.Nerubian            => f ? "af_alloy"    : "am_onyx",
-            AccentGroup.Refti               => f ? "af_alloy"    : "am_onyx",
-            AccentGroup.Revantusk           => f ? "af_aoede"    : "am_echo",
-            AccentGroup.Rutaani             => f ? "af_jessica"  : "am_fenrir",
-            AccentGroup.Shadowpine          => f ? "af_aoede"    : "am_echo",
-            AccentGroup.Titan               => f ? "af_kore"     : "am_onyx",
-            AccentGroup.Tortollan           => f ? "af_bella"    : "am_adam",
-            AccentGroup.Tuskarr             => f ? "af_bella"    : "am_adam",
-            AccentGroup.Venthyr             => f ? "bf_isabella" : "bm_fable",
-            AccentGroup.ZulAman             => f ? "af_aoede"    : "am_echo",
+            "human"               => f ? "af_sarah"    : "am_michael",
+            "nightelf"            => f ? "bf_alice"    : "bm_george",
+            "dwarf"               => f ? "bf_alice"    : "bm_george",
+            "darkirondwarf"       => f ? "bf_alice"    : "bm_george",
+            "gnome"               => f ? "af_nova"     : "am_puck",
+            "mechagnome"          => f ? "af_nova"     : "am_puck",
+            "draenei"             => f ? "bf_isabella" : "bm_lewis",
+            "lightforged"  => f ? "bf_isabella" : "bm_george",
+            "worgen"              => f ? "bf_emma"     : "bm_daniel",
+            "kultiran"            => f ? "bf_emma"     : "bm_george",
+            "bloodelf"            => f ? "bf_isabella" : "bm_lewis",
+            "voidelf"             => f ? "bf_isabella" : "bm_lewis",
+            "orc"                 => f ? "af_alloy"    : "am_fenrir",
+            "maghar"           => f ? "af_alloy"    : "am_fenrir",
+            "undead"              => f ? "af_alloy"    : "am_onyx",
+            "tauren"              => f ? "af_bella"    : "am_fenrir",
+            "highmountain"  => f ? "af_bella"    : "am_fenrir",
+            "troll"               => f ? "af_aoede"    : "am_echo",
+            "zandalari"      => f ? "bf_alice"    : "am_adam",
+            "goblin"              => f ? "af_nova"     : "am_eric",
+            "nightborne"          => f ? "bf_alice"    : "bm_fable",
+            "vulpera"             => f ? "af_sky"      : "am_puck",
+            "pandaren"            => f ? "jf_alpha"    : "jm_kumo",
+            "earthen"             => f ? "bf_emma"     : "am_adam",
+            "haranir"             => f ? "af_bella"    : "am_adam",
+            "dracthyr"            => f ? "bf_isabella" : "bm_lewis",
+            "dragonkin"           => f ? "bf_isabella" : "am_onyx",
+            "elemental"           => f ? "af_alloy"    : "am_onyx",
+            "giant"               => f ? "af_kore"     : "am_fenrir",
+            "mechanical"          => f ? "af_nova"     : "am_puck",
+            "amani"               => f ? "af_aoede"    : "am_echo",
+            "arathi"              => f ? "bf_alice"    : "bm_george",
+            "broken"              => f ? "bf_isabella" : "bm_lewis",
+            "centaur"             => f ? "af_bella"    : "am_fenrir",
+            "darktroll"           => f ? "af_aoede"    : "am_fenrir",
+            "dredger"             => f ? "af_alloy"    : "am_onyx",
+            "dryad"               => f ? "bf_alice"    : "bf_alice",
+            "faerie"              => f ? "af_nova"     : "af_sky",
+            "fungarian"           => f ? "af_nova"     : "am_puck",
+            "grummle"             => f ? "af_sky"      : "am_puck",
+            "hobgoblin"           => f ? "af_nova"     : "am_eric",
+            "kyrian"              => f ? "bf_alice"    : "bm_george",
+            "nerubian"            => f ? "af_alloy"    : "am_onyx",
+            "refti"               => f ? "af_alloy"    : "am_onyx",
+            "revantusk"           => f ? "af_aoede"    : "am_echo",
+            "rutaani"             => f ? "af_jessica"  : "am_fenrir",
+            "shadowpine"          => f ? "af_aoede"    : "am_echo",
+            "titan"               => f ? "af_kore"     : "am_onyx",
+            "tortollan"           => f ? "af_bella"    : "am_adam",
+            "tuskarr"             => f ? "af_bella"    : "am_adam",
+            "venthyr"             => f ? "bf_isabella" : "bm_fable",
+            "zulaman"             => f ? "af_aoede"    : "am_echo",
             _                               => slot.Gender == Gender.Female ? "af_bella" : "am_adam",
         };
     }

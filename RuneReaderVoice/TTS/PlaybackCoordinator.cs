@@ -335,6 +335,7 @@ public sealed class PlaybackCoordinator : IDisposable
             if (_remoteBatchTasks.TryGetValue(segment.BatchId, out var existing))
                 return existing;
 
+            bool suppressStoredSeed = !segment.Slot.IsNarrator && segment.NpcId > 0 && !segment.UseNpcIdAsSeed;
             var created = remoteProvider.SubmitSplitBatchAsync(
                 segment.BatchSegments,
                 segment.Slot,
@@ -343,7 +344,9 @@ public sealed class PlaybackCoordinator : IDisposable
                 segment.BespokeExaggeration,
                 segment.BespokeCfgWeight,
                 segment.BatchId,
-                segment.UseNpcIdAsSeed && segment.NpcId > 0 ? segment.NpcId : null);
+                null,
+                segment.UseNpcIdAsSeed && segment.NpcId > 0 ? segment.NpcId : null,
+                suppressStoredSeed);
             _remoteBatchTasks[segment.BatchId] = created;
             return created;
         }
@@ -394,8 +397,9 @@ public sealed class PlaybackCoordinator : IDisposable
         // Narrator segments share the same NpcId as the NPC dialog but should
         // always use the narrator voice profile, not the NPC's bespoke sample.
         bool applyBespoke = !string.IsNullOrWhiteSpace(segment.BespokeSampleId)
-                            && segment.Slot.Group != Protocol.AccentGroup.Narrator;
+                            && !segment.Slot.IsNarrator;
         int? forcedNpcSeed = segment.UseNpcIdAsSeed && segment.NpcId > 0 ? segment.NpcId : null;
+        bool suppressStoredSeed = !segment.Slot.IsNarrator && segment.NpcId > 0 && !segment.UseNpcIdAsSeed;
 
         if (_provider is RemoteTtsProvider remoteProvider &&
             !string.IsNullOrWhiteSpace(segment.BatchId) &&
@@ -417,15 +421,20 @@ public sealed class PlaybackCoordinator : IDisposable
             ? remoteProviderForSample.ResolveSampleProfile(segment.BespokeSampleId!, segment.Slot)
             : _provider.ResolveProfile(segment.Slot);
 
-        if (forcedNpcSeed.HasValue && _provider is RemoteTtsProvider && profile != null)
+        if (_provider is RemoteTtsProvider && profile != null && (forcedNpcSeed.HasValue || suppressStoredSeed))
         {
             profile = profile.Clone();
-            profile.SynthesisSeed = forcedNpcSeed;
+            if (suppressStoredSeed)
+                profile.SynthesisSeed = null;
+            if (forcedNpcSeed.HasValue)
+                profile.SynthesisSeed = forcedNpcSeed;
         }
 
         var voiceId = applyBespoke
             ? $"sample:{profile?.BuildIdentityKey() ?? segment.BespokeSampleId!}"
-            : _provider.ResolveVoiceId(segment.Slot);
+            : (_provider is RemoteTtsProvider && profile != null
+                ? profile.BuildIdentityKey()
+                : _provider.ResolveVoiceId(segment.Slot));
 
         // Cache key includes slot string as namespace prefix so two different slots
         // that happen to share the same sample (e.g. Narrator and Tortollan both

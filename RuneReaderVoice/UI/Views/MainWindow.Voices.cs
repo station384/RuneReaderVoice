@@ -161,8 +161,8 @@ public partial class MainWindow
         if (items == null || items.Count == 0)
             return Array.Empty<RuneReaderVoice.Data.VoiceSlotCatalogRow>();
 
-        var maleNarrator = new VoiceSlot(AccentGroup.Narrator, Gender.Male);
-        var femaleNarrator = new VoiceSlot(AccentGroup.Narrator, Gender.Female);
+        var maleNarrator = VoiceSlot.MaleNarrator;
+        var femaleNarrator = VoiceSlot.FemaleNarrator;
         var narrator = items.Where(x => x.Slot == VoiceSlot.Narrator || x.Slot == maleNarrator || x.Slot == femaleNarrator).ToList();
         var rest = items.Where(x => x.Slot != VoiceSlot.Narrator && x.Slot != maleNarrator && x.Slot != femaleNarrator)
             .OrderBy(x => x.NpcLabel.Split(" / ")[0], StringComparer.OrdinalIgnoreCase)
@@ -225,7 +225,7 @@ public partial class MainWindow
             ? "Blend"
             : ResolveVoiceDisplayName(provider, profile.VoiceId);
 
-        var accentText = AppServices.NpcPeopleCatalog?.GetSlotAccentLabel(slot) ?? slot.Group.ToString();
+        var accentText = AppServices.NpcPeopleCatalog?.GetSlotAccentLabel(slot) ?? slot.SlotKey;
         var standard   = StandardVoiceProfileCatalog.TryGetVoiceStandard(providerId, slot);
 
         if (standard != null && profile.CacheAffectingEquals(standard))
@@ -331,7 +331,7 @@ So go quickly, keep your wits about you, and return by the main road if you valu
             }
 
             var catalog = GetVoiceCatalogItems().FirstOrDefault(x => x.Slot.Equals(slot))
-                          ?? new RuneReaderVoice.Data.VoiceSlotCatalogRow(slot, GetDisplaySlotLabel(slot), AppServices.NpcPeopleCatalog?.GetSlotAccentLabel(slot) ?? slot.Group.ToString(), 0);
+                          ?? new RuneReaderVoice.Data.VoiceSlotCatalogRow(slot, GetDisplaySlotLabel(slot), AppServices.NpcPeopleCatalog?.GetSlotAccentLabel(slot) ?? slot.SlotKey, 0);
             var voiceSourceLabel = descriptor?.VoiceSourceKind == RemoteVoiceSourceKind.Samples ? "sample" : "voice";
             var supportsPresets = AppServices.Provider is KokoroTtsProvider;
             // Blend is supported by local Kokoro and remote Kokoro backends.

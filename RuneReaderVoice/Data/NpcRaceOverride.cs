@@ -42,16 +42,24 @@ public sealed class NpcRaceOverride
     public int NpcId { get; init; }
 
     /// <summary>
-    /// Race ID that maps into RaceAccentMapping.
-    /// Use values from the player race map (1–37) or creature type map (0x50–0x58).
+    /// Legacy race id kept only for compatibility with older sync/export paths.
+    /// Runtime override resolution now prefers CatalogId.
     /// </summary>
     public int RaceId { get; set; }
 
     /// <summary>
-    /// Accent group derived from RaceId. Stored for quick lookup —
-    /// does not need to be persisted (recomputed on load).
+    /// Catalog row id selected for this NPC override. This is the authoritative
+    /// runtime identity used to derive a slot at playback time.
     /// </summary>
-    public AccentGroup AccentGroup { get; set; }
+    public string CatalogId { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Legacy compatibility view only. Runtime must not use this as source-of-truth.
+    /// </summary>
+    public AccentGroup AccentGroup =>
+        !string.IsNullOrWhiteSpace(CatalogId)
+            ? VoiceSlot.CreateCatalog(CatalogId, Gender.Unknown).Group
+            : (RaceAccentMapping.ResolveAccentGroup(RaceId) ?? AccentGroup.Narrator);
 
     /// <summary>Optional user-friendly label, e.g. "Rexxar" or "Thrall".</summary>
     public string? Notes { get; set; }

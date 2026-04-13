@@ -109,43 +109,43 @@ public sealed partial class KokoroTtsProvider
         if (preset != null)
             return preset.Profile.Clone();
 
-        if (slot.Group == AccentGroup.Narrator)
+        if (slot.IsNarrator)
             return VoiceProfileDefaults.Create(slot.Gender == Gender.Female ? "bf_isabella" : "am_adam");
 
-        // Per-race single-voice fallback (no mix, for simplicity).
+        // Per-slot single-voice fallback (no mix, for simplicity).
         bool f = slot.Gender == Gender.Female;
-        return slot.Group switch
+        return slot.SlotKey.Trim().ToLowerInvariant() switch
         {
-            AccentGroup.Human               => VoiceProfileDefaults.Create(f ? "af_sarah"    : "am_michael"),
-            AccentGroup.NightElf            => VoiceProfileDefaults.Create(f ? "bf_alice"    : "bm_george"),
-            AccentGroup.Dwarf               => VoiceProfileDefaults.Create(f ? "bf_alice"    : "bm_george"),
-            AccentGroup.DarkIronDwarf       => VoiceProfileDefaults.Create(f ? "bf_alice"    : "bm_george"),
-            AccentGroup.Gnome               => VoiceProfileDefaults.Create(f ? "af_nova"     : "am_puck"),
-            AccentGroup.Mechagnome          => VoiceProfileDefaults.Create(f ? "af_nova"     : "am_puck"),
-            AccentGroup.Draenei             => VoiceProfileDefaults.Create(f ? "bf_isabella" : "bm_lewis"),
-            AccentGroup.LightforgedDraenei  => VoiceProfileDefaults.Create(f ? "bf_isabella" : "bm_george"),
-            AccentGroup.Worgen              => VoiceProfileDefaults.Create(f ? "bf_emma"     : "bm_daniel"),
-            AccentGroup.KulTiran            => VoiceProfileDefaults.Create(f ? "bf_emma"     : "bm_george"),
-            AccentGroup.BloodElf            => VoiceProfileDefaults.Create(f ? "bf_isabella" : "bm_lewis"),
-            AccentGroup.VoidElf             => VoiceProfileDefaults.Create(f ? "bf_isabella" : "bm_lewis"),
-            AccentGroup.Orc                 => VoiceProfileDefaults.Create(f ? "af_alloy"    : "am_fenrir"),
-            AccentGroup.MagharOrc           => VoiceProfileDefaults.Create(f ? "af_alloy"    : "am_fenrir"),
-            AccentGroup.Undead              => VoiceProfileDefaults.Create(f ? "af_alloy"    : "am_onyx"),
-            AccentGroup.Tauren              => VoiceProfileDefaults.Create(f ? "af_bella"    : "am_fenrir"),
-            AccentGroup.HighmountainTauren  => VoiceProfileDefaults.Create(f ? "af_bella"    : "am_fenrir"),
-            AccentGroup.Troll               => VoiceProfileDefaults.Create(f ? "af_aoede"    : "am_echo"),
-            AccentGroup.ZandalariTroll      => VoiceProfileDefaults.Create(f ? "bf_fable"    : "am_adam"),
-            AccentGroup.Goblin              => VoiceProfileDefaults.Create(f ? "af_nova"     : "am_eric"),
-            AccentGroup.Nightborne          => VoiceProfileDefaults.Create(f ? "bf_fable"    : "bm_fable"),
-            AccentGroup.Vulpera             => VoiceProfileDefaults.Create(f ? "af_sky"      : "am_puck"),
-            AccentGroup.Pandaren            => VoiceProfileDefaults.Create(f ? "jf_alpha"    : "jm_kumo"),
-            AccentGroup.Earthen             => VoiceProfileDefaults.Create(f ? "bf_emma"     : "am_adam"),
-            AccentGroup.Haranir             => VoiceProfileDefaults.Create(f ? "af_bella"    : "am_adam"),
-            AccentGroup.Dracthyr            => VoiceProfileDefaults.Create(f ? "bf_isabella" : "bm_lewis"),
-            AccentGroup.Dragonkin           => VoiceProfileDefaults.Create(f ? "bf_isabella" : "am_onyx"),
-            AccentGroup.Elemental           => VoiceProfileDefaults.Create(f ? "af_alloy"    : "am_onyx"),
-            AccentGroup.Giant               => VoiceProfileDefaults.Create(f ? "af_kore"     : "am_fenrir"),
-            AccentGroup.Mechanical          => VoiceProfileDefaults.Create(f ? "af_nova"     : "am_puck"),
+            "human"               => VoiceProfileDefaults.Create(f ? "af_sarah"    : "am_michael"),
+            "nightelf"            => VoiceProfileDefaults.Create(f ? "bf_alice"    : "bm_george"),
+            "dwarf"               => VoiceProfileDefaults.Create(f ? "bf_alice"    : "bm_george"),
+            "darkirondwarf"       => VoiceProfileDefaults.Create(f ? "bf_alice"    : "bm_george"),
+            "gnome"               => VoiceProfileDefaults.Create(f ? "af_nova"     : "am_puck"),
+            "mechagnome"          => VoiceProfileDefaults.Create(f ? "af_nova"     : "am_puck"),
+            "draenei"             => VoiceProfileDefaults.Create(f ? "bf_isabella" : "bm_lewis"),
+            "lightforged"  => VoiceProfileDefaults.Create(f ? "bf_isabella" : "bm_george"),
+            "worgen"              => VoiceProfileDefaults.Create(f ? "bf_emma"     : "bm_daniel"),
+            "kultiran"            => VoiceProfileDefaults.Create(f ? "bf_emma"     : "bm_george"),
+            "bloodelf"            => VoiceProfileDefaults.Create(f ? "bf_isabella" : "bm_lewis"),
+            "voidelf"             => VoiceProfileDefaults.Create(f ? "bf_isabella" : "bm_lewis"),
+            "orc"                 => VoiceProfileDefaults.Create(f ? "af_alloy"    : "am_fenrir"),
+            "maghar"           => VoiceProfileDefaults.Create(f ? "af_alloy"    : "am_fenrir"),
+            "undead"              => VoiceProfileDefaults.Create(f ? "af_alloy"    : "am_onyx"),
+            "tauren"              => VoiceProfileDefaults.Create(f ? "af_bella"    : "am_fenrir"),
+            "highmountain"  => VoiceProfileDefaults.Create(f ? "af_bella"    : "am_fenrir"),
+            "troll"               => VoiceProfileDefaults.Create(f ? "af_aoede"    : "am_echo"),
+            "zandalari"      => VoiceProfileDefaults.Create(f ? "bf_fable"    : "am_adam"),
+            "goblin"              => VoiceProfileDefaults.Create(f ? "af_nova"     : "am_eric"),
+            "nightborne"          => VoiceProfileDefaults.Create(f ? "bf_fable"    : "bm_fable"),
+            "vulpera"             => VoiceProfileDefaults.Create(f ? "af_sky"      : "am_puck"),
+            "pandaren"            => VoiceProfileDefaults.Create(f ? "jf_alpha"    : "jm_kumo"),
+            "earthen"             => VoiceProfileDefaults.Create(f ? "bf_emma"     : "am_adam"),
+            "haranir"             => VoiceProfileDefaults.Create(f ? "af_bella"    : "am_adam"),
+            "dracthyr"            => VoiceProfileDefaults.Create(f ? "bf_isabella" : "bm_lewis"),
+            "dragonkin"           => VoiceProfileDefaults.Create(f ? "bf_isabella" : "am_onyx"),
+            "elemental"           => VoiceProfileDefaults.Create(f ? "af_alloy"    : "am_onyx"),
+            "giant"               => VoiceProfileDefaults.Create(f ? "af_kore"     : "am_fenrir"),
+            "mechanical"          => VoiceProfileDefaults.Create(f ? "af_nova"     : "am_puck"),
             _                               => VoiceProfileDefaults.Create(DefaultVoiceId)
         };
     }

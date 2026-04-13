@@ -55,7 +55,8 @@ public sealed class NpcRaceOverrideDb
         return row == null ? null : ToModel(row);
     }
 
-    public Task UpsertAsync(int npcId, int raceId, string? notes,
+    public Task UpsertAsync(int npcId, string catalogId, string? notes,
+        int raceId = 0,
         string? bespokeSampleId = null,
         float? bespokeExaggeration = null,
         float? bespokeCfgWeight = null,
@@ -68,6 +69,7 @@ public sealed class NpcRaceOverrideDb
         {
             NpcId               = npcId,
             RaceId              = raceId,
+            CatalogId           = catalogId ?? string.Empty,
             Notes               = notes ?? string.Empty,
             BespokeSampleId     = bespokeSampleId,
             BespokeExaggeration = bespokeExaggeration,
@@ -105,6 +107,7 @@ public sealed class NpcRaceOverrideDb
             {
                 NpcId               = record.NpcId,
                 RaceId              = record.RaceId,
+                CatalogId           = record.CatalogId ?? string.Empty,
                 Notes               = record.Notes ?? string.Empty,
                 BespokeSampleId     = record.BespokeSampleId,
                 BespokeExaggeration = record.BespokeExaggeration,
@@ -119,6 +122,80 @@ public sealed class NpcRaceOverrideDb
         return count;
     }
 
+
+    /// <summary>
+    /// Temporary legacy shim used only for importing older NPC override JSON files
+    /// that still carry RaceId but not CatalogId. This should be removed after
+    /// one-time migration of old exports is no longer needed.
+    /// </summary>
+    public static string LegacyRaceIdToCatalogId(int raceId)
+    {
+        if (raceId <= 0)
+            return string.Empty;
+
+        var group = RaceAccentMapping.ResolveAccentGroup(raceId);
+        if (group == null)
+            return string.Empty;
+
+        return group.Value switch
+        {
+            AccentGroup.Human => "human",
+            AccentGroup.NightElf => "nightelf",
+            AccentGroup.Dwarf => "dwarf",
+            AccentGroup.DarkIronDwarf => "darkirondwarf",
+            AccentGroup.Gnome => "gnome",
+            AccentGroup.Mechagnome => "mechagnome",
+            AccentGroup.Draenei => "draenei",
+            AccentGroup.LightforgedDraenei => "lightforgeddraenei",
+            AccentGroup.Worgen => "worgen",
+            AccentGroup.KulTiran => "kultiran",
+            AccentGroup.BloodElf => "bloodelf",
+            AccentGroup.VoidElf => "voidelf",
+            AccentGroup.Orc => "orc",
+            AccentGroup.MagharOrc => "magharorc",
+            AccentGroup.Undead => "undead",
+            AccentGroup.Tauren => "tauren",
+            AccentGroup.HighmountainTauren => "highmountaintauren",
+            AccentGroup.Troll => "troll",
+            AccentGroup.ZandalariTroll => "zandalaritroll",
+            AccentGroup.Goblin => "goblin",
+            AccentGroup.Nightborne => "nightborne",
+            AccentGroup.Vulpera => "vulpera",
+            AccentGroup.Pandaren => "pandaren",
+            AccentGroup.Earthen => "earthen",
+            AccentGroup.Haranir => "haranir",
+            AccentGroup.Dracthyr => "dracthyr",
+            AccentGroup.Dragonkin => "dragonkin",
+            AccentGroup.Elemental => "elemental",
+            AccentGroup.Giant => "giant",
+            AccentGroup.Mechanical => "mechanical",
+            AccentGroup.Illidari => "illidari",
+            AccentGroup.Amani => "amani",
+            AccentGroup.Arathi => "arathi",
+            AccentGroup.Broken => "broken",
+            AccentGroup.Centaur => "centaur",
+            AccentGroup.DarkTroll => "darktroll",
+            AccentGroup.Dredger => "dredger",
+            AccentGroup.Dryad => "dryad",
+            AccentGroup.Faerie => "faerie",
+            AccentGroup.Fungarian => "fungarian",
+            AccentGroup.Grummle => "grummle",
+            AccentGroup.Hobgoblin => "hobgoblin",
+            AccentGroup.Kyrian => "kyrian",
+            AccentGroup.Nerubian => "nerubian",
+            AccentGroup.Refti => "refti",
+            AccentGroup.Revantusk => "revantusk",
+            AccentGroup.Rutaani => "rutaani",
+            AccentGroup.Shadowpine => "shadowpine",
+            AccentGroup.Titan => "titan",
+            AccentGroup.Tortollan => "tortollan",
+            AccentGroup.Tuskarr => "tuskarr",
+            AccentGroup.Venthyr => "venthyr",
+            AccentGroup.ZulAman => "zulaman",
+            _ => string.Empty,
+        };
+    }
+
     private static NpcRaceOverride ToModel(NpcRaceOverrideRow row)
     {
         Enum.TryParse<NpcOverrideSource>(row.Source, out var source);
@@ -126,13 +203,12 @@ public sealed class NpcRaceOverrideDb
         {
             NpcId               = row.NpcId,
             RaceId              = row.RaceId,
+            CatalogId           = row.CatalogId ?? string.Empty,
             Notes               = row.Notes,
             BespokeSampleId     = row.BespokeSampleId,
             BespokeExaggeration = row.BespokeExaggeration,
             BespokeCfgWeight    = row.BespokeCfgWeight,
             UseNpcIdAsSeed      = row.UseNpcIdAsSeed,
-            AccentGroup         = RaceAccentMapping.ResolveAccentGroup(row.RaceId)
-                                  ?? AccentGroup.Narrator,
             Source              = source,
             Confidence          = row.Confidence,
             UpdatedAt           = row.UpdatedAt,

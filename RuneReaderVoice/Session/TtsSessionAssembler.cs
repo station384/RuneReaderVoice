@@ -60,7 +60,7 @@ namespace RuneReaderVoice.Session;
 // NPC race override lookup chain:
 //   1. _npcRaceStore (in-memory, pre-loaded from NpcRaceOverrideDb at startup)
 //   2. packet.Race (from QR header — creature type or player race)
-//   3. Falls through to RaceAccentMapping which returns Narrator on unknown values
+//   3. Falls back to narrator by packet gender when no explicit NPC override exists
 
 public sealed class AssembledSegment
 {
@@ -144,6 +144,7 @@ public sealed class TtsSessionAssembler
     // we maintain an in-memory copy here — the DB is the durable backing store.
 
     private record struct NpcVoiceOverride(
+        string? CatalogId,
         int     RaceId,
         string? BespokeSampleId,
         float?  BespokeExaggeration,
@@ -175,6 +176,7 @@ public sealed class TtsSessionAssembler
         {
             foreach (var entry in all)
                 _npcVoiceStore[entry.NpcId] = new NpcVoiceOverride(
+                    entry.CatalogId,
                     entry.RaceId,
                     entry.BespokeSampleId,
                     entry.BespokeExaggeration,
@@ -210,17 +212,34 @@ public sealed class TtsSessionAssembler
             }
 
             // ── NPC override lookup ───────────────────────────────────────────
-            // Explicit NPC override wins. Otherwise NPCs no longer fall back to
-            // packet race / creature type; they fall back to narrator-family
-            // resolution via race=0 + packet gender flags.
-            int effectiveRace = packet.NpcId != 0 ? 0 : packet.Race;
-            if (packet.NpcId != 0 && _npcVoiceStore.TryGetValue(packet.NpcId, out var stored))
-                effectiveRace = stored.RaceId;
+            // Runtime no longer resolves NPC speech from packet race. The packet race
+            // remains in the protocol for compatibility, but in practice almost every
+            // NPC arrives as Humanoid and the real assignment is done manually by NPCID.
+            // So resolution is now simple:
+            //   1. Explicit NPC override by catalog id.
+            //   2. Otherwise narrator fallback using packet gender.
+            int effectiveRace = 0;
+            VoiceSlot resolvedSlot;
+            if (packet.IsNarrator)
+            {
+                // Narrator-marked segments must always honor narrator routing first.
+                // NPC override/catalog resolution applies only to non-narrator NPC speech.
+                resolvedSlot = packet.IsFemale ? VoiceSlot.FemaleNarrator : VoiceSlot.MaleNarrator;
+            }
+            else if (packet.NpcId != 0 && _npcVoiceStore.TryGetValue(packet.NpcId, out var stored) && !string.IsNullOrWhiteSpace(stored.CatalogId))
+            {
+                var g = packet.IsMale ? Gender.Male : packet.IsFemale ? Gender.Female : Gender.Unknown;
+                resolvedSlot = AppServices.NpcPeopleCatalog?.ResolveCatalogSlot(stored.CatalogId!, g)
+                               ?? (g == Gender.Female ? VoiceSlot.FemaleNarrator : VoiceSlot.MaleNarrator);
+            }
+            else
+            {
+                resolvedSlot = packet.IsFemale ? VoiceSlot.FemaleNarrator : VoiceSlot.MaleNarrator;
+            }
 
             if (packet.SubIndex == 0)
             {
-                var slot = RaceAccentMapping.Resolve(
-                    effectiveRace, packet.Flags, packet.IsMale, packet.IsFemale);
+                var slot = resolvedSlot;
                 var key  = MakeKey(packet.SubTotal, packet.Flags,
                                    effectiveRace, packet.Base64Payload,
                                    packet.SeqIndex);
@@ -356,11 +375,11 @@ public sealed class TtsSessionAssembler
 
     /// <summary>
     /// Applies a new NPC voice override at runtime (called from the UI after the
-    /// user saves an assignment). Updates the in-memory store immediately so the
-    /// next dialog using this NpcId picks up the new settings without a restart.
-    /// The caller is responsible for persisting to the DB via NpcRaceOverrideDb.
+    /// user saves an assignment). Runtime now keys strictly by catalog id. Legacy
+    /// race values are ignored.
     /// </summary>
-    public void ApplyRaceOverride(int npcId, int raceId,
+    public void ApplyRaceOverride(int npcId, string catalogId,
+        int raceId = 0,
         string? bespokeSampleId = null,
         float? bespokeExaggeration = null,
         float? bespokeCfgWeight = null,
@@ -370,7 +389,7 @@ public sealed class TtsSessionAssembler
         lock (_lock)
         {
             _npcVoiceStore[npcId] = new NpcVoiceOverride(
-                raceId, bespokeSampleId, bespokeExaggeration, bespokeCfgWeight, useNpcIdAsSeed);
+                catalogId, raceId, bespokeSampleId, bespokeExaggeration, bespokeCfgWeight, useNpcIdAsSeed);
         }
     }
 

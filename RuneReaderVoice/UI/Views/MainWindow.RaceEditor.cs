@@ -153,7 +153,6 @@ public partial class MainWindow
         {
             Id = id,
             DisplayName = displayName,
-            AccentGroupName = ResolveLegacyAccentGroupBridge(id),
             AccentLabel = string.IsNullOrWhiteSpace(accentLabel) ? displayName : accentLabel,
             HasMale = hasMale,
             HasFemale = hasFemale,
@@ -264,24 +263,6 @@ public partial class MainWindow
 
         LoadRaceEditorRow(row);
         SetRaceEditorStatus($"Loaded {row.DisplayName}.");
-    }
-
-    private string ResolveLegacyAccentGroupBridge(string id)
-    {
-        if (!string.IsNullOrWhiteSpace(_raceEditorSelectedId))
-        {
-            var existing = AppServices.NpcPeopleCatalog.GetAllRows().FirstOrDefault(x => x.Id == _raceEditorSelectedId);
-            if (existing != null && !string.IsNullOrWhiteSpace(existing.AccentGroupName))
-                return existing.AccentGroupName;
-        }
-
-        var existingById = AppServices.NpcPeopleCatalog.GetAllRows().FirstOrDefault(x => string.Equals(x.Id, id, StringComparison.OrdinalIgnoreCase));
-        if (existingById != null && !string.IsNullOrWhiteSpace(existingById.AccentGroupName))
-            return existingById.AccentGroupName;
-
-        var parts = id.Split(new[] { '-', '_', ' ' }, StringSplitOptions.RemoveEmptyEntries);
-        var bridged = string.Concat(parts.Select(part => char.ToUpperInvariant(part[0]) + part[1..].ToLowerInvariant()));
-        return string.IsNullOrWhiteSpace(bridged) ? id : bridged;
     }
 
     private void OnRaceEditorFormTextChanged(object? sender, TextChangedEventArgs e)

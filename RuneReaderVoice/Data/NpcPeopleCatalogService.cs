@@ -47,19 +47,38 @@ public sealed class NpcPeopleCatalogService
 
         foreach (var row in _rows.Where(x => x.Enabled).OrderBy(x => x.SortOrder).ThenBy(x => x.DisplayName, StringComparer.OrdinalIgnoreCase))
         {
-            AccentGroup? legacyGroup = Enum.TryParse<AccentGroup>(row.AccentGroupName, out var parsed)
-                ? parsed
-                : null;
-
             if (row.HasMale)
-                result.Add(new VoiceSlotCatalogRow(VoiceSlot.CreateCatalog(row.Id, Gender.Male, legacyGroup), $"{row.DisplayName} / Male", row.AccentLabel, row.SortOrder));
+                result.Add(new VoiceSlotCatalogRow(VoiceSlot.CreateCatalog(row.Id, Gender.Male), $"{row.DisplayName} / Male", row.AccentLabel, row.SortOrder));
             if (row.HasFemale)
-                result.Add(new VoiceSlotCatalogRow(VoiceSlot.CreateCatalog(row.Id, Gender.Female, legacyGroup), $"{row.DisplayName} / Female", row.AccentLabel, row.SortOrder + 1));
+                result.Add(new VoiceSlotCatalogRow(VoiceSlot.CreateCatalog(row.Id, Gender.Female), $"{row.DisplayName} / Female", row.AccentLabel, row.SortOrder + 1));
             if (row.HasNeutral)
-                result.Add(new VoiceSlotCatalogRow(VoiceSlot.CreateCatalog(row.Id, Gender.Unknown, legacyGroup), row.DisplayName, row.AccentLabel, row.SortOrder + 2));
+                result.Add(new VoiceSlotCatalogRow(VoiceSlot.CreateCatalog(row.Id, Gender.Unknown), row.DisplayName, row.AccentLabel, row.SortOrder + 2));
         }
 
         return result;
+    }
+
+    public VoiceSlot ResolveCatalogSlot(string catalogId, Gender packetGender)
+    {
+        var row = _rows.FirstOrDefault(x => x.Enabled && string.Equals(x.Id, catalogId, StringComparison.OrdinalIgnoreCase));
+        if (row == null)
+            return packetGender == Gender.Female ? VoiceSlot.FemaleNarrator : VoiceSlot.MaleNarrator;
+
+        if (packetGender == Gender.Female && row.HasFemale)
+            return VoiceSlot.CreateCatalog(row.Id, Gender.Female);
+        if (packetGender == Gender.Male && row.HasMale)
+            return VoiceSlot.CreateCatalog(row.Id, Gender.Male);
+        if (packetGender == Gender.Unknown && row.HasNeutral)
+            return VoiceSlot.CreateCatalog(row.Id, Gender.Unknown);
+
+        if (row.HasMale)
+            return VoiceSlot.CreateCatalog(row.Id, Gender.Male);
+        if (row.HasFemale)
+            return VoiceSlot.CreateCatalog(row.Id, Gender.Female);
+        if (row.HasNeutral)
+            return VoiceSlot.CreateCatalog(row.Id, Gender.Unknown);
+
+        return packetGender == Gender.Female ? VoiceSlot.FemaleNarrator : VoiceSlot.MaleNarrator;
     }
 
     public string GetSlotLabel(VoiceSlot slot)
@@ -68,6 +87,6 @@ public sealed class NpcPeopleCatalogService
 
     public string GetSlotAccentLabel(VoiceSlot slot)
         => GetVoiceSlots().FirstOrDefault(x => x.Slot.Equals(slot))?.AccentLabel
-           ?? (slot.LegacyGroup?.ToString() ?? slot.SlotKey);
+           ?? slot.SlotKey;
 }
 

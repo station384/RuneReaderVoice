@@ -98,52 +98,37 @@ public enum AccentGroup
 }
 
 /// <summary>
-/// Identifies a specific voice slot.
-///
-/// Historical note:
-/// Voice slots originally used AccentGroup + Gender as their full identity.
-/// The Race Editor and catalog runtime are moving toward catalog-owned row IDs as
-/// the real slot key, so VoiceSlot now carries a catalog/runtime slot key plus an
-/// optional legacy AccentGroup compatibility hint.
-///
-/// SlotKey is the authoritative runtime identity used for profile storage,
-/// voice-context namespacing, and Race Voices UI generation.
-/// LegacyGroup is kept only so older fallback/default logic can continue to work
-/// while the rest of the runtime is converted away from AccentGroup assumptions.
+/// Identifies a specific voice slot: accent group + gender.
+/// Narrator uses male/female variants; unknown defaults to male.
 /// </summary>
-public readonly record struct VoiceSlot(string SlotKey, Gender Gender, AccentGroup? LegacyGroup = null)
+public readonly record struct VoiceSlot(string SlotKey, Gender Gender)
 {
-    public static readonly VoiceSlot Narrator       = new("Narrator", Gender.Male, AccentGroup.Narrator);
-    public static readonly VoiceSlot MaleNarrator   = new("Narrator", Gender.Male, AccentGroup.Narrator);
-    public static readonly VoiceSlot FemaleNarrator = new("Narrator", Gender.Female, AccentGroup.Narrator);
+    public static readonly VoiceSlot Narrator       = new("Narrator", Gender.Male);
+    public static readonly VoiceSlot MaleNarrator   = new("Narrator", Gender.Male);
+    public static readonly VoiceSlot FemaleNarrator = new("Narrator", Gender.Female);
 
+    // Temporary constructor retained only for code paths that still materialize
+    // a slot from an AccentGroup enum. The authoritative runtime identity is the
+    // catalog/runtime SlotKey, not the enum value.
     public VoiceSlot(AccentGroup group, Gender gender)
-        : this(group.ToString(), gender, group)
+        : this(CatalogSlotKeyFromAccentGroup(group), gender)
     {
     }
 
-    public static VoiceSlot CreateCatalog(string catalogId, Gender gender, AccentGroup? legacyGroup = null)
-        => new(catalogId, gender, legacyGroup);
+    public static VoiceSlot CreateCatalog(string catalogId, Gender gender)
+        => new(catalogId, gender);
 
     public bool IsNarrator => string.Equals(SlotKey, "Narrator", StringComparison.OrdinalIgnoreCase);
 
-    /// <summary>
-    /// Legacy compatibility accessor. This is no longer the authoritative runtime
-    /// slot identity. Callers should prefer SlotKey unless they specifically need
-    /// an AccentGroup-based fallback/default path.
-    /// </summary>
-    public AccentGroup Group => LegacyGroup ?? AccentGroup.Narrator;
+    // Compatibility accessor for older rule/default paths that have not yet been
+    // converted. This is derived from SlotKey and is no longer stored as runtime identity.
+    public AccentGroup Group => ResolveAccentGroupBySlotKey(SlotKey) ?? AccentGroup.Narrator;
 
     public override string ToString() =>
         IsNarrator
             ? (Gender == Gender.Female ? "Narrator/Female" : "Narrator/Male")
             : $"{SlotKey}/{Gender}";
 
-    /// <summary>
-    /// Parses a VoiceSlot from its stored string form.
-    /// Supports narrator aliases, legacy AccentGroup/Gender values, and the newer
-    /// catalog-slot-key/Gender form (e.g. "human/Male").
-    /// </summary>
     public static bool TryParse(string s, out VoiceSlot slot)
     {
         if (s == "Narrator" || s == "Narrator/Male")
@@ -164,16 +149,116 @@ public readonly record struct VoiceSlot(string SlotKey, Gender Gender, AccentGro
             var genderText = s[(idx + 1)..];
             if (Enum.TryParse<Gender>(genderText, out var gender))
             {
-                if (Enum.TryParse<AccentGroup>(slotKey, out var legacyGroup))
-                    slot = new VoiceSlot(slotKey, gender, legacyGroup);
-                else
-                    slot = new VoiceSlot(slotKey, gender);
+                slot = new VoiceSlot(slotKey, gender);
                 return true;
             }
         }
 
         slot = default;
         return false;
+    }
+
+    private static string CatalogSlotKeyFromAccentGroup(AccentGroup group) => group switch
+    {
+        AccentGroup.Narrator => "Narrator",
+        AccentGroup.DarkIronDwarf => "darkirondwarf",
+        AccentGroup.LightforgedDraenei => "lightforged",
+        AccentGroup.MagharOrc => "maghar",
+        AccentGroup.HighmountainTauren => "highmountain",
+        AccentGroup.ZandalariTroll => "zandalari",
+        AccentGroup.NightElf => "nightelf",
+        AccentGroup.BloodElf => "bloodelf",
+        AccentGroup.VoidElf => "voidelf",
+        AccentGroup.KulTiran => "kultiran",
+        AccentGroup.Mechagnome => "mechagnome",
+        AccentGroup.Nightborne => "nightborne",
+        AccentGroup.Dragonkin => "dragonkin",
+        AccentGroup.Amani => "amani",
+        AccentGroup.Arathi => "arathi",
+        AccentGroup.Broken => "broken",
+        AccentGroup.Centaur => "centaur",
+        AccentGroup.DarkTroll => "darktroll",
+        AccentGroup.Dredger => "dredger",
+        AccentGroup.Dryad => "dryad",
+        AccentGroup.Faerie => "faerie",
+        AccentGroup.Fungarian => "fungarian",
+        AccentGroup.Grummle => "grummle",
+        AccentGroup.Hobgoblin => "hobgoblin",
+        AccentGroup.Kyrian => "kyrian",
+        AccentGroup.Nerubian => "nerubian",
+        AccentGroup.Refti => "refti",
+        AccentGroup.Revantusk => "revantusk",
+        AccentGroup.Rutaani => "rutaani",
+        AccentGroup.Shadowpine => "shadowpine",
+        AccentGroup.Titan => "titan",
+        AccentGroup.Tortollan => "tortollan",
+        AccentGroup.Tuskarr => "tuskarr",
+        AccentGroup.Venthyr => "venthyr",
+        AccentGroup.ZulAman => "zulaman",
+        _ => group.ToString().Replace("'", "").Replace(" ", "").ToLowerInvariant()
+    };
+
+    private static AccentGroup? ResolveAccentGroupBySlotKey(string slotKey)
+    {
+        if (string.IsNullOrWhiteSpace(slotKey) || string.Equals(slotKey, "Narrator", StringComparison.OrdinalIgnoreCase))
+            return AccentGroup.Narrator;
+
+        return slotKey.Trim().ToLowerInvariant() switch
+        {
+            "human" => AccentGroup.Human,
+            "nightelf" => AccentGroup.NightElf,
+            "dwarf" => AccentGroup.Dwarf,
+            "darkirondwarf" => AccentGroup.DarkIronDwarf,
+            "gnome" => AccentGroup.Gnome,
+            "mechagnome" => AccentGroup.Mechagnome,
+            "draenei" => AccentGroup.Draenei,
+            "lightforged" => AccentGroup.LightforgedDraenei,
+            "worgen" => AccentGroup.Worgen,
+            "kultiran" => AccentGroup.KulTiran,
+            "bloodelf" => AccentGroup.BloodElf,
+            "voidelf" => AccentGroup.VoidElf,
+            "orc" => AccentGroup.Orc,
+            "maghar" => AccentGroup.MagharOrc,
+            "undead" => AccentGroup.Undead,
+            "tauren" => AccentGroup.Tauren,
+            "highmountain" => AccentGroup.HighmountainTauren,
+            "troll" => AccentGroup.Troll,
+            "zandalari" => AccentGroup.ZandalariTroll,
+            "goblin" => AccentGroup.Goblin,
+            "nightborne" => AccentGroup.Nightborne,
+            "vulpera" => AccentGroup.Vulpera,
+            "pandaren" => AccentGroup.Pandaren,
+            "earthen" => AccentGroup.Earthen,
+            "haranir" => AccentGroup.Haranir,
+            "dracthyr" => AccentGroup.Dracthyr,
+            "dragonkin" => AccentGroup.Dragonkin,
+            "elemental" => AccentGroup.Elemental,
+            "giant" => AccentGroup.Giant,
+            "mechanical" => AccentGroup.Mechanical,
+            "amani" => AccentGroup.Amani,
+            "arathi" => AccentGroup.Arathi,
+            "broken" => AccentGroup.Broken,
+            "centaur" => AccentGroup.Centaur,
+            "darktroll" => AccentGroup.DarkTroll,
+            "dredger" => AccentGroup.Dredger,
+            "dryad" => AccentGroup.Dryad,
+            "faerie" => AccentGroup.Faerie,
+            "fungarian" => AccentGroup.Fungarian,
+            "grummle" => AccentGroup.Grummle,
+            "hobgoblin" => AccentGroup.Hobgoblin,
+            "kyrian" => AccentGroup.Kyrian,
+            "nerubian" => AccentGroup.Nerubian,
+            "refti" => AccentGroup.Refti,
+            "revantusk" => AccentGroup.Revantusk,
+            "rutaani" => AccentGroup.Rutaani,
+            "shadowpine" => AccentGroup.Shadowpine,
+            "titan" => AccentGroup.Titan,
+            "tortollan" => AccentGroup.Tortollan,
+            "tuskarr" => AccentGroup.Tuskarr,
+            "venthyr" => AccentGroup.Venthyr,
+            "zulaman" => AccentGroup.ZulAman,
+            _ => null,
+        };
     }
 }
 

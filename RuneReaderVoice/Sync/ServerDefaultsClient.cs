@@ -43,6 +43,7 @@ namespace RuneReaderVoice.Sync;
 public sealed class ServerNpcOverrideRecord
 {
     [JsonPropertyName("npc_id")]               public int     NpcId               { get; set; }
+    [JsonPropertyName("catalog_id")]           public string? CatalogId           { get; set; }
     [JsonPropertyName("race_id")]              public int     RaceId              { get; set; }
     [JsonPropertyName("notes")]                public string? Notes               { get; set; }
     [JsonPropertyName("bespoke_sample_id")]    public string? BespokeSampleId     { get; set; }

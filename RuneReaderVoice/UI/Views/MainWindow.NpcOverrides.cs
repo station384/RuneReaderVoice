@@ -258,7 +258,7 @@ public partial class MainWindow
 
                 if (existing != null)
                 {
-                    SelectDropdownByRaceId(LastNpcRaceDropdown, existing.RaceId);
+                    SelectDropdownByCatalogId(LastNpcRaceDropdown, existing.CatalogId);
                 }
                 else
                 {
@@ -281,23 +281,26 @@ public partial class MainWindow
         if (_lastNpcId == 0) return;
         if (LastNpcRaceDropdown.SelectedItem is not ComboBoxItem item) return;
 
-        var raceId          = (int)(item.Tag ?? 0);
+        var catalogId       = item.Tag as string ?? string.Empty;
+        var raceId          = 0;
         var notes           = LastNpcNotesBox.Text?.Trim();
         var bespokeSampleId = GetSelectedLastNpcSampleId();
         var useNpcIdAsSeed  = LastNpcUseNpcIdAsSeedCheckBox.IsChecked == true;
-        SelectionRecencyHelper.BumpRace(AppServices.Settings, raceId);
+        BumpNpcCatalogSelection(catalogId);
         SelectionRecencyHelper.BumpVoice(AppServices.Settings, AppServices.Provider.ProviderId, bespokeSampleId);
         VoiceSettingsManager.SaveSettings(AppServices.Settings);
 
         _ = Task.Run(async () =>
         {
             await AppServices.NpcOverrides.UpsertAsync(
-                _lastNpcId, raceId, notes,
+                _lastNpcId, catalogId, notes,
+                raceId: raceId,
                 bespokeSampleId: bespokeSampleId,
                 useNpcIdAsSeed: useNpcIdAsSeed);
 
             AppServices.Assembler.ApplyRaceOverride(
-                _lastNpcId, raceId,
+                _lastNpcId, catalogId,
+                raceId: raceId,
                 bespokeSampleId: bespokeSampleId,
                 useNpcIdAsSeed: useNpcIdAsSeed);
 
@@ -312,7 +315,7 @@ public partial class MainWindow
             Dispatcher.UIThread.Post(() =>
             {
                 PopulateNpcOverrideRaceDropdown(LastNpcRaceDropdown);
-                SelectDropdownByRaceId(LastNpcRaceDropdown, raceId);
+                SelectDropdownByCatalogId(LastNpcRaceDropdown, catalogId);
                 SyncLastNpcRaceSearchTextFromSelection();
 
                 PopulateLastNpcSampleDropdown();
@@ -410,7 +413,7 @@ public partial class MainWindow
                 entry.NpcId.ToString().Contains(needle, StringComparison.OrdinalIgnoreCase) ||
                 (entry.Notes?.Contains(needle, StringComparison.OrdinalIgnoreCase) ?? false) ||
                 entry.Source.ToString().Contains(needle, StringComparison.OrdinalIgnoreCase) ||
-                entry.AccentGroup.ToString().Contains(needle, StringComparison.OrdinalIgnoreCase))
+                GetNpcOverrideCatalogLabel(entry).Contains(needle, StringComparison.OrdinalIgnoreCase))
             .ToList();
 
         RenderNpcOverridesGrid(filtered);
@@ -457,7 +460,7 @@ public partial class MainWindow
             {
                 var notes = notesBox.Text?.Trim();
                 _ = Task.Run(async () =>
-                    await AppServices.NpcOverrides.UpsertAsync(entry.NpcId, entry.RaceId, notes));
+                    await AppServices.NpcOverrides.UpsertAsync(entry.NpcId, entry.CatalogId, notes, raceId: 0));
             };
             Grid.SetRow(notesBox, rowIndex);
             Grid.SetColumn(notesBox, 1);
@@ -473,18 +476,19 @@ public partial class MainWindow
         {
             var dropdown = new ComboBox { FontSize = 11, Margin = new Avalonia.Thickness(4, 1, 4, 1) };
             PopulateNpcOverrideRaceDropdown(dropdown);
-            SelectDropdownByRaceId(dropdown, entry.RaceId);
+            SelectDropdownByCatalogId(dropdown, entry.CatalogId);
 
             dropdown.SelectionChanged += (_, _) =>
             {
                 if (dropdown.SelectedItem is not ComboBoxItem item) return;
-                var raceId = (int)(item.Tag ?? 0);
-                SelectionRecencyHelper.BumpRace(AppServices.Settings, raceId);
+                var catalogId = item.Tag as string ?? string.Empty;
+                var raceId = 0;
+                BumpNpcCatalogSelection(catalogId);
                 VoiceSettingsManager.SaveSettings(AppServices.Settings);
                 _ = Task.Run(async () =>
                 {
-                    await AppServices.NpcOverrides.UpsertAsync(entry.NpcId, raceId, entry.Notes);
-                    AppServices.Assembler.ApplyRaceOverride(entry.NpcId, raceId);
+                    await AppServices.NpcOverrides.UpsertAsync(entry.NpcId, catalogId, entry.Notes, raceId: raceId);
+                    AppServices.Assembler.ApplyRaceOverride(entry.NpcId, catalogId, raceId: raceId);
                 });
             };
 
@@ -494,7 +498,7 @@ public partial class MainWindow
         }
         else
         {
-            AddCell($"{entry.AccentGroup}  (race {entry.RaceId})", rowIndex, 2, Brushes.Gray);
+            AddCell(GetNpcOverrideCatalogLabel(entry), rowIndex, 2, Brushes.Gray);
         }
 
         // Source badge
@@ -564,7 +568,7 @@ public partial class MainWindow
         LastNpcIdLabel.Text    = $"NPC ID: {entry.NpcId}";
         LastNpcNotesBox.Text   = entry.Notes ?? string.Empty;
         LastNpcPanel.IsVisible = true;
-        SelectDropdownByRaceId(LastNpcRaceDropdown, entry.RaceId);
+        SelectDropdownByCatalogId(LastNpcRaceDropdown, entry.CatalogId);
         SyncLastNpcRaceSearchTextFromSelection();
         PopulateLastNpcSampleDropdown();
         SelectLastNpcSampleDropdown(entry.BespokeSampleId);
@@ -591,8 +595,8 @@ public partial class MainWindow
         // then let the user edit it in the Last NPC panel.
         _ = Task.Run(async () =>
         {
-            await AppServices.NpcOverrides.UpsertAsync(entry.NpcId, entry.RaceId, entry.Notes);
-            AppServices.Assembler.ApplyRaceOverride(entry.NpcId, entry.RaceId);
+            await AppServices.NpcOverrides.UpsertAsync(entry.NpcId, entry.CatalogId, entry.Notes, raceId: 0);
+            AppServices.Assembler.ApplyRaceOverride(entry.NpcId, entry.CatalogId, raceId: 0);
             Dispatcher.UIThread.Post(() =>
             {
                 RefreshNpcOverridesGrid();
@@ -608,50 +612,45 @@ public partial class MainWindow
     /// Uses the player race map entries, sorted by accent group name.
     /// </summary>
     /// <summary>
-    /// Populates a ComboBox with one entry per race / creature-type ID.
-    /// Derived from NpcVoiceSlotCatalog + RaceAccentMapping so it stays in
-    /// sync automatically whenever new races are added to either source.
-    ///
-    /// Label: "{Race name} — {AccentLabel}"  (male entry used as representative).
-    /// Tag  : integer raceId stored in NpcOverride records.
+    /// Populates a ComboBox with one entry per enabled catalog row.
+    /// Runtime selection is catalog-id based; packet race is no longer used.
     /// </summary>
-    private sealed record RaceOption(int RaceId, string Label);
+    private sealed record CatalogOption(string CatalogId, string Label);
 
-    private List<RaceOption> GetNpcOverrideRaceOptions(string? filter = null)
+    private int GetNpcCatalogSelectionRank(string catalogId)
+        => string.IsNullOrWhiteSpace(catalogId) ? 0
+            : AppServices.Settings.RecentRaceSelectionRanks.TryGetValue(catalogId, out var rank) ? rank : 0;
+
+    private void BumpNpcCatalogSelection(string catalogId)
     {
-        var playerIds   = RaceAccentMapping.PlayerRaceIds;
-        var creatureIds = RaceAccentMapping.CreatureTypeIds;
-        var npcOnlyIds  = RaceAccentMapping.NpcOnlyRaceIds;
-
-        var playerEntries   = new List<(int raceId, string label)>();
-        var creatureEntries = new List<(int raceId, string label)>();
-        var npcOnlyEntries  = new List<(int raceId, string label)>();
-
-        foreach (var item in AppServices.NpcPeopleCatalog.GetVoiceSlots())
+        if (string.IsNullOrWhiteSpace(catalogId))
+            return;
+        var map = AppServices.Settings.RecentRaceSelectionRanks;
+        foreach (var key in map.Keys.ToList())
         {
-            if (item.Slot.Group == AccentGroup.Narrator) continue;
-            if (item.Slot.Gender == Gender.Female) continue;
-
-            var group    = item.Slot.Group;
-            var raceName = item.NpcLabel
-                .Replace(" / Male", "")
-                .Replace(" NPC / Male", " NPC");
-            var label    = $"{raceName} — {item.AccentLabel}";
-
-            if (playerIds.TryGetValue(group, out int pid))
-                playerEntries.Add((pid, label));
-            else if (creatureIds.TryGetValue(group, out int cid))
-                creatureEntries.Add((cid, label));
-            else if (npcOnlyIds.TryGetValue(group, out int nid))
-                npcOnlyEntries.Add((nid, label));
+            var v = map[key];
+            map[key] = v <= 1 ? (byte)0 : (byte)(v - 1);
         }
+        map[catalogId] = 10;
+    }
 
-        var options = SelectionRecencyHelper.SortRaces(
-                playerEntries.Concat(creatureEntries).Concat(npcOnlyEntries),
-                AppServices.Settings)
-            .Select(x => new RaceOption(x.raceId, x.label))
-            .GroupBy(x => x.RaceId)
-            .Select(g => g.First())
+    private string GetNpcOverrideCatalogLabel(NpcRaceOverride entry)
+    {
+        var row = AppServices.NpcPeopleCatalog.GetAllRows().FirstOrDefault(x => string.Equals(x.Id, entry.CatalogId, StringComparison.OrdinalIgnoreCase));
+        if (row != null)
+            return $"{row.DisplayName} — {row.AccentLabel}";
+        if (!string.IsNullOrWhiteSpace(entry.CatalogId))
+            return entry.CatalogId;
+        return string.Empty;
+    }
+
+    private List<CatalogOption> GetNpcOverrideRaceOptions(string? filter = null)
+    {
+        var options = AppServices.NpcPeopleCatalog.GetAllRows()
+            .Where(x => x.Enabled && (x.HasMale || x.HasFemale || x.HasNeutral))
+            .Select(x => new CatalogOption(x.Id, $"{x.DisplayName} — {x.AccentLabel}"))
+            .OrderByDescending(x => GetNpcCatalogSelectionRank(x.CatalogId))
+            .ThenBy(x => x.Label, StringComparer.OrdinalIgnoreCase)
             .ToList();
 
         if (string.IsNullOrWhiteSpace(filter))
@@ -661,13 +660,14 @@ public partial class MainWindow
         return options
             .Where(x => x.Label.Contains(needle, StringComparison.OrdinalIgnoreCase))
             .OrderByDescending(x => x.Label.StartsWith(needle, StringComparison.OrdinalIgnoreCase))
+            .ThenByDescending(x => GetNpcCatalogSelectionRank(x.CatalogId))
             .ThenBy(x => x.Label, StringComparer.OrdinalIgnoreCase)
             .ToList();
     }
 
     private void PopulateNpcOverrideRaceDropdown(ComboBox dropdown, string? filter)
     {
-        var selectedRaceId = (dropdown.SelectedItem as ComboBoxItem)?.Tag as int?;
+        var selectedCatalogId = (dropdown.SelectedItem as ComboBoxItem)?.Tag as string;
         dropdown.Items.Clear();
 
         foreach (var option in GetNpcOverrideRaceOptions(filter))
@@ -675,12 +675,12 @@ public partial class MainWindow
             dropdown.Items.Add(new ComboBoxItem
             {
                 Content = option.Label,
-                Tag     = option.RaceId,
+                Tag     = option.CatalogId,
             });
         }
 
-        if (selectedRaceId.HasValue)
-            SelectDropdownByRaceId(dropdown, selectedRaceId.Value);
+        if (!string.IsNullOrWhiteSpace(selectedCatalogId))
+            SelectDropdownByCatalogId(dropdown, selectedCatalogId);
         else if (dropdown.ItemCount > 0)
             dropdown.SelectedIndex = 0;
     }
@@ -706,11 +706,11 @@ public partial class MainWindow
         _suppressLastNpcRaceSearchEvents = false;
     }
 
-    private static void SelectDropdownByRaceId(ComboBox dropdown, int raceId)
+    private static void SelectDropdownByCatalogId(ComboBox dropdown, string? catalogId)
     {
         foreach (var item in dropdown.Items.OfType<ComboBoxItem>())
         {
-            if ((int)(item.Tag ?? -1) == raceId)
+            if (string.Equals(item.Tag as string, catalogId, StringComparison.OrdinalIgnoreCase))
             {
                 dropdown.SelectedItem = item;
                 return;
@@ -809,6 +809,7 @@ public partial class MainWindow
     private sealed class NpcOverrideExportEntry
     {
         public int     NpcId               { get; set; }
+        public string? CatalogId           { get; set; }
         public int     RaceId              { get; set; }
         public string? Notes               { get; set; }
         public string? BespokeSampleId     { get; set; }
@@ -823,6 +824,14 @@ public partial class MainWindow
         public List<NpcOverrideExportEntry> Entries { get; set; } = new();
     }
 
+    private static string ResolveImportedCatalogId(NpcOverrideExportEntry entry)
+    {
+        if (!string.IsNullOrWhiteSpace(entry.CatalogId))
+            return entry.CatalogId.Trim();
+
+        return NpcRaceOverrideDb.LegacyRaceIdToCatalogId(entry.RaceId);
+    }
+
     private async void OnNpcOverridesExportClicked(object? sender, RoutedEventArgs e)
     {
         try
@@ -835,6 +844,7 @@ public partial class MainWindow
                 Entries = localEntries.Select(x => new NpcOverrideExportEntry
                 {
                     NpcId               = x.NpcId,
+                    CatalogId           = x.CatalogId,
                     RaceId              = x.RaceId,
                     Notes               = x.Notes,
                     BespokeSampleId     = x.BespokeSampleId,
@@ -894,17 +904,27 @@ public partial class MainWindow
             }
 
             int count = 0;
+            int legacyMapped = 0;
+            int unresolved = 0;
             foreach (var entry in file.Entries)
             {
+                var resolvedCatalogId = ResolveImportedCatalogId(entry);
+                if (string.IsNullOrWhiteSpace(resolvedCatalogId) && entry.RaceId > 0)
+                    unresolved++;
+                else if (string.IsNullOrWhiteSpace(entry.CatalogId) && !string.IsNullOrWhiteSpace(resolvedCatalogId))
+                    legacyMapped++;
+
                 await AppServices.NpcOverrides.UpsertAsync(
-                    entry.NpcId, entry.RaceId, entry.Notes,
+                    entry.NpcId, resolvedCatalogId, entry.Notes,
+                    raceId: entry.RaceId,
                     bespokeSampleId:     entry.BespokeSampleId,
                     bespokeExaggeration: entry.BespokeExaggeration,
                     bespokeCfgWeight:    entry.BespokeCfgWeight,
                     useNpcIdAsSeed:     entry.UseNpcIdAsSeed);
 
                 AppServices.Assembler.ApplyRaceOverride(
-                    entry.NpcId, entry.RaceId,
+                    entry.NpcId, resolvedCatalogId,
+                    raceId: entry.RaceId,
                     bespokeSampleId:     entry.BespokeSampleId,
                     bespokeExaggeration: entry.BespokeExaggeration,
                     bespokeCfgWeight:    entry.BespokeCfgWeight,
@@ -914,7 +934,9 @@ public partial class MainWindow
             }
 
             RefreshNpcOverridesGrid();
-            NpcOverridesStatus.Text = $"Imported {count} override(s).";
+            NpcOverridesStatus.Text = unresolved > 0
+                ? $"Imported {count} override(s). Mapped {legacyMapped} legacy row(s), {unresolved} unresolved."
+                : $"Imported {count} override(s). Mapped {legacyMapped} legacy row(s).";
         }
         catch (Exception ex)
         {

@@ -50,7 +50,6 @@ public sealed class NpcPeopleCatalogStore
             {
                 Id = x.Id,
                 DisplayName = x.DisplayName,
-                AccentGroupName = x.AccentGroupName,
                 AccentLabel = x.AccentLabel,
                 HasMale = x.HasMale,
                 HasFemale = x.HasFemale,
