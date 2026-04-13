@@ -38,6 +38,8 @@ namespace RuneReaderVoice.UI.Views;
 public partial class MainWindow
 {
     private bool _textSwapUiInitializing;
+    private int _textSwapPageNumber = 1;
+    private int _textSwapPageSize = 25;
 
     private void PopulateTextSwapWorkbench()
     {
@@ -85,8 +87,18 @@ public partial class MainWindow
     {
         TextSwapRuleList.Items.Clear();
 
-        var entries = await AppServices.TextSwapRules.GetAllEntriesAsync();
-        foreach (var rule in entries.OrderByDescending(r => r.Priority).ThenBy(r => r.FindText))
+        if (TextSwapPageSizeComboBox?.SelectedItem == null)
+            TextSwapPageSizeComboBox.SelectedIndex = 0;
+
+        var page = await AppServices.TextSwapRules.QueryPageAsync(_textSwapPageNumber, _textSwapPageSize);
+        var totalPages = Math.Max(1, (int)Math.Ceiling(page.TotalCount / (double)page.PageSize));
+        if (_textSwapPageNumber > totalPages)
+        {
+            _textSwapPageNumber = totalPages;
+            page = await AppServices.TextSwapRules.QueryPageAsync(_textSwapPageNumber, _textSwapPageSize);
+        }
+
+        foreach (var rule in page.Items)
         {
             TextSwapRuleList.Items.Add(new ListBoxItem
             {
@@ -94,6 +106,10 @@ public partial class MainWindow
                 Tag = rule,
             });
         }
+
+        TextSwapPageInfoText.Text = $"Page {_textSwapPageNumber} / {Math.Max(1, totalPages)}  ({page.TotalCount} rules)";
+        TextSwapPrevPageButton.IsEnabled = _textSwapPageNumber > 1;
+        TextSwapNextPageButton.IsEnabled = _textSwapPageNumber < totalPages;
     }
 
     private static string BuildTextSwapRuleSummary(TextSwapRuleEntry rule)
@@ -516,4 +532,27 @@ public partial class MainWindow
 
     private async void OnTextSwapSpeakFinalClicked(object? sender, RoutedEventArgs e)
         => await SpeakTextSwapPreviewAsync(TextSwapFinalPreview.Text ?? string.Empty, TextSwapSpeakFinalButton);
+
+private async void OnTextSwapPrevPageClicked(object? sender, RoutedEventArgs e)
+    {
+        if (_textSwapPageNumber <= 1) return;
+        _textSwapPageNumber--;
+        await ReloadTextSwapRuleListAsync();
+    }
+
+    private async void OnTextSwapNextPageClicked(object? sender, RoutedEventArgs e)
+    {
+        _textSwapPageNumber++;
+        await ReloadTextSwapRuleListAsync();
+    }
+
+    private async void OnTextSwapPageSizeChanged(object? sender, SelectionChangedEventArgs e)
+    {
+        if (TextSwapPageSizeComboBox.SelectedItem is ComboBoxItem { Tag: string tag } && int.TryParse(tag, out var pageSize))
+        {
+            _textSwapPageSize = pageSize;
+            _textSwapPageNumber = 1;
+            await ReloadTextSwapRuleListAsync();
+        }
+    }
 }

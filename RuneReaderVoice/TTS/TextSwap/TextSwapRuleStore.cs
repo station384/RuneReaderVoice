@@ -15,6 +15,7 @@
 // You should have received a copy of the GNU General Public License
 // along with RuneReaderVoice. If not, see <https://www.gnu.org/licenses/>.
 
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
@@ -55,6 +56,9 @@ public static class TextSwapRuleRowExtensions
 
 // ── Instance store ────────────────────────────────────────────────────────────
 
+
+public sealed record TextSwapRulePage(IReadOnlyList<TextSwapRuleEntry> Items, int TotalCount, int PageNumber, int PageSize);
+
 public sealed class TextSwapRuleStore
 {
     private readonly RvrDb _db;
@@ -68,6 +72,23 @@ public sealed class TextSwapRuleStore
     {
         var rows = await _db.Connection.Table<TextSwapRuleRow>().ToListAsync();
         return rows.Select(r => r.ToEntry()).ToList();
+    }
+
+    public async Task<TextSwapRulePage> QueryPageAsync(int pageNumber, int pageSize)
+    {
+        if (pageNumber < 1) pageNumber = 1;
+        if (pageSize < 1) pageSize = 25;
+
+        var rows = await _db.Connection.Table<TextSwapRuleRow>().ToListAsync();
+        var ordered = rows
+            .Select(r => r.ToEntry())
+            .OrderByDescending(r => r.Priority)
+            .ThenBy(r => r.FindText, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        var totalCount = ordered.Count;
+        var items = ordered.Skip((pageNumber - 1) * pageSize).Take(pageSize).ToList();
+        return new TextSwapRulePage(items, totalCount, pageNumber, pageSize);
     }
 
     /// <summary>

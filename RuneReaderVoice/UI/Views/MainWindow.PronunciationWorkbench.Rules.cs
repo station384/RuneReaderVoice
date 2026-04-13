@@ -33,6 +33,9 @@ namespace RuneReaderVoice.UI.Views;
 // Rule creation, loading, editing, and deletion for the pronunciation workbench.
 public partial class MainWindow
 {
+    private int _pronRulePageNumber = 1;
+    private int _pronRulePageSize = 25;
+
     // ── Rule list ─────────────────────────────────────────────────────────────
 
     /// <summary>
@@ -42,8 +45,18 @@ public partial class MainWindow
     {
         PronRuleList.Items.Clear();
 
-        var entries = await AppServices.PronunciationRules.GetAllEntriesAsync();
-        foreach (var entry in entries.OrderByDescending(r => r.Priority).ThenBy(r => r.MatchText))
+        if (PronRulePageSizeComboBox?.SelectedItem == null)
+            PronRulePageSizeComboBox.SelectedIndex = 0;
+
+        var page = await AppServices.PronunciationRules.QueryPageAsync(_pronRulePageNumber, _pronRulePageSize);
+        var totalPages = Math.Max(1, (int)Math.Ceiling(page.TotalCount / (double)page.PageSize));
+        if (_pronRulePageNumber > totalPages)
+        {
+            _pronRulePageNumber = totalPages;
+            page = await AppServices.PronunciationRules.QueryPageAsync(_pronRulePageNumber, _pronRulePageSize);
+        }
+
+        foreach (var entry in page.Items)
         {
             PronRuleList.Items.Add(new ListBoxItem
             {
@@ -51,6 +64,10 @@ public partial class MainWindow
                 Tag     = entry,
             });
         }
+
+        PronRulePageInfoText.Text = $"Page {_pronRulePageNumber} / {Math.Max(1, totalPages)}  ({page.TotalCount} rules)";
+        PronRulePrevPageButton.IsEnabled = _pronRulePageNumber > 1;
+        PronRuleNextPageButton.IsEnabled = _pronRulePageNumber < totalPages;
     }
 
     private static string BuildPronunciationRuleSummary(PronunciationRuleEntry entry)
@@ -373,6 +390,29 @@ public partial class MainWindow
         catch (Exception ex)
         {
             PronRuleStatus.Text = $"Pull failed: {ex.Message}";
+        }
+    }
+
+private async void OnPronunciationRulePrevPageClicked(object? sender, RoutedEventArgs e)
+    {
+        if (_pronRulePageNumber <= 1) return;
+        _pronRulePageNumber--;
+        await ReloadPronunciationRuleListAsync();
+    }
+
+    private async void OnPronunciationRuleNextPageClicked(object? sender, RoutedEventArgs e)
+    {
+        _pronRulePageNumber++;
+        await ReloadPronunciationRuleListAsync();
+    }
+
+    private async void OnPronunciationRulePageSizeChanged(object? sender, SelectionChangedEventArgs e)
+    {
+        if (PronRulePageSizeComboBox.SelectedItem is ComboBoxItem { Tag: string tag } && int.TryParse(tag, out var pageSize))
+        {
+            _pronRulePageSize = pageSize;
+            _pronRulePageNumber = 1;
+            await ReloadPronunciationRuleListAsync();
         }
     }
 }

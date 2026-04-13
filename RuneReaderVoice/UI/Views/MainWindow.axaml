@@ -839,6 +839,17 @@ along with RuneReaderVoice. If not, see <https://www.gnu.org/licenses/>.
                                      Height="180"
                                      SelectionChanged="OnPronunciationRuleListSelectionChanged"/>
 
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <Button x:Name="PronRulePrevPageButton" Content="Previous" Click="OnPronunciationRulePrevPageClicked"/>
+                                <Button x:Name="PronRuleNextPageButton" Content="Next" Click="OnPronunciationRuleNextPageClicked"/>
+                                <TextBlock x:Name="PronRulePageInfoText" VerticalAlignment="Center" Foreground="#888" FontSize="11"/>
+                                <ComboBox x:Name="PronRulePageSizeComboBox" Width="84" SelectionChanged="OnPronunciationRulePageSizeChanged">
+                                    <ComboBoxItem Content="25" Tag="25"/>
+                                    <ComboBoxItem Content="50" Tag="50"/>
+                                    <ComboBoxItem Content="100" Tag="100"/>
+                                </ComboBox>
+                            </StackPanel>
+
                             <Grid ColumnDefinitions="*,*" RowDefinitions="Auto,Auto" ColumnSpacing="10" RowSpacing="6">
                                 <StackPanel Grid.Row="0" Grid.Column="0" Spacing="4">
                                     <TextBlock Text="Scope" Foreground="#888" FontSize="11"/>
@@ -1019,6 +1030,17 @@ along with RuneReaderVoice. If not, see <https://www.gnu.org/licenses/>.
                             <ListBox x:Name="TextSwapRuleList"
                                      Height="180"
                                      SelectionChanged="OnTextSwapRuleSelectionChanged"/>
+
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <Button x:Name="TextSwapPrevPageButton" Content="Previous" Click="OnTextSwapPrevPageClicked"/>
+                                <Button x:Name="TextSwapNextPageButton" Content="Next" Click="OnTextSwapNextPageClicked"/>
+                                <TextBlock x:Name="TextSwapPageInfoText" VerticalAlignment="Center" Foreground="#888" FontSize="11"/>
+                                <ComboBox x:Name="TextSwapPageSizeComboBox" Width="84" SelectionChanged="OnTextSwapPageSizeChanged">
+                                    <ComboBoxItem Content="25" Tag="25"/>
+                                    <ComboBoxItem Content="50" Tag="50"/>
+                                    <ComboBoxItem Content="100" Tag="100"/>
+                                </ComboBox>
+                            </StackPanel>
 
                             <TextBlock Text="Notes" Foreground="#888" FontSize="11"/>
                             <TextBox x:Name="TextSwapRuleNotes"

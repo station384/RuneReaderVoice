@@ -59,6 +59,9 @@ public static class PronunciationRuleRowExtensions
 
 // ── Instance store ────────────────────────────────────────────────────────────
 
+
+public sealed record PronunciationRulePage(IReadOnlyList<PronunciationRuleEntry> Items, int TotalCount, int PageNumber, int PageSize);
+
 public sealed class PronunciationRuleStore
 {
     private readonly RvrDb _db;
@@ -72,6 +75,23 @@ public sealed class PronunciationRuleStore
     {
         var rows = await _db.Connection.Table<PronunciationRuleRow>().ToListAsync();
         return rows.Select(r => r.ToEntry()).ToList();
+    }
+
+    public async Task<PronunciationRulePage> QueryPageAsync(int pageNumber, int pageSize)
+    {
+        if (pageNumber < 1) pageNumber = 1;
+        if (pageSize < 1) pageSize = 25;
+
+        var rows = await _db.Connection.Table<PronunciationRuleRow>().ToListAsync();
+        var ordered = rows
+            .Select(r => r.ToEntry())
+            .OrderByDescending(r => r.Priority)
+            .ThenBy(r => r.MatchText, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        var totalCount = ordered.Count;
+        var items = ordered.Skip((pageNumber - 1) * pageSize).Take(pageSize).ToList();
+        return new PronunciationRulePage(items, totalCount, pageNumber, pageSize);
     }
 
     /// <summary>
