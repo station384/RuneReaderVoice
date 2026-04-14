@@ -105,7 +105,6 @@ internal static class Program
         var npcPeopleCatalogStore = new NpcPeopleCatalogStore(db);
         npcPeopleCatalogStore.SeedFromLegacyCatalogAsync().GetAwaiter().GetResult();
         var providerSlotProfileStore = new ProviderSlotProfileStore(db);
-        providerSlotProfileStore.SeedFromSettingsAsync(settings).GetAwaiter().GetResult();
         settings.PerProviderVoiceAssignments = new();
         settings.PerProviderVoiceProfiles = new();
         settings.PerProviderSampleProfiles = new();

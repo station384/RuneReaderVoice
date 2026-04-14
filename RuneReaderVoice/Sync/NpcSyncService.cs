@@ -25,6 +25,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using RuneReaderVoice.Data;
 using RuneReaderVoice.TTS.Pronunciation;
+using RuneReaderVoice.TTS.Providers;
 using RuneReaderVoice.TTS.TextSwap;
 
 namespace RuneReaderVoice.Sync;
@@ -49,6 +50,11 @@ public sealed class NpcSyncService : IDisposable
     private Task?                    _pollTask;
 
     private static readonly TimeSpan PollInterval = TimeSpan.FromMinutes(5);
+
+    private static readonly JsonSerializerOptions JsonOptions = new()
+    {
+        PropertyNameCaseInsensitive = true
+    };
 
     // Callbacks fired after a merge so the UI can refresh
     public event Action<int>? NpcRecordsMerged;
@@ -371,45 +377,33 @@ public sealed class NpcSyncService : IDisposable
 
     private async Task ApplyProviderSlotProfileRecordsAsVoiceProfilesAsync(List<ServerProviderSlotProfileRecord> records)
     {
-        var grouped = new Dictionary<string, Dictionary<string, TTS.Providers.VoiceProfile>>(StringComparer.OrdinalIgnoreCase);
-        foreach (var record in records)
+        var grouped = new Dictionary<string, Dictionary<string, RuneReaderVoice.TTS.Providers.VoiceProfile>>(StringComparer.OrdinalIgnoreCase);
+        foreach (var rec in records)
         {
-            if (!string.Equals(record.ProfileKind, "voice_slot", StringComparison.OrdinalIgnoreCase) ||
-                string.IsNullOrWhiteSpace(record.ProviderId) || string.IsNullOrWhiteSpace(record.ProfileId))
+            if (string.IsNullOrWhiteSpace(rec.ProviderId) || string.IsNullOrWhiteSpace(rec.ProfileId) || rec.ProfileJson.ValueKind == JsonValueKind.Undefined || rec.ProfileJson.ValueKind == JsonValueKind.Null)
                 continue;
 
-            var profile = record.ProfileJson.Deserialize<TTS.Providers.VoiceProfile>(new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+            var profile = rec.ProfileJson.Deserialize<RuneReaderVoice.TTS.Providers.VoiceProfile>(JsonOptions);
             if (profile == null)
                 continue;
 
-            if (!grouped.TryGetValue(record.ProviderId, out var map))
+            var providerId = AppServices.ProviderSlotProfiles?.CanonicalizeProviderId(rec.ProviderId) ?? rec.ProviderId.Trim();
+            if (string.IsNullOrWhiteSpace(providerId))
+                continue;
+
+            if (!grouped.TryGetValue(providerId, out var map))
             {
-                map = new Dictionary<string, TTS.Providers.VoiceProfile>(StringComparer.OrdinalIgnoreCase);
-                grouped[record.ProviderId] = map;
+                map = new Dictionary<string, RuneReaderVoice.TTS.Providers.VoiceProfile>(StringComparer.OrdinalIgnoreCase);
+                grouped[providerId] = map;
             }
-            map[record.ProfileId] = profile;
+
+            map[rec.ProfileId.Trim()] = profile;
         }
 
         if (AppServices.ProviderSlotProfiles != null)
         {
             foreach (var (pid, map) in grouped)
-                await AppServices.ProviderSlotProfiles.MergeVoiceProfilesFromServerAsync(pid, map, "ServerSync");
-        }
-        else
-        {
-            foreach (var (pid, map) in grouped)
-            {
-                if (!_settings.PerProviderVoiceProfiles.TryGetValue(pid, out var existing))
-                {
-                    existing = new Dictionary<string, TTS.Providers.VoiceProfile>(StringComparer.OrdinalIgnoreCase);
-                    _settings.PerProviderVoiceProfiles[pid] = existing;
-                }
-
-                foreach (var (slotId, profile) in map)
-                    existing.TryAdd(slotId, profile);
-            }
-
-            VoiceSettingsManager.SaveSettings(_settings);
+                await AppServices.ProviderSlotProfiles.ReplaceVoiceProfilesAsync(pid, map, "ServerSync");
         }
     }
 
@@ -419,39 +413,36 @@ public sealed class NpcSyncService : IDisposable
         foreach (var record in records)
         {
             if (!string.Equals(record.ProfileKind, "sample", StringComparison.OrdinalIgnoreCase) ||
-                string.IsNullOrWhiteSpace(record.ProviderId) || string.IsNullOrWhiteSpace(record.ProfileId))
+                string.IsNullOrWhiteSpace(record.ProviderId) || string.IsNullOrWhiteSpace(record.ProfileId) ||
+                record.ProfileJson.ValueKind == JsonValueKind.Undefined || record.ProfileJson.ValueKind == JsonValueKind.Null)
                 continue;
 
-            var profile = record.ProfileJson.Deserialize<TTS.Providers.VoiceProfile>(new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+            var profile = record.ProfileJson.Deserialize<TTS.Providers.VoiceProfile>(JsonOptions);
             if (profile == null)
                 continue;
 
-            if (!grouped.TryGetValue(record.ProviderId, out var map))
+            var providerId = AppServices.ProviderSlotProfiles?.CanonicalizeProviderId(record.ProviderId) ?? record.ProviderId.Trim();
+            if (string.IsNullOrWhiteSpace(providerId))
+                continue;
+
+            if (!grouped.TryGetValue(providerId, out var map))
             {
                 map = new Dictionary<string, TTS.Providers.VoiceProfile>(StringComparer.OrdinalIgnoreCase);
-                grouped[record.ProviderId] = map;
+                grouped[providerId] = map;
             }
-            map[record.ProfileId] = profile;
+
+            map[record.ProfileId.Trim()] = profile;
         }
 
         if (AppServices.ProviderSlotProfiles != null)
         {
             foreach (var (pid, map) in grouped)
-                await AppServices.ProviderSlotProfiles.MergeSampleProfilesFromServerAsync(pid, map, "ServerSync");
+                await AppServices.ProviderSlotProfiles.ReplaceSampleProfilesAsync(pid, map, "ServerSync");
         }
         else
         {
             foreach (var (pid, map) in grouped)
-            {
-                if (!_settings.PerProviderSampleProfiles.TryGetValue(pid, out var existing))
-                {
-                    existing = new Dictionary<string, TTS.Providers.VoiceProfile>(StringComparer.OrdinalIgnoreCase);
-                    _settings.PerProviderSampleProfiles[pid] = existing;
-                }
-
-                foreach (var (sampleId, profile) in map)
-                    existing.TryAdd(sampleId, profile);
-            }
+                _settings.PerProviderSampleProfiles[pid] = new Dictionary<string, TTS.Providers.VoiceProfile>(map, StringComparer.OrdinalIgnoreCase);
 
             VoiceSettingsManager.SaveSettings(_settings);
         }

@@ -116,12 +116,13 @@ public partial class MainWindow
         };
         VoiceGrid.Children.Add(intro);
 
-        foreach (var item in items)
+        for (var index = 0; index < items.Count; index++)
         {
+            var item = items[index];
             var row = new Grid
             {
                 ColumnDefinitions = new ColumnDefinitions("230,*,Auto,Auto"),
-                Margin = new Avalonia.Thickness(0, 2, 0, 2),
+                Margin = new Avalonia.Thickness(8, 4, 8, 4),
                 ColumnSpacing = 10
             };
 
@@ -155,7 +156,17 @@ public partial class MainWindow
             row.Children.Add(previewBtn);
             row.Children.Add(editBtn);
 
-            VoiceGrid.Children.Add(row);
+            var rowContainer = new Border
+            {
+                Background = index % 2 == 0
+                    ? new Avalonia.Media.SolidColorBrush(Avalonia.Media.Color.Parse("#14000000"))
+                    : new Avalonia.Media.SolidColorBrush(Avalonia.Media.Color.Parse("#22FFFFFF")),
+                CornerRadius = new Avalonia.CornerRadius(4),
+                Padding = new Avalonia.Thickness(8, 4),
+                Child = row
+            };
+
+            VoiceGrid.Children.Add(rowContainer);
             _voiceSummaryBlocks[item.Slot.ToString()] = summaryBlock;
         }
     }
@@ -377,16 +388,47 @@ So go quickly, keep your wits about you, and return by the main road if you valu
 
     private static readonly JsonSerializerOptions _jsonVoiceOptions = new() { WriteIndented = true };
 
+    private string CanonicalizeProviderProfileKey(string? providerId)
+    {
+        if (string.IsNullOrWhiteSpace(providerId))
+            return string.Empty;
+
+        return AppServices.ProviderSlotProfiles?.CanonicalizeProviderId(providerId)
+               ?? providerId.Trim();
+    }
+
     private async void OnVoicesExportClicked(object? sender, RoutedEventArgs e)
     {
         try
         {
-            var providers = AppServices.ProviderSlotProfiles?.GetVoiceProfilesSnapshot()
-                            ?? AppServices.Settings.PerProviderVoiceProfiles
-                                .ToDictionary(
-                                    kvp => kvp.Key,
-                                    kvp => new Dictionary<string, VoiceProfile>(kvp.Value, StringComparer.OrdinalIgnoreCase),
-                                    StringComparer.OrdinalIgnoreCase);
+            var sourceProviders = AppServices.ProviderSlotProfiles?.GetVoiceProfilesSnapshot()
+                                  ?? AppServices.Settings.PerProviderVoiceProfiles
+                                      .ToDictionary(
+                                          kvp => CanonicalizeProviderProfileKey(kvp.Key),
+                                          kvp => new Dictionary<string, VoiceProfile>(kvp.Value, StringComparer.OrdinalIgnoreCase),
+                                          StringComparer.OrdinalIgnoreCase);
+
+            var providers = new Dictionary<string, Dictionary<string, VoiceProfile>>(StringComparer.OrdinalIgnoreCase);
+            foreach (var (providerId, profiles) in sourceProviders)
+            {
+                var canonicalProviderId = CanonicalizeProviderProfileKey(providerId);
+                if (string.IsNullOrWhiteSpace(canonicalProviderId))
+                    continue;
+
+                if (!providers.TryGetValue(canonicalProviderId, out var providerMap))
+                {
+                    providerMap = new Dictionary<string, VoiceProfile>(StringComparer.OrdinalIgnoreCase);
+                    providers[canonicalProviderId] = providerMap;
+                }
+
+                foreach (var (slotId, profile) in profiles)
+                {
+                    if (string.IsNullOrWhiteSpace(slotId) || profile == null)
+                        continue;
+
+                    providerMap[slotId.Trim()] = profile;
+                }
+            }
 
             var export = new MultiProviderVoiceProfileExport
             {
@@ -451,53 +493,51 @@ So go quickly, keep your wits about you, and return by the main road if you valu
 
             if (importedProviderMap != null && importedProviderMap.Count > 0)
             {
-                foreach (var (providerId, profiles) in importedProviderMap)
+                foreach (var (rawProviderId, profiles) in importedProviderMap)
                 {
+                    var providerId = CanonicalizeProviderProfileKey(rawProviderId);
                     if (string.IsNullOrWhiteSpace(providerId) || profiles == null)
                         continue;
-
-                    Dictionary<string, VoiceProfile>? dict = null;
-                    if (AppServices.ProviderSlotProfiles == null)
-                    {
-                        if (!AppServices.Settings.PerProviderVoiceProfiles.TryGetValue(providerId, out dict))
-                        {
-                            dict = new Dictionary<string, VoiceProfile>(StringComparer.OrdinalIgnoreCase);
-                            AppServices.Settings.PerProviderVoiceProfiles[providerId] = dict;
-                        }
-                    }
 
                     var providerImportedProfiles = new Dictionary<string, VoiceProfile>(StringComparer.OrdinalIgnoreCase);
                     var providerImported = 0;
                     foreach (var (slotKey, profile) in profiles)
                     {
-                        if (!VoiceSlot.TryParse(slotKey, out var slot)) continue;
-                        if (dict != null)
-                            ApplyVoiceProfile(slot, profile, providerId, dict);
-                        else
-                            providerImportedProfiles[slot.ToString()] = profile.Clone();
+                        if (string.IsNullOrWhiteSpace(slotKey) || profile == null)
+                            continue;
+
+                        var trimmedSlotKey = slotKey.Trim();
+                        if (!VoiceSlot.TryParse(trimmedSlotKey, out var slot))
+                            continue;
+
+                        providerImportedProfiles[slot.ToString()] = profile.Clone();
                         providerImported++;
                     }
 
-                    if (AppServices.ProviderSlotProfiles != null && providerImportedProfiles.Count > 0)
+                    if (providerImportedProfiles.Count == 0)
+                        continue;
+
+                    if (AppServices.ProviderSlotProfiles != null)
                     {
                         await AppServices.ProviderSlotProfiles.ReplaceVoiceProfilesAsync(providerId, providerImportedProfiles, "Imported");
+                    }
+                    else
+                    {
+                        AppServices.Settings.PerProviderVoiceProfiles[providerId] = providerImportedProfiles;
+                    }
 
-                        if (string.Equals(providerId, AppServices.Provider.ProviderId, StringComparison.OrdinalIgnoreCase))
+                    if (string.Equals(providerId, AppServices.Provider.ProviderId, StringComparison.OrdinalIgnoreCase))
+                    {
+                        var runtimeDict = new Dictionary<string, VoiceProfile>(StringComparer.OrdinalIgnoreCase);
+                        foreach (var (slotId, profile) in providerImportedProfiles)
                         {
-                            var runtimeDict = new Dictionary<string, VoiceProfile>(StringComparer.OrdinalIgnoreCase);
-                            foreach (var (slotId, profile) in providerImportedProfiles)
-                            {
-                                if (VoiceSlot.TryParse(slotId, out var runtimeSlot))
-                                    ApplyVoiceProfile(runtimeSlot, profile, providerId, runtimeDict);
-                            }
+                            if (VoiceSlot.TryParse(slotId, out var runtimeSlot))
+                                ApplyVoiceProfile(runtimeSlot, profile, providerId, runtimeDict);
                         }
                     }
 
-                    if (providerImported > 0)
-                    {
-                        importedProviders++;
-                        importedProfiles += providerImported;
-                    }
+                    importedProviders++;
+                    importedProfiles += providerImported;
                 }
             }
             else
@@ -509,62 +549,52 @@ So go quickly, keep your wits about you, and return by the main road if you valu
                     return;
                 }
 
-                var providerId = string.IsNullOrWhiteSpace(import.ProviderId)
+                var providerId = CanonicalizeProviderProfileKey(string.IsNullOrWhiteSpace(import.ProviderId)
                     ? AppServices.Provider.ProviderId
-                    : import.ProviderId;
-                Dictionary<string, VoiceProfile>? dict = null;
-                if (AppServices.ProviderSlotProfiles == null)
-                {
-                    if (!AppServices.Settings.PerProviderVoiceProfiles.TryGetValue(providerId, out dict))
-                    {
-                        dict = new Dictionary<string, VoiceProfile>(StringComparer.OrdinalIgnoreCase);
-                        AppServices.Settings.PerProviderVoiceProfiles[providerId] = dict;
-                    }
-                }
+                    : import.ProviderId);
 
-                var importedProviderProfiles = new Dictionary<string, VoiceProfile>(StringComparer.OrdinalIgnoreCase);
+                var providerImportedProfiles = new Dictionary<string, VoiceProfile>(StringComparer.OrdinalIgnoreCase);
                 foreach (var (slotKey, profile) in import.Profiles)
                 {
-                    if (!VoiceSlot.TryParse(slotKey, out var slot)) continue;
-                    if (dict != null)
-                        ApplyVoiceProfile(slot, profile, providerId, dict);
-                    else
-                        importedProviderProfiles[slot.ToString()] = profile.Clone();
-                    importedProfiles++;
+                    if (string.IsNullOrWhiteSpace(slotKey) || profile == null)
+                        continue;
+
+                    var trimmedSlotKey = slotKey.Trim();
+                    if (!VoiceSlot.TryParse(trimmedSlotKey, out var slot))
+                        continue;
+
+                    providerImportedProfiles[slot.ToString()] = profile.Clone();
                 }
 
-                if (AppServices.ProviderSlotProfiles != null && importedProviderProfiles.Count > 0)
+                if (providerImportedProfiles.Count == 0)
                 {
-                    await AppServices.ProviderSlotProfiles.ReplaceVoiceProfilesAsync(providerId, importedProviderProfiles, "Imported");
+                    SetVoicesStatus("No voice profiles found in file.");
+                    return;
+                }
 
-                    if (string.Equals(providerId, AppServices.Provider.ProviderId, StringComparison.OrdinalIgnoreCase))
+                if (AppServices.ProviderSlotProfiles != null)
+                    await AppServices.ProviderSlotProfiles.ReplaceVoiceProfilesAsync(providerId, providerImportedProfiles, "Imported");
+                else
+                    AppServices.Settings.PerProviderVoiceProfiles[providerId] = providerImportedProfiles;
+
+                if (string.Equals(providerId, AppServices.Provider.ProviderId, StringComparison.OrdinalIgnoreCase))
+                {
+                    var runtimeDict = new Dictionary<string, VoiceProfile>(StringComparer.OrdinalIgnoreCase);
+                    foreach (var (slotId, profile) in providerImportedProfiles)
                     {
-                        var runtimeDict = new Dictionary<string, VoiceProfile>(StringComparer.OrdinalIgnoreCase);
-                        foreach (var (slotId, profile) in importedProviderProfiles)
-                        {
-                            if (VoiceSlot.TryParse(slotId, out var runtimeSlot))
-                                ApplyVoiceProfile(runtimeSlot, profile, providerId, runtimeDict);
-                        }
+                        if (VoiceSlot.TryParse(slotId, out var runtimeSlot))
+                            ApplyVoiceProfile(runtimeSlot, profile, providerId, runtimeDict);
                     }
                 }
 
-                importedProviders = importedProfiles > 0 ? 1 : 0;
+                importedProviders = 1;
+                importedProfiles = providerImportedProfiles.Count;
             }
 
-            if (importedProfiles == 0)
-            {
-                SetVoicesStatus("No voice profiles found in file.");
-                return;
-            }
+            if (AppServices.ProviderSlotProfiles == null)
+                VoiceSettingsManager.SaveSettings(AppServices.Settings);
 
-
-            // Refresh summary labels
-            foreach (var item in GetVoiceCatalogItems(out _))
-            {
-                if (_voiceSummaryBlocks.TryGetValue(item.Slot.ToString(), out var summary))
-                    summary.Text = DescribeVoiceProfile(item.Slot);
-            }
-
+            PopulateVoiceGrid();
             SetVoicesStatus($"Imported {importedProfiles} voice profiles across {importedProviders} providers.");
         }
         catch (Exception ex)

@@ -12,11 +12,36 @@ public sealed class ProviderSlotProfileStore
 {
     private const string SampleKeyPrefix = "sample:";
 
+    private static string NormalizeProviderId(string providerId)
+    {
+        if (string.IsNullOrWhiteSpace(providerId))
+            return string.Empty;
+
+        return providerId.Trim() switch
+        {
+            "remote:chatterbox" => "remote:chatterbox_full",
+            "remote:chatterbox_multilingual" => "remote:chatterbox_full",
+            _ => providerId.Trim(),
+        };
+    }
+
+    private static bool IsLegacyProviderAlias(string providerId)
+    {
+        if (string.IsNullOrWhiteSpace(providerId))
+            return false;
+
+        return string.Equals(providerId.Trim(), "remote:chatterbox", StringComparison.OrdinalIgnoreCase) ||
+               string.Equals(providerId.Trim(), "remote:chatterbox_multilingual", StringComparison.OrdinalIgnoreCase);
+    }
+
     private readonly RvrDb _db;
     // Read-through passthru cache. Do not mirror entire DB in memory.
     private readonly Dictionary<string, Dictionary<string, VoiceProfile>> _cache = new(StringComparer.OrdinalIgnoreCase);
 
     public ProviderSlotProfileStore(RvrDb db) => _db = db;
+
+    public string CanonicalizeProviderId(string? providerId)
+        => NormalizeProviderId(providerId);
 
     private static string SampleSlotId(string sampleId) => $"{SampleKeyPrefix}{sampleId}";
 
@@ -145,6 +170,7 @@ public sealed class ProviderSlotProfileStore
 
     public async Task UpsertAsync(string providerId, string slotId, VoiceProfile profile, string source = "Local")
     {
+        providerId = NormalizeProviderId(providerId);
         if (string.IsNullOrWhiteSpace(providerId) || string.IsNullOrWhiteSpace(slotId) || profile == null)
             return;
 
@@ -163,6 +189,7 @@ public sealed class ProviderSlotProfileStore
 
     public async Task RemoveAsync(string providerId, string slotId)
     {
+        providerId = NormalizeProviderId(providerId);
         if (string.IsNullOrWhiteSpace(providerId) || string.IsNullOrWhiteSpace(slotId))
             return;
 
@@ -184,6 +211,7 @@ public sealed class ProviderSlotProfileStore
     public Dictionary<string, VoiceProfile> GetVoiceProfilesForProvider(string providerId)
     {
         var result = new Dictionary<string, VoiceProfile>(StringComparer.OrdinalIgnoreCase);
+        providerId = NormalizeProviderId(providerId);
         if (string.IsNullOrWhiteSpace(providerId))
             return result;
 
@@ -212,6 +240,7 @@ public sealed class ProviderSlotProfileStore
     public Dictionary<string, VoiceProfile> GetSampleProfilesForProvider(string providerId)
     {
         var result = new Dictionary<string, VoiceProfile>(StringComparer.OrdinalIgnoreCase);
+        providerId = NormalizeProviderId(providerId);
         if (string.IsNullOrWhiteSpace(providerId))
             return result;
 
@@ -243,17 +272,18 @@ public sealed class ProviderSlotProfileStore
         var rows = _db.Connection.Table<ProviderSlotProfileRow>().ToListAsync().GetAwaiter().GetResult();
         foreach (var row in rows)
         {
-            if (string.IsNullOrWhiteSpace(row.ProviderId) || string.IsNullOrWhiteSpace(row.SlotId) || row.SlotId.StartsWith(SampleKeyPrefix, StringComparison.OrdinalIgnoreCase))
+            var providerId = NormalizeProviderId(row.ProviderId);
+            if (string.IsNullOrWhiteSpace(providerId) || string.IsNullOrWhiteSpace(row.SlotId) || row.SlotId.StartsWith(SampleKeyPrefix, StringComparison.OrdinalIgnoreCase))
                 continue;
 
             var profile = DeserializeProfile(row.ProfileJson);
             if (profile == null)
                 continue;
 
-            if (!result.TryGetValue(row.ProviderId, out var providerDict))
+            if (!result.TryGetValue(providerId, out var providerDict))
             {
                 providerDict = new Dictionary<string, VoiceProfile>(StringComparer.OrdinalIgnoreCase);
-                result[row.ProviderId] = providerDict;
+                result[providerId] = providerDict;
             }
 
             providerDict[row.SlotId] = profile;
@@ -268,17 +298,18 @@ public sealed class ProviderSlotProfileStore
         var rows = _db.Connection.Table<ProviderSlotProfileRow>().ToListAsync().GetAwaiter().GetResult();
         foreach (var row in rows)
         {
-            if (string.IsNullOrWhiteSpace(row.ProviderId) || string.IsNullOrWhiteSpace(row.SlotId) || !row.SlotId.StartsWith(SampleKeyPrefix, StringComparison.OrdinalIgnoreCase))
+            var providerId = NormalizeProviderId(row.ProviderId);
+            if (string.IsNullOrWhiteSpace(providerId) || string.IsNullOrWhiteSpace(row.SlotId) || !row.SlotId.StartsWith(SampleKeyPrefix, StringComparison.OrdinalIgnoreCase))
                 continue;
 
             var profile = DeserializeProfile(row.ProfileJson);
             if (profile == null)
                 continue;
 
-            if (!result.TryGetValue(row.ProviderId, out var providerDict))
+            if (!result.TryGetValue(providerId, out var providerDict))
             {
                 providerDict = new Dictionary<string, VoiceProfile>(StringComparer.OrdinalIgnoreCase);
-                result[row.ProviderId] = providerDict;
+                result[providerId] = providerDict;
             }
 
             providerDict[row.SlotId.Substring(SampleKeyPrefix.Length)] = profile;
@@ -296,6 +327,7 @@ public sealed class ProviderSlotProfileStore
 
     public async Task<(int inserted, int updated, int skippedLocal)> MergeVoiceProfilesFromServerAsync(string providerId, IReadOnlyDictionary<string, VoiceProfile> profiles, string source = "ServerSync")
     {
+        providerId = NormalizeProviderId(providerId);
         if (string.IsNullOrWhiteSpace(providerId) || profiles == null || profiles.Count == 0)
             return (0, 0, 0);
 
@@ -352,6 +384,7 @@ public sealed class ProviderSlotProfileStore
 
     public async Task<(int inserted, int updated, int skippedLocal)> MergeSampleProfilesFromServerAsync(string providerId, IReadOnlyDictionary<string, VoiceProfile> profiles, string source = "ServerSync")
     {
+        providerId = NormalizeProviderId(providerId);
         if (string.IsNullOrWhiteSpace(providerId) || profiles == null || profiles.Count == 0)
             return (0, 0, 0);
 
@@ -407,15 +440,51 @@ public sealed class ProviderSlotProfileStore
         return (inserted, updated, skippedLocal);
     }
 
+    private async Task DeleteProviderAliasRowsAsync(string providerId, bool samplesOnly)
+    {
+        var aliases = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        {
+            providerId
+        };
+
+        if (string.Equals(providerId, "remote:chatterbox_full", StringComparison.OrdinalIgnoreCase))
+        {
+            aliases.Add("remote:chatterbox");
+            aliases.Add("remote:chatterbox_multilingual");
+        }
+        else if (IsLegacyProviderAlias(providerId))
+        {
+            aliases.Add("remote:chatterbox");
+            aliases.Add("remote:chatterbox_multilingual");
+            aliases.Add("remote:chatterbox_full");
+        }
+
+        foreach (var alias in aliases)
+        {
+            if (samplesOnly)
+            {
+                await _db.Connection.ExecuteAsync(
+                    "DELETE FROM ProviderSlotProfiles WHERE ProviderId = ? AND SlotId LIKE ?",
+                    alias,
+                    SampleKeyPrefix + "%");
+            }
+            else
+            {
+                await _db.Connection.ExecuteAsync(
+                    "DELETE FROM ProviderSlotProfiles WHERE ProviderId = ? AND SlotId NOT LIKE ?",
+                    alias,
+                    SampleKeyPrefix + "%");
+            }
+        }
+    }
+
     public async Task ReplaceVoiceProfilesAsync(string providerId, IReadOnlyDictionary<string, VoiceProfile> profiles, string source = "Local")
     {
+        providerId = NormalizeProviderId(providerId);
         if (string.IsNullOrWhiteSpace(providerId))
             return;
 
-        await _db.Connection.ExecuteAsync(
-            "DELETE FROM ProviderSlotProfiles WHERE ProviderId = ? AND SlotId NOT LIKE ?",
-            providerId,
-            SampleKeyPrefix + "%");
+        await DeleteProviderAliasRowsAsync(providerId, samplesOnly: false);
 
         if (_cache.TryGetValue(providerId, out var dict))
         {
@@ -428,11 +497,17 @@ public sealed class ProviderSlotProfileStore
 
         var now = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
         var rows = new List<ProviderSlotProfileRow>();
+        var normalizedProfiles = new Dictionary<string, VoiceProfile>(StringComparer.OrdinalIgnoreCase);
         foreach (var (slotId, profile) in profiles)
         {
             if (string.IsNullOrWhiteSpace(slotId) || profile == null)
                 continue;
 
+            normalizedProfiles[slotId] = profile;
+        }
+
+        foreach (var (slotId, profile) in normalizedProfiles)
+        {
             rows.Add(new ProviderSlotProfileRow
             {
                 ProviderId = providerId,
@@ -446,7 +521,7 @@ public sealed class ProviderSlotProfileStore
         if (rows.Count > 0)
             await _db.Connection.InsertAllAsync(rows);
 
-        foreach (var (slotId, profile) in profiles)
+        foreach (var (slotId, profile) in normalizedProfiles)
         {
             if (string.IsNullOrWhiteSpace(slotId) || profile == null)
                 continue;
@@ -457,13 +532,11 @@ public sealed class ProviderSlotProfileStore
 
     public async Task ReplaceSampleProfilesAsync(string providerId, IReadOnlyDictionary<string, VoiceProfile> profiles, string source = "Local")
     {
+        providerId = NormalizeProviderId(providerId);
         if (string.IsNullOrWhiteSpace(providerId))
             return;
 
-        await _db.Connection.ExecuteAsync(
-            "DELETE FROM ProviderSlotProfiles WHERE ProviderId = ? AND SlotId LIKE ?",
-            providerId,
-            SampleKeyPrefix + "%");
+        await DeleteProviderAliasRowsAsync(providerId, samplesOnly: true);
 
         if (_cache.TryGetValue(providerId, out var dict))
         {
@@ -476,11 +549,17 @@ public sealed class ProviderSlotProfileStore
 
         var now = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
         var rows = new List<ProviderSlotProfileRow>();
+        var normalizedProfiles = new Dictionary<string, VoiceProfile>(StringComparer.OrdinalIgnoreCase);
         foreach (var (sampleId, profile) in profiles)
         {
             if (string.IsNullOrWhiteSpace(sampleId) || profile == null)
                 continue;
 
+            normalizedProfiles[sampleId] = profile;
+        }
+
+        foreach (var (sampleId, profile) in normalizedProfiles)
+        {
             rows.Add(new ProviderSlotProfileRow
             {
                 ProviderId = providerId,
@@ -494,7 +573,7 @@ public sealed class ProviderSlotProfileStore
         if (rows.Count > 0)
             await _db.Connection.InsertAllAsync(rows);
 
-        foreach (var (sampleId, profile) in profiles)
+        foreach (var (sampleId, profile) in normalizedProfiles)
         {
             if (string.IsNullOrWhiteSpace(sampleId) || profile == null)
                 continue;
@@ -521,11 +600,12 @@ public sealed class ProviderSlotProfileStore
         var rows = new List<ProviderSlotProfileRow>();
         foreach (var provider in settings.PerProviderVoiceProfiles)
         {
+            var providerId = NormalizeProviderId(provider.Key);
             foreach (var slot in provider.Value)
             {
                 rows.Add(new ProviderSlotProfileRow
                 {
-                    ProviderId = provider.Key,
+                    ProviderId = providerId,
                     SlotId = slot.Key,
                     ProfileJson = JsonSerializer.Serialize(slot.Value),
                     Source = source,
@@ -536,11 +616,12 @@ public sealed class ProviderSlotProfileStore
 
         foreach (var provider in settings.PerProviderSampleProfiles)
         {
+            var providerId = NormalizeProviderId(provider.Key);
             foreach (var sample in provider.Value)
             {
                 rows.Add(new ProviderSlotProfileRow
                 {
-                    ProviderId = provider.Key,
+                    ProviderId = providerId,
                     SlotId = SampleSlotId(sample.Key),
                     ProfileJson = JsonSerializer.Serialize(sample.Value),
                     Source = source,
