@@ -156,9 +156,10 @@ public partial class MainWindow
             row.Children.Add(previewBtn);
             row.Children.Add(editBtn);
 
+            var pairStripeIndex = (index / 2) % 2;
             var rowContainer = new Border
             {
-                Background = index % 2 == 0
+                Background = pairStripeIndex == 0
                     ? new Avalonia.Media.SolidColorBrush(Avalonia.Media.Color.Parse("#14000000"))
                     : new Avalonia.Media.SolidColorBrush(Avalonia.Media.Color.Parse("#22FFFFFF")),
                 CornerRadius = new Avalonia.CornerRadius(4),
