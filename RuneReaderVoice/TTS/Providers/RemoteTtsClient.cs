@@ -523,7 +523,9 @@ public sealed class RemoteBatchSegmentRequest
     [JsonPropertyName("cross_fade_duration")] public float? CrossFadeDuration { get; set; }
     [JsonPropertyName("sway_sampling_coef")] public float? SwaySamplingCoef { get; set; }
     [JsonPropertyName("voice_context")] public string? VoiceContext { get; set; }
-    [JsonPropertyName("prime_from_segment")] public string? PrimeFromSegment { get; set; }
+    [JsonPropertyName("prime_from_segment")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? PrimeFromSegment { get; set; }
 }
 
 public sealed class V2BatchSubmitResponse
