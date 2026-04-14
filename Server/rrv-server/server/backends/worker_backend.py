@@ -458,6 +458,11 @@ class WorkerBackend(AbstractTtsBackend):
     def get_voices(self) -> list[VoiceInfo]:
         return list(self._voices)
 
+    async def _reset_broken_worker(self, reason: str) -> None:
+        log.error("Worker '%s' marked broken: %s", self._backend_name, reason)
+        await asyncio.get_event_loop().run_in_executor(None, self.shutdown)
+        self._is_loaded = False
+
     async def synthesize(self, request: SynthesisRequest) -> SynthesisResult:
         # On-demand reload — if evicted by ResourceManager, reload before synthesizing
         if not self.is_loaded:
@@ -491,24 +496,44 @@ class WorkerBackend(AbstractTtsBackend):
                     timeout=synth_timeout,
                 )
             except asyncio.TimeoutError:
+                await self._reset_broken_worker(
+                    f"synthesis timed out after {synth_timeout:.0f}s"
+                )
                 raise RuntimeError(
                     f"Worker '{self._backend_name}' synthesis timed out "
-                    f"after {synth_timeout:.0f}s"
+                    f"after {synth_timeout:.0f}s; worker reset"
                 )
+            except Exception as exc:
+                await self._reset_broken_worker(f"header read/send failed: {exc}")
+                raise RuntimeError(
+                    f"Worker '{self._backend_name}' transport failed during synthesis: {exc}"
+                ) from exc
 
             if header is None:
+                await self._reset_broken_worker("connection closed unexpectedly")
                 raise RuntimeError(
-                    f"Worker '{self._backend_name}' closed the connection unexpectedly"
+                    f"Worker '{self._backend_name}' closed the connection unexpectedly; worker reset"
                 )
 
             if header.get("status") == "error":
                 raise ValueError(header.get("message", "Worker synthesis error"))
 
             # Read OGG bytes
-            ogg_bytes = await asyncio.wait_for(
-                _recv_audio(self._reader),
-                timeout=30.0,
-            )
+            try:
+                ogg_bytes = await asyncio.wait_for(
+                    _recv_audio(self._reader),
+                    timeout=30.0,
+                )
+            except asyncio.TimeoutError:
+                await self._reset_broken_worker("audio payload read timed out after 30s")
+                raise RuntimeError(
+                    f"Worker '{self._backend_name}' audio payload timed out after 30s; worker reset"
+                )
+            except Exception as exc:
+                await self._reset_broken_worker(f"audio payload read failed: {exc}")
+                raise RuntimeError(
+                    f"Worker '{self._backend_name}' audio payload failed: {exc}"
+                ) from exc
 
         self._last_used = time.monotonic()
         self._use_count += 1
