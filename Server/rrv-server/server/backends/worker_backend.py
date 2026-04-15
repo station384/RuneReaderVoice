@@ -322,6 +322,10 @@ class WorkerBackend(AbstractTtsBackend):
         # backend-specific overrides that must be set before the dynamic linker
         # loads shared libraries (e.g. LD_LIBRARY_PATH for vLLM/ONNX CUDA EP).
         spawn_env = os.environ.copy()
+        # Force the worker subprocess to never read or write .pyc bytecode.
+        # This ensures edits to .py files in rrv-server/ take effect immediately
+        # without stale cached bytecode masking the update.
+        spawn_env["PYTHONDONTWRITEBYTECODE"] = "1"
         if self._backend_name == "cosyvoice_vllm":
             venv_lib = self._venv_path / "lib" / "python3.11" / "site-packages"
             nvidia_dirs = [
@@ -516,6 +520,8 @@ class WorkerBackend(AbstractTtsBackend):
                 )
 
             if header.get("status") == "error":
+                if header.get("traceback"):
+                    log.error("Worker '%s' traceback:\n%s", self._backend_name, header["traceback"])
                 raise ValueError(header.get("message", "Worker synthesis error"))
 
             # Read OGG bytes
@@ -646,6 +652,20 @@ def _request_to_dict(request: SynthesisRequest) -> dict:
         d["lux_return_smooth"] = request.lux_return_smooth
     if request.cosy_instruct is not None:
         d["cosy_instruct"] = request.cosy_instruct
+    if request.cb_temperature is not None:
+        d["cb_temperature"] = request.cb_temperature
+    if request.cb_top_p is not None:
+        d["cb_top_p"] = request.cb_top_p
+    if request.cb_repetition_penalty is not None:
+        d["cb_repetition_penalty"] = request.cb_repetition_penalty
+    if request.longcat_steps is not None:
+        d["longcat_steps"] = request.longcat_steps
+    if request.longcat_cfg_strength is not None:
+        d["longcat_cfg_strength"] = request.longcat_cfg_strength
+    if request.longcat_guidance is not None:
+        d["longcat_guidance"] = request.longcat_guidance
+    if request.synthesis_seed is not None:
+        d["synthesis_seed"] = request.synthesis_seed
     if request.cache_key is not None:
         d["cache_key"] = request.cache_key
     if request.cache_dir is not None:

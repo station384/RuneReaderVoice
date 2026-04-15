@@ -176,11 +176,15 @@ async def _handle_connection(
                         result.ogg_bytes,
                     )
                 except (ValueError, RuntimeError) as exc:
-                    log.warning("Synthesis error: %s", exc)
-                    await _send_message(writer, {"status": "error", "message": str(exc)})
+                    import traceback as _tb
+                    tb_str = _tb.format_exc()
+                    log.exception("Synthesis error: %s", exc)
+                    await _send_message(writer, {"status": "error", "message": str(exc), "traceback": tb_str})
                 except Exception as exc:
+                    import traceback as _tb
+                    tb_str = _tb.format_exc()
                     log.exception("Unexpected synthesis error")
-                    await _send_message(writer, {"status": "error", "message": repr(exc)})
+                    await _send_message(writer, {"status": "error", "message": repr(exc), "traceback": tb_str})
 
             else:
                 await _send_message(writer, {
@@ -229,6 +233,13 @@ def _build_request(msg: dict):
         lux_t_shift=_opt_float(msg, "lux_t_shift"),
         lux_return_smooth=msg.get("lux_return_smooth"),
         cosy_instruct=msg.get("cosy_instruct"),
+        cb_temperature=_opt_float(msg, "cb_temperature"),
+        cb_top_p=_opt_float(msg, "cb_top_p"),
+        cb_repetition_penalty=_opt_float(msg, "cb_repetition_penalty"),
+        longcat_steps=_opt_int(msg, "longcat_steps"),
+        longcat_cfg_strength=_opt_float(msg, "longcat_cfg_strength"),
+        longcat_guidance=msg.get("longcat_guidance"),
+        synthesis_seed=_opt_int(msg, "synthesis_seed"),
         cache_key=msg.get("cache_key"),
         cache_dir=msg.get("cache_dir"),
         continue_from_cache_key=msg.get("continue_from_cache_key"),

@@ -517,13 +517,14 @@ class ChatterboxFullBackend(AbstractTtsBackend):
             eot = self_m.t3.hp.stop_text_token
             text_proc = F.pad(text_proc, (1, 0), value=sot)
             text_proc = F.pad(text_proc, (0, 1), value=eot)
+            _t3_cfg_weight = max(cfg_weight, 0.1)
             with _torch.inference_mode():
                 speech_tokens = self_m.t3.inference(
                     t3_cond=self_m.conds.t3,
                     text_tokens=text_proc,
                     max_new_tokens=1000,
                     temperature=temperature,
-                    cfg_weight=cfg_weight,
+                    cfg_weight=_t3_cfg_weight,
                     repetition_penalty=repetition_penalty,
                     min_p=min_p,
                     top_p=top_p,
@@ -581,6 +582,8 @@ class ChatterboxFullBackend(AbstractTtsBackend):
         try:
             for sample_path_str, weight in entries_sorted:
                 audio_data, sr = sf.read(str(sample_path_str), dtype="float32")
+                if audio_data.ndim > 1:
+                    audio_data = audio_data.mean(axis=1)
                 with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tmp:
                     tmp_path = tmp.name
                 sf.write(tmp_path, audio_data, sr, subtype="PCM_16")
@@ -734,6 +737,8 @@ class ChatterboxFullBackend(AbstractTtsBackend):
         log.info("Cond cache: MISS single — running prepare_conditionals key=%s", cache_key[:20])
         import soundfile as sf, tempfile, os
         audio_data, sr = sf.read(str(sample_path), dtype="float32")
+        if audio_data.ndim > 1:
+            audio_data = audio_data.mean(axis=1)
         with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tmp:
             tmp_path = tmp.name
         try:
@@ -807,6 +812,8 @@ class ChatterboxFullBackend(AbstractTtsBackend):
 
         # Write a PCM_16 WAV — guarantees librosa returns float32 on load
         audio_data, sr = sf.read(str(sample_path), dtype='float32')
+        if audio_data.ndim > 1:
+            audio_data = audio_data.mean(axis=1)
         with tempfile.NamedTemporaryFile(suffix='.wav', delete=False) as tmp:
             new_tmp_path = tmp.name
         sf.write(new_tmp_path, audio_data, sr, subtype='PCM_16')
@@ -932,13 +939,17 @@ class ChatterboxFullBackend(AbstractTtsBackend):
             eot = self._model.t3.hp.stop_text_token
             text_proc = _F.pad(text_proc, (1, 0), value=sot)
             text_proc = _F.pad(text_proc, (0, 1), value=eot)
+            # Chatterbox T3 unconditionally doubles bos_embed for CFG — passing
+            # cfg_weight=0.0 causes a batch size mismatch (bos=[2] vs embeds=[1]).
+            # Clamp to a small non-zero minimum so the batch dimensions stay consistent.
+            _t3_cfg_weight = max(cfg_weight, 0.1)
             with _torch.inference_mode():
                 speech_tokens = self._model.t3.inference(
                     t3_cond=active_t3_cond,
                     text_tokens=text_proc,
                     max_new_tokens=1000,
                     temperature=temperature,
-                    cfg_weight=cfg_weight,
+                    cfg_weight=_t3_cfg_weight,
                     repetition_penalty=repetition_penalty,
                     min_p=0.05,
                     top_p=top_p,
@@ -1029,7 +1040,10 @@ class ChatterboxFullBackend(AbstractTtsBackend):
                     except Exception as _e:
                         log.debug("Tail token sidecar write failed (non-fatal): %s", _e)
 
-                samples = wav_np.squeeze() if wav_np.ndim > 1 else wav_np
+                samples = wav_np.squeeze()
+                if samples.ndim > 1:
+                    # Stereo or multi-channel output — mix down to mono
+                    samples = samples.mean(axis=0)
                 all_samples.append(samples.astype(np.float32))
                 log.debug("Chatterbox Full: chunk %d/%d synthesized (%d chars)",
                           i + 1, total, len(chunk_text))
