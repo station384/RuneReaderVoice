@@ -12,17 +12,11 @@ public sealed class ProviderSlotProfileStore
 {
     private const string SampleKeyPrefix = "sample:";
 
-    private static string NormalizeProviderId(string providerId)
+    private static string NormalizeProviderId(string? providerId)
     {
-        if (string.IsNullOrWhiteSpace(providerId))
-            return string.Empty;
-
-        return providerId.Trim() switch
-        {
-            "remote:chatterbox" => "remote:chatterbox_full",
-            "remote:chatterbox_multilingual" => "remote:chatterbox_full",
-            _ => providerId.Trim(),
-        };
+        return string.IsNullOrWhiteSpace(providerId)
+            ? string.Empty
+            : providerId.Trim();
     }
 
     private static bool IsLegacyProviderAlias(string providerId)

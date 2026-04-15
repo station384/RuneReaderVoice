@@ -250,10 +250,12 @@ public partial class MainWindow
             : ResolveVoiceDisplayName(provider, profile.VoiceId);
 
         var accentText = AppServices.NpcPeopleCatalog?.GetSlotAccentLabel(slot) ?? slot.SlotKey;
-        var standard   = StandardVoiceProfileCatalog.TryGetVoiceStandard(providerId, slot);
-
-        if (standard != null && profile.CacheAffectingEquals(standard))
+        if (StandardVoiceProfileCatalog.TryGetVoiceStandard(providerId, slot.SlotKey, out var standard) &&
+            standard != null &&
+            profile.CacheAffectingEquals(standard))
+        {
             return $"Standard Setup · {voiceText} · {lang} · {profile.SpeechRate * 100:0.#}%";
+        }
 
         return $"{voiceText} · {lang} · {profile.SpeechRate * 100:0.#}% · {accentText}";
     }

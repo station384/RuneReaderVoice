@@ -1705,13 +1705,15 @@ So go quickly, keep your wits about you, and return by the main road if you valu
 
     private static VoiceProfile? ResolveStandardProfile(string providerId, VoiceSlot slot, string? sampleProfileKey, IReadOnlyList<VoiceInfo> availableVoices)
     {
-        if (!string.IsNullOrWhiteSpace(sampleProfileKey))
-            return StandardVoiceProfileCatalog.TryGetSampleStandard(providerId, sampleProfileKey)
-                ?? VoiceProfileDefaults.Create(sampleProfileKey);
+        if (!string.IsNullOrWhiteSpace(sampleProfileKey) &&
+            StandardVoiceProfileCatalog.TryGetSampleStandard(providerId, sampleProfileKey, out var sampleStandard) &&
+            sampleStandard != null)
+        {
+            return sampleStandard.Clone();
+        }
 
-        var standard = StandardVoiceProfileCatalog.TryGetVoiceStandard(providerId, slot);
-        if (standard != null)
-            return standard;
+        if (StandardVoiceProfileCatalog.TryGetVoiceStandard(providerId, slot.SlotKey, out var standard) && standard != null)
+            return standard.Clone();
 
         var fallbackVoiceId = availableVoices.FirstOrDefault()?.VoiceId ?? string.Empty;
         return VoiceProfileDefaults.Create(fallbackVoiceId);

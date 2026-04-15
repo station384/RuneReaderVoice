@@ -1,191 +1,80 @@
-// SPDX-License-Identifier: GPL-3.0-only
+// SPDX-License-Identifier: GPL-3.0-or-later
 //
 // This file is part of RuneReaderVoice.
 // Copyright (C) 2026 Michael Sutton
-//
-// RuneReaderVoice is free software: you can redistribute it and/or modify
-// it under the terms of the GNU General Public License as published by
-// the Free Software Foundation, version 3 of the License.
-//
-// RuneReaderVoice is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-// GNU General Public License for more details.
-//
-// You should have received a copy of the GNU General Public License
-// along with RuneReaderVoice. If not, see <https://www.gnu.org/licenses/>.
 
 using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text.Json;
-using RuneReaderVoice.Protocol;
 
 namespace RuneReaderVoice.TTS.Providers;
 
 public static class StandardVoiceProfileCatalog
 {
-    private static readonly object _gate = new();
-    private static Dictionary<string, Dictionary<string, VoiceProfile>>? _voiceProfiles;
-    private static Dictionary<string, Dictionary<string, VoiceProfile>>? _sampleProfiles;
-
-    private static readonly string[] ChatterboxDonorProviderIds = { "remote:chatterbox_full", "remote:chatterbox" };
-    // TODO(migration-cleanup): remove generic Narrator alias after all tester configs have migrated
-    // to Narrator/Male and Narrator/Female only.
     private const string NarratorSlotKey = "Narrator";
     private const string MaleNarratorSlotKey = "Narrator/Male";
     private const string FemaleNarratorSlotKey = "Narrator/Female";
     private const string HardNarratorVoiceId = "M_Narrator";
     private const string HardFemaleNarratorVoiceId = "F_Narrator";
 
-    public static VoiceProfile? TryGetVoiceStandard(string providerId, VoiceSlot slot)
-    {
-        if (AppServices.TryGetStoredVoiceProfile(providerId, slot, out var storedProfile) && storedProfile != null)
-            return storedProfile.Clone();
+    private static readonly object _gate = new();
+    private static Dictionary<string, Dictionary<string, VoiceProfile>>? _voiceProfiles;
+    private static Dictionary<string, Dictionary<string, VoiceProfile>>? _sampleProfiles;
 
+    public static bool TryGetVoiceStandard(string providerId, string slotKey, out VoiceProfile? profile)
+    {
         EnsureLoaded();
 
-        if (IsKokoroProvider(providerId))
-        {
-            if (TryGetProfile(_voiceProfiles, providerId, slot.ToString(), out var kokoroExact))
-                return kokoroExact;
+        var canonical = NormalizeProviderId(providerId);
+        if (TryGetProfile(_voiceProfiles, canonical, slotKey, out profile))
+            return true;
 
-            var preset = SpeakerPresetCatalog.GetRecommendedForSlot(slot);
-            return preset?.Profile?.Clone();
+        if (slotKey.Equals(MaleNarratorSlotKey, StringComparison.OrdinalIgnoreCase) ||
+            slotKey.Equals(NarratorSlotKey, StringComparison.OrdinalIgnoreCase))
+        {
+            profile = CreateHardNarratorProfile();
+            return true;
         }
 
-        if (IsChatterboxProvider(providerId))
+        if (slotKey.Equals(FemaleNarratorSlotKey, StringComparison.OrdinalIgnoreCase))
         {
-            if (TryGetProfile(_voiceProfiles, providerId, slot.ToString(), out var chatterboxExact))
-                return chatterboxExact;
-
-            if (TryGetFirstDonorVoice(slot.ToString(), out var chatterboxDonor))
-                return chatterboxDonor;
-
-            var isFemaleNarratorSlot =
-                slot.ToString().Equals(FemaleNarratorSlotKey, StringComparison.OrdinalIgnoreCase);
-
-            if (isFemaleNarratorSlot && TryGetFirstDonorFemaleNarrator(out var chatterboxFemaleNarrator))
-                return chatterboxFemaleNarrator;
-
-            if (TryGetFirstDonorNarrator(out var chatterboxNarrator))
-                return chatterboxNarrator;
-
-            return isFemaleNarratorSlot
-                ? CreateHardFemaleNarratorProfile()
-                : CreateHardNarratorProfile();
-        }
-
-        if (slot.ToString().Equals(NarratorSlotKey, StringComparison.OrdinalIgnoreCase) ||
-            slot.ToString().Equals(MaleNarratorSlotKey, StringComparison.OrdinalIgnoreCase))
-        {
-            if (TryGetFirstDonorNarrator(out var donorNarrator))
-                return donorNarrator;
-
-            return CreateHardNarratorProfile();
-        }
-
-        if (slot.ToString().Equals(FemaleNarratorSlotKey, StringComparison.OrdinalIgnoreCase))
-        {
-            if (TryGetFirstDonorFemaleNarrator(out var donorFemaleNarrator))
-                return donorFemaleNarrator;
-
-            return CreateHardFemaleNarratorProfile();
-        }
-
-        if (TryGetFirstDonorVoice(slot.ToString(), out var donorSlot))
-            return donorSlot;
-
-        if (TryGetFirstDonorNarrator(out var donorFallbackNarrator))
-            return donorFallbackNarrator;
-
-        return slot.Gender == Gender.Female ? CreateHardFemaleNarratorProfile() : CreateHardNarratorProfile();
-    }
-
-    public static VoiceProfile? TryGetSampleStandard(string providerId, string sampleId)
-    {
-        if (AppServices.TryGetStoredSampleProfile(providerId, sampleId, out var storedProfile) && storedProfile != null)
-            return storedProfile.Clone();
-
-        EnsureLoaded();
-
-        if (IsKokoroProvider(providerId))
-        {
-            if (TryGetProfile(_sampleProfiles, providerId, sampleId, out var kokoroExact))
-                return kokoroExact;
-
-            return null;
-        }
-
-        if (IsChatterboxProvider(providerId))
-        {
-            if (TryGetProfile(_sampleProfiles, providerId, sampleId, out var chatterboxExact))
-                return chatterboxExact;
-
-            if (TryGetFirstDonorSample(sampleId, out var chatterboxDonorSample))
-                return chatterboxDonorSample;
-
-            var isFemaleNarratorSample =
-                sampleId.Equals(HardFemaleNarratorVoiceId, StringComparison.OrdinalIgnoreCase) ||
-                sampleId.Equals(FemaleNarratorSlotKey, StringComparison.OrdinalIgnoreCase);
-
-            if (isFemaleNarratorSample && TryGetFirstDonorFemaleNarrator(out var chatterboxFemaleNarrator))
-                return chatterboxFemaleNarrator;
-
-            if (TryGetFirstDonorNarrator(out var chatterboxNarrator))
-                return chatterboxNarrator;
-
-            return isFemaleNarratorSample
-                ? CreateHardFemaleNarratorProfile()
-                : CreateHardNarratorProfile();
-        }
-
-        if (TryGetFirstDonorSample(sampleId, out var donorSample))
-            return donorSample;
-
-        if (TryGetFirstDonorNarrator(out var donorNarrator))
-            return donorNarrator;
-
-        return CreateHardNarratorProfile();
-    }
-
-
-
-
-    private static bool TryGetFirstDonorVoice(string key, out VoiceProfile? profile)
-    {
-        foreach (var donorProviderId in ChatterboxDonorProviderIds)
-        {
-            if (TryGetProfile(_voiceProfiles, donorProviderId, key, out profile))
-                return true;
+            profile = CreateHardFemaleNarratorProfile();
+            return true;
         }
 
         profile = null;
         return false;
     }
 
-    private static bool TryGetFirstDonorSample(string key, out VoiceProfile? profile)
+    public static bool TryGetSampleStandard(string providerId, string key, out VoiceProfile? profile)
     {
-        foreach (var donorProviderId in ChatterboxDonorProviderIds)
+        EnsureLoaded();
+
+        var canonical = NormalizeProviderId(providerId);
+        if (TryGetProfile(_sampleProfiles, canonical, key, out profile))
+            return true;
+
+        if (key.Equals(MaleNarratorSlotKey, StringComparison.OrdinalIgnoreCase) ||
+            key.Equals(NarratorSlotKey, StringComparison.OrdinalIgnoreCase))
         {
-            if (TryGetProfile(_sampleProfiles, donorProviderId, key, out profile))
-                return true;
+            profile = CreateHardNarratorProfile();
+            return true;
+        }
+
+        if (key.Equals(FemaleNarratorSlotKey, StringComparison.OrdinalIgnoreCase))
+        {
+            profile = CreateHardFemaleNarratorProfile();
+            return true;
         }
 
         profile = null;
         return false;
     }
 
-    private static bool TryGetFirstDonorNarrator(out VoiceProfile? profile)
-        => TryGetFirstDonorVoice(MaleNarratorSlotKey, out profile) ||
-           TryGetFirstDonorVoice(NarratorSlotKey, out profile);
-
-    private static bool TryGetFirstDonorFemaleNarrator(out VoiceProfile? profile)
-        => TryGetFirstDonorVoice(FemaleNarratorSlotKey, out profile);
-
-    private static bool IsChatterboxProvider(string providerId)
-        => ChatterboxDonorProviderIds.Any(x => x.Equals(providerId, StringComparison.OrdinalIgnoreCase));
+    private static string NormalizeProviderId(string providerId)
+        => string.IsNullOrWhiteSpace(providerId) ? string.Empty : providerId.Trim();
 
     private static VoiceProfile CreateHardNarratorProfile()
         => VoiceProfileDefaults.Create(HardNarratorVoiceId);
@@ -200,7 +89,7 @@ public static class StandardVoiceProfileCatalog
         out VoiceProfile? profile)
     {
         profile = null;
-        if (profiles == null)
+        if (profiles == null || string.IsNullOrWhiteSpace(providerId) || string.IsNullOrWhiteSpace(key))
             return false;
 
         if (profiles.TryGetValue(providerId, out var dict) &&
@@ -213,10 +102,6 @@ public static class StandardVoiceProfileCatalog
 
         return false;
     }
-
-    private static bool IsKokoroProvider(string providerId)
-        => providerId.Equals("kokoro", StringComparison.OrdinalIgnoreCase) ||
-           providerId.IndexOf("kokoro", StringComparison.OrdinalIgnoreCase) >= 0;
 
     private static void EnsureLoaded()
     {
