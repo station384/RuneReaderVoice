@@ -38,10 +38,7 @@ public sealed class RemoteTtsClient
     private readonly string _baseUrl;
     private readonly string _apiKey;
     private readonly HttpClient _httpClient;
-    private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web)
-    {
-        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
-    };
+    private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
 
     public RemoteTtsClient(string baseUrl, string apiKey)
     {

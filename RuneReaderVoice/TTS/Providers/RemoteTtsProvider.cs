@@ -238,6 +238,8 @@ public sealed class RemoteTtsProvider : ITtsProvider
         if (forcedSynthesisSeed.HasValue)
             profile.SynthesisSeed = forcedSynthesisSeed;
 
+        profile = ApplyProviderMinimums(profile);
+
         var voiceSpec = BuildVoiceSpec(profile);
         var speechRate = profile.SpeechRate <= 0f ? 1.0f : Math.Clamp(profile.SpeechRate, 0.5f, 2.0f);
         var request = new RemoteSynthesizeV2BatchRequest();
@@ -339,6 +341,8 @@ public sealed class RemoteTtsProvider : ITtsProvider
 
         if (forcedSynthesisSeed.HasValue)
             profile.SynthesisSeed = forcedSynthesisSeed;
+
+        profile = ApplyProviderMinimums(profile);
 
         var providerId = _descriptor.RemoteProviderId ?? string.Empty;
         if (providerId.Contains("chatterbox", StringComparison.OrdinalIgnoreCase) ||
@@ -748,6 +752,37 @@ public sealed class RemoteTtsProvider : ITtsProvider
     }
 
     // ── Voice spec builder ────────────────────────────────────────────────────
+
+    private VoiceProfile ApplyProviderMinimums(VoiceProfile profile)
+    {
+        var providerId = _descriptor.RemoteProviderId ?? string.Empty;
+        if (!providerId.Contains("chatterbox", StringComparison.OrdinalIgnoreCase))
+            return profile;
+
+        bool changed = false;
+        var cfgWeight = profile.CfgWeight;
+        var exaggeration = profile.Exaggeration;
+
+        if (cfgWeight.HasValue && cfgWeight.Value < 0.1f)
+        {
+            cfgWeight = 0.1f;
+            changed = true;
+        }
+
+        if (exaggeration.HasValue && exaggeration.Value < 0.1f)
+        {
+            exaggeration = 0.1f;
+            changed = true;
+        }
+
+        if (!changed)
+            return profile;
+
+        var clone = profile.Clone();
+        clone.CfgWeight = cfgWeight;
+        clone.Exaggeration = exaggeration;
+        return clone;
+    }
 
     private RemoteVoiceSpec BuildVoiceSpec(VoiceProfile profile)
     {
