@@ -511,20 +511,19 @@ class ChatterboxFullBackend(AbstractTtsBackend):
             self_m.conds.t3  = _t3_ref
             self_m.conds.gen = _gen_ref
             text_proc = self_m.tokenizer.text_to_tokens(text).to(self_m.device)
-            if cfg_weight > 0.0:
-                text_proc = _torch.cat([text_proc, text_proc], dim=0)
+            # Always double for CFG batch — chatterbox expects [2, seq] unconditionally
+            text_proc = _torch.cat([text_proc, text_proc], dim=0)
             sot = self_m.t3.hp.start_text_token
             eot = self_m.t3.hp.stop_text_token
             text_proc = F.pad(text_proc, (1, 0), value=sot)
             text_proc = F.pad(text_proc, (0, 1), value=eot)
-            _t3_cfg_weight = max(cfg_weight, 0.1)
             with _torch.inference_mode():
                 speech_tokens = self_m.t3.inference(
                     t3_cond=self_m.conds.t3,
                     text_tokens=text_proc,
                     max_new_tokens=1000,
                     temperature=temperature,
-                    cfg_weight=_t3_cfg_weight,
+                    cfg_weight=cfg_weight,
                     repetition_penalty=repetition_penalty,
                     min_p=min_p,
                     top_p=top_p,
@@ -838,6 +837,10 @@ class ChatterboxFullBackend(AbstractTtsBackend):
 
         cfg_weight          = request.cfg_weight          if request.cfg_weight          is not None else 0.5
         exaggeration        = request.exaggeration        if request.exaggeration        is not None else 0.5
+        # cfg_weight=0.0 is invalid — chatterbox always runs CFG batch mode and
+        # zeroing the uncond row is handled internally. Clamp to valid range.
+        cfg_weight          = max(0.1, min(cfg_weight, 3.0))
+        exaggeration        = max(0.1, min(exaggeration, 3.0))
         temperature         = request.cb_temperature      if request.cb_temperature      is not None else 0.8
         top_p               = request.cb_top_p            if request.cb_top_p            is not None else 1.0
         repetition_penalty  = request.cb_repetition_penalty if request.cb_repetition_penalty is not None else 1.2
@@ -933,23 +936,21 @@ class ChatterboxFullBackend(AbstractTtsBackend):
         def _run_inference(chunk_text: str, active_t3_cond) -> tuple:
             """Run t3.inference() + s3gen.inference() directly, return (wav_np, tokens)."""
             text_proc = self._model.tokenizer.text_to_tokens(chunk_text).to(self._model.device)
-            if cfg_weight > 0.0:
-                text_proc = _torch.cat([text_proc, text_proc], dim=0)
+            # Chatterbox T3 always runs in CFG batch mode (bos_embed is unconditionally
+            # doubled). text_proc must always be [2, seq] regardless of cfg_weight.
+            # When cfg_weight=0.0, the uncond row is zeroed inside prepare_input_embeds.
+            text_proc = _torch.cat([text_proc, text_proc], dim=0)
             sot = self._model.t3.hp.start_text_token
             eot = self._model.t3.hp.stop_text_token
             text_proc = _F.pad(text_proc, (1, 0), value=sot)
             text_proc = _F.pad(text_proc, (0, 1), value=eot)
-            # Chatterbox T3 unconditionally doubles bos_embed for CFG — passing
-            # cfg_weight=0.0 causes a batch size mismatch (bos=[2] vs embeds=[1]).
-            # Clamp to a small non-zero minimum so the batch dimensions stay consistent.
-            _t3_cfg_weight = max(cfg_weight, 0.1)
             with _torch.inference_mode():
                 speech_tokens = self._model.t3.inference(
                     t3_cond=active_t3_cond,
                     text_tokens=text_proc,
                     max_new_tokens=1000,
                     temperature=temperature,
-                    cfg_weight=_t3_cfg_weight,
+                    cfg_weight=cfg_weight,
                     repetition_penalty=repetition_penalty,
                     min_p=0.05,
                     top_p=top_p,

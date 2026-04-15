@@ -322,10 +322,6 @@ class WorkerBackend(AbstractTtsBackend):
         # backend-specific overrides that must be set before the dynamic linker
         # loads shared libraries (e.g. LD_LIBRARY_PATH for vLLM/ONNX CUDA EP).
         spawn_env = os.environ.copy()
-        # Force the worker subprocess to never read or write .pyc bytecode.
-        # This ensures edits to .py files in rrv-server/ take effect immediately
-        # without stale cached bytecode masking the update.
-        spawn_env["PYTHONDONTWRITEBYTECODE"] = "1"
         if self._backend_name == "cosyvoice_vllm":
             venv_lib = self._venv_path / "lib" / "python3.11" / "site-packages"
             nvidia_dirs = [
