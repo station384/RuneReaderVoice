@@ -562,7 +562,8 @@ class ChatterboxBackend(AbstractTtsBackend):
                 from chatterbox.models.s3tokenizer import drop_invalid_tokens
                 self_m.conds.t3  = _t3_ref
                 self_m.conds.gen = _gen_ref
-                text_proc = self_m.tokenizer.text_to_tokens(text).to(self_m.device)
+                tok_out = self_m.tokenizer(text, return_tensors="pt", padding=True, truncation=True)
+                text_proc = tok_out.input_ids.to(self_m.device)
                 # Always double for CFG batch — chatterbox expects [2, seq] unconditionally
                 text_proc = _torch.cat([text_proc, text_proc], dim=0)
                 sot = self_m.t3.hp.start_text_token
@@ -617,7 +618,8 @@ class ChatterboxBackend(AbstractTtsBackend):
             from chatterbox.models.s3tokenizer import drop_invalid_tokens
             self_m.conds.t3  = _t3_ref
             self_m.conds.gen = _gen_ref
-            text_proc = self_m.tokenizer.text_to_tokens(text).to(self_m.device)
+            tok_out = self_m.tokenizer(text, return_tensors="pt", padding=True, truncation=True)
+            text_proc = tok_out.input_ids.to(self_m.device)
             # Always double for CFG batch — chatterbox expects [2, seq] unconditionally
             text_proc = _torch.cat([text_proc, text_proc], dim=0)
             sot = self_m.t3.hp.start_text_token
@@ -926,13 +928,11 @@ class ChatterboxBackend(AbstractTtsBackend):
         all_samples: list[np.ndarray] = []
 
         def _run_inference(chunk_text: str, active_t3_cond) -> tuple:
-            text_proc = self._model.tokenizer.text_to_tokens(chunk_text).to(self._model.device)
-            # Always double for CFG batch — chatterbox expects [2, seq] unconditionally
-            text_proc = _torch.cat([text_proc, text_proc], dim=0)
-            sot = self._model.t3.hp.start_text_token
-            eot = self._model.t3.hp.stop_text_token
-            text_proc = _F.pad(text_proc, (1, 0), value=sot)
-            text_proc = _F.pad(text_proc, (0, 1), value=eot)
+            # Turbo uses a GPT2-based HF tokenizer, not EnTokenizer.text_to_tokens.
+            # inference_turbo does not use CFG doubling or SOT/EOT padding.
+            tok_out = self._model.tokenizer(
+                chunk_text, return_tensors="pt", padding=True, truncation=True)
+            text_proc = tok_out.input_ids.to(self._model.device)
             with _torch.inference_mode():
                 speech_tokens = self._model.t3.inference_turbo(
                     t3_cond=active_t3_cond,
