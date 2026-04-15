@@ -96,7 +96,12 @@ public sealed class ProviderSlotProfileStore
             return false;
 
         if (TryGetCachedProfile(providerId, slotId, out profile) && profile != null)
+        {
+#if DEBUG
+            Console.WriteLine($"[RaceVoiceDebug] ProviderSlotProfileStore cache-hit provider={providerId} slot={slotId} voiceId={(profile.VoiceId ?? "<null>")}");
+#endif
             return true;
+        }
 
         var row = _db.Connection.Table<ProviderSlotProfileRow>()
             .Where(x => x.ProviderId == providerId && x.SlotId == slotId)
@@ -106,10 +111,18 @@ public sealed class ProviderSlotProfileStore
 
         var loaded = DeserializeProfile(row?.ProfileJson);
         if (loaded == null)
+        {
+#if DEBUG
+            Console.WriteLine($"[RaceVoiceDebug] ProviderSlotProfileStore db-miss provider={providerId} slot={slotId}");
+#endif
             return false;
+        }
 
         CacheProfile(providerId, slotId, loaded);
         profile = loaded.Clone();
+#if DEBUG
+        Console.WriteLine($"[RaceVoiceDebug] ProviderSlotProfileStore db-hit provider={providerId} slot={slotId} voiceId={(profile.VoiceId ?? "<null>")}");
+#endif
         return true;
     }
 

@@ -497,12 +497,27 @@ public sealed class RemoteTtsProvider : ITtsProvider
     public VoiceProfile? ResolveProfile(VoiceSlot slot)
     {
         if (AppServices.TryGetStoredVoiceProfile(ProviderId, slot, out var storedProfile) && storedProfile != null)
+        {
+#if DEBUG
+            Console.WriteLine($"[RaceVoiceDebug] RemoteTtsProvider.ResolveProfile provider={ProviderId} slot={slot} source=db voiceId={(storedProfile.VoiceId ?? "<null>")}");
+#endif
             return storedProfile;
+        }
 
         if (_descriptor.VoiceSourceKind == RemoteVoiceSourceKind.Samples)
-            return GetDefaultSampleProfile(slot);
+        {
+            var fallbackSample = GetDefaultSampleProfile(slot);
+#if DEBUG
+            Console.WriteLine($"[RaceVoiceDebug] RemoteTtsProvider.ResolveProfile provider={ProviderId} slot={slot} source=sample-default voiceId={(fallbackSample?.VoiceId ?? "<null>")}");
+#endif
+            return fallbackSample;
+        }
 
-        return VoiceProfileDefaults.Create(GetAvailableVoices().FirstOrDefault()?.VoiceId ?? string.Empty);
+        var fallbackVoice = VoiceProfileDefaults.Create(GetAvailableVoices().FirstOrDefault()?.VoiceId ?? string.Empty);
+#if DEBUG
+        Console.WriteLine($"[RaceVoiceDebug] RemoteTtsProvider.ResolveProfile provider={ProviderId} slot={slot} source=provider-default voiceId={(fallbackVoice?.VoiceId ?? "<null>")}");
+#endif
+        return fallbackVoice;
     }
 
     public VoiceProfile ResolveSampleProfile(string sampleId, VoiceSlot? fallbackSlot = null)

@@ -148,9 +148,15 @@ public static class AppServices
     public static bool TryGetStoredVoiceProfile(string providerId, VoiceSlot slot, out VoiceProfile? profile)
     {
         profile = null;
-        return ProviderSlotProfiles != null
-            && ProviderSlotProfiles.TryGetProfile(providerId, slot.ToString(), out profile)
+        var slotId = slot.ToString();
+        var ok = ProviderSlotProfiles != null
+            && ProviderSlotProfiles.TryGetProfile(providerId, slotId, out profile)
             && profile != null;
+
+#if DEBUG
+        Console.WriteLine($"[RaceVoiceDebug] TryGetStoredVoiceProfile provider={providerId} slot={slotId} hit={ok} voiceId={(profile?.VoiceId ?? "<null>")}");
+#endif
+        return ok;
     }
 
     public static bool TryGetStoredSampleProfile(string providerId, string sampleId, out VoiceProfile? profile)

@@ -38,7 +38,10 @@ public sealed class RemoteTtsClient
     private readonly string _baseUrl;
     private readonly string _apiKey;
     private readonly HttpClient _httpClient;
-    private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
+    private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web)
+    {
+        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
+    };
 
     public RemoteTtsClient(string baseUrl, string apiKey)
     {
@@ -523,9 +526,7 @@ public sealed class RemoteBatchSegmentRequest
     [JsonPropertyName("cross_fade_duration")] public float? CrossFadeDuration { get; set; }
     [JsonPropertyName("sway_sampling_coef")] public float? SwaySamplingCoef { get; set; }
     [JsonPropertyName("voice_context")] public string? VoiceContext { get; set; }
-    [JsonPropertyName("prime_from_segment")]
-    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public string? PrimeFromSegment { get; set; }
+    [JsonPropertyName("prime_from_segment")] public string? PrimeFromSegment { get; set; }
 }
 
 public sealed class V2BatchSubmitResponse
