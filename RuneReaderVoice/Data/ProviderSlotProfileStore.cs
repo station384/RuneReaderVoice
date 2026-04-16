@@ -19,14 +19,6 @@ public sealed class ProviderSlotProfileStore
             : providerId.Trim();
     }
 
-    private static bool IsLegacyProviderAlias(string providerId)
-    {
-        if (string.IsNullOrWhiteSpace(providerId))
-            return false;
-
-        return string.Equals(providerId.Trim(), "remote:chatterbox", StringComparison.OrdinalIgnoreCase) ||
-               string.Equals(providerId.Trim(), "remote:chatterbox_multilingual", StringComparison.OrdinalIgnoreCase);
-    }
 
     private readonly RvrDb _db;
     // Read-through passthru cache. Do not mirror entire DB in memory.
@@ -46,7 +38,9 @@ public sealed class ProviderSlotProfileStore
 
         try
         {
-            return JsonSerializer.Deserialize<VoiceProfile>(json);
+            var profile = JsonSerializer.Deserialize<VoiceProfile>(json);
+            profile?.NormalizeForStorage();
+            return profile;
         }
         catch
         {
@@ -181,17 +175,18 @@ public sealed class ProviderSlotProfileStore
         if (string.IsNullOrWhiteSpace(providerId) || string.IsNullOrWhiteSpace(slotId) || profile == null)
             return;
 
+        var normalizedProfile = profile.CreateNormalizedCopy();
         var row = new ProviderSlotProfileRow
         {
             ProviderId = providerId,
             SlotId = slotId,
-            ProfileJson = JsonSerializer.Serialize(profile),
+            ProfileJson = JsonSerializer.Serialize(normalizedProfile),
             Source = source,
             UpdatedUtc = DateTimeOffset.UtcNow.ToUnixTimeSeconds(),
         };
 
         await _db.Connection.InsertOrReplaceAsync(row);
-        CacheProfile(providerId, slotId, profile);
+        CacheProfile(providerId, slotId, normalizedProfile);
     }
 
     public async Task RemoveAsync(string providerId, string slotId)
@@ -449,24 +444,10 @@ public sealed class ProviderSlotProfileStore
 
     private async Task DeleteProviderAliasRowsAsync(string providerId, bool samplesOnly)
     {
-        var aliases = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
-        {
-            providerId
-        };
+        if (string.IsNullOrWhiteSpace(providerId))
+            return;
 
-        if (string.Equals(providerId, "remote:chatterbox_full", StringComparison.OrdinalIgnoreCase))
-        {
-            aliases.Add("remote:chatterbox");
-            aliases.Add("remote:chatterbox_multilingual");
-        }
-        else if (IsLegacyProviderAlias(providerId))
-        {
-            aliases.Add("remote:chatterbox");
-            aliases.Add("remote:chatterbox_multilingual");
-            aliases.Add("remote:chatterbox_full");
-        }
-
-        foreach (var alias in aliases)
+        foreach (var alias in new[] { providerId })
         {
             if (samplesOnly)
             {
@@ -510,7 +491,7 @@ public sealed class ProviderSlotProfileStore
             if (string.IsNullOrWhiteSpace(slotId) || profile == null)
                 continue;
 
-            normalizedProfiles[slotId] = profile;
+            normalizedProfiles[slotId] = profile.CreateNormalizedCopy();
         }
 
         foreach (var (slotId, profile) in normalizedProfiles)
@@ -562,7 +543,7 @@ public sealed class ProviderSlotProfileStore
             if (string.IsNullOrWhiteSpace(sampleId) || profile == null)
                 continue;
 
-            normalizedProfiles[sampleId] = profile;
+            normalizedProfiles[sampleId] = profile.CreateNormalizedCopy();
         }
 
         foreach (var (sampleId, profile) in normalizedProfiles)
@@ -614,7 +595,7 @@ public sealed class ProviderSlotProfileStore
                 {
                     ProviderId = providerId,
                     SlotId = slot.Key,
-                    ProfileJson = JsonSerializer.Serialize(slot.Value),
+                    ProfileJson = JsonSerializer.Serialize((slot.Value ?? new VoiceProfile()).CreateNormalizedCopy()),
                     Source = source,
                     UpdatedUtc = now,
                 });
@@ -630,7 +611,7 @@ public sealed class ProviderSlotProfileStore
                 {
                     ProviderId = providerId,
                     SlotId = SampleSlotId(sample.Key),
-                    ProfileJson = JsonSerializer.Serialize(sample.Value),
+                    ProfileJson = JsonSerializer.Serialize((sample.Value ?? VoiceProfileDefaults.Create(sample.Key)).CreateNormalizedCopy()),
                     Source = source,
                     UpdatedUtc = now,
                 });

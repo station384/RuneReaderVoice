@@ -272,6 +272,38 @@ public sealed class VoiceProfile
     public bool        DisableChunking { get; set; } = false;
     public DspProfile? Dsp             { get; set; } = null;
 
+    private static float RoundFloat(float value, int decimals)
+        => (float)Math.Round(value, decimals, MidpointRounding.AwayFromZero);
+
+    private static float? RoundNullableFloat(float? value, int decimals)
+        => value.HasValue ? RoundFloat(value.Value, decimals) : null;
+
+    public void NormalizeForStorage()
+    {
+        VoiceId = VoiceId?.Trim() ?? string.Empty;
+        LangCode = LangCode?.Trim() ?? string.Empty;
+        SpeechRate = SpeechRate <= 0f ? 1.0f : RoundFloat(SpeechRate, 2);
+        CfgWeight = RoundNullableFloat(CfgWeight, 2);
+        Exaggeration = RoundNullableFloat(Exaggeration, 2);
+        CfgStrength = RoundNullableFloat(CfgStrength, 2);
+        CrossFadeDuration = RoundNullableFloat(CrossFadeDuration, 3);
+        SwaysamplingCoef = RoundNullableFloat(SwaysamplingCoef, 3);
+        VoiceInstruct = string.IsNullOrWhiteSpace(VoiceInstruct) ? null : VoiceInstruct.Trim();
+        CosyInstruct = string.IsNullOrWhiteSpace(CosyInstruct) ? null : CosyInstruct.Trim();
+        ChatterboxTemperature = RoundNullableFloat(ChatterboxTemperature, 2);
+        ChatterboxTopP = RoundNullableFloat(ChatterboxTopP, 2);
+        ChatterboxRepetitionPenalty = RoundNullableFloat(ChatterboxRepetitionPenalty, 2);
+        LongcatCfgStrength = RoundNullableFloat(LongcatCfgStrength, 2);
+        LongcatGuidance = string.IsNullOrWhiteSpace(LongcatGuidance) ? null : LongcatGuidance.Trim();
+    }
+
+    public VoiceProfile CreateNormalizedCopy()
+    {
+        var clone = Clone();
+        clone.NormalizeForStorage();
+        return clone;
+    }
+
     public VoiceProfile Clone() => new()
     {
         VoiceId                    = VoiceId,

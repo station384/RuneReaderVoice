@@ -226,6 +226,7 @@ public sealed class VoiceUserSettings
                     profile.LangCode = VoiceProfileDefaults.GetDefaultLangCodeForVoice(profile.VoiceId);
                 if (profile.SpeechRate <= 0f)
                     profile.SpeechRate = 1.0f;
+                profile.NormalizeForStorage();
                 dict[key] = profile;
             }
         }
@@ -242,6 +243,7 @@ public sealed class VoiceUserSettings
                     profile.LangCode = VoiceProfileDefaults.GetDefaultLangCodeForVoice(profile.VoiceId);
                 if (profile.SpeechRate <= 0f)
                     profile.SpeechRate = 1.0f;
+                profile.NormalizeForStorage();
                 dict[key] = profile;
             }
         }

@@ -323,7 +323,8 @@ public sealed class NpcSyncService : IDisposable
 
         foreach (var (providerId, profiles) in providers)
         {
-            if (string.IsNullOrWhiteSpace(providerId) || profiles == null)
+            var serverProviderId = ToServerProviderProfileId(providerId);
+            if (string.IsNullOrWhiteSpace(serverProviderId) || profiles == null)
                 continue;
 
             foreach (var (profileId, profile) in profiles)
@@ -333,7 +334,7 @@ public sealed class NpcSyncService : IDisposable
 
                 batch.Add(new ServerProviderSlotProfileBatchRecord
                 {
-                    ProviderId = providerId,
+                    ProviderId = serverProviderId,
                     ProfileKind = normalizedKind,
                     ProfileId = profileId,
                     ProfileJson = profile,
@@ -357,7 +358,8 @@ public sealed class NpcSyncService : IDisposable
     public async Task<bool> PullAndApplyProviderSlotProfilesAsync(string kind, string? providerId = null, double sinceTs = 0.0)
     {
         var normalizedKind = NormalizeProfileKind(kind);
-        var records = await _client.GetProviderSlotProfilesAsync(providerId, normalizedKind, sinceTs).ConfigureAwait(false);
+        var serverProviderId = ToServerProviderProfileId(providerId);
+        var records = await _client.GetProviderSlotProfilesAsync(serverProviderId, normalizedKind, sinceTs).ConfigureAwait(false);
         if (records == null)
             return false;
 
@@ -375,6 +377,28 @@ public sealed class NpcSyncService : IDisposable
             ? "voice_slot"
             : "sample";
 
+    private static string ToServerProviderProfileId(string? providerId)
+    {
+        if (string.IsNullOrWhiteSpace(providerId))
+            return string.Empty;
+
+        var normalized = providerId.Trim();
+        return normalized.StartsWith("remote:", StringComparison.OrdinalIgnoreCase)
+            ? normalized["remote:".Length..]
+            : normalized;
+    }
+
+    private static string ToClientProviderProfileId(string? providerId)
+    {
+        if (string.IsNullOrWhiteSpace(providerId))
+            return string.Empty;
+
+        var normalized = providerId.Trim();
+        return normalized.StartsWith("remote:", StringComparison.OrdinalIgnoreCase)
+            ? normalized
+            : $"remote:{normalized}";
+    }
+
     private async Task ApplyProviderSlotProfileRecordsAsVoiceProfilesAsync(List<ServerProviderSlotProfileRecord> records)
     {
         var grouped = new Dictionary<string, Dictionary<string, RuneReaderVoice.TTS.Providers.VoiceProfile>>(StringComparer.OrdinalIgnoreCase);
@@ -387,7 +411,7 @@ public sealed class NpcSyncService : IDisposable
             if (profile == null)
                 continue;
 
-            var providerId = AppServices.ProviderSlotProfiles?.CanonicalizeProviderId(rec.ProviderId) ?? rec.ProviderId.Trim();
+            var providerId = ToClientProviderProfileId(rec.ProviderId);
             if (string.IsNullOrWhiteSpace(providerId))
                 continue;
 
@@ -421,7 +445,7 @@ public sealed class NpcSyncService : IDisposable
             if (profile == null)
                 continue;
 
-            var providerId = AppServices.ProviderSlotProfiles?.CanonicalizeProviderId(record.ProviderId) ?? record.ProviderId.Trim();
+            var providerId = ToClientProviderProfileId(record.ProviderId);
             if (string.IsNullOrWhiteSpace(providerId))
                 continue;
 
