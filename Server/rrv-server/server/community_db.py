@@ -46,6 +46,7 @@ log = logging.getLogger(__name__)
 _CREATE_TABLE = """
 CREATE TABLE IF NOT EXISTS npc_overrides (
     npc_id               INTEGER PRIMARY KEY,
+    catalog_id           TEXT    DEFAULT '',
     race_id              INTEGER NOT NULL,
     notes                TEXT    DEFAULT '',
     bespoke_sample_id    TEXT    DEFAULT NULL,
@@ -79,6 +80,7 @@ class CommunityDb:
         self._conn = await aiosqlite.connect(str(self._db_path))
         self._conn.row_factory = aiosqlite.Row
         await self._conn.execute(_CREATE_TABLE)
+        await self._ensure_columns()
         await self._conn.execute(_CREATE_INDEX)
         await self._conn.commit()
         log.info("Community DB initialized: %s", self._db_path)
@@ -87,6 +89,13 @@ class CommunityDb:
         if self._conn:
             await self._conn.close()
             self._conn = None
+
+    async def _ensure_columns(self) -> None:
+        assert self._conn
+        async with self._conn.execute("PRAGMA table_info(npc_overrides)") as cursor:
+            cols = {str(row[1]).lower() for row in await cursor.fetchall()}
+        if "catalog_id" not in cols:
+            await self._conn.execute("ALTER TABLE npc_overrides ADD COLUMN catalog_id TEXT DEFAULT ''")
 
     # ── Queries ───────────────────────────────────────────────────────────────
 
@@ -113,6 +122,7 @@ class CommunityDb:
         self,
         npc_id: int,
         race_id: int,
+        catalog_id: str | None = None,
         notes: str = "",
         bespoke_sample_id: str | None = None,
         bespoke_exaggeration: float | None = None,
@@ -146,6 +156,7 @@ class CommunityDb:
             await self._conn.execute(
                 """
                 UPDATE npc_overrides SET
+                    catalog_id           = ?,
                     race_id              = ?,
                     notes                = ?,
                     bespoke_sample_id    = ?,
@@ -157,6 +168,7 @@ class CommunityDb:
                 WHERE npc_id = ?
                 """,
                 (
+                    catalog_id if catalog_id is not None else existing.get("catalog_id", ""),
                     race_id,
                     notes or existing["notes"],
                     bespoke_sample_id,
@@ -172,13 +184,13 @@ class CommunityDb:
             await self._conn.execute(
                 """
                 INSERT INTO npc_overrides
-                    (npc_id, race_id, notes, bespoke_sample_id,
+                    (npc_id, catalog_id, race_id, notes, bespoke_sample_id,
                      bespoke_exaggeration, bespoke_cfg_weight,
                      source, confidence, created_at, updated_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
-                    npc_id, race_id, notes or "",
+                    npc_id, catalog_id or "", race_id, notes or "",
                     bespoke_sample_id, bespoke_exaggeration, bespoke_cfg_weight,
                     source, confidence_delta, now, now,
                 ),
@@ -214,6 +226,7 @@ class CommunityDb:
             row = await self.upsert(
                 npc_id=int(rec["npc_id"]),
                 race_id=int(rec["race_id"]),
+                catalog_id=rec.get("catalog_id"),
                 notes=str(rec.get("notes") or ""),
                 bespoke_sample_id=rec.get("bespoke_sample_id"),
                 bespoke_exaggeration=rec.get("bespoke_exaggeration"),
