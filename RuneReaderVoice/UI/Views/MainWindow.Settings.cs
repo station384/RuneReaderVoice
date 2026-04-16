@@ -403,4 +403,77 @@ public partial class MainWindow
             StatusBadge.Foreground = Avalonia.Media.Brushes.LightSkyBlue;
         }
     }
+
+    // ── Update UI ─────────────────────────────────────────────────────────────
+
+    private void InitUpdatePanel()
+    {
+        if (UpdateCurrentVersion != null)
+            UpdateCurrentVersion.Text = AppServices.Updater?.CurrentVersion ?? "—";
+
+        if (AppServices.Updater != null)
+        {
+            AppServices.Updater.StatusChanged += OnUpdateStatusChanged;
+
+            // Hide the whole expander when not running as installed app
+            if (AppServices.Updater.State == RuneReaderVoice.Sync.UpdateState.NotInstalled)
+            {
+                if (ExpanderUpdate != null)
+                    ExpanderUpdate.IsVisible = false;
+            }
+        }
+    }
+
+    private void OnUpdateStatusChanged(RuneReaderVoice.Sync.UpdateState state, string message)
+    {
+        Dispatcher.UIThread.Post(() =>
+        {
+            if (UpdateStatusLabel != null)
+                UpdateStatusLabel.Text = message;
+
+            if (UpdateCheckButton != null)
+                UpdateCheckButton.IsEnabled = state is
+                    RuneReaderVoice.Sync.UpdateState.Idle or
+                    RuneReaderVoice.Sync.UpdateState.UpToDate or
+                    RuneReaderVoice.Sync.UpdateState.UpdateAvailable or
+                    RuneReaderVoice.Sync.UpdateState.Error;
+
+            if (UpdateDownloadButton != null)
+                UpdateDownloadButton.IsVisible = state == RuneReaderVoice.Sync.UpdateState.UpdateAvailable;
+
+            if (UpdateInstallButton != null)
+                UpdateInstallButton.IsVisible = state == RuneReaderVoice.Sync.UpdateState.ReadyToInstall;
+
+            if (UpdateProgressBar != null)
+            {
+                UpdateProgressBar.IsVisible = state == RuneReaderVoice.Sync.UpdateState.Downloading;
+                if (state != RuneReaderVoice.Sync.UpdateState.Downloading)
+                    UpdateProgressBar.Value = 0;
+            }
+        });
+    }
+
+    private async void OnUpdateCheckClicked(object? sender, RoutedEventArgs e)
+    {
+        if (AppServices.Updater == null) return;
+        await AppServices.Updater.CheckAsync();
+    }
+
+    private async void OnUpdateDownloadClicked(object? sender, RoutedEventArgs e)
+    {
+        if (AppServices.Updater == null) return;
+        await AppServices.Updater.DownloadAndStageAsync(progress =>
+        {
+            Dispatcher.UIThread.Post(() =>
+            {
+                if (UpdateProgressBar != null)
+                    UpdateProgressBar.Value = progress;
+            });
+        });
+    }
+
+    private void OnUpdateInstallClicked(object? sender, RoutedEventArgs e)
+    {
+        AppServices.Updater?.RestartAndInstall();
+    }
 }

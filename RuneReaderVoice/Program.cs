@@ -24,6 +24,7 @@ using System.Collections.Generic;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using Avalonia;
+using Velopack;
 using RuneReaderVoice;
 using RuneReaderVoice.Data;
 using RuneReaderVoice.Platform;
@@ -58,6 +59,11 @@ internal static class Program
     [STAThread]
     public static int Main(string[] args)
     {
+        // Velopack MUST be the very first call in Main.
+        // It handles applying any pending update staged on the previous run,
+        // then returns so normal startup continues. If this process was launched
+        // by the updater itself (not the user), it exits here cleanly.
+        VelopackApp.Build().Run();
         // Suppress unobserved Task exceptions from HttpClient's internal connection
         // pool keep-alive machinery. When Caddy closes an idle connection the pool's
         // background read throws IOException(SocketException 995) as an unobserved
@@ -162,6 +168,9 @@ internal static class Program
 
         var textSwapProcessor      = BuildTextSwapProcessorAsync(textSwapRules).GetAwaiter().GetResult();;
         var pronunciationProcessor = BuildPronunciationProcessorAsync(pronunciationRules).GetAwaiter().GetResult();;
+
+        // ── Update service ────────────────────────────────────────────────────
+        var updater = new UpdateService();
 
         var tempDir = Path.Combine(Path.GetTempPath(), "RuneReaderVoice");
         var playbackMode = settings.PlaybackMode == "StreamOnFirstChunk"
@@ -275,7 +284,7 @@ internal static class Program
         AppServices.Initialize(
             settings, platform, provider, cache, player,
             assembler, coordinator, monitor, pronunciationProcessor, textSwapProcessor,
-            npcOverrides, npcSync, npcPeopleCatalogService, providerSlotProfileStore,
+            npcOverrides, npcSync, updater, npcPeopleCatalogService, providerSlotProfileStore,
             db, pronunciationRules, textSwapRules, providerRegistry);
 
         return AppBuilder

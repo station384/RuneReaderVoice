@@ -33,6 +33,9 @@ along with RuneReaderVoice. If not, see <https://www.gnu.org/licenses/>.
     <AvaloniaXamlReportImportance>Low</AvaloniaXamlReportImportance>
     <Title>RuneReader Voice</Title>
     <Copyright>2026 Michael Sutton</Copyright>
+    <Version>1.5.0</Version>
+    <AssemblyVersion>1.5.0.0</AssemblyVersion>
+    <FileVersion>1.5.0.0</FileVersion>
   </PropertyGroup>
 
   <!-- Platform constants — same pattern as RuneReader -->
@@ -85,9 +88,11 @@ along with RuneReaderVoice. If not, see <https://www.gnu.org/licenses/>.
     <PackageReference Include="Avalonia.Fonts.Inter" Version="11.3.11" />
 
     <PackageReference Include="System.Configuration.ConfigurationManager" Version="10.0.2" />
-    <PackageReference Include="KokoroSharp.CPU" Version="*" />
+    <PackageReference Include="KokoroSharp.CPU" Version="0.6.7" />
     <!-- DSP pipeline: post-synthesis audio processing -->
-    <PackageReference Include="NWaves" Version="*" />
+    <PackageReference Include="NWaves" Version="0.9.6" />
+    <!-- Auto-update -->
+    <PackageReference Include="Velopack" Version="0.0.1298" />
 
   </ItemGroup>
 
@@ -154,13 +159,37 @@ along with RuneReaderVoice. If not, see <https://www.gnu.org/licenses/>.
     </Compile>
   </ItemGroup>
 
-  <ItemGroup>
-    <Folder Include="Data\" />
-  </ItemGroup>
+  <!-- Generate UpdateServiceConfig.g.cs with the update feed URL baked in at build time.
+       Default is empty string (uses GitHub source). Override with:
+         dotnet publish -p:UpdateFeedUrl=https://www.mkfam.com/filedump/
+  -->
+  <PropertyGroup>
+    <UpdateFeedUrl Condition="'$(UpdateFeedUrl)' == ''"></UpdateFeedUrl>
+    <GeneratedConfigFile>$(BaseIntermediateOutputPath)UpdateServiceConfig.g.cs</GeneratedConfigFile>
+  </PropertyGroup>
+
+  <Target Name="GenerateUpdateServiceConfig" BeforeTargets="CoreCompile">
+    <MakeDir Directories="$(BaseIntermediateOutputPath)" />
+    <PropertyGroup>
+      <_ConfigContent>
+// &lt;auto-generated /&gt;
+namespace RuneReaderVoice.Sync%3B
+internal static partial class UpdateServiceConfig
+{
+    internal const string UpdateFeedUrl = &quot;$(UpdateFeedUrl)&quot;%3B
+}
+      </_ConfigContent>
+    </PropertyGroup>
+    <WriteLinesToFile File="$(GeneratedConfigFile)" Lines="$(_ConfigContent)" Overwrite="true" WriteOnlyWhenDifferent="true"/>
+    <ItemGroup>
+      <Compile Include="$(GeneratedConfigFile)" />
+    </ItemGroup>
+  </Target>
 
   <ItemGroup>
     <None Remove="Models\kokoro-quant.onnx" />
-    <Content Include="Models\kokoro-quant.onnx">
+    <Content Include="Models\kokoro-quant.onnx"
+             Condition="'$(ExcludeKokoroModel)' != 'true'">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
     <None Remove="Sync\ServerDefaultsClient.cs.bak" />

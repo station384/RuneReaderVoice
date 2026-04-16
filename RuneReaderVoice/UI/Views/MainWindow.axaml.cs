@@ -63,6 +63,7 @@ public partial class MainWindow : Window
 
 
         InitNpcOverridesUI();
+        InitUpdatePanel();
 
         // Warm the voice cache in the background so the NPC sample dropdown
         // is populated as soon as possible — without requiring the user to

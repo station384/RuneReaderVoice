@@ -51,6 +51,7 @@ public static class AppServices
     public static DialogueTextSwapProcessor      TextSwapProcessor      { get; private set; } = null!;
     public static NpcRaceOverrideDb              NpcOverrides           { get; private set; } = null!;
     public static NpcSyncService                 NpcSync                { get; private set; } = null!;
+    public static UpdateService                  Updater                { get; private set; } = null!;
     public static NpcPeopleCatalogService        NpcPeopleCatalog       { get; private set; } = null!;
     public static ProviderSlotProfileStore       ProviderSlotProfiles   { get; private set; } = null!;
 
@@ -98,6 +99,7 @@ public static class AppServices
         DialogueTextSwapProcessor textSwapProcessor,
         NpcRaceOverrideDb npcOverrides,
         NpcSyncService npcSync,
+        UpdateService updater,
         NpcPeopleCatalogService npcPeopleCatalog,
         ProviderSlotProfileStore providerSlotProfiles,
         RvrDb db,
@@ -117,6 +119,7 @@ public static class AppServices
         TextSwapProcessor      = textSwapProcessor;
         NpcOverrides           = npcOverrides;
         NpcSync                = npcSync;
+        Updater                = updater;
         NpcPeopleCatalog        = npcPeopleCatalog;
         ProviderSlotProfiles    = providerSlotProfiles;
         Db                     = db;
