@@ -190,17 +190,7 @@ public partial class MainWindow
         {
             await AppServices.ProviderSlotProfiles.UpsertSampleAsync(provider.ProviderId, sampleId, updated.Clone(), "Local");
         }
-        else
-        {
-            if (!AppServices.Settings.PerProviderSampleProfiles.TryGetValue(provider.ProviderId, out var profiles))
-            {
-                profiles = new Dictionary<string, VoiceProfile>(StringComparer.OrdinalIgnoreCase);
-                AppServices.Settings.PerProviderSampleProfiles[provider.ProviderId] = profiles;
-            }
-
-            profiles[sampleId] = updated.Clone();
-            VoiceSettingsManager.SaveSettings(AppServices.Settings);
-        }
+        VoiceSettingsManager.SaveSettings(AppServices.Settings);
         await PopulateSampleDefaultsGridAsync();
     }
 
@@ -286,10 +276,7 @@ public partial class MainWindow
             if (file == null) return;
 
             var providers = AppServices.ProviderSlotProfiles?.GetSampleProfilesSnapshot()
-                            ?? AppServices.Settings.PerProviderSampleProfiles
-                                .ToDictionary(kvp => kvp.Key,
-                                    kvp => new Dictionary<string, VoiceProfile>(kvp.Value, StringComparer.OrdinalIgnoreCase),
-                                    StringComparer.OrdinalIgnoreCase);
+                            ?? new Dictionary<string, Dictionary<string, VoiceProfile>>(StringComparer.OrdinalIgnoreCase);
 
             var export = new MultiProviderSampleProfileExport
             {
@@ -340,13 +327,7 @@ public partial class MainWindow
                         "Import");
                 }
             }
-            else
-            {
-                foreach (var (providerId, profiles) in import.Providers)
-                    AppServices.Settings.PerProviderSampleProfiles[providerId] = new Dictionary<string, VoiceProfile>(profiles, StringComparer.OrdinalIgnoreCase);
-
-                VoiceSettingsManager.SaveSettings(AppServices.Settings);
-            }
+            VoiceSettingsManager.SaveSettings(AppServices.Settings);
             await PopulateSampleDefaultsGridAsync();
             SampleDefaultsStatus.Text = $"Imported voice sample defaults for {import.Providers.Count} provider(s).";
         }
@@ -366,10 +347,7 @@ public partial class MainWindow
         try
         {
             var providers = AppServices.ProviderSlotProfiles?.GetSampleProfilesSnapshot()
-                            ?? AppServices.Settings.PerProviderSampleProfiles
-                                .ToDictionary(kvp => kvp.Key,
-                                    kvp => new Dictionary<string, VoiceProfile>(kvp.Value, StringComparer.OrdinalIgnoreCase),
-                                    StringComparer.OrdinalIgnoreCase);
+                            ?? new Dictionary<string, Dictionary<string, VoiceProfile>>(StringComparer.OrdinalIgnoreCase);
 
             var upserted = await AppServices.NpcSync.PushProviderSlotProfilesAsync("sample", providers);
             SampleDefaultsStatus.Text = upserted >= 0 ? $"Voice sample defaults pushed to server ({upserted} row(s))." : "Push failed — check server logs.";

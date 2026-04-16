@@ -21,6 +21,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using RuneReaderVoice.Data;
 using RuneReaderVoice.Protocol;
 
 namespace RuneReaderVoice.TTS.Providers;
@@ -85,19 +86,21 @@ public static class TtsProviderFactory
         };
     }
 
-    public static void ApplyStoredProfiles(VoiceUserSettings settings, ITtsProvider provider)
+    public static void ApplyStoredProfiles(VoiceUserSettings settings, ProviderSlotProfileStore? providerSlotProfiles, ITtsProvider provider)
     {
+        var storedProfiles = providerSlotProfiles?.GetVoiceProfilesForProvider(provider.ProviderId)
+                           ?? new Dictionary<string, VoiceProfile>(StringComparer.OrdinalIgnoreCase);
 #if WINDOWS
         if (provider is WinRtTtsProvider winRtProvider)
         {
-            foreach (var (key, profile) in settings.VoiceProfiles)
+            foreach (var (key, profile) in storedProfiles)
                 if (VoiceSlot.TryParse(key, out var slot))
                     winRtProvider.SetVoice(slot, profile.VoiceId);
         }
 #elif LINUX
         if (provider is LinuxPiperTtsProvider piperProvider)
         {
-            foreach (var (key, profile) in settings.VoiceProfiles)
+            foreach (var (key, profile) in storedProfiles)
                 if (VoiceSlot.TryParse(key, out var slot))
                     piperProvider.SetModel(slot, profile.VoiceId);
         }
@@ -105,7 +108,7 @@ public static class TtsProviderFactory
 
         if (provider is KokoroTtsProvider kokoroProvider)
         {
-            foreach (var (key, profile) in settings.VoiceProfiles)
+            foreach (var (key, profile) in storedProfiles)
                 if (VoiceSlot.TryParse(key, out var slot))
                     kokoroProvider.SetVoiceProfile(slot, profile);
             kokoroProvider.EnablePhraseChunking = settings.EnablePhraseChunking;

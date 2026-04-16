@@ -563,7 +563,10 @@ public partial class MainWindow
         // then let the user edit it in the Last NPC panel.
         _ = Task.Run(async () =>
         {
-            await AppServices.NpcOverrides.UpsertAsync(entry.NpcId, entry.CatalogId, entry.Notes, raceId: 0);
+            var catalogId = !string.IsNullOrWhiteSpace(entry.CatalogId)
+                ? entry.CatalogId
+                : NpcRaceOverrideDb.LegacyRaceIdToCatalogId(entry.RaceId);
+            await AppServices.NpcOverrides.UpsertAsync(entry.NpcId, catalogId, entry.Notes, raceId: entry.RaceId);
             Dispatcher.UIThread.Post(() =>
             {
                 RefreshNpcOverridesGrid();
@@ -603,12 +606,18 @@ public partial class MainWindow
 
     private string GetNpcOverrideCatalogLabel(NpcRaceOverride entry)
     {
-        var row = AppServices.NpcPeopleCatalog.GetByIdAsync(entry.CatalogId ?? string.Empty).GetAwaiter().GetResult();
+        var catalogId = !string.IsNullOrWhiteSpace(entry.CatalogId)
+            ? entry.CatalogId
+            : NpcRaceOverrideDb.LegacyRaceIdToCatalogId(entry.RaceId);
+
+        var row = AppServices.NpcPeopleCatalog.GetByIdAsync(catalogId ?? string.Empty).GetAwaiter().GetResult();
         if (row != null)
             return $"{row.DisplayName} — {row.AccentLabel}";
-        if (!string.IsNullOrWhiteSpace(entry.CatalogId))
-            return entry.CatalogId;
-        return string.Empty;
+        if (!string.IsNullOrWhiteSpace(catalogId))
+            return catalogId;
+
+        var group = RaceAccentMapping.ResolveAccentGroup(entry.RaceId);
+        return group?.ToString() ?? string.Empty;
     }
 
     private List<CatalogOption> GetNpcOverrideRaceOptions(string? filter = null)

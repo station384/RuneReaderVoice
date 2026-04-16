@@ -44,14 +44,18 @@ public sealed class VoiceUserSettings
     public bool TtsEnabled { get; set; } = true;
     public string ActiveProvider { get; set; } = "winrt";
 
-    // Legacy storage retained for migration.
+    // Legacy in-memory storage retained only for migration/runtime convenience.
+    // Provider profiles now persist in the SQLite store, not settings.json.
+    [System.Text.Json.Serialization.JsonIgnore]
     public Dictionary<string, Dictionary<string, string>> PerProviderVoiceAssignments { get; set; } = new();
 
     // New structured storage.
+    [System.Text.Json.Serialization.JsonIgnore]
     public Dictionary<string, Dictionary<string, VoiceProfile>> PerProviderVoiceProfiles { get; set; } = new();
 
     // Base/default settings for concrete voice/sample IDs, per provider.
     // Key1 = provider id, Key2 = voice/sample id.
+    [System.Text.Json.Serialization.JsonIgnore]
     public Dictionary<string, Dictionary<string, VoiceProfile>> PerProviderSampleProfiles { get; set; } = new();
 
 

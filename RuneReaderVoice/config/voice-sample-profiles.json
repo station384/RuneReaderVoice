@@ -1,92 +1,6 @@
 {
   "Providers": {
     "remote:chatterbox_full": {
-      "M_Arator": {
-        "VoiceId": "M_Arator",
-        "LangCode": "en-us",
-        "SpeechRate": 1,
-        "CfgWeight": 0.5,
-        "Exaggeration": 0.35,
-        "CfgStrength": null,
-        "NfeStep": null,
-        "CrossFadeDuration": null,
-        "SwaysamplingCoef": null,
-        "VoiceInstruct": null,
-        "CosyInstruct": null,
-        "SynthesisSeed": null,
-        "ChatterboxTemperature": null,
-        "ChatterboxTopP": null,
-        "ChatterboxRepetitionPenalty": null,
-        "LongcatSteps": null,
-        "LongcatCfgStrength": null,
-        "LongcatGuidance": null,
-        "DisableChunking": false,
-        "Dsp": {
-          "Enabled": true,
-          "Effects": [
-            {
-              "Kind": 8,
-              "Enabled": true,
-              "Params": {
-                "amount": 0.6
-              }
-            },
-            {
-              "Kind": 18,
-              "Enabled": true,
-              "Params": {
-                "wet": 0.1,
-                "roomSize": 0.1125,
-                "damping": 0.9
-              }
-            }
-          ],
-          "IsNeutral": false
-        }
-      },
-      "F_Orweyna_1": {
-        "VoiceId": "F_Orweyna_1",
-        "LangCode": "af",
-        "SpeechRate": 1.01,
-        "CfgWeight": 0.74,
-        "Exaggeration": 0.5,
-        "CfgStrength": null,
-        "NfeStep": null,
-        "CrossFadeDuration": null,
-        "SwaysamplingCoef": null,
-        "VoiceInstruct": null,
-        "CosyInstruct": null,
-        "SynthesisSeed": null,
-        "ChatterboxTemperature": null,
-        "ChatterboxTopP": null,
-        "ChatterboxRepetitionPenalty": null,
-        "LongcatSteps": null,
-        "LongcatCfgStrength": null,
-        "LongcatGuidance": null,
-        "DisableChunking": false,
-        "Dsp": {
-          "Enabled": true,
-          "Effects": [
-            {
-              "Kind": 8,
-              "Enabled": true,
-              "Params": {
-                "amount": 0.6
-              }
-            },
-            {
-              "Kind": 18,
-              "Enabled": true,
-              "Params": {
-                "wet": 0.1,
-                "roomSize": 0.1125,
-                "damping": 0.9
-              }
-            }
-          ],
-          "IsNeutral": false
-        }
-      },
       "F_Chromie_1": {
         "VoiceId": "F_Chromie_1",
         "LangCode": "en-gb",
@@ -121,138 +35,9 @@
               "Kind": 18,
               "Enabled": true,
               "Params": {
-                "wet": 0.1,
+                "damping": 0.9,
                 "roomSize": 0.1125,
-                "damping": 0.9
-              }
-            }
-          ],
-          "IsNeutral": false
-        }
-      },
-      "F_Nightborne_2": {
-        "VoiceId": "F_Nightborne_2",
-        "LangCode": "en-gb",
-        "SpeechRate": 0.98,
-        "CfgWeight": 0.74,
-        "Exaggeration": 0.69,
-        "CfgStrength": null,
-        "NfeStep": null,
-        "CrossFadeDuration": null,
-        "SwaysamplingCoef": null,
-        "VoiceInstruct": null,
-        "CosyInstruct": null,
-        "SynthesisSeed": null,
-        "ChatterboxTemperature": null,
-        "ChatterboxTopP": null,
-        "ChatterboxRepetitionPenalty": null,
-        "LongcatSteps": null,
-        "LongcatCfgStrength": null,
-        "LongcatGuidance": null,
-        "DisableChunking": false,
-        "Dsp": {
-          "Enabled": true,
-          "Effects": [
-            {
-              "Kind": 8,
-              "Enabled": true,
-              "Params": {
-                "amount": 0.6
-              }
-            },
-            {
-              "Kind": 18,
-              "Enabled": true,
-              "Params": {
-                "wet": 0.1,
-                "roomSize": 0.1125,
-                "damping": 0.9
-              }
-            }
-          ],
-          "IsNeutral": false
-        }
-      },
-      "M_Khadgar": {
-        "VoiceId": "M_Khadgar",
-        "LangCode": "en-us",
-        "SpeechRate": 1,
-        "CfgWeight": 1,
-        "Exaggeration": 0.5,
-        "CfgStrength": null,
-        "NfeStep": null,
-        "CrossFadeDuration": null,
-        "SwaysamplingCoef": null,
-        "VoiceInstruct": null,
-        "CosyInstruct": null,
-        "SynthesisSeed": null,
-        "ChatterboxTemperature": null,
-        "ChatterboxTopP": null,
-        "ChatterboxRepetitionPenalty": null,
-        "LongcatSteps": null,
-        "LongcatCfgStrength": null,
-        "LongcatGuidance": null,
-        "DisableChunking": false,
-        "Dsp": {
-          "Enabled": true,
-          "Effects": [
-            {
-              "Kind": 8,
-              "Enabled": true,
-              "Params": {
-                "amount": 0.6
-              }
-            },
-            {
-              "Kind": 18,
-              "Enabled": true,
-              "Params": {
-                "wet": 0.1,
-                "roomSize": 0.1125,
-                "damping": 0.9
-              }
-            }
-          ],
-          "IsNeutral": false
-        }
-      },
-      "M_Umbric": {
-        "VoiceId": "M_Umbric",
-        "LangCode": "en-gb",
-        "SpeechRate": 1.01,
-        "CfgWeight": 1,
-        "Exaggeration": 0.5,
-        "CfgStrength": null,
-        "NfeStep": null,
-        "CrossFadeDuration": null,
-        "SwaysamplingCoef": null,
-        "VoiceInstruct": null,
-        "CosyInstruct": null,
-        "SynthesisSeed": null,
-        "ChatterboxTemperature": null,
-        "ChatterboxTopP": null,
-        "ChatterboxRepetitionPenalty": null,
-        "LongcatSteps": null,
-        "LongcatCfgStrength": null,
-        "LongcatGuidance": null,
-        "DisableChunking": false,
-        "Dsp": {
-          "Enabled": true,
-          "Effects": [
-            {
-              "Kind": 8,
-              "Enabled": true,
-              "Params": {
-                "amount": 0.6
-              }
-            },
-            {
-              "Kind": 18,
-              "Enabled": true,
-              "Params": {
-                "wet": 0.1,
-                "roomSize": 0.1125,
-                "damping": 0.9
+                "wet": 0.1
               }
             }
           ],
@@ -293,9 +78,9 @@
               "Kind": 18,
               "Enabled": true,
               "Params": {
-                "wet": 0.1,
+                "damping": 0.9,
                 "roomSize": 0.1125,
-                "damping": 0.9
+                "wet": 0.1
               }
             }
           ],
@@ -336,52 +121,9 @@
               "Kind": 18,
               "Enabled": true,
               "Params": {
-                "wet": 0.1,
+                "damping": 0.9,
                 "roomSize": 0.1125,
-                "damping": 0.9
-              }
-            }
-          ],
-          "IsNeutral": false
-        }
-      },
-      "F_Liadrin_4": {
-        "VoiceId": "F_Liadrin_4",
-        "LangCode": "en-gb",
-        "SpeechRate": 1,
-        "CfgWeight": 0.5,
-        "Exaggeration": 0.5,
-        "CfgStrength": null,
-        "NfeStep": null,
-        "CrossFadeDuration": null,
-        "SwaysamplingCoef": null,
-        "VoiceInstruct": null,
-        "CosyInstruct": null,
-        "SynthesisSeed": null,
-        "ChatterboxTemperature": null,
-        "ChatterboxTopP": null,
-        "ChatterboxRepetitionPenalty": null,
-        "LongcatSteps": null,
-        "LongcatCfgStrength": null,
-        "LongcatGuidance": null,
-        "DisableChunking": false,
-        "Dsp": {
-          "Enabled": true,
-          "Effects": [
-            {
-              "Kind": 8,
-              "Enabled": true,
-              "Params": {
-                "amount": 0.6
-              }
-            },
-            {
-              "Kind": 18,
-              "Enabled": true,
-              "Params": {
-                "wet": 0.1,
-                "roomSize": 0.1125,
-                "damping": 0.9
+                "wet": 0.1
               }
             }
           ],
@@ -422,103 +164,17 @@
               "Kind": 18,
               "Enabled": true,
               "Params": {
-                "wet": 0.1,
+                "damping": 0.9,
                 "roomSize": 0.1125,
-                "damping": 0.9
+                "wet": 0.1
               }
             }
           ],
           "IsNeutral": false
         }
       },
-      "M_Lorthemar_Theron_1": {
-        "VoiceId": "M_Lorthemar_Theron_1",
-        "LangCode": "en-gb",
-        "SpeechRate": 1,
-        "CfgWeight": 0.81,
-        "Exaggeration": 0.5,
-        "CfgStrength": null,
-        "NfeStep": null,
-        "CrossFadeDuration": null,
-        "SwaysamplingCoef": null,
-        "VoiceInstruct": null,
-        "CosyInstruct": null,
-        "SynthesisSeed": null,
-        "ChatterboxTemperature": null,
-        "ChatterboxTopP": null,
-        "ChatterboxRepetitionPenalty": null,
-        "LongcatSteps": null,
-        "LongcatCfgStrength": null,
-        "LongcatGuidance": null,
-        "DisableChunking": false,
-        "Dsp": {
-          "Enabled": true,
-          "Effects": [
-            {
-              "Kind": 8,
-              "Enabled": true,
-              "Params": {
-                "amount": 0.6
-              }
-            },
-            {
-              "Kind": 18,
-              "Enabled": true,
-              "Params": {
-                "wet": 0.1,
-                "roomSize": 0.1125,
-                "damping": 0.9
-              }
-            }
-          ],
-          "IsNeutral": false
-        }
-      },
-      "M_Lorthemar_Theron_2": {
-        "VoiceId": "M_Lorthemar_Theron_2",
-        "LangCode": "en-gb",
-        "SpeechRate": 1,
-        "CfgWeight": 0.87,
-        "Exaggeration": 0.5,
-        "CfgStrength": null,
-        "NfeStep": null,
-        "CrossFadeDuration": null,
-        "SwaysamplingCoef": null,
-        "VoiceInstruct": null,
-        "CosyInstruct": null,
-        "SynthesisSeed": null,
-        "ChatterboxTemperature": null,
-        "ChatterboxTopP": null,
-        "ChatterboxRepetitionPenalty": null,
-        "LongcatSteps": null,
-        "LongcatCfgStrength": null,
-        "LongcatGuidance": null,
-        "DisableChunking": false,
-        "Dsp": {
-          "Enabled": true,
-          "Effects": [
-            {
-              "Kind": 8,
-              "Enabled": true,
-              "Params": {
-                "amount": 0.6
-              }
-            },
-            {
-              "Kind": 18,
-              "Enabled": true,
-              "Params": {
-                "wet": 0.1,
-                "roomSize": 0.1125,
-                "damping": 0.9
-              }
-            }
-          ],
-          "IsNeutral": false
-        }
-      },
-      "M_Arator_1": {
-        "VoiceId": "M_Arator_1",
+      "F_Liadrin_4": {
+        "VoiceId": "F_Liadrin_4",
         "LangCode": "en-gb",
         "SpeechRate": 1,
         "CfgWeight": 0.5,
@@ -551,20 +207,63 @@
               "Kind": 18,
               "Enabled": true,
               "Params": {
-                "wet": 0.1,
+                "damping": 0.9,
                 "roomSize": 0.1125,
-                "damping": 0.9
+                "wet": 0.1
               }
             }
           ],
           "IsNeutral": false
         }
       },
-      "M_Arator_2": {
-        "VoiceId": "M_Arator_2",
+      "F_Nightborne_2": {
+        "VoiceId": "F_Nightborne_2",
         "LangCode": "en-gb",
-        "SpeechRate": 1,
-        "CfgWeight": 0.5,
+        "SpeechRate": 0.98,
+        "CfgWeight": 0.74,
+        "Exaggeration": 0.69,
+        "CfgStrength": null,
+        "NfeStep": null,
+        "CrossFadeDuration": null,
+        "SwaysamplingCoef": null,
+        "VoiceInstruct": null,
+        "CosyInstruct": null,
+        "SynthesisSeed": null,
+        "ChatterboxTemperature": null,
+        "ChatterboxTopP": null,
+        "ChatterboxRepetitionPenalty": null,
+        "LongcatSteps": null,
+        "LongcatCfgStrength": null,
+        "LongcatGuidance": null,
+        "DisableChunking": false,
+        "Dsp": {
+          "Enabled": true,
+          "Effects": [
+            {
+              "Kind": 8,
+              "Enabled": true,
+              "Params": {
+                "amount": 0.6
+              }
+            },
+            {
+              "Kind": 18,
+              "Enabled": true,
+              "Params": {
+                "damping": 0.9,
+                "roomSize": 0.1125,
+                "wet": 0.1
+              }
+            }
+          ],
+          "IsNeutral": false
+        }
+      },
+      "F_Orweyna_1": {
+        "VoiceId": "F_Orweyna_1",
+        "LangCode": "af",
+        "SpeechRate": 1.01,
+        "CfgWeight": 0.74,
         "Exaggeration": 0.5,
         "CfgStrength": null,
         "NfeStep": null,
@@ -594,224 +293,9 @@
               "Kind": 18,
               "Enabled": true,
               "Params": {
-                "wet": 0.1,
+                "damping": 0.9,
                 "roomSize": 0.1125,
-                "damping": 0.9
-              }
-            }
-          ],
-          "IsNeutral": false
-        }
-      },
-      "M_Arator_3": {
-        "VoiceId": "M_Arator_3",
-        "LangCode": "en-gb",
-        "SpeechRate": 1,
-        "CfgWeight": 0.5,
-        "Exaggeration": 0.5,
-        "CfgStrength": null,
-        "NfeStep": null,
-        "CrossFadeDuration": null,
-        "SwaysamplingCoef": null,
-        "VoiceInstruct": null,
-        "CosyInstruct": null,
-        "SynthesisSeed": null,
-        "ChatterboxTemperature": null,
-        "ChatterboxTopP": null,
-        "ChatterboxRepetitionPenalty": null,
-        "LongcatSteps": null,
-        "LongcatCfgStrength": null,
-        "LongcatGuidance": null,
-        "DisableChunking": false,
-        "Dsp": {
-          "Enabled": true,
-          "Effects": [
-            {
-              "Kind": 8,
-              "Enabled": true,
-              "Params": {
-                "amount": 0.6
-              }
-            },
-            {
-              "Kind": 18,
-              "Enabled": true,
-              "Params": {
-                "wet": 0.1,
-                "roomSize": 0.1125,
-                "damping": 0.9
-              }
-            }
-          ],
-          "IsNeutral": false
-        }
-      },
-      "M_Turalyon_2": {
-        "VoiceId": "M_Turalyon_2",
-        "LangCode": "en-gb",
-        "SpeechRate": 1,
-        "CfgWeight": 0.5,
-        "Exaggeration": 0.5,
-        "CfgStrength": null,
-        "NfeStep": null,
-        "CrossFadeDuration": null,
-        "SwaysamplingCoef": null,
-        "VoiceInstruct": null,
-        "CosyInstruct": null,
-        "SynthesisSeed": null,
-        "ChatterboxTemperature": null,
-        "ChatterboxTopP": null,
-        "ChatterboxRepetitionPenalty": null,
-        "LongcatSteps": null,
-        "LongcatCfgStrength": null,
-        "LongcatGuidance": null,
-        "DisableChunking": false,
-        "Dsp": {
-          "Enabled": true,
-          "Effects": [
-            {
-              "Kind": 8,
-              "Enabled": true,
-              "Params": {
-                "amount": 0.6
-              }
-            },
-            {
-              "Kind": 18,
-              "Enabled": true,
-              "Params": {
-                "wet": 0.1,
-                "roomSize": 0.1125,
-                "damping": 0.9
-              }
-            }
-          ],
-          "IsNeutral": false
-        }
-      },
-      "M_Turalyon_3": {
-        "VoiceId": "M_Turalyon_3",
-        "LangCode": "en-gb",
-        "SpeechRate": 1,
-        "CfgWeight": 0.5,
-        "Exaggeration": 0.5,
-        "CfgStrength": null,
-        "NfeStep": null,
-        "CrossFadeDuration": null,
-        "SwaysamplingCoef": null,
-        "VoiceInstruct": null,
-        "CosyInstruct": null,
-        "SynthesisSeed": null,
-        "ChatterboxTemperature": null,
-        "ChatterboxTopP": null,
-        "ChatterboxRepetitionPenalty": null,
-        "LongcatSteps": null,
-        "LongcatCfgStrength": null,
-        "LongcatGuidance": null,
-        "DisableChunking": false,
-        "Dsp": {
-          "Enabled": true,
-          "Effects": [
-            {
-              "Kind": 8,
-              "Enabled": true,
-              "Params": {
-                "amount": 0.6
-              }
-            },
-            {
-              "Kind": 18,
-              "Enabled": true,
-              "Params": {
-                "wet": 0.1,
-                "roomSize": 0.1125,
-                "damping": 0.9
-              }
-            }
-          ],
-          "IsNeutral": false
-        }
-      },
-      "M_Turalyon_4": {
-        "VoiceId": "M_Turalyon_4",
-        "LangCode": "en-gb",
-        "SpeechRate": 1,
-        "CfgWeight": 0.5,
-        "Exaggeration": 0.5,
-        "CfgStrength": null,
-        "NfeStep": null,
-        "CrossFadeDuration": null,
-        "SwaysamplingCoef": null,
-        "VoiceInstruct": null,
-        "CosyInstruct": null,
-        "SynthesisSeed": null,
-        "ChatterboxTemperature": null,
-        "ChatterboxTopP": null,
-        "ChatterboxRepetitionPenalty": null,
-        "LongcatSteps": null,
-        "LongcatCfgStrength": null,
-        "LongcatGuidance": null,
-        "DisableChunking": false,
-        "Dsp": {
-          "Enabled": true,
-          "Effects": [
-            {
-              "Kind": 8,
-              "Enabled": true,
-              "Params": {
-                "amount": 0.6
-              }
-            },
-            {
-              "Kind": 18,
-              "Enabled": true,
-              "Params": {
-                "wet": 0.1,
-                "roomSize": 0.1125,
-                "damping": 0.9
-              }
-            }
-          ],
-          "IsNeutral": false
-        }
-      },
-      "M_Turalyon_1": {
-        "VoiceId": "M_Turalyon_1",
-        "LangCode": "en-gb",
-        "SpeechRate": 1,
-        "CfgWeight": 0.5,
-        "Exaggeration": 0.5,
-        "CfgStrength": null,
-        "NfeStep": null,
-        "CrossFadeDuration": null,
-        "SwaysamplingCoef": null,
-        "VoiceInstruct": null,
-        "CosyInstruct": null,
-        "SynthesisSeed": null,
-        "ChatterboxTemperature": null,
-        "ChatterboxTopP": null,
-        "ChatterboxRepetitionPenalty": null,
-        "LongcatSteps": null,
-        "LongcatCfgStrength": null,
-        "LongcatGuidance": null,
-        "DisableChunking": false,
-        "Dsp": {
-          "Enabled": true,
-          "Effects": [
-            {
-              "Kind": 8,
-              "Enabled": true,
-              "Params": {
-                "amount": 0.6
-              }
-            },
-            {
-              "Kind": 18,
-              "Enabled": true,
-              "Params": {
-                "wet": 0.1,
-                "roomSize": 0.1125,
-                "damping": 0.9
+                "wet": 0.1
               }
             }
           ],
@@ -852,9 +336,9 @@
               "Kind": 18,
               "Enabled": true,
               "Params": {
-                "wet": 0.1,
+                "damping": 0.9,
                 "roomSize": 0.1125,
-                "damping": 0.9
+                "wet": 0.1
               }
             }
           ],
@@ -895,9 +379,9 @@
               "Kind": 18,
               "Enabled": true,
               "Params": {
-                "wet": 0.1,
+                "damping": 0.9,
                 "roomSize": 0.1125,
-                "damping": 0.9
+                "wet": 0.1
               }
             }
           ],
@@ -938,9 +422,9 @@
               "Kind": 18,
               "Enabled": true,
               "Params": {
-                "wet": 0.1,
+                "damping": 0.9,
                 "roomSize": 0.1125,
-                "damping": 0.9
+                "wet": 0.1
               }
             }
           ],
@@ -981,9 +465,9 @@
               "Kind": 18,
               "Enabled": true,
               "Params": {
-                "wet": 0.1,
+                "damping": 0.9,
                 "roomSize": 0.1125,
-                "damping": 0.9
+                "wet": 0.1
               }
             }
           ],
@@ -1024,180 +508,8 @@
               "Kind": 18,
               "Enabled": true,
               "Params": {
-                "wet": 0.1,
-                "roomSize": 0.1125,
-                "damping": 0.9
-              }
-            }
-          ],
-          "IsNeutral": false
-        }
-      },
-      "M_ZulJan_1_Normal": {
-        "VoiceId": "M_ZulJan_1_Normal",
-        "LangCode": "en-us",
-        "SpeechRate": 1,
-        "CfgWeight": 1,
-        "Exaggeration": 0.69,
-        "CfgStrength": null,
-        "NfeStep": null,
-        "CrossFadeDuration": null,
-        "SwaysamplingCoef": null,
-        "VoiceInstruct": null,
-        "CosyInstruct": null,
-        "SynthesisSeed": null,
-        "ChatterboxTemperature": null,
-        "ChatterboxTopP": null,
-        "ChatterboxRepetitionPenalty": null,
-        "LongcatSteps": null,
-        "LongcatCfgStrength": null,
-        "LongcatGuidance": null,
-        "DisableChunking": false,
-        "Dsp": {
-          "Enabled": true,
-          "Effects": [
-            {
-              "Kind": 8,
-              "Enabled": true,
-              "Params": {
-                "amount": 0.6
-              }
-            },
-            {
-              "Kind": 18,
-              "Enabled": true,
-              "Params": {
-                "roomSize": 0.1125,
                 "damping": 0.9,
-                "wet": 0.1
-              }
-            }
-          ],
-          "IsNeutral": false
-        }
-      },
-      "M_ZulJan_2_Frustrated": {
-        "VoiceId": "M_ZulJan_2_Frustrated",
-        "LangCode": "en-us",
-        "SpeechRate": 1,
-        "CfgWeight": 1.03,
-        "Exaggeration": 0.71,
-        "CfgStrength": null,
-        "NfeStep": null,
-        "CrossFadeDuration": null,
-        "SwaysamplingCoef": null,
-        "VoiceInstruct": null,
-        "CosyInstruct": null,
-        "SynthesisSeed": null,
-        "ChatterboxTemperature": null,
-        "ChatterboxTopP": null,
-        "ChatterboxRepetitionPenalty": null,
-        "LongcatSteps": null,
-        "LongcatCfgStrength": null,
-        "LongcatGuidance": null,
-        "DisableChunking": false,
-        "Dsp": {
-          "Enabled": true,
-          "Effects": [
-            {
-              "Kind": 8,
-              "Enabled": true,
-              "Params": {
-                "amount": 0.6
-              }
-            },
-            {
-              "Kind": 18,
-              "Enabled": true,
-              "Params": {
                 "roomSize": 0.1125,
-                "damping": 0.9,
-                "wet": 0.1
-              }
-            }
-          ],
-          "IsNeutral": false
-        }
-      },
-      "M_ZulJan_3_Angry": {
-        "VoiceId": "M_ZulJan_3_Angry",
-        "LangCode": "en-us",
-        "SpeechRate": 1,
-        "CfgWeight": 1.34,
-        "Exaggeration": 0.57,
-        "CfgStrength": null,
-        "NfeStep": null,
-        "CrossFadeDuration": null,
-        "SwaysamplingCoef": null,
-        "VoiceInstruct": null,
-        "CosyInstruct": null,
-        "SynthesisSeed": null,
-        "ChatterboxTemperature": null,
-        "ChatterboxTopP": null,
-        "ChatterboxRepetitionPenalty": null,
-        "LongcatSteps": null,
-        "LongcatCfgStrength": null,
-        "LongcatGuidance": null,
-        "DisableChunking": false,
-        "Dsp": {
-          "Enabled": true,
-          "Effects": [
-            {
-              "Kind": 8,
-              "Enabled": true,
-              "Params": {
-                "amount": 0.6
-              }
-            },
-            {
-              "Kind": 18,
-              "Enabled": true,
-              "Params": {
-                "roomSize": 0.1125,
-                "damping": 0.9,
-                "wet": 0.1
-              }
-            }
-          ],
-          "IsNeutral": false
-        }
-      },
-      "M_ZulJan_4-Retospective": {
-        "VoiceId": "M_ZulJan_4-Retospective",
-        "LangCode": "en-us",
-        "SpeechRate": 1,
-        "CfgWeight": 1,
-        "Exaggeration": 0.5,
-        "CfgStrength": null,
-        "NfeStep": null,
-        "CrossFadeDuration": null,
-        "SwaysamplingCoef": null,
-        "VoiceInstruct": null,
-        "CosyInstruct": null,
-        "SynthesisSeed": null,
-        "ChatterboxTemperature": null,
-        "ChatterboxTopP": null,
-        "ChatterboxRepetitionPenalty": null,
-        "LongcatSteps": null,
-        "LongcatCfgStrength": null,
-        "LongcatGuidance": null,
-        "DisableChunking": false,
-        "Dsp": {
-          "Enabled": true,
-          "Effects": [
-            {
-              "Kind": 8,
-              "Enabled": true,
-              "Params": {
-                "amount": 0.6
-              }
-            },
-            {
-              "Kind": 18,
-              "Enabled": true,
-              "Params": {
-                "roomSize": 0.1125,
-                "damping": 0.9,
                 "wet": 0.1
               }
             }
@@ -1239,8 +551,8 @@
               "Kind": 18,
               "Enabled": true,
               "Params": {
-                "roomSize": 0.1125,
                 "damping": 0.9,
+                "roomSize": 0.1125,
                 "wet": 0.1
               }
             }
@@ -1282,8 +594,8 @@
               "Kind": 18,
               "Enabled": true,
               "Params": {
-                "roomSize": 0.1125,
                 "damping": 0.9,
+                "roomSize": 0.1125,
                 "wet": 0.1
               }
             }
@@ -1291,12 +603,12 @@
           "IsNeutral": false
         }
       },
-      "U_Lorthemar_Theron_1": {
-        "VoiceId": "U_Lorthemar_Theron_1",
+      "M_Arator": {
+        "VoiceId": "M_Arator",
         "LangCode": "en-us",
         "SpeechRate": 1,
-        "CfgWeight": 0.7,
-        "Exaggeration": 0.47,
+        "CfgWeight": 0.5,
+        "Exaggeration": 0.35,
         "CfgStrength": null,
         "NfeStep": null,
         "CrossFadeDuration": null,
@@ -1304,9 +616,9 @@
         "VoiceInstruct": null,
         "CosyInstruct": null,
         "SynthesisSeed": null,
-        "ChatterboxTemperature": 0.8,
-        "ChatterboxTopP": 1,
-        "ChatterboxRepetitionPenalty": 1.2,
+        "ChatterboxTemperature": null,
+        "ChatterboxTopP": null,
+        "ChatterboxRepetitionPenalty": null,
         "LongcatSteps": null,
         "LongcatCfgStrength": null,
         "LongcatGuidance": null,
@@ -1325,8 +637,8 @@
               "Kind": 18,
               "Enabled": true,
               "Params": {
-                "roomSize": 0.1125,
                 "damping": 0.9,
+                "roomSize": 0.1125,
                 "wet": 0.1
               }
             }
@@ -1334,11 +646,11 @@
           "IsNeutral": false
         }
       },
-      "U_Liadrin_1": {
-        "VoiceId": "U_Liadrin_1",
-        "LangCode": "en-us",
+      "M_Arator_1": {
+        "VoiceId": "M_Arator_1",
+        "LangCode": "en-gb",
         "SpeechRate": 1,
-        "CfgWeight": 0.71,
+        "CfgWeight": 0.5,
         "Exaggeration": 0.5,
         "CfgStrength": null,
         "NfeStep": null,
@@ -1347,9 +659,9 @@
         "VoiceInstruct": null,
         "CosyInstruct": null,
         "SynthesisSeed": null,
-        "ChatterboxTemperature": 0.8,
-        "ChatterboxTopP": 1,
-        "ChatterboxRepetitionPenalty": 1.2,
+        "ChatterboxTemperature": null,
+        "ChatterboxTopP": null,
+        "ChatterboxRepetitionPenalty": null,
         "LongcatSteps": null,
         "LongcatCfgStrength": null,
         "LongcatGuidance": null,
@@ -1368,8 +680,8 @@
               "Kind": 18,
               "Enabled": true,
               "Params": {
-                "roomSize": 0.1125,
                 "damping": 0.9,
+                "roomSize": 0.1125,
                 "wet": 0.1
               }
             }
@@ -1377,12 +689,12 @@
           "IsNeutral": false
         }
       },
-      "U_Liadrin_2": {
-        "VoiceId": "U_Liadrin_2",
-        "LangCode": "en-us",
+      "M_Arator_2": {
+        "VoiceId": "M_Arator_2",
+        "LangCode": "en-gb",
         "SpeechRate": 1,
-        "CfgWeight": 1.02,
-        "Exaggeration": 0.56,
+        "CfgWeight": 0.5,
+        "Exaggeration": 0.5,
         "CfgStrength": null,
         "NfeStep": null,
         "CrossFadeDuration": null,
@@ -1390,9 +702,9 @@
         "VoiceInstruct": null,
         "CosyInstruct": null,
         "SynthesisSeed": null,
-        "ChatterboxTemperature": 0.8,
-        "ChatterboxTopP": 1,
-        "ChatterboxRepetitionPenalty": 1.2,
+        "ChatterboxTemperature": null,
+        "ChatterboxTopP": null,
+        "ChatterboxRepetitionPenalty": null,
         "LongcatSteps": null,
         "LongcatCfgStrength": null,
         "LongcatGuidance": null,
@@ -1411,8 +723,8 @@
               "Kind": 18,
               "Enabled": true,
               "Params": {
-                "roomSize": 0.1125,
                 "damping": 0.9,
+                "roomSize": 0.1125,
                 "wet": 0.1
               }
             }
@@ -1420,12 +732,12 @@
           "IsNeutral": false
         }
       },
-      "U_Liadrin_3": {
-        "VoiceId": "U_Liadrin_3",
-        "LangCode": "en-us",
+      "M_Arator_3": {
+        "VoiceId": "M_Arator_3",
+        "LangCode": "en-gb",
         "SpeechRate": 1,
-        "CfgWeight": 0.82,
-        "Exaggeration": 0.55,
+        "CfgWeight": 0.5,
+        "Exaggeration": 0.5,
         "CfgStrength": null,
         "NfeStep": null,
         "CrossFadeDuration": null,
@@ -1433,9 +745,9 @@
         "VoiceInstruct": null,
         "CosyInstruct": null,
         "SynthesisSeed": null,
-        "ChatterboxTemperature": 0.8,
-        "ChatterboxTopP": 1,
-        "ChatterboxRepetitionPenalty": 1.2,
+        "ChatterboxTemperature": null,
+        "ChatterboxTopP": null,
+        "ChatterboxRepetitionPenalty": null,
         "LongcatSteps": null,
         "LongcatCfgStrength": null,
         "LongcatGuidance": null,
@@ -1454,8 +766,8 @@
               "Kind": 18,
               "Enabled": true,
               "Params": {
-                "roomSize": 0.1125,
                 "damping": 0.9,
+                "roomSize": 0.1125,
                 "wet": 0.1
               }
             }
@@ -1463,8 +775,8 @@
           "IsNeutral": false
         }
       },
-      "U_Khadgar": {
-        "VoiceId": "U_Khadgar",
+      "M_Khadgar": {
+        "VoiceId": "M_Khadgar",
         "LangCode": "en-us",
         "SpeechRate": 1,
         "CfgWeight": 1,
@@ -1476,9 +788,9 @@
         "VoiceInstruct": null,
         "CosyInstruct": null,
         "SynthesisSeed": null,
-        "ChatterboxTemperature": 0.8,
-        "ChatterboxTopP": 1,
-        "ChatterboxRepetitionPenalty": 1.2,
+        "ChatterboxTemperature": null,
+        "ChatterboxTopP": null,
+        "ChatterboxRepetitionPenalty": null,
         "LongcatSteps": null,
         "LongcatCfgStrength": null,
         "LongcatGuidance": null,
@@ -1497,8 +809,8 @@
               "Kind": 18,
               "Enabled": true,
               "Params": {
-                "roomSize": 0.1125,
                 "damping": 0.9,
+                "roomSize": 0.1125,
                 "wet": 0.1
               }
             }
@@ -1506,12 +818,12 @@
           "IsNeutral": false
         }
       },
-      "U_Orweyna_1": {
-        "VoiceId": "U_Orweyna_1",
-        "LangCode": "en-us",
+      "M_Lorthemar_Theron_1": {
+        "VoiceId": "M_Lorthemar_Theron_1",
+        "LangCode": "en-gb",
         "SpeechRate": 1,
-        "CfgWeight": 0.54,
-        "Exaggeration": 0.82,
+        "CfgWeight": 0.81,
+        "Exaggeration": 0.5,
         "CfgStrength": null,
         "NfeStep": null,
         "CrossFadeDuration": null,
@@ -1519,9 +831,9 @@
         "VoiceInstruct": null,
         "CosyInstruct": null,
         "SynthesisSeed": null,
-        "ChatterboxTemperature": 0.8,
-        "ChatterboxTopP": 1,
-        "ChatterboxRepetitionPenalty": 1.2,
+        "ChatterboxTemperature": null,
+        "ChatterboxTopP": null,
+        "ChatterboxRepetitionPenalty": null,
         "LongcatSteps": null,
         "LongcatCfgStrength": null,
         "LongcatGuidance": null,
@@ -1540,8 +852,8 @@
               "Kind": 18,
               "Enabled": true,
               "Params": {
-                "roomSize": 0.1125,
                 "damping": 0.9,
+                "roomSize": 0.1125,
                 "wet": 0.1
               }
             }
@@ -1549,12 +861,55 @@
           "IsNeutral": false
         }
       },
-      "U_Hagar": {
-        "VoiceId": "U_Hagar",
-        "LangCode": "en-us",
+      "M_Lorthemar_Theron_2": {
+        "VoiceId": "M_Lorthemar_Theron_2",
+        "LangCode": "en-gb",
+        "SpeechRate": 1,
+        "CfgWeight": 0.87,
+        "Exaggeration": 0.5,
+        "CfgStrength": null,
+        "NfeStep": null,
+        "CrossFadeDuration": null,
+        "SwaysamplingCoef": null,
+        "VoiceInstruct": null,
+        "CosyInstruct": null,
+        "SynthesisSeed": null,
+        "ChatterboxTemperature": null,
+        "ChatterboxTopP": null,
+        "ChatterboxRepetitionPenalty": null,
+        "LongcatSteps": null,
+        "LongcatCfgStrength": null,
+        "LongcatGuidance": null,
+        "DisableChunking": false,
+        "Dsp": {
+          "Enabled": true,
+          "Effects": [
+            {
+              "Kind": 8,
+              "Enabled": true,
+              "Params": {
+                "amount": 0.6
+              }
+            },
+            {
+              "Kind": 18,
+              "Enabled": true,
+              "Params": {
+                "damping": 0.9,
+                "roomSize": 0.1125,
+                "wet": 0.1
+              }
+            }
+          ],
+          "IsNeutral": false
+        }
+      },
+      "M_Turalyon_1": {
+        "VoiceId": "M_Turalyon_1",
+        "LangCode": "en-gb",
         "SpeechRate": 1,
         "CfgWeight": 0.5,
-        "Exaggeration": 0.7,
+        "Exaggeration": 0.5,
         "CfgStrength": null,
         "NfeStep": null,
         "CrossFadeDuration": null,
@@ -1562,9 +917,9 @@
         "VoiceInstruct": null,
         "CosyInstruct": null,
         "SynthesisSeed": null,
-        "ChatterboxTemperature": 0.8,
-        "ChatterboxTopP": 1,
-        "ChatterboxRepetitionPenalty": 1.2,
+        "ChatterboxTemperature": null,
+        "ChatterboxTopP": null,
+        "ChatterboxRepetitionPenalty": null,
         "LongcatSteps": null,
         "LongcatCfgStrength": null,
         "LongcatGuidance": null,
@@ -1583,8 +938,352 @@
               "Kind": 18,
               "Enabled": true,
               "Params": {
-                "roomSize": 0.1125,
                 "damping": 0.9,
+                "roomSize": 0.1125,
+                "wet": 0.1
+              }
+            }
+          ],
+          "IsNeutral": false
+        }
+      },
+      "M_Turalyon_2": {
+        "VoiceId": "M_Turalyon_2",
+        "LangCode": "en-gb",
+        "SpeechRate": 1,
+        "CfgWeight": 0.5,
+        "Exaggeration": 0.5,
+        "CfgStrength": null,
+        "NfeStep": null,
+        "CrossFadeDuration": null,
+        "SwaysamplingCoef": null,
+        "VoiceInstruct": null,
+        "CosyInstruct": null,
+        "SynthesisSeed": null,
+        "ChatterboxTemperature": null,
+        "ChatterboxTopP": null,
+        "ChatterboxRepetitionPenalty": null,
+        "LongcatSteps": null,
+        "LongcatCfgStrength": null,
+        "LongcatGuidance": null,
+        "DisableChunking": false,
+        "Dsp": {
+          "Enabled": true,
+          "Effects": [
+            {
+              "Kind": 8,
+              "Enabled": true,
+              "Params": {
+                "amount": 0.6
+              }
+            },
+            {
+              "Kind": 18,
+              "Enabled": true,
+              "Params": {
+                "damping": 0.9,
+                "roomSize": 0.1125,
+                "wet": 0.1
+              }
+            }
+          ],
+          "IsNeutral": false
+        }
+      },
+      "M_Turalyon_3": {
+        "VoiceId": "M_Turalyon_3",
+        "LangCode": "en-gb",
+        "SpeechRate": 1,
+        "CfgWeight": 0.5,
+        "Exaggeration": 0.5,
+        "CfgStrength": null,
+        "NfeStep": null,
+        "CrossFadeDuration": null,
+        "SwaysamplingCoef": null,
+        "VoiceInstruct": null,
+        "CosyInstruct": null,
+        "SynthesisSeed": null,
+        "ChatterboxTemperature": null,
+        "ChatterboxTopP": null,
+        "ChatterboxRepetitionPenalty": null,
+        "LongcatSteps": null,
+        "LongcatCfgStrength": null,
+        "LongcatGuidance": null,
+        "DisableChunking": false,
+        "Dsp": {
+          "Enabled": true,
+          "Effects": [
+            {
+              "Kind": 8,
+              "Enabled": true,
+              "Params": {
+                "amount": 0.6
+              }
+            },
+            {
+              "Kind": 18,
+              "Enabled": true,
+              "Params": {
+                "damping": 0.9,
+                "roomSize": 0.1125,
+                "wet": 0.1
+              }
+            }
+          ],
+          "IsNeutral": false
+        }
+      },
+      "M_Turalyon_4": {
+        "VoiceId": "M_Turalyon_4",
+        "LangCode": "en-gb",
+        "SpeechRate": 1,
+        "CfgWeight": 0.5,
+        "Exaggeration": 0.5,
+        "CfgStrength": null,
+        "NfeStep": null,
+        "CrossFadeDuration": null,
+        "SwaysamplingCoef": null,
+        "VoiceInstruct": null,
+        "CosyInstruct": null,
+        "SynthesisSeed": null,
+        "ChatterboxTemperature": null,
+        "ChatterboxTopP": null,
+        "ChatterboxRepetitionPenalty": null,
+        "LongcatSteps": null,
+        "LongcatCfgStrength": null,
+        "LongcatGuidance": null,
+        "DisableChunking": false,
+        "Dsp": {
+          "Enabled": true,
+          "Effects": [
+            {
+              "Kind": 8,
+              "Enabled": true,
+              "Params": {
+                "amount": 0.6
+              }
+            },
+            {
+              "Kind": 18,
+              "Enabled": true,
+              "Params": {
+                "damping": 0.9,
+                "roomSize": 0.1125,
+                "wet": 0.1
+              }
+            }
+          ],
+          "IsNeutral": false
+        }
+      },
+      "M_Umbric": {
+        "VoiceId": "M_Umbric",
+        "LangCode": "en-gb",
+        "SpeechRate": 1.01,
+        "CfgWeight": 1,
+        "Exaggeration": 0.5,
+        "CfgStrength": null,
+        "NfeStep": null,
+        "CrossFadeDuration": null,
+        "SwaysamplingCoef": null,
+        "VoiceInstruct": null,
+        "CosyInstruct": null,
+        "SynthesisSeed": null,
+        "ChatterboxTemperature": null,
+        "ChatterboxTopP": null,
+        "ChatterboxRepetitionPenalty": null,
+        "LongcatSteps": null,
+        "LongcatCfgStrength": null,
+        "LongcatGuidance": null,
+        "DisableChunking": false,
+        "Dsp": {
+          "Enabled": true,
+          "Effects": [
+            {
+              "Kind": 8,
+              "Enabled": true,
+              "Params": {
+                "amount": 0.6
+              }
+            },
+            {
+              "Kind": 18,
+              "Enabled": true,
+              "Params": {
+                "damping": 0.9,
+                "roomSize": 0.1125,
+                "wet": 0.1
+              }
+            }
+          ],
+          "IsNeutral": false
+        }
+      },
+      "M_ZulJan_1_Normal": {
+        "VoiceId": "M_ZulJan_1_Normal",
+        "LangCode": "en-us",
+        "SpeechRate": 1,
+        "CfgWeight": 1,
+        "Exaggeration": 0.69,
+        "CfgStrength": null,
+        "NfeStep": null,
+        "CrossFadeDuration": null,
+        "SwaysamplingCoef": null,
+        "VoiceInstruct": null,
+        "CosyInstruct": null,
+        "SynthesisSeed": null,
+        "ChatterboxTemperature": null,
+        "ChatterboxTopP": null,
+        "ChatterboxRepetitionPenalty": null,
+        "LongcatSteps": null,
+        "LongcatCfgStrength": null,
+        "LongcatGuidance": null,
+        "DisableChunking": false,
+        "Dsp": {
+          "Enabled": true,
+          "Effects": [
+            {
+              "Kind": 8,
+              "Enabled": true,
+              "Params": {
+                "amount": 0.6
+              }
+            },
+            {
+              "Kind": 18,
+              "Enabled": true,
+              "Params": {
+                "damping": 0.9,
+                "roomSize": 0.1125,
+                "wet": 0.1
+              }
+            }
+          ],
+          "IsNeutral": false
+        }
+      },
+      "M_ZulJan_2_Frustrated": {
+        "VoiceId": "M_ZulJan_2_Frustrated",
+        "LangCode": "en-us",
+        "SpeechRate": 1,
+        "CfgWeight": 1.03,
+        "Exaggeration": 0.71,
+        "CfgStrength": null,
+        "NfeStep": null,
+        "CrossFadeDuration": null,
+        "SwaysamplingCoef": null,
+        "VoiceInstruct": null,
+        "CosyInstruct": null,
+        "SynthesisSeed": null,
+        "ChatterboxTemperature": null,
+        "ChatterboxTopP": null,
+        "ChatterboxRepetitionPenalty": null,
+        "LongcatSteps": null,
+        "LongcatCfgStrength": null,
+        "LongcatGuidance": null,
+        "DisableChunking": false,
+        "Dsp": {
+          "Enabled": true,
+          "Effects": [
+            {
+              "Kind": 8,
+              "Enabled": true,
+              "Params": {
+                "amount": 0.6
+              }
+            },
+            {
+              "Kind": 18,
+              "Enabled": true,
+              "Params": {
+                "damping": 0.9,
+                "roomSize": 0.1125,
+                "wet": 0.1
+              }
+            }
+          ],
+          "IsNeutral": false
+        }
+      },
+      "M_ZulJan_3_Angry": {
+        "VoiceId": "M_ZulJan_3_Angry",
+        "LangCode": "en-us",
+        "SpeechRate": 1,
+        "CfgWeight": 1.34,
+        "Exaggeration": 0.57,
+        "CfgStrength": null,
+        "NfeStep": null,
+        "CrossFadeDuration": null,
+        "SwaysamplingCoef": null,
+        "VoiceInstruct": null,
+        "CosyInstruct": null,
+        "SynthesisSeed": null,
+        "ChatterboxTemperature": null,
+        "ChatterboxTopP": null,
+        "ChatterboxRepetitionPenalty": null,
+        "LongcatSteps": null,
+        "LongcatCfgStrength": null,
+        "LongcatGuidance": null,
+        "DisableChunking": false,
+        "Dsp": {
+          "Enabled": true,
+          "Effects": [
+            {
+              "Kind": 8,
+              "Enabled": true,
+              "Params": {
+                "amount": 0.6
+              }
+            },
+            {
+              "Kind": 18,
+              "Enabled": true,
+              "Params": {
+                "damping": 0.9,
+                "roomSize": 0.1125,
+                "wet": 0.1
+              }
+            }
+          ],
+          "IsNeutral": false
+        }
+      },
+      "M_ZulJan_4-Retospective": {
+        "VoiceId": "M_ZulJan_4-Retospective",
+        "LangCode": "en-us",
+        "SpeechRate": 1,
+        "CfgWeight": 1,
+        "Exaggeration": 0.5,
+        "CfgStrength": null,
+        "NfeStep": null,
+        "CrossFadeDuration": null,
+        "SwaysamplingCoef": null,
+        "VoiceInstruct": null,
+        "CosyInstruct": null,
+        "SynthesisSeed": null,
+        "ChatterboxTemperature": null,
+        "ChatterboxTopP": null,
+        "ChatterboxRepetitionPenalty": null,
+        "LongcatSteps": null,
+        "LongcatCfgStrength": null,
+        "LongcatGuidance": null,
+        "DisableChunking": false,
+        "Dsp": {
+          "Enabled": true,
+          "Effects": [
+            {
+              "Kind": 8,
+              "Enabled": true,
+              "Params": {
+                "amount": 0.6
+              }
+            },
+            {
+              "Kind": 18,
+              "Enabled": true,
+              "Params": {
+                "damping": 0.9,
+                "roomSize": 0.1125,
                 "wet": 0.1
               }
             }
@@ -1626,8 +1325,8 @@
               "Kind": 18,
               "Enabled": true,
               "Params": {
-                "roomSize": 0.1125,
                 "damping": 0.9,
+                "roomSize": 0.1125,
                 "wet": 0.1
               }
             }
@@ -1635,12 +1334,12 @@
           "IsNeutral": false
         }
       },
-      "U_Anduin_Wrynn": {
-        "VoiceId": "U_Anduin_Wrynn",
+      "U_Hagar": {
+        "VoiceId": "U_Hagar",
         "LangCode": "en-us",
         "SpeechRate": 1,
-        "CfgWeight": 1,
-        "Exaggeration": 0.65,
+        "CfgWeight": 0.5,
+        "Exaggeration": 0.7,
         "CfgStrength": null,
         "NfeStep": null,
         "CrossFadeDuration": null,
@@ -1669,8 +1368,8 @@
               "Kind": 18,
               "Enabled": true,
               "Params": {
-                "roomSize": 0.1125,
                 "damping": 0.9,
+                "roomSize": 0.1125,
                 "wet": 0.1
               }
             }
@@ -1682,8 +1381,8 @@
         "VoiceId": "U_Jaina_Proudmoore",
         "LangCode": "en-us",
         "SpeechRate": 1,
-        "CfgWeight": 0.5,
-        "Exaggeration": 0.8,
+        "CfgWeight": 1.13,
+        "Exaggeration": 0.81,
         "CfgStrength": null,
         "NfeStep": null,
         "CrossFadeDuration": null,
@@ -1712,8 +1411,180 @@
               "Kind": 18,
               "Enabled": true,
               "Params": {
-                "roomSize": 0.1125,
                 "damping": 0.9,
+                "roomSize": 0.1125,
+                "wet": 0.1
+              }
+            }
+          ],
+          "IsNeutral": false
+        }
+      },
+      "U_Khadgar": {
+        "VoiceId": "U_Khadgar",
+        "LangCode": "en-us",
+        "SpeechRate": 1,
+        "CfgWeight": 1,
+        "Exaggeration": 0.5,
+        "CfgStrength": null,
+        "NfeStep": null,
+        "CrossFadeDuration": null,
+        "SwaysamplingCoef": null,
+        "VoiceInstruct": null,
+        "CosyInstruct": null,
+        "SynthesisSeed": null,
+        "ChatterboxTemperature": 0.8,
+        "ChatterboxTopP": 1,
+        "ChatterboxRepetitionPenalty": 1.2,
+        "LongcatSteps": null,
+        "LongcatCfgStrength": null,
+        "LongcatGuidance": null,
+        "DisableChunking": false,
+        "Dsp": {
+          "Enabled": true,
+          "Effects": [
+            {
+              "Kind": 8,
+              "Enabled": true,
+              "Params": {
+                "amount": 0.6
+              }
+            },
+            {
+              "Kind": 18,
+              "Enabled": true,
+              "Params": {
+                "damping": 0.9,
+                "roomSize": 0.1125,
+                "wet": 0.1
+              }
+            }
+          ],
+          "IsNeutral": false
+        }
+      },
+      "U_Liadrin_1": {
+        "VoiceId": "U_Liadrin_1",
+        "LangCode": "en-us",
+        "SpeechRate": 1,
+        "CfgWeight": 0.71,
+        "Exaggeration": 0.5,
+        "CfgStrength": null,
+        "NfeStep": null,
+        "CrossFadeDuration": null,
+        "SwaysamplingCoef": null,
+        "VoiceInstruct": null,
+        "CosyInstruct": null,
+        "SynthesisSeed": null,
+        "ChatterboxTemperature": 0.8,
+        "ChatterboxTopP": 1,
+        "ChatterboxRepetitionPenalty": 1.2,
+        "LongcatSteps": null,
+        "LongcatCfgStrength": null,
+        "LongcatGuidance": null,
+        "DisableChunking": false,
+        "Dsp": {
+          "Enabled": true,
+          "Effects": [
+            {
+              "Kind": 8,
+              "Enabled": true,
+              "Params": {
+                "amount": 0.6
+              }
+            },
+            {
+              "Kind": 18,
+              "Enabled": true,
+              "Params": {
+                "damping": 0.9,
+                "roomSize": 0.1125,
+                "wet": 0.1
+              }
+            }
+          ],
+          "IsNeutral": false
+        }
+      },
+      "U_Liadrin_2": {
+        "VoiceId": "U_Liadrin_2",
+        "LangCode": "en-us",
+        "SpeechRate": 1,
+        "CfgWeight": 1.02,
+        "Exaggeration": 0.56,
+        "CfgStrength": null,
+        "NfeStep": null,
+        "CrossFadeDuration": null,
+        "SwaysamplingCoef": null,
+        "VoiceInstruct": null,
+        "CosyInstruct": null,
+        "SynthesisSeed": null,
+        "ChatterboxTemperature": 0.8,
+        "ChatterboxTopP": 1,
+        "ChatterboxRepetitionPenalty": 1.2,
+        "LongcatSteps": null,
+        "LongcatCfgStrength": null,
+        "LongcatGuidance": null,
+        "DisableChunking": false,
+        "Dsp": {
+          "Enabled": true,
+          "Effects": [
+            {
+              "Kind": 8,
+              "Enabled": true,
+              "Params": {
+                "amount": 0.6
+              }
+            },
+            {
+              "Kind": 18,
+              "Enabled": true,
+              "Params": {
+                "damping": 0.9,
+                "roomSize": 0.1125,
+                "wet": 0.1
+              }
+            }
+          ],
+          "IsNeutral": false
+        }
+      },
+      "U_Liadrin_3": {
+        "VoiceId": "U_Liadrin_3",
+        "LangCode": "en-us",
+        "SpeechRate": 1,
+        "CfgWeight": 0.82,
+        "Exaggeration": 0.55,
+        "CfgStrength": null,
+        "NfeStep": null,
+        "CrossFadeDuration": null,
+        "SwaysamplingCoef": null,
+        "VoiceInstruct": null,
+        "CosyInstruct": null,
+        "SynthesisSeed": null,
+        "ChatterboxTemperature": 0.8,
+        "ChatterboxTopP": 1,
+        "ChatterboxRepetitionPenalty": 1.2,
+        "LongcatSteps": null,
+        "LongcatCfgStrength": null,
+        "LongcatGuidance": null,
+        "DisableChunking": false,
+        "Dsp": {
+          "Enabled": true,
+          "Effects": [
+            {
+              "Kind": 8,
+              "Enabled": true,
+              "Params": {
+                "amount": 0.6
+              }
+            },
+            {
+              "Kind": 18,
+              "Enabled": true,
+              "Params": {
+                "damping": 0.9,
+                "roomSize": 0.1125,
                 "wet": 0.1
               }
             }
@@ -1724,9 +1595,138 @@
       "U_Lord_Saltheril": {
         "VoiceId": "U_Lord_Saltheril",
         "LangCode": "en-us",
-        "SpeechRate": 0.77,
+        "SpeechRate": 1,
         "CfgWeight": 0.5,
-        "Exaggeration": 0.69,
+        "Exaggeration": 0.77,
+        "CfgStrength": null,
+        "NfeStep": null,
+        "CrossFadeDuration": null,
+        "SwaysamplingCoef": null,
+        "VoiceInstruct": null,
+        "CosyInstruct": null,
+        "SynthesisSeed": null,
+        "ChatterboxTemperature": 0.8,
+        "ChatterboxTopP": 1,
+        "ChatterboxRepetitionPenalty": 1.2,
+        "LongcatSteps": null,
+        "LongcatCfgStrength": null,
+        "LongcatGuidance": null,
+        "DisableChunking": false,
+        "Dsp": {
+          "Enabled": true,
+          "Effects": [
+            {
+              "Kind": 8,
+              "Enabled": true,
+              "Params": {
+                "amount": 0.6
+              }
+            },
+            {
+              "Kind": 18,
+              "Enabled": true,
+              "Params": {
+                "damping": 0.9,
+                "roomSize": 0.1125,
+                "wet": 0.1
+              }
+            }
+          ],
+          "IsNeutral": false
+        }
+      },
+      "U_Lorthemar_Theron_1": {
+        "VoiceId": "U_Lorthemar_Theron_1",
+        "LangCode": "en-us",
+        "SpeechRate": 1,
+        "CfgWeight": 0.7,
+        "Exaggeration": 0.47,
+        "CfgStrength": null,
+        "NfeStep": null,
+        "CrossFadeDuration": null,
+        "SwaysamplingCoef": null,
+        "VoiceInstruct": null,
+        "CosyInstruct": null,
+        "SynthesisSeed": null,
+        "ChatterboxTemperature": 0.8,
+        "ChatterboxTopP": 1,
+        "ChatterboxRepetitionPenalty": 1.2,
+        "LongcatSteps": null,
+        "LongcatCfgStrength": null,
+        "LongcatGuidance": null,
+        "DisableChunking": false,
+        "Dsp": {
+          "Enabled": true,
+          "Effects": [
+            {
+              "Kind": 8,
+              "Enabled": true,
+              "Params": {
+                "amount": 0.6
+              }
+            },
+            {
+              "Kind": 18,
+              "Enabled": true,
+              "Params": {
+                "damping": 0.9,
+                "roomSize": 0.1125,
+                "wet": 0.1
+              }
+            }
+          ],
+          "IsNeutral": false
+        }
+      },
+      "U_Orweyna_1": {
+        "VoiceId": "U_Orweyna_1",
+        "LangCode": "en-us",
+        "SpeechRate": 1,
+        "CfgWeight": 0.54,
+        "Exaggeration": 0.82,
+        "CfgStrength": null,
+        "NfeStep": null,
+        "CrossFadeDuration": null,
+        "SwaysamplingCoef": null,
+        "VoiceInstruct": null,
+        "CosyInstruct": null,
+        "SynthesisSeed": null,
+        "ChatterboxTemperature": 0.8,
+        "ChatterboxTopP": 1,
+        "ChatterboxRepetitionPenalty": 1.2,
+        "LongcatSteps": null,
+        "LongcatCfgStrength": null,
+        "LongcatGuidance": null,
+        "DisableChunking": false,
+        "Dsp": {
+          "Enabled": true,
+          "Effects": [
+            {
+              "Kind": 8,
+              "Enabled": true,
+              "Params": {
+                "amount": 0.6
+              }
+            },
+            {
+              "Kind": 18,
+              "Enabled": true,
+              "Params": {
+                "damping": 0.9,
+                "roomSize": 0.1125,
+                "wet": 0.1
+              }
+            }
+          ],
+          "IsNeutral": false
+        }
+      },
+      "F_Amani_1": {
+        "VoiceId": "F_Amani_1",
+        "LangCode": "en-us",
+        "SpeechRate": 1,
+        "CfgWeight": 0.5,
+        "Exaggeration": 0.58,
         "CfgStrength": null,
         "NfeStep": null,
         "CrossFadeDuration": null,
@@ -1800,9 +1800,9 @@
               "Kind": 18,
               "Enabled": true,
               "Params": {
-                "wet": 0.0875,
+                "damping": 0.9,
                 "roomSize": 0.1125,
-                "damping": 0.9
+                "wet": 0.0875
               }
             }
           ],

@@ -78,7 +78,7 @@ along with RuneReaderVoice. If not, see <https://www.gnu.org/licenses/>.
     <PackageReference Include="ScreenCapture.NET.X11" Version="3.0.0"
                       Condition="'$(OS)'!='Windows_NT'" />
 
-    <PackageReference Include="Tmds.DBus" Version="0.90.3" />
+    <PackageReference Include="Tmds.DBus" Version="0.92.0" />
 
     <!-- OGG/Vorbis transcoding (WAV → OGG before caching) -->
 

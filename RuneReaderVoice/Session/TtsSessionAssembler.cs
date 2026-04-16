@@ -367,10 +367,14 @@ public sealed class TtsSessionAssembler
             if (entry != null)
             {
                 var g = acc.IsMale ? Gender.Male : acc.IsFemale ? Gender.Female : Gender.Unknown;
-                if (!string.IsNullOrWhiteSpace(entry.CatalogId))
+                var catalogId = !string.IsNullOrWhiteSpace(entry.CatalogId)
+                    ? entry.CatalogId
+                    : NpcRaceOverrideDb.LegacyRaceIdToCatalogId(entry.RaceId);
+
+                if (!string.IsNullOrWhiteSpace(catalogId))
                 {
-                    slot = AppServices.NpcPeopleCatalog?.ResolveCatalogSlot(entry.CatalogId, g)
-                           ?? (g == Gender.Female ? VoiceSlot.FemaleNarrator : VoiceSlot.MaleNarrator);
+                    slot = AppServices.NpcPeopleCatalog?.ResolveCatalogSlot(catalogId, g)
+                           ?? new VoiceSlot(catalogId, g);
                 }
 
                 bespokeSampleId = entry.BespokeSampleId;

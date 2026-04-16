@@ -69,6 +69,7 @@ public sealed class ServerNpcOverrideBatchRequest
 public sealed class ServerNpcOverrideBatchRecord
 {
     [JsonPropertyName("npc_id")] public int NpcId { get; set; }
+    [JsonPropertyName("catalog_id")] public string? CatalogId { get; set; }
     [JsonPropertyName("race_id")] public int RaceId { get; set; }
     [JsonPropertyName("notes")] public string Notes { get; set; } = string.Empty;
     [JsonPropertyName("bespoke_sample_id")] public string? BespokeSampleId { get; set; }
@@ -196,6 +197,7 @@ public sealed class ServerDefaultsClient
             var payload = new
             {
                 npc_id               = entry.NpcId,
+                catalog_id           = string.IsNullOrWhiteSpace(entry.CatalogId) ? null : entry.CatalogId,
                 race_id              = entry.RaceId,
                 notes                = entry.Notes ?? string.Empty,
                 bespoke_sample_id    = entry.BespokeSampleId,
@@ -234,6 +236,7 @@ public sealed class ServerDefaultsClient
                 Records = entries.Select(entry => new ServerNpcOverrideBatchRecord
                 {
                     NpcId = entry.NpcId,
+                    CatalogId = string.IsNullOrWhiteSpace(entry.CatalogId) ? null : entry.CatalogId,
                     RaceId = entry.RaceId,
                     Notes = entry.Notes ?? string.Empty,
                     BespokeSampleId = entry.BespokeSampleId,

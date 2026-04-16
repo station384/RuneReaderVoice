@@ -77,7 +77,7 @@ public partial class MainWindow
         {
             var oldProvider = AppServices.Provider;
             var newProvider = TtsProviderFactory.CreateProvider(AppServices.Settings, descriptor);
-            TtsProviderFactory.ApplyStoredProfiles(AppServices.Settings, newProvider);
+            TtsProviderFactory.ApplyStoredProfiles(AppServices.Settings, AppServices.ProviderSlotProfiles, newProvider);
             HookProviderStatusCallbacks(newProvider);
             AppServices.SwapProvider(newProvider);
             try
@@ -368,7 +368,7 @@ public partial class MainWindow
         }
 
         var newProvider = TtsProviderFactory.CreateProvider(AppServices.Settings, descriptor);
-        TtsProviderFactory.ApplyStoredProfiles(AppServices.Settings, newProvider);
+        TtsProviderFactory.ApplyStoredProfiles(AppServices.Settings, AppServices.ProviderSlotProfiles, newProvider);
         HookProviderStatusCallbacks(newProvider);
 
         AppServices.SwapProvider(newProvider);

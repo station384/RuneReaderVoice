@@ -511,7 +511,7 @@ public sealed class NpcSyncService : IDisposable
                         "ServerSeed");
                 }
 
-                }
+            }
             else
             {
                 foreach (var (providerId, incomingProfiles) in multi.Providers)

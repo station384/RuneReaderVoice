@@ -97,9 +97,6 @@ internal static class Program
         if (!providerRegistry.Contains(settings.ActiveProvider))
             settings.ActiveProvider = activeDescriptor.ClientProviderId;
 
-        ITtsProvider provider = TtsProviderFactory.CreateProvider(settings, activeDescriptor);
-        TtsProviderFactory.ApplyStoredProfiles(settings, provider);
-
         // ── Unified SQLite DB ─────────────────────────────────────────────────
         var dbPath = Path.Combine(VoiceSettingsManager.GetConfigDirectory(), "runereader-voice.db");
         var dbExisted = File.Exists(dbPath);
@@ -111,14 +108,14 @@ internal static class Program
         var npcPeopleCatalogStore = new NpcPeopleCatalogStore(db);
         npcPeopleCatalogStore.SeedFromLegacyCatalogAsync().GetAwaiter().GetResult();
         var providerSlotProfileStore = new ProviderSlotProfileStore(db);
-        settings.PerProviderVoiceAssignments = new();
-        settings.PerProviderVoiceProfiles = new();
-        settings.PerProviderSampleProfiles = new();
         var npcPeopleCatalogService = new NpcPeopleCatalogService(npcPeopleCatalogStore);
         npcPeopleCatalogService.InitializeAsync().GetAwaiter().GetResult();
 
         if (!dbExisted)
             textSwapRules.AddDefaultRulesAsync().GetAwaiter().GetResult();
+
+        ITtsProvider provider = TtsProviderFactory.CreateProvider(settings, activeDescriptor);
+        TtsProviderFactory.ApplyStoredProfiles(settings, providerSlotProfileStore, provider);
 
         // ── Audio cache ───────────────────────────────────────────────────────
         var cacheDir = !string.IsNullOrWhiteSpace(settings.CacheDirectoryOverride)
