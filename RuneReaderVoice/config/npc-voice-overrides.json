@@ -12,6 +12,46 @@
       "UseNpcIdAsSeed": true
     },
     {
+      "NpcId": 197,
+      "CatalogId": "human",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": null,
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false
+    },
+    {
+      "NpcId": 240,
+      "CatalogId": "human",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": null,
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false
+    },
+    {
+      "NpcId": 253,
+      "CatalogId": "human",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": null,
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false
+    },
+    {
+      "NpcId": 261,
+      "CatalogId": "human",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": null,
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": true
+    },
+    {
       "NpcId": 277,
       "CatalogId": "human",
       "RaceId": 0,
@@ -20,6 +60,36 @@
       "BespokeExaggeration": null,
       "BespokeCfgWeight": null,
       "UseNpcIdAsSeed": true
+    },
+    {
+      "NpcId": 278,
+      "CatalogId": "human",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": null,
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false
+    },
+    {
+      "NpcId": 294,
+      "CatalogId": "human",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": null,
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": true
+    },
+    {
+      "NpcId": 295,
+      "CatalogId": "human",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": null,
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false
     },
     {
       "NpcId": 331,
@@ -42,6 +112,16 @@
       "UseNpcIdAsSeed": false
     },
     {
+      "NpcId": 375,
+      "CatalogId": "human",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": null,
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": true
+    },
+    {
       "NpcId": 376,
       "CatalogId": "human",
       "RaceId": 1,
@@ -52,7 +132,87 @@
       "UseNpcIdAsSeed": false
     },
     {
+      "NpcId": 379,
+      "CatalogId": "human",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": null,
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": true
+    },
+    {
+      "NpcId": 384,
+      "CatalogId": "human",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": null,
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": true
+    },
+    {
+      "NpcId": 459,
+      "CatalogId": "human",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": null,
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false
+    },
+    {
       "NpcId": 483,
+      "CatalogId": "human",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": null,
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": true
+    },
+    {
+      "NpcId": 514,
+      "CatalogId": "human",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": null,
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false
+    },
+    {
+      "NpcId": 906,
+      "CatalogId": "human",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": null,
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false
+    },
+    {
+      "NpcId": 911,
+      "CatalogId": "human",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": null,
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": true
+    },
+    {
+      "NpcId": 915,
+      "CatalogId": "human",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": null,
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false
+    },
+    {
+      "NpcId": 925,
       "CatalogId": "human",
       "RaceId": 0,
       "Notes": "",
@@ -73,6 +233,16 @@
     },
     {
       "NpcId": 957,
+      "CatalogId": "human",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": null,
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false
+    },
+    {
+      "NpcId": 1103,
       "CatalogId": "human",
       "RaceId": 0,
       "Notes": "",
@@ -154,12 +324,12 @@
     {
       "NpcId": 1292,
       "CatalogId": "human",
-      "RaceId": 1,
+      "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
       "BespokeExaggeration": null,
       "BespokeCfgWeight": null,
-      "UseNpcIdAsSeed": false
+      "UseNpcIdAsSeed": true
     },
     {
       "NpcId": 1297,
@@ -324,22 +494,22 @@
     {
       "NpcId": 1320,
       "CatalogId": "human",
-      "RaceId": 1,
+      "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
       "BespokeExaggeration": null,
       "BespokeCfgWeight": null,
-      "UseNpcIdAsSeed": false
+      "UseNpcIdAsSeed": true
     },
     {
       "NpcId": 1321,
       "CatalogId": "human",
-      "RaceId": 1,
+      "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
       "BespokeExaggeration": null,
       "BespokeCfgWeight": null,
-      "UseNpcIdAsSeed": false
+      "UseNpcIdAsSeed": true
     },
     {
       "NpcId": 1323,
@@ -480,6 +650,16 @@
       "BespokeExaggeration": null,
       "BespokeCfgWeight": null,
       "UseNpcIdAsSeed": true
+    },
+    {
+      "NpcId": 1430,
+      "CatalogId": "human",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": null,
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false
     },
     {
       "NpcId": 1432,
@@ -722,6 +902,16 @@
       "UseNpcIdAsSeed": true
     },
     {
+      "NpcId": 5506,
+      "CatalogId": "nightelf",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": null,
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false
+    },
+    {
       "NpcId": 5509,
       "CatalogId": "dwarf",
       "RaceId": 0,
@@ -834,12 +1024,12 @@
     {
       "NpcId": 5565,
       "CatalogId": "human",
-      "RaceId": 1,
+      "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
       "BespokeExaggeration": null,
       "BespokeCfgWeight": null,
-      "UseNpcIdAsSeed": false
+      "UseNpcIdAsSeed": true
     },
     {
       "NpcId": 5566,
@@ -862,6 +1052,26 @@
       "UseNpcIdAsSeed": true
     },
     {
+      "NpcId": 6373,
+      "CatalogId": "human",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": null,
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": true
+    },
+    {
+      "NpcId": 6374,
+      "CatalogId": "human",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": null,
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false
+    },
+    {
       "NpcId": 6491,
       "CatalogId": "elemental",
       "RaceId": 85,
@@ -880,6 +1090,26 @@
       "BespokeExaggeration": null,
       "BespokeCfgWeight": null,
       "UseNpcIdAsSeed": true
+    },
+    {
+      "NpcId": 6749,
+      "CatalogId": "human",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": null,
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false
+    },
+    {
+      "NpcId": 6774,
+      "CatalogId": "human",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": null,
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false
     },
     {
       "NpcId": 7207,
@@ -910,6 +1140,16 @@
       "BespokeExaggeration": null,
       "BespokeCfgWeight": null,
       "UseNpcIdAsSeed": true
+    },
+    {
+      "NpcId": 9977,
+      "CatalogId": "nightelf",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": null,
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false
     },
     {
       "NpcId": 10782,
@@ -952,14 +1192,24 @@
       "UseNpcIdAsSeed": false
     },
     {
-      "NpcId": 11096,
+      "NpcId": 11072,
       "CatalogId": "human",
-      "RaceId": 1,
+      "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
       "BespokeExaggeration": null,
       "BespokeCfgWeight": null,
-      "UseNpcIdAsSeed": false
+      "UseNpcIdAsSeed": true
+    },
+    {
+      "NpcId": 11096,
+      "CatalogId": "human",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": null,
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": true
     },
     {
       "NpcId": 13283,
@@ -1302,6 +1552,16 @@
       "UseNpcIdAsSeed": true
     },
     {
+      "NpcId": 42256,
+      "CatalogId": "human",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": null,
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": true
+    },
+    {
       "NpcId": 42288,
       "CatalogId": "human",
       "RaceId": 0,
@@ -1540,6 +1800,16 @@
       "BespokeExaggeration": null,
       "BespokeCfgWeight": null,
       "UseNpcIdAsSeed": false
+    },
+    {
+      "NpcId": 63258,
+      "CatalogId": "human",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": null,
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": true
     },
     {
       "NpcId": 71526,
@@ -2044,6 +2314,16 @@
     {
       "NpcId": 185468,
       "CatalogId": "dwarf",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": null,
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false
+    },
+    {
+      "NpcId": 197609,
+      "CatalogId": "human",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -2815,6 +3095,26 @@
       "NpcId": 237907,
       "CatalogId": "bloodelf",
       "RaceId": 10,
+      "Notes": "",
+      "BespokeSampleId": null,
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false
+    },
+    {
+      "NpcId": 237939,
+      "CatalogId": "bloodelf",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": null,
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false
+    },
+    {
+      "NpcId": 237941,
+      "CatalogId": "bloodelf",
+      "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
       "BespokeExaggeration": null,
@@ -3744,22 +4044,32 @@
     {
       "NpcId": 243345,
       "CatalogId": "bloodelf",
-      "RaceId": 10,
+      "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
       "BespokeExaggeration": null,
       "BespokeCfgWeight": null,
-      "UseNpcIdAsSeed": false
+      "UseNpcIdAsSeed": true
     },
     {
       "NpcId": 243349,
       "CatalogId": "bloodelf",
-      "RaceId": 10,
+      "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
       "BespokeExaggeration": null,
       "BespokeCfgWeight": null,
-      "UseNpcIdAsSeed": false
+      "UseNpcIdAsSeed": true
+    },
+    {
+      "NpcId": 243352,
+      "CatalogId": "bloodelf",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": null,
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": true
     },
     {
       "NpcId": 243357,
@@ -4969,7 +5279,7 @@
       "BespokeSampleId": null,
       "BespokeExaggeration": null,
       "BespokeCfgWeight": null,
-      "UseNpcIdAsSeed": false
+      "UseNpcIdAsSeed": true
     },
     {
       "NpcId": 253183,

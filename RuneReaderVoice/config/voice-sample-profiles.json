@@ -1463,49 +1463,6 @@
           "IsNeutral": false
         }
       },
-      "U_Lord_Saltheril": {
-        "VoiceId": "U_Lord_Saltheril",
-        "LangCode": "en-us",
-        "SpeechRate": 1,
-        "CfgWeight": 0.5,
-        "Exaggeration": 0.77,
-        "CfgStrength": null,
-        "NfeStep": null,
-        "CrossFadeDuration": null,
-        "SwaysamplingCoef": null,
-        "VoiceInstruct": null,
-        "CosyInstruct": null,
-        "SynthesisSeed": null,
-        "ChatterboxTemperature": 0.8,
-        "ChatterboxTopP": 1,
-        "ChatterboxRepetitionPenalty": 1.2,
-        "LongcatSteps": null,
-        "LongcatCfgStrength": null,
-        "LongcatGuidance": null,
-        "DisableChunking": false,
-        "Dsp": {
-          "Enabled": true,
-          "Effects": [
-            {
-              "Kind": 8,
-              "Enabled": true,
-              "Params": {
-                "amount": 0.6
-              }
-            },
-            {
-              "Kind": 18,
-              "Enabled": true,
-              "Params": {
-                "roomSize": 0.1125,
-                "damping": 0.9,
-                "wet": 0.1
-              }
-            }
-          ],
-          "IsNeutral": false
-        }
-      },
       "U_Khadgar": {
         "VoiceId": "U_Khadgar",
         "LangCode": "en-us",
@@ -1727,6 +1684,49 @@
         "SpeechRate": 1,
         "CfgWeight": 0.5,
         "Exaggeration": 0.8,
+        "CfgStrength": null,
+        "NfeStep": null,
+        "CrossFadeDuration": null,
+        "SwaysamplingCoef": null,
+        "VoiceInstruct": null,
+        "CosyInstruct": null,
+        "SynthesisSeed": null,
+        "ChatterboxTemperature": 0.8,
+        "ChatterboxTopP": 1,
+        "ChatterboxRepetitionPenalty": 1.2,
+        "LongcatSteps": null,
+        "LongcatCfgStrength": null,
+        "LongcatGuidance": null,
+        "DisableChunking": false,
+        "Dsp": {
+          "Enabled": true,
+          "Effects": [
+            {
+              "Kind": 8,
+              "Enabled": true,
+              "Params": {
+                "amount": 0.6
+              }
+            },
+            {
+              "Kind": 18,
+              "Enabled": true,
+              "Params": {
+                "roomSize": 0.1125,
+                "damping": 0.9,
+                "wet": 0.1
+              }
+            }
+          ],
+          "IsNeutral": false
+        }
+      },
+      "U_Lord_Saltheril": {
+        "VoiceId": "U_Lord_Saltheril",
+        "LangCode": "en-us",
+        "SpeechRate": 0.77,
+        "CfgWeight": 0.50292397,
+        "Exaggeration": 0.69,
         "CfgStrength": null,
         "NfeStep": null,
         "CrossFadeDuration": null,

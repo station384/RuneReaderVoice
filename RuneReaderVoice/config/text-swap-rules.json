@@ -90,6 +90,16 @@
       "Enabled": true,
       "Priority": 220,
       "Notes": "Built-in default"
+    },
+    {
+      "FindText": "SI:7",
+      "ReplaceText": "SI 7",
+      "ReplaceWithCrLf": false,
+      "WholeWord": false,
+      "CaseSensitive": false,
+      "Enabled": true,
+      "Priority": 80,
+      "Notes": ""
     }
   ]
 }
