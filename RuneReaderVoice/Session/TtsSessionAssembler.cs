@@ -296,14 +296,15 @@ public sealed class TtsSessionAssembler
         if (toFire != null)
         {
             var audibleCount = toFire.Count;
-            foreach (var seg in toFire)
+            for (var audibleIndex = 0; audibleIndex < toFire.Count; audibleIndex++)
             {
+                var seg = toFire[audibleIndex];
                 var emitted = new AssembledSegment
                 {
                     Text = seg.Text,
                     Slot = seg.Slot,
                     DialogId = seg.DialogId,
-                    SegmentIndex = seg.SegmentIndex,
+                    SegmentIndex = audibleIndex,
                     DialogSegmentCount = audibleCount,
                     NpcId = seg.NpcId,
                     PlayerName = seg.PlayerName,
