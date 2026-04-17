@@ -260,9 +260,21 @@ public static class VoiceSettingsManager
     private static readonly JsonSerializerOptions JsonSaveOptions = new() { WriteIndented = true };
     private static string SettingsFilePath => Path.Combine(GetConfigDirectory(), SettingsFileName);
 
-    public static string GetConfigDirectory() => Path.Combine(AppContext.BaseDirectory, "config");
-    public static string GetDefaultCacheDirectory() => Path.Combine(AppContext.BaseDirectory, "tts_cache");
-    public static string GetDefaultModelDirectory() => Path.Combine(AppContext.BaseDirectory, "models");
+    // User data lives one level above current\ so Velopack updates never touch it.
+    // Layout:  C:\RuneReaderVoice\
+    //            current\          ← replaced on every update
+    //            userdata\         ← config.json, DB, tts_cache — survives updates
+    private static string GetUserDataDirectory()
+    {
+        var installRoot = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, ".."));
+        var dir = Path.Combine(installRoot, "userdata");
+        Directory.CreateDirectory(dir);
+        return dir;
+    }
+
+    public static string GetConfigDirectory() => GetUserDataDirectory();
+    public static string GetDefaultCacheDirectory() => Path.Combine(GetUserDataDirectory(), "tts_cache");
+    public static string GetDefaultModelDirectory() => Path.Combine(AppContext.BaseDirectory, "Models");
 
     public static VoiceUserSettings LoadSettings()
     {

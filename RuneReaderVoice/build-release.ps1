@@ -15,8 +15,8 @@
 #     (or set $PfxPath + $PfxPassword for file-based signing)
 #
 # Output:
-#   release\full\   — full installer assets
-#   release\slim\   — slim installer assets
+#   bin\release\full\   — full installer assets
+#   bin\release\slim\   — slim installer assets
 
 [CmdletBinding()]
 param(
@@ -47,8 +47,8 @@ if (-not $Full -and -not $Slim) {
 }
 
 $ProjectFile = Join-Path $PSScriptRoot "RuneReaderVoice.csproj"
-$PublishBase  = Join-Path $PSScriptRoot "publish"
-$ReleaseBase  = Join-Path $PSScriptRoot "release"
+$PublishBase  = Join-Path $PSScriptRoot "bin\publish"
+$ReleaseBase  = Join-Path $PSScriptRoot "bin\release"
 $ModelPath    = Join-Path $PSScriptRoot "Models\kokoro-quant.onnx"
 
 # ── Locate signtool ───────────────────────────────────────────────────────────
@@ -205,13 +205,13 @@ if ($Slim) {
 
 Write-Host ""
 Write-Host "Build complete." -ForegroundColor Green
-if ($Full) { Write-Host "  Full installer: release\full\" }
-if ($Slim) { Write-Host "  Slim installer: release\slim\" }
+if ($Full) { Write-Host "  Full installer: bin\release\full\" }
+if ($Slim) { Write-Host "  Slim installer: bin\release\slim\" }
 Write-Host ""
 Write-Host "Upload to GitHub Release:" -ForegroundColor Cyan
-Write-Host "  - release\full\$AppId-$Version-full-Setup.exe"
-Write-Host "  - release\full\*.nupkg   (delta packages)"
-Write-Host "  - release\slim\$AppId-$Version-slim-Setup.exe"
-Write-Host "  - release\slim\*.nupkg"
+Write-Host "  - bin\release\full\$AppId-$Version-full-Setup.exe"
+Write-Host "  - bin\release\full\*.nupkg   (delta packages)"
+Write-Host "  - bin\release\slim\$AppId-$Version-slim-Setup.exe"
+Write-Host "  - bin\release\slim\*.nupkg"
 Write-Host ""
 Write-Host "Velopack update feed expects RELEASES file + nupkg assets in the release."

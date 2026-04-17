@@ -430,7 +430,7 @@ So go quickly, keep your wits about you, and return by the main road if you valu
                 {
                     Width = 120,
                     Text = _workingProfile.SynthesisSeed?.ToString(Inv) ?? string.Empty,
-                    Watermark = "Blank = random"
+                    PlaceholderText = "Blank = random"
                 };
                 _seedText.TextChanged += (_, _) =>
                 {
@@ -821,7 +821,7 @@ So go quickly, keep your wits about you, and return by the main road if you valu
                 Text = _workingProfile.CosyInstruct ?? string.Empty,
                 AcceptsReturn = false,
                 TextWrapping = TextWrapping.Wrap,
-                Watermark = "Describe how this voice should speak...",
+                PlaceholderText = "Describe how this voice should speak...",
                 MinWidth = 320
             };
             _styleHelpText = new TextBlock

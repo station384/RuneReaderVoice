@@ -313,6 +313,7 @@ public partial class MainWindow
     {
         if (_uiInitializing) return;
         AppServices.Settings.CompressionEnabled = CompressionEnabled.IsChecked == true;
+        OggQualitySlider.IsEnabled = CompressionEnabled.IsChecked == true;
         VoiceSettingsManager.SaveSettings(AppServices.Settings);
     }
 

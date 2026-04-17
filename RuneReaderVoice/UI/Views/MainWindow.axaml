@@ -134,7 +134,7 @@ along with RuneReaderVoice. If not, see <https://www.gnu.org/licenses/>.
                            VerticalAlignment="Center"/>
                 <TextBox x:Name="LastNpcNotesBox"
                          Grid.Row="0" Grid.Column="1"
-                         Watermark="optional name / note (e.g. Thrall)"
+                         PlaceholderText="optional name / note (e.g. Thrall)"
                          FontSize="11" Background="Transparent" BorderBrush="#334"/>
                 <Button x:Name="LastNpcSaveButton"
                         Grid.Row="0" Grid.Column="2"
@@ -157,7 +157,7 @@ along with RuneReaderVoice. If not, see <https://www.gnu.org/licenses/>.
                     <TextBox x:Name="LastNpcRaceSearchBox"
                              Width="120"
                              FontSize="11"
-                             Watermark="Search"
+                             PlaceholderText="Search"
                              TextChanged="OnLastNpcRaceSearchTextChanged"/>
                     <ComboBox x:Name="LastNpcRaceDropdown"
                               FontSize="11" HorizontalAlignment="Stretch" MinWidth="220"/>
@@ -378,7 +378,7 @@ along with RuneReaderVoice. If not, see <https://www.gnu.org/licenses/>.
                         </StackPanel>
                         <TextBlock x:Name="VoicesStatus" Foreground="#888" FontSize="11"/>
                         <TextBox x:Name="VoiceSearchBox"
-                                 Watermark="Search voices..."
+                                 PlaceholderText="Search voices..."
                                  TextChanged="OnVoiceSearchTextChanged"/>
                         <StackPanel x:Name="VoiceGrid" Spacing="6"/>
                     </StackPanel>
@@ -405,7 +405,7 @@ along with RuneReaderVoice. If not, see <https://www.gnu.org/licenses/>.
                             </StackPanel>
                             <TextBlock x:Name="RaceEditorStatus" Foreground="#888" FontSize="11"/>
                             <TextBox x:Name="RaceEditorSearchBox"
-                                     Watermark="Search race catalog..."
+                                     PlaceholderText="Search race catalog..."
                                      TextChanged="OnRaceEditorSearchTextChanged"/>
                             <StackPanel Orientation="Horizontal" Spacing="8">
                                 <Button x:Name="RaceEditorPrevButton"
@@ -436,17 +436,17 @@ along with RuneReaderVoice. If not, see <https://www.gnu.org/licenses/>.
 
                             <TextBlock Text="Catalog Id" Foreground="#888" FontSize="11"/>
                             <TextBox x:Name="RaceEditorIdBox"
-                                     Watermark="human, murloc, arathi"
+                                     PlaceholderText="human, murloc, arathi"
                                      TextChanged="OnRaceEditorFormTextChanged"/>
 
                             <TextBlock Text="Display Name" Foreground="#888" FontSize="11"/>
                             <TextBox x:Name="RaceEditorDisplayNameBox"
-                                     Watermark="Human"
+                                     PlaceholderText="Human"
                                      TextChanged="OnRaceEditorFormTextChanged"/>
 
                             <TextBlock Text="Accent Label" Foreground="#888" FontSize="11"/>
                             <TextBox x:Name="RaceEditorAccentLabelBox"
-                                     Watermark="Alliance, Troll, Neutral"
+                                     PlaceholderText="Alliance, Troll, Neutral"
                                      TextChanged="OnRaceEditorFormTextChanged"/>
 
                             <Grid ColumnDefinitions="*,*" ColumnSpacing="10">
@@ -543,7 +543,7 @@ along with RuneReaderVoice. If not, see <https://www.gnu.org/licenses/>.
                             <TextBox x:Name="NpcOverridesFilterBox"
                                      Width="140"
                                      FontSize="11"
-                                     Watermark="Search"
+                                     PlaceholderText="Search"
                                      TextChanged="OnNpcOverridesFilterTextChanged"/>
                             <Button x:Name="NpcOverridesPrevButton"
                                     Content="Prev"
@@ -639,7 +639,6 @@ along with RuneReaderVoice. If not, see <https://www.gnu.org/licenses/>.
                                     <TextBlock Text="OGG Quality (0–10)" Foreground="#888" FontSize="11"/>
                                     <Slider x:Name="OggQualitySlider"
                                             Minimum="0" Maximum="10" Value="4"
-                                            IsEnabled="{Binding #CompressionEnabled.IsChecked}"
                                             ValueChanged="OnOggQualityChanged"/>
 
                                     <TextBlock Text="Cache Size Limit (MB)" Foreground="#888" FontSize="11"/>
@@ -681,12 +680,12 @@ along with RuneReaderVoice. If not, see <https://www.gnu.org/licenses/>.
                                 <StackPanel Margin="0,8,0,0" Spacing="6" HorizontalAlignment="Stretch">
                                     <TextBlock Text="Piper Binary Path" Foreground="#888" FontSize="11"/>
                                     <TextBox x:Name="PiperBinaryPath"
-                                             Watermark="/usr/bin/piper"
+                                             PlaceholderText="/usr/bin/piper"
                                              TextChanged="OnPiperBinaryPathChanged"/>
 
                                     <TextBlock Text="Model Directory" Foreground="#888" FontSize="11" Margin="0,6,0,0"/>
                                     <TextBox x:Name="PiperModelDir"
-                                             Watermark="~/.local/share/piper/models"
+                                             PlaceholderText="~/.local/share/piper/models"
                                              TextChanged="OnPiperModelDirChanged"/>
 
                                     <TextBlock Text="Installed Models" Foreground="#888" FontSize="11" Margin="0,6,0,0"/>
@@ -800,7 +799,7 @@ along with RuneReaderVoice. If not, see <https://www.gnu.org/licenses/>.
                                              AcceptsReturn="True"
                                              TextWrapping="Wrap"
                                              MinHeight="72"
-                                             Watermark="Stay away from Atal'zul, mon."
+                                             PlaceholderText="Stay away from Atal'zul, mon."
                                              TextChanged="OnPronunciationTextChanged"/>
                                 </StackPanel>
                             </Grid>
@@ -809,13 +808,13 @@ along with RuneReaderVoice. If not, see <https://www.gnu.org/licenses/>.
                                 <StackPanel Grid.Column="0" Spacing="4">
                                     <TextBlock Text="Word / Phrase To Replace" Foreground="#888" FontSize="11"/>
                                     <TextBox x:Name="PronTargetText"
-                                             Watermark="Atal'zul"
+                                             PlaceholderText="Atal'zul"
                                              TextChanged="OnPronunciationTextChanged"/>
                                 </StackPanel>
                                 <StackPanel Grid.Column="1" Spacing="4">
                                     <TextBlock Text="Phoneme Sounds" Foreground="#888" FontSize="11"/>
                                     <TextBox x:Name="PronPhonemeText"
-                                             Watermark="ə tɑl zʊl"
+                                             PlaceholderText="ə tɑl zʊl"
                                              TextChanged="OnPronunciationTextChanged"/>
                                 </StackPanel>
                             </Grid>
@@ -931,7 +930,7 @@ along with RuneReaderVoice. If not, see <https://www.gnu.org/licenses/>.
 
                             <TextBlock Text="Notes" Foreground="#888" FontSize="11"/>
                             <TextBox x:Name="PronRuleNotes"
-                                     Watermark="Optional note, such as how the name should sound."
+                                     PlaceholderText="Optional note, such as how the name should sound."
                                      TextChanged="OnPronunciationRuleTextChanged"/>
 
                             <WrapPanel Orientation="Horizontal" ItemWidth="120" ItemHeight="32">
@@ -968,20 +967,20 @@ along with RuneReaderVoice. If not, see <https://www.gnu.org/licenses/>.
                                      AcceptsReturn="True"
                                      TextWrapping="Wrap"
                                      MinHeight="84"
-                                     Watermark="Wait... I know what to do - give me a moment."
+                                     PlaceholderText="Wait... I know what to do - give me a moment."
                                      TextChanged="OnTextSwapTextChanged"/>
 
                             <Grid ColumnDefinitions="*,*" ColumnSpacing="10">
                                 <StackPanel Grid.Column="0" Spacing="4">
                                     <TextBlock Text="Find Text" Foreground="#888" FontSize="11"/>
                                     <TextBox x:Name="TextSwapFindText"
-                                             Watermark=" - "
+                                             PlaceholderText=" - "
                                              TextChanged="OnTextSwapTextChanged"/>
                                 </StackPanel>
                                 <StackPanel Grid.Column="1" Spacing="4">
                                     <TextBlock Text="Replace With" Foreground="#888" FontSize="11"/>
                                     <TextBox x:Name="TextSwapReplaceText"
-                                             Watermark=" ... "
+                                             PlaceholderText=" ... "
                                              TextChanged="OnTextSwapTextChanged"/>
                                     <CheckBox x:Name="TextSwapReplaceWithCrLf"
                                               Margin="0,6,0,0"
@@ -1100,7 +1099,7 @@ along with RuneReaderVoice. If not, see <https://www.gnu.org/licenses/>.
 
                             <TextBlock Text="Notes" Foreground="#888" FontSize="11"/>
                             <TextBox x:Name="TextSwapRuleNotes"
-                                     Watermark="Optional note, such as why this phrasing works better."
+                                     PlaceholderText="Optional note, such as why this phrasing works better."
                                      TextChanged="OnTextSwapTextChanged"/>
 
                             <WrapPanel Orientation="Horizontal" ItemWidth="120" ItemHeight="32">

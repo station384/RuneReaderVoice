@@ -20,6 +20,7 @@
 using System;
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Input.Platform;
 using Avalonia.Interactivity;
 using RuneReaderVoice.TTS.Pronunciation;
 

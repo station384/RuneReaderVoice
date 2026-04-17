@@ -144,9 +144,13 @@ public partial class MainWindow
             System.Diagnostics.Debug.WriteLine(
                 $"[NpcPanel] PopulateSampleDropdown: provider={AppServices.Provider.ProviderId} voiceCount={voices.Count} showPanel={showPanel}");
 
-            // Separate base samples from variants
+            // Quick bespoke picker: only show unique character samples (U_*),
+            // and only the base entries here. Variants stay in the second dropdown.
             var baseSamples = SelectionRecencyHelper.SortByVoiceRecency(
-                    voices.Where(v => GetVariantSuffix(v.VoiceId) == null),
+                    voices.Where(v =>
+                        !string.IsNullOrWhiteSpace(v.VoiceId) &&
+                        v.VoiceId.StartsWith("U_", StringComparison.OrdinalIgnoreCase) &&
+                        GetVariantSuffix(v.VoiceId) == null),
                     AppServices.Settings,
                     AppServices.Provider.ProviderId,
                     v => v.VoiceId,

@@ -47,7 +47,7 @@ public sealed class LanguagePickerDialog : Window
         MinHeight = 520;
         WindowStartupLocation = WindowStartupLocation.CenterOwner;
 
-        _searchBox = new TextBox { Watermark = "Search languages or codes..." };
+        _searchBox = new TextBox { PlaceholderText = "Search languages or codes..." };
         _searchBox.TextChanged += (_, _) => RefreshList(_searchBox.Text ?? "");
 
         _detailName = new TextBlock { FontWeight = Avalonia.Media.FontWeight.SemiBold };

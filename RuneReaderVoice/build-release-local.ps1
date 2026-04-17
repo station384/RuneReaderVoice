@@ -19,7 +19,7 @@ param(
     [switch]$Slim,
     [switch]$Upload,
     [switch]$SkipSign,
-    [string]$Version          = "1.5.0",
+    [string]$Version          = "1.5.1.1",
     [string]$UpdateFeedUrl    = "https://www.mkfam.com/filedump/",
     [string]$LocalCopyPath    = "X:\dataStore\webhost\filedump",
     [string]$ScpTarget        = "",   # e.g. "user@mkfam.com:/var/www/filedump/"
@@ -39,8 +39,8 @@ if (-not $Full -and -not $Slim) {
 }
 
 $ProjectFile  = Join-Path $PSScriptRoot "RuneReaderVoice.csproj"
-$PublishBase  = Join-Path $PSScriptRoot "publish-local"
-$ReleaseBase  = Join-Path $PSScriptRoot "release-local"
+$PublishBase  = Join-Path $PSScriptRoot "bin\publish-local"
+$ReleaseBase  = Join-Path $PSScriptRoot "bin\release-local"
 $ModelPath    = Join-Path $PSScriptRoot "Models\kokoro-quant.onnx"
 
 function Find-SignTool {
@@ -143,6 +143,11 @@ function Invoke-Upload([string]$ReleaseDir, [string]$Channel) {
         Write-Host ""
         Write-Host "Copying $Channel release to $LocalCopyPath..." -ForegroundColor Cyan
         Get-ChildItem $ReleaseDir | ForEach-Object {
+            $dest = Join-Path $LocalCopyPath $_.Name
+            if (Test-Path $dest) {
+                attrib -R $dest
+                Remove-Item $dest -Force
+            }
             Copy-Item $_.FullName -Destination $LocalCopyPath -Force
             Write-Host "  Copied: $($_.Name)"
         }
@@ -197,8 +202,8 @@ if ($Slim) {
 
 Write-Host ""
 Write-Host "Local build complete." -ForegroundColor Green
-if ($Full) { Write-Host "  Full: release-local\full\" }
-if ($Slim) { Write-Host "  Slim: release-local\slim\" }
+if ($Full) { Write-Host "  Full: bin\release-local\full\" }
+if ($Slim) { Write-Host "  Slim: bin\release-local\slim\" }
 Write-Host ""
 if (-not $Upload) {
     Write-Host "To deploy, run with -Upload:" -ForegroundColor Cyan

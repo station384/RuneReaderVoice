@@ -33,9 +33,9 @@ along with RuneReaderVoice. If not, see <https://www.gnu.org/licenses/>.
     <AvaloniaXamlReportImportance>Low</AvaloniaXamlReportImportance>
     <Title>RuneReader Voice</Title>
     <Copyright>2026 Michael Sutton</Copyright>
-    <Version>1.5.0</Version>
-    <AssemblyVersion>1.5.0.0</AssemblyVersion>
-    <FileVersion>1.5.0.0</FileVersion>
+    <Version>1.5.1</Version>
+    <AssemblyVersion>1.5.1.0</AssemblyVersion>
+    <FileVersion>1.5.1.0</FileVersion>
   </PropertyGroup>
 
   <!-- Platform constants — same pattern as RuneReader -->
@@ -62,17 +62,15 @@ along with RuneReaderVoice. If not, see <https://www.gnu.org/licenses/>.
     <PackageReference Include="OggVorbisEncoder" Version="1.2.2" />
     <PackageReference Include="ZXing.Net" Version="0.16.11" />
 
-    <PackageReference Include="OpenCvSharp4" Version="4.13.0.20260213" />
-    <PackageReference Include="OpenCvSharp4.Extensions" Version="4.13.0.20260213" />
-    <PackageReference Include="OpenCvSharp4.runtime.win" Version="4.11.0.20250507"
-                      Condition="'$(OS)'=='Windows_NT'" />
+    <PackageReference Include="OpenCvSharp4" Version="4.13.0.20260330" />
+    <PackageReference Include="OpenCvSharp4.Extensions" Version="4.13.0.20260330" />
+    <PackageReference Include="OpenCvSharp4.runtime.win" Version="4.13.0.20260302" Condition="'$(OS)'=='Windows_NT'" />
     <PackageReference Include="OpenCvSharp4.unofficial.runtime.linux-x64" Version="4.10.0.20241108"
                       Condition="'$(OS)'!='Windows_NT'" />
 
     <PackageReference Include="ScreenCapture.NET.DX11" Version="3.0.0"
                       Condition="'$(OS)'=='Windows_NT'" />
-    <PackageReference Include="NAudio" Version="2.2.1"
-                      Condition="'$(OS)'=='Windows_NT'" />
+    <PackageReference Include="NAudio" Version="2.3.0" Condition="'$(OS)'=='Windows_NT'" />
     <PackageReference Include="VorbisPizza" Version="1.4.2"
                       Condition="'$(OS)'=='Windows_NT'" />
     <PackageReference Include="ScreenCapture.NET.X11" Version="3.0.0"
@@ -82,12 +80,10 @@ along with RuneReaderVoice. If not, see <https://www.gnu.org/licenses/>.
 
     <!-- OGG/Vorbis transcoding (WAV → OGG before caching) -->
 
-    <PackageReference Include="Avalonia" Version="11.3.11" />
-    <PackageReference Include="Avalonia.Desktop" Version="11.3.11" />
-    <PackageReference Include="Avalonia.Themes.Fluent" Version="11.3.11" />
-    <PackageReference Include="Avalonia.Fonts.Inter" Version="11.3.11" />
-
-    <PackageReference Include="System.Configuration.ConfigurationManager" Version="10.0.2" />
+    <PackageReference Include="Avalonia" Version="12.0.1" />
+    <PackageReference Include="Avalonia.Desktop" Version="12.0.1" />
+    <PackageReference Include="Avalonia.Themes.Fluent" Version="12.0.1" />
+    <PackageReference Include="Avalonia.Fonts.Inter" Version="12.0.1" />
     <PackageReference Include="KokoroSharp.CPU" Version="0.6.7" />
     <!-- DSP pipeline: post-synthesis audio processing -->
     <PackageReference Include="NWaves" Version="0.9.6" />
