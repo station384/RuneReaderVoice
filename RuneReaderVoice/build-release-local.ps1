@@ -12,6 +12,7 @@
 #
 # The app built by this script checks https://www.mkfam.com/filedump/ for updates
 # instead of GitHub releases.
+#  .\build-release-local.ps1 -Version "1.5.4" -SkipSign -Upload
 
 [CmdletBinding()]
 param(
@@ -87,6 +88,7 @@ function Invoke-Publish([string]$OutputDir, [bool]$IncludeModel) {
         "--output", $OutputDir,
         "-p:PublishSingleFile=false",
         "-p:PublishTrimmed=false",
+        "-p:PublishReadyToRun=true",
         "-p:DebugType=none",
         "-p:DebugSymbols=false",
         "-p:Version=$Version",
@@ -117,7 +119,8 @@ function Invoke-VpkPack([string]$PublishDir, [string]$ReleaseDir, [string]$Chann
         "--outputDir",   $ReleaseDir,
         "--mainExe",     "RuneReaderVoice.exe",
         "--packTitle",   $AppFriendlyName,
-        "--channel",     $Channel
+        "--channel",     $Channel,
+        "--exclude", ".*\.(so(\.\d+)*|dylib)$"
     )
     & vpk @vpkArgs
     if ($LASTEXITCODE -ne 0) { throw "vpk pack failed" }
@@ -134,39 +137,39 @@ function Invoke-VpkPack([string]$PublishDir, [string]$ReleaseDir, [string]$Chann
 function Invoke-Upload([string]$ReleaseDir, [string]$Channel) {
     if (-not $Upload) { return }
 
-    # Local file copy (mapped drive / UNC path)
     if ($LocalCopyPath) {
         if (-not (Test-Path $LocalCopyPath)) {
             Write-Warning "LocalCopyPath '$LocalCopyPath' not found -- is the drive mapped?"
             return
         }
+
+        # Archive any existing versioned files that don't match current version
+        $archiveDir = Join-Path $LocalCopyPath "archive"
+        New-Item -ItemType Directory -Path $archiveDir -Force | Out-Null
+        Get-ChildItem $LocalCopyPath -File | Where-Object {
+            $_.Name -notlike "*-$Version-*" -and
+            $_.Name -match "\d+\.\d+\.\d+"
+        } | ForEach-Object {
+            attrib -R $_.FullName
+            Move-Item $_.FullName -Destination (Join-Path $archiveDir $_.Name) -Force
+            Write-Host "  Archived: $($_.Name)" -ForegroundColor DarkGray
+        }
+
         Write-Host ""
         Write-Host "Copying $Channel release to $LocalCopyPath..." -ForegroundColor Cyan
         Get-ChildItem $ReleaseDir | ForEach-Object {
             $dest = Join-Path $LocalCopyPath $_.Name
-            if (Test-Path $dest) {
-                attrib -R $dest
-                Remove-Item $dest -Force
-            }
+#             if (Test-Path $dest) {
+#                 attrib -R $dest
+#                 Remove-Item $dest -Force
+#             }
             Copy-Item $_.FullName -Destination $LocalCopyPath -Force
             Write-Host "  Copied: $($_.Name)"
         }
         Write-Host "  Done." -ForegroundColor Green
         return
     }
-
-    # SCP fallback
-    if ($ScpTarget) {
-        Write-Host ""
-        Write-Host "Uploading $Channel release via SCP to $ScpTarget..." -ForegroundColor Cyan
-        Get-ChildItem $ReleaseDir | Select-Object -ExpandProperty FullName | ForEach-Object {
-            & scp $_ $ScpTarget
-            if ($LASTEXITCODE -ne 0) { Write-Warning "SCP failed for: $_" }
-        }
-        return
-    }
-
-    Write-Warning "Upload requested but neither -LocalCopyPath nor -ScpTarget is set."
+    # ... SCP fallback unchanged
 }
 
 # ── Main ──────────────────────────────────────────────────────────────────────
