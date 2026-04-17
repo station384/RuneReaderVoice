@@ -494,6 +494,15 @@ def compute_cache_key(
     return digest[:32]
 
 
+
+def compose_server_cache_key(client_cache_key: str, asset_fingerprint: str | None) -> str:
+    suffix_raw = (asset_fingerprint or "nosample").strip().lower() or "nosample"
+    if suffix_raw != "nosample" and not all(ch in "0123456789abcdef" for ch in suffix_raw):
+        suffix = hashlib.sha256(suffix_raw.encode("utf-8")).hexdigest()[:16]
+    else:
+        suffix = suffix_raw
+    return f"{client_cache_key.strip().lower()}.{suffix}"
+
 def blend_voice_identity(blend: list[dict]) -> str:
     """
     Canonical voice identity string for a blend request.

@@ -106,9 +106,10 @@ public sealed class VoiceUserSettings
     // Player-name replacement for cache-friendly synthesis.
     // generic = replace with a cache-friendly preset title
     // actual  = speak detected player name
-    public string PlayerNameMode { get; set; } = "generic";
+    public string PlayerNameMode { get; set; } = "actual";
     public string PlayerNameReplacementPreset { get; set; } = "champion";
     public bool PlayerNameAppendRealm { get; set; } = false;
+    public bool PlayerNameEnableTitle { get; set; } = true;
     public string PlayerNameSplitStrategy { get; set; } = "containing_sentence";
 
     public int CaptureIntervalMs { get; set; } = 5;

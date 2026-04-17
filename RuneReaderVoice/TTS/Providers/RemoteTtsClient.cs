@@ -426,6 +426,7 @@ public sealed class RemoteSynthesizeRequest
     [JsonPropertyName("longcat_cfg_strength")] public float? LongcatCfgStrength { get; set; }
     [JsonPropertyName("longcat_guidance")] public string?    LongcatGuidance { get; set; }
     [JsonPropertyName("synthesis_seed")] public int?         SynthesisSeed { get; set; }
+    [JsonPropertyName("cache_key")] public string?       CacheKey { get; set; }
 }
 
 /// <summary>
@@ -477,6 +478,7 @@ public sealed class RemoteSynthesizeV2Request
     /// for a narrator segment, or male NPC audio returned for a female NPC request).
     /// </summary>
     [JsonPropertyName("voice_context")] public string? VoiceContext { get; set; }
+    [JsonPropertyName("cache_key")] public string? CacheKey { get; set; }
 }
 
 public sealed class RemoteVoiceSpec
@@ -523,6 +525,7 @@ public sealed class RemoteBatchSegmentRequest
     [JsonPropertyName("cross_fade_duration")] public float? CrossFadeDuration { get; set; }
     [JsonPropertyName("sway_sampling_coef")] public float? SwaySamplingCoef { get; set; }
     [JsonPropertyName("voice_context")] public string? VoiceContext { get; set; }
+    [JsonPropertyName("cache_key")] public string? CacheKey { get; set; }
     [JsonPropertyName("prime_from_segment")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? PrimeFromSegment { get; set; }

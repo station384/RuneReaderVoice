@@ -284,6 +284,7 @@ along with RuneReaderVoice. If not, see <https://www.gnu.org/licenses/>.
                                         <ComboBoxItem Tag="hero" Content="Hero"/>
                                         <ComboBoxItem Tag="champion" Content="Champion"/>
                                         <ComboBoxItem Tag="class" Content="Player Class Name"/>
+                                        <ComboBoxItem Tag="title" Content="Current Player Title"/>
                                     </ComboBox>
 
                                     <CheckBox x:Name="PlayerNameAppendRealmCheck"
@@ -291,6 +292,13 @@ along with RuneReaderVoice. If not, see <https://www.gnu.org/licenses/>.
                                               Margin="0,4,0,0"
                                               Click="OnPlayerNameAppendRealmChanged"
                                               ToolTip.Tip="When enabled, the replacement becomes values like 'Champion of Lothar', 'Warlock of Lothar', or the actual player name with realm appended."/>
+
+                                    <CheckBox x:Name="PlayerNameEnableTitleCheck"
+                                              Content="Enable current player title"
+                                              Margin="0,4,0,0"
+                                              IsChecked="True"
+                                              Click="OnPlayerNameEnableTitleChanged"
+                                              ToolTip.Tip="When enabled, the Current Player Title preset uses the in-game title form, such as 'Chef Tanstaafl' or 'Tanstaafl, Jenkins'. When disabled, title replacement falls back to the plain player name."/>
 
                                     <Border Background="#33AA0000" BorderBrush="#CCFF4444" BorderThickness="1" CornerRadius="4" Padding="8" Margin="0,6,0,0">
                                         <TextBlock Foreground="#FFFF6666" TextWrapping="Wrap"

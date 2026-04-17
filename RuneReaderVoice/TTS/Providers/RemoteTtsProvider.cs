@@ -18,6 +18,9 @@
 
 using System;
 using System.Collections.Generic;
+using System.Globalization;
+using System.Security.Cryptography;
+using System.Text;
 using System.IO;
 using System.Linq;
 using System.Runtime.CompilerServices;
@@ -275,6 +278,7 @@ public sealed class RemoteTtsProvider : ITtsProvider
                 CrossFadeDuration = profile.CrossFadeDuration,
                 SwaySamplingCoef = profile.SwaysamplingCoef,
                 VoiceContext = slot.ToString(),
+                CacheKey = BuildRemoteCacheKey(_descriptor.RemoteProviderId!, text, slot.ToString(), profile, voiceSpec, speechRate),
                 PrimeFromSegment = plan.PrimeFromSegmentId,
             });
         }
@@ -376,6 +380,7 @@ public sealed class RemoteTtsProvider : ITtsProvider
             CrossFadeDuration     = profile.CrossFadeDuration,
             SwaysamplingCoef      = profile.SwaysamplingCoef,
             VoiceContext          = slot.ToString(),   // discriminates narrator vs NPC slots sharing same sample
+            CacheKey              = BuildRemoteCacheKey(_descriptor.RemoteProviderId!, text, slot.ToString(), profile, voiceSpec, speechRate),
         };
 
         var submitted = await _client.SynthesizeV2Async(v2Request, ct);
@@ -782,6 +787,107 @@ public sealed class RemoteTtsProvider : ITtsProvider
         clone.CfgWeight = cfgWeight;
         clone.Exaggeration = exaggeration;
         return clone;
+    }
+
+    private const int RemoteCacheVersion = 1;
+
+    private static string NormalizeCacheId(string? value)
+        => string.IsNullOrWhiteSpace(value) ? "-" : value.Trim().ToLowerInvariant().Replace("|", "/");
+
+    private static string NormalizeCacheString(string? value, bool lower = false)
+    {
+        if (string.IsNullOrWhiteSpace(value)) return "-";
+        var normalized = value.Trim().Replace("|", "/");
+        return lower ? normalized.ToLowerInvariant() : normalized;
+    }
+
+    private static string NormalizeCacheFloat(float? value, string format)
+        => value.HasValue ? value.Value.ToString(format, CultureInfo.InvariantCulture) : "-";
+
+    private static string NormalizeCacheFloat(float value, string format)
+        => value.ToString(format, CultureInfo.InvariantCulture);
+
+    private static string NormalizeCacheInt(int? value)
+        => value.HasValue ? value.Value.ToString(CultureInfo.InvariantCulture) : "-";
+
+    private static void AppendProviderSpecificIdentity(StringBuilder sb, string providerId, VoiceProfile profile)
+    {
+        var pid = providerId.Trim().ToLowerInvariant();
+
+        if (pid.Contains("chatterbox", StringComparison.Ordinal))
+        {
+            sb.Append("|cfg:").Append(NormalizeCacheFloat(profile.CfgWeight, "0.00"));
+            sb.Append("|ex:").Append(NormalizeCacheFloat(profile.Exaggeration, "0.00"));
+            sb.Append("|seed:").Append(NormalizeCacheInt(profile.SynthesisSeed));
+            sb.Append("|cbt:").Append(NormalizeCacheFloat(profile.ChatterboxTemperature, "0.00"));
+            sb.Append("|cbp:").Append(NormalizeCacheFloat(profile.ChatterboxTopP, "0.00"));
+            sb.Append("|cbr:").Append(NormalizeCacheFloat(profile.ChatterboxRepetitionPenalty, "0.00"));
+            return;
+        }
+
+        if (pid.Contains("f5", StringComparison.Ordinal))
+        {
+            sb.Append("|cfs:").Append(NormalizeCacheFloat(profile.CfgStrength, "0.00"));
+            sb.Append("|nfe:").Append(NormalizeCacheInt(profile.NfeStep));
+            sb.Append("|xfd:").Append(NormalizeCacheFloat(profile.CrossFadeDuration, "0.000"));
+            sb.Append("|sway:").Append(NormalizeCacheFloat(profile.SwaysamplingCoef, "0.000"));
+            return;
+        }
+
+        if (pid.Contains("cozyvoice", StringComparison.Ordinal))
+        {
+            sb.Append("|cinstr:").Append(NormalizeCacheString(profile.CosyInstruct));
+            sb.Append("|vinstr:").Append(NormalizeCacheString(profile.VoiceInstruct));
+            return;
+        }
+
+        if (pid.Contains("qwen", StringComparison.Ordinal))
+        {
+            sb.Append("|vinstr:").Append(NormalizeCacheString(profile.VoiceInstruct));
+            return;
+        }
+
+        if (pid.Contains("longcat", StringComparison.Ordinal))
+        {
+            sb.Append("|lcs:").Append(NormalizeCacheInt(profile.LongcatSteps));
+            sb.Append("|lcc:").Append(NormalizeCacheFloat(profile.LongcatCfgStrength, "0.00"));
+            sb.Append("|lcg:").Append(NormalizeCacheString(profile.LongcatGuidance, lower: true));
+        }
+    }
+
+    private static string BuildVoiceSpecIdentity(RemoteVoiceSpec voiceSpec)
+    {
+        var type = NormalizeCacheId(voiceSpec.Type);
+        if (string.Equals(voiceSpec.Type, "blend", StringComparison.OrdinalIgnoreCase))
+        {
+            var parts = voiceSpec.Blend
+                .Select(entry =>
+                {
+                    var id = !string.IsNullOrWhiteSpace(entry.SampleId) ? entry.SampleId : entry.VoiceId;
+                    return $"{NormalizeCacheId(id)}:{entry.Weight.ToString("0.00", CultureInfo.InvariantCulture)}";
+                });
+            return $"{type}:{string.Join("|", parts)}";
+        }
+
+        var primaryId = !string.IsNullOrWhiteSpace(voiceSpec.SampleId) ? voiceSpec.SampleId : voiceSpec.VoiceId;
+        return $"{type}:{NormalizeCacheId(primaryId)}";
+    }
+
+    private static string BuildRemoteCacheKey(string providerId, string text, string voiceContext, VoiceProfile profile, RemoteVoiceSpec voiceSpec, float speechRate)
+    {
+        var sb = new StringBuilder();
+        sb.Append("CK1");
+        sb.Append("|ver:").Append(RemoteCacheVersion.ToString(CultureInfo.InvariantCulture));
+        sb.Append("|prov:").Append(NormalizeCacheId(providerId));
+        sb.Append("|text:").Append(text ?? string.Empty);
+        sb.Append("|voice:").Append(BuildVoiceSpecIdentity(voiceSpec));
+        sb.Append("|ctx:").Append(NormalizeCacheString(voiceContext, lower: true));
+        sb.Append("|lang:").Append(NormalizeCacheId(profile.LangCode));
+        sb.Append("|rate:").Append(NormalizeCacheFloat(speechRate, "0.00"));
+        AppendProviderSpecificIdentity(sb, providerId, profile);
+
+        var hash = SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(sb.ToString()));
+        return Convert.ToHexString(hash)[..32].ToLowerInvariant();
     }
 
     private RemoteVoiceSpec BuildVoiceSpec(VoiceProfile profile)

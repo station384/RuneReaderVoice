@@ -58,7 +58,7 @@ class SynthesizeRequest(_SynthesizeRequestBase):
 from ..backends.base import SynthesisRequest
 from ..backends.audio import trim_ogg_tail_ms
 from ..text_normalize import normalize as normalize_text
-from ..cache import compute_cache_key, blend_voice_identity
+from ..cache import compute_cache_key, blend_voice_identity, compose_server_cache_key
 from ..utils import compute_file_hash
 from ..samples import (resolve_sample_path, resolve_sample, _base_stem,
                         resolve_sample_path_for_provider, resolve_sample_for_provider)
@@ -217,10 +217,12 @@ async def synthesize_v2(body: SynthesizeRequest, request: Request) -> dict:
         ref_text = sample_info.ref_text if sample_info else ""
 
     # 3. Compute cache key
+    asset_fingerprint = "nosample"
     if body.voice.type == "base":
         voice_identity = body.voice.voice_id or ""
     elif body.voice.type == "reference":
         voice_identity = sample_file_hash
+        asset_fingerprint = sample_file_hash or "nosample"
     elif body.voice.type == "description":
         import hashlib
         voice_identity = hashlib.sha256(
@@ -229,15 +231,18 @@ async def synthesize_v2(body: SynthesizeRequest, request: Request) -> dict:
     else:
         # For sample blends, resolve each sample to get a stable content-hash identity
         _blend_entries = []
+        sample_hashes: list[str] = []
         for e in body.voice.blend:
             if e.sample_id:
                 _sp = resolve_sample_path_for_provider(
                     settings.samples_dir, e.sample_id, body.provider_id)
                 _hash = compute_file_hash(_sp) if _sp else e.sample_id
+                sample_hashes.append((_hash or "").strip().lower())
                 _blend_entries.append({"voice_id": _hash, "weight": e.weight})
             else:
                 _blend_entries.append({"voice_id": e.voice_id, "weight": e.weight})
         voice_identity = blend_voice_identity(_blend_entries)
+        asset_fingerprint = "|".join(h for h in sample_hashes if h) or "nosample"
 
     # Resolve synthesis seed: client value → server default → None (random)
     resolved_seed = body.synthesis_seed
@@ -248,32 +253,35 @@ async def synthesize_v2(body: SynthesizeRequest, request: Request) -> dict:
     # Normalize text for TTS (WoW-specific + wetext English TN)
     normalized_text = normalize_text(body.text)
 
-    cache_key = compute_cache_key(
-        text=normalized_text,
-        provider_id=body.provider_id,
-        voice_identity=voice_identity,
-        lang_code=body.lang_code,
-        speech_rate=body.speech_rate,
-        cfg_weight=body.cfg_weight,
-        exaggeration=body.exaggeration,
-        cfg_strength=body.cfg_strength,
-        nfe_step=body.nfe_step,
-        cross_fade_duration=body.cross_fade_duration,
-        sway_sampling_coef=body.sway_sampling_coef,
-        voice_context=body.voice_context,
-        voice_instruct=body.voice_instruct,
-        cosy_instruct=body.cosy_instruct,
-        synthesis_seed=resolved_seed,
-        cb_temperature=body.cb_temperature,
-        cb_top_p=body.cb_top_p,
-        cb_repetition_penalty=body.cb_repetition_penalty,
-        longcat_steps=body.longcat_steps,
-        longcat_cfg_strength=body.longcat_cfg_strength,
-        longcat_guidance=body.longcat_guidance,
-        lux_num_steps=body.lux_num_steps,
-        lux_t_shift=body.lux_t_shift,
-        lux_return_smooth=body.lux_return_smooth,
-    )
+    if body.cache_key:
+        cache_key = compose_server_cache_key(body.cache_key, asset_fingerprint)
+    else:
+        cache_key = compute_cache_key(
+            text=normalized_text,
+            provider_id=body.provider_id,
+            voice_identity=voice_identity,
+            lang_code=body.lang_code,
+            speech_rate=body.speech_rate,
+            cfg_weight=body.cfg_weight,
+            exaggeration=body.exaggeration,
+            cfg_strength=body.cfg_strength,
+            nfe_step=body.nfe_step,
+            cross_fade_duration=body.cross_fade_duration,
+            sway_sampling_coef=body.sway_sampling_coef,
+            voice_context=body.voice_context,
+            voice_instruct=body.voice_instruct,
+            cosy_instruct=body.cosy_instruct,
+            synthesis_seed=resolved_seed,
+            cb_temperature=body.cb_temperature,
+            cb_top_p=body.cb_top_p,
+            cb_repetition_penalty=body.cb_repetition_penalty,
+            longcat_steps=body.longcat_steps,
+            longcat_cfg_strength=body.longcat_cfg_strength,
+            longcat_guidance=body.longcat_guidance,
+            lux_num_steps=body.lux_num_steps,
+            lux_t_shift=body.lux_t_shift,
+            lux_return_smooth=body.lux_return_smooth,
+        )
 
     # 4. Check cache — if hit, job completes immediately
     progress_key = str(uuid.uuid4()).replace("-", "")
@@ -443,25 +451,29 @@ async def _process_one_segment(
         ref_text = sample_info.ref_text if sample_info else ""
 
     # Voice identity
+    asset_fingerprint = "nosample"
     if seg.voice.type == "base":
         voice_identity = seg.voice.voice_id or ""
     elif seg.voice.type == "reference":
         voice_identity = sample_file_hash
+        asset_fingerprint = sample_file_hash or "nosample"
     elif seg.voice.type == "description":
         import hashlib as _hl
         voice_identity = _hl.sha256(
             (seg.voice.voice_description or "").encode()).hexdigest()[:16]
     else:
         _blend_entries = []
+        sample_hashes: list[str] = []
         for e in seg.voice.blend:
             if e.sample_id:
-                _sp = resolve_sample_path_for_provider(
-                    settings.samples_dir, e.sample_id, seg.provider_id)
+                _sp = resolve_sample_path_for_provider(settings.samples_dir, e.sample_id, seg.provider_id)
                 _hash = compute_file_hash(_sp) if _sp else e.sample_id
+                sample_hashes.append((_hash or "").strip().lower())
                 _blend_entries.append({"voice_id": _hash, "weight": e.weight})
             else:
                 _blend_entries.append({"voice_id": e.voice_id, "weight": e.weight})
         voice_identity = blend_voice_identity(_blend_entries)
+        asset_fingerprint = "|".join(h for h in sample_hashes if h) or "nosample"
 
     # Seed resolution
     resolved_seed = seg.synthesis_seed
@@ -476,32 +488,35 @@ async def _process_one_segment(
     # must NEVER affect voice conditioning cache selection.
     normalized_text = normalize_text(seg.text)
 
-    cache_key = compute_cache_key(
-        text=normalized_text,
-        provider_id=seg.provider_id,
-        voice_identity=voice_identity,
-        lang_code=seg.lang_code,
-        speech_rate=seg.speech_rate,
-        cfg_weight=seg.cfg_weight,
-        exaggeration=seg.exaggeration,
-        cfg_strength=seg.cfg_strength,
-        nfe_step=seg.nfe_step,
-        cross_fade_duration=seg.cross_fade_duration,
-        sway_sampling_coef=seg.sway_sampling_coef,
-        voice_context=seg.voice_context,
-        voice_instruct=seg.voice_instruct,
-        cosy_instruct=seg.cosy_instruct,
-        synthesis_seed=resolved_seed,
-        cb_temperature=seg.cb_temperature,
-        cb_top_p=seg.cb_top_p,
-        cb_repetition_penalty=seg.cb_repetition_penalty,
-        longcat_steps=seg.longcat_steps,
-        longcat_cfg_strength=seg.longcat_cfg_strength,
-        longcat_guidance=seg.longcat_guidance,
-        lux_num_steps=seg.lux_num_steps,
-        lux_t_shift=seg.lux_t_shift,
-        lux_return_smooth=seg.lux_return_smooth,
-    )
+    if seg.cache_key:
+        cache_key = compose_server_cache_key(seg.cache_key, asset_fingerprint)
+    else:
+        cache_key = compute_cache_key(
+            text=normalized_text,
+            provider_id=seg.provider_id,
+            voice_identity=voice_identity,
+            lang_code=seg.lang_code,
+            speech_rate=seg.speech_rate,
+            cfg_weight=seg.cfg_weight,
+            exaggeration=seg.exaggeration,
+            cfg_strength=seg.cfg_strength,
+            nfe_step=seg.nfe_step,
+            cross_fade_duration=seg.cross_fade_duration,
+            sway_sampling_coef=seg.sway_sampling_coef,
+            voice_context=seg.voice_context,
+            voice_instruct=seg.voice_instruct,
+            cosy_instruct=seg.cosy_instruct,
+            synthesis_seed=resolved_seed,
+            cb_temperature=seg.cb_temperature,
+            cb_top_p=seg.cb_top_p,
+            cb_repetition_penalty=seg.cb_repetition_penalty,
+            longcat_steps=seg.longcat_steps,
+            longcat_cfg_strength=seg.longcat_cfg_strength,
+            longcat_guidance=seg.longcat_guidance,
+            lux_num_steps=seg.lux_num_steps,
+            lux_t_shift=seg.lux_t_shift,
+            lux_return_smooth=seg.lux_return_smooth,
+        )
 
     progress_key = str(uuid.uuid4()).replace("-", "")
     job = JobState(

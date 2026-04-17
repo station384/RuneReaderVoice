@@ -203,6 +203,7 @@ internal static class Program
                 PlayerName          = seg.PlayerName,
                 PlayerRealm         = seg.PlayerRealm,
                 PlayerClass         = seg.PlayerClass,
+                PlayerTitle         = seg.PlayerTitle,
                 BespokeSampleId     = seg.BespokeSampleId,
                 BespokeExaggeration = seg.BespokeExaggeration,
                 BespokeCfgWeight    = seg.BespokeCfgWeight,
@@ -421,6 +422,7 @@ internal static class Program
         PlayerName = segment.PlayerName,
         PlayerRealm = segment.PlayerRealm,
         PlayerClass = segment.PlayerClass,
+        PlayerTitle = segment.PlayerTitle,
         BatchId = batchId,
         BatchSegmentId = batchSegmentId,
         PrimeFromBatchSegmentId = primeFromBatchSegmentId,
@@ -431,20 +433,48 @@ internal static class Program
         UseNpcIdAsSeed = segment.UseNpcIdAsSeed,
     };
 
+    private static string BuildPlayerNameWithOptionalRealm(AssembledSegment segment)
+    {
+        var actualName = segment.PlayerName?.Trim() ?? string.Empty;
+        if (string.IsNullOrWhiteSpace(actualName))
+            return string.Empty;
+
+        if (AppServices.Settings.PlayerNameAppendRealm && !string.IsNullOrWhiteSpace(segment.PlayerRealm))
+            return $"{actualName} of {segment.PlayerRealm}";
+
+        return actualName;
+    }
+
+    private static string ResolvePlayerTitleReplacement(AssembledSegment segment)
+    {
+        var title = segment.PlayerTitle?.Trim() ?? string.Empty;
+        var playerName = BuildPlayerNameWithOptionalRealm(segment);
+
+        if (!AppServices.Settings.PlayerNameEnableTitle)
+            return string.IsNullOrWhiteSpace(playerName) ? "Hero" : playerName;
+
+        if (string.IsNullOrWhiteSpace(title))
+            return string.IsNullOrWhiteSpace(playerName) ? "Hero" : playerName;
+
+        if (!string.IsNullOrWhiteSpace(playerName) && title.Contains("%s", StringComparison.OrdinalIgnoreCase))
+            return Regex.Replace(title, "%s", m => playerName, RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+
+        return title;
+    }
+
     private static string? ResolvePlayerSplitTarget(AssembledSegment segment, string mode)
     {
         mode = (mode ?? "generic").Trim().ToLowerInvariant();
 
         if (mode == "actual" || mode == "split")
         {
-            var actualName = segment.PlayerName;
+            var actualName = BuildPlayerNameWithOptionalRealm(segment);
             if (string.IsNullOrWhiteSpace(actualName))
                 return null;
 
-            if (AppServices.Settings.PlayerNameAppendRealm && !string.IsNullOrWhiteSpace(segment.PlayerRealm))
-                actualName = $"{actualName} of {segment.PlayerRealm}";
-
-            return actualName;
+            return AppServices.Settings.PlayerNameEnableTitle
+                ? ResolvePlayerTitleReplacement(segment)
+                : actualName;
         }
 
         if (mode != "generic")
@@ -460,10 +490,11 @@ internal static class Program
         {
             "champion" => "Champion",
             "class" => string.IsNullOrWhiteSpace(segment.PlayerClass) ? "Hero" : segment.PlayerClass!,
+            "title" => ResolvePlayerTitleReplacement(segment),
             _ => "Hero",
         };
 
-        if (AppServices.Settings.PlayerNameAppendRealm && !string.IsNullOrWhiteSpace(segment.PlayerRealm))
+        if (preset != "title" && AppServices.Settings.PlayerNameAppendRealm && !string.IsNullOrWhiteSpace(segment.PlayerRealm))
             replacement = $"{replacement} of {segment.PlayerRealm}";
 
         return replacement;

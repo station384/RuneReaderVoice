@@ -187,6 +187,13 @@ public partial class MainWindow
         VoiceSettingsManager.SaveSettings(AppServices.Settings);
     }
 
+    private void OnPlayerNameEnableTitleChanged(object? sender, RoutedEventArgs e)
+    {
+        if (_uiInitializing) return;
+        AppServices.Settings.PlayerNameEnableTitle = PlayerNameEnableTitleCheck.IsChecked == true;
+        VoiceSettingsManager.SaveSettings(AppServices.Settings);
+    }
+
     private async void OnRefreshRemoteProvidersClicked(object? sender, RoutedEventArgs e)
     {
         RemoteRefreshProvidersButton.IsEnabled = false;

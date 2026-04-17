@@ -64,6 +64,7 @@ public sealed class DialoguePronunciationProcessor
             PlayerName = segment.PlayerName,
             PlayerRealm = segment.PlayerRealm,
             PlayerClass = segment.PlayerClass,
+            PlayerTitle = segment.PlayerTitle,
             BespokeSampleId = segment.BespokeSampleId,
             BespokeExaggeration = segment.BespokeExaggeration,
             BespokeCfgWeight = segment.BespokeCfgWeight

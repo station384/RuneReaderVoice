@@ -42,7 +42,7 @@ from pydantic import BaseModel, Field, field_validator
 
 from ..backends.base import SynthesisRequest
 from ..text_normalize import normalize as normalize_text
-from ..cache import compute_cache_key, blend_voice_identity
+from ..cache import compute_cache_key, blend_voice_identity, compose_server_cache_key
 from ..utils import compute_file_hash
 from ..samples import (resolve_sample_path, resolve_sample,
                         resolve_sample_path_for_provider, resolve_sample_for_provider)
@@ -117,6 +117,7 @@ class SynthesizeRequest(BaseModel):
     longcat_guidance:     str   | None = None
     # Reproducibility — None = non-deterministic, integer = fixed seed
     synthesis_seed:      int   | None = Field(default=None, ge=0)
+    cache_key:           str   | None = None
 
 
 # ── Endpoint ──────────────────────────────────────────────────────────────────
@@ -175,10 +176,12 @@ async def synthesize(body: SynthesizeRequest, request: Request) -> Response:
             log.warning("No .ref.txt sidecar for sample '%s'", sample_id)
 
     # 4. Build voice identity string for cache key
+    asset_fingerprint = "nosample"
     if body.voice.type == "base":
         voice_identity = body.voice.voice_id or ""
     elif body.voice.type == "reference":
         voice_identity = sample_file_hash
+        asset_fingerprint = sample_file_hash or "nosample"
     elif body.voice.type == "description":
         # Voice identity is the description text itself — different descriptions = different cache entries
         import hashlib
@@ -187,15 +190,18 @@ async def synthesize(body: SynthesizeRequest, request: Request) -> Response:
         ).hexdigest()[:16]
     else:  # blend
         _blend_id_entries = []
+        sample_hashes: list[str] = []
         for e in body.voice.blend:
             if e.sample_id:
                 _sp = resolve_sample_path_for_provider(
                     settings.samples_dir, e.sample_id, body.provider_id)
                 _hash = compute_file_hash(_sp) if _sp else e.sample_id
+                sample_hashes.append((_hash or "").strip().lower())
                 _blend_id_entries.append({"voice_id": _hash, "weight": e.weight})
             else:
                 _blend_id_entries.append({"voice_id": e.voice_id, "weight": e.weight})
         voice_identity = blend_voice_identity(_blend_id_entries)
+        asset_fingerprint = "|".join(h for h in sample_hashes if h) or "nosample"
 
     # Resolve synthesis seed: client value → server default → None (random)
     resolved_seed = body.synthesis_seed
@@ -210,32 +216,35 @@ async def synthesize(body: SynthesizeRequest, request: Request) -> Response:
     # 5. Compute cache key
     # voice_instruct affects output — include in cache key via voice_context
 
-    cache_key = compute_cache_key(
-        text=normalized_text,
-        provider_id=body.provider_id,
-        voice_identity=voice_identity,
-        lang_code=body.lang_code,
-        speech_rate=body.speech_rate,
-        cfg_weight=body.cfg_weight,
-        exaggeration=body.exaggeration,
-        cfg_strength=body.cfg_strength,
-        nfe_step=body.nfe_step,
-        cross_fade_duration=body.cross_fade_duration,
-        sway_sampling_coef=body.sway_sampling_coef,
-        voice_context=body.voice_context,
-        voice_instruct=body.voice_instruct,
-        cosy_instruct=body.cosy_instruct,
-        synthesis_seed=resolved_seed,
-        cb_temperature=body.cb_temperature,
-        cb_top_p=body.cb_top_p,
-        cb_repetition_penalty=body.cb_repetition_penalty,
-        longcat_steps=body.longcat_steps,
-        longcat_cfg_strength=body.longcat_cfg_strength,
-        longcat_guidance=body.longcat_guidance,
-        lux_num_steps=body.lux_num_steps,
-        lux_t_shift=body.lux_t_shift,
-        lux_return_smooth=body.lux_return_smooth,
-    )
+    if body.cache_key:
+        cache_key = compose_server_cache_key(body.cache_key, asset_fingerprint)
+    else:
+        cache_key = compute_cache_key(
+            text=normalized_text,
+            provider_id=body.provider_id,
+            voice_identity=voice_identity,
+            lang_code=body.lang_code,
+            speech_rate=body.speech_rate,
+            cfg_weight=body.cfg_weight,
+            exaggeration=body.exaggeration,
+            cfg_strength=body.cfg_strength,
+            nfe_step=body.nfe_step,
+            cross_fade_duration=body.cross_fade_duration,
+            sway_sampling_coef=body.sway_sampling_coef,
+            voice_context=body.voice_context,
+            voice_instruct=body.voice_instruct,
+            cosy_instruct=body.cosy_instruct,
+            synthesis_seed=resolved_seed,
+            cb_temperature=body.cb_temperature,
+            cb_top_p=body.cb_top_p,
+            cb_repetition_penalty=body.cb_repetition_penalty,
+            longcat_steps=body.longcat_steps,
+            longcat_cfg_strength=body.longcat_cfg_strength,
+            longcat_guidance=body.longcat_guidance,
+            lux_num_steps=body.lux_num_steps,
+            lux_t_shift=body.lux_t_shift,
+            lux_return_smooth=body.lux_return_smooth,
+        )
 
     # ── Input metrics — computed once from the normalized text ────────────────
     # These are included in all responses (HIT and MISS) so the benchmark script

@@ -219,6 +219,7 @@ public partial class MainWindow : Window
 
         PlayerNamePresetSelector.IsEnabled = useGeneric;
         PlayerNameAppendRealmCheck.IsEnabled = useGeneric || useActual;
+        PlayerNameEnableTitleCheck.IsEnabled = true;
     }
 
     private static string GetDisplaySlotLabel(VoiceSlot slot)
@@ -259,6 +260,7 @@ public partial class MainWindow : Window
             }
         }
         PlayerNameAppendRealmCheck.IsChecked = s.PlayerNameAppendRealm;
+        PlayerNameEnableTitleCheck.IsChecked = s.PlayerNameEnableTitle;
         UpdatePlayerNameReplacementUi();
         CompressionEnabled.IsChecked = s.CompressionEnabled;
         OggQualitySlider.Value = s.OggQuality;

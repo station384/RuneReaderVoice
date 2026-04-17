@@ -73,6 +73,7 @@ public sealed class AssembledSegment
     public string?    PlayerName        { get; init; } = null;
     public string?    PlayerRealm       { get; init; } = null;
     public string?    PlayerClass       { get; init; } = null;
+    public string?    PlayerTitle       { get; init; } = null;
 
     // Experimental remote batch priming metadata for player-name split testing.
     public string? BatchId { get; init; } = null;
@@ -150,6 +151,7 @@ public sealed class TtsSessionAssembler
     private string _currentPlayerName  = string.Empty;
     private string _currentPlayerRealm = string.Empty;
     private string _currentPlayerClass = string.Empty;
+    private string _currentPlayerTitle = string.Empty;
 
     // ── Construction ──────────────────────────────────────────────────────────
 
@@ -179,6 +181,7 @@ public sealed class TtsSessionAssembler
                 _currentPlayerName  = AppServices.CurrentPlayerName  ?? string.Empty;
                 _currentPlayerRealm = AppServices.CurrentPlayerRealm ?? string.Empty;
                 _currentPlayerClass = AppServices.CurrentPlayerClass ?? string.Empty;
+                _currentPlayerTitle = AppServices.CurrentPlayerTitle ?? string.Empty;
                 OnSessionReset?.Invoke(_currentDialogId);
                 System.Diagnostics.Debug.WriteLine(
                     $"[Assembler] New dialog 0x{packet.DialogId:X4} seqTotal={packet.SeqTotal}");
@@ -310,6 +313,7 @@ public sealed class TtsSessionAssembler
                     PlayerName = seg.PlayerName,
                     PlayerRealm = seg.PlayerRealm,
                     PlayerClass = seg.PlayerClass,
+                    PlayerTitle = seg.PlayerTitle,
                     BatchId = seg.BatchId,
                     BatchSegmentId = seg.BatchSegmentId,
                     PrimeFromBatchSegmentId = seg.PrimeFromBatchSegmentId,
@@ -395,6 +399,7 @@ public sealed class TtsSessionAssembler
             PlayerName          = string.IsNullOrWhiteSpace(_currentPlayerName) ? null : _currentPlayerName,
             PlayerRealm         = string.IsNullOrWhiteSpace(_currentPlayerRealm) ? null : _currentPlayerRealm,
             PlayerClass         = string.IsNullOrWhiteSpace(_currentPlayerClass) ? null : _currentPlayerClass,
+            PlayerTitle         = string.IsNullOrWhiteSpace(_currentPlayerTitle) ? null : _currentPlayerTitle,
             BespokeSampleId     = bespokeSampleId,
             BespokeExaggeration = bespokeExaggeration,
             BespokeCfgWeight    = bespokeCfgWeight,
@@ -476,6 +481,39 @@ public sealed class TtsSessionAssembler
             _currentPlayerClass = value;
             AppServices.CurrentPlayerClass = value;
         }
+        else if (key == "TITLE")
+        {
+            _currentPlayerTitle = value;
+            AppServices.CurrentPlayerTitle = value;
+        }
+    }
+
+    private string BuildPlayerNameWithOptionalRealm(string playerName)
+    {
+        if (string.IsNullOrWhiteSpace(playerName))
+            return string.Empty;
+
+        if (AppServices.Settings.PlayerNameAppendRealm && !string.IsNullOrWhiteSpace(_currentPlayerRealm))
+            return $"{playerName} of {_currentPlayerRealm}";
+
+        return playerName;
+    }
+
+    private string ResolvePlayerTitleReplacement(string? titleText, string? playerName)
+    {
+        var title = titleText?.Trim() ?? string.Empty;
+        var resolvedPlayerName = playerName?.Trim() ?? string.Empty;
+
+        if (!AppServices.Settings.PlayerNameEnableTitle)
+            return string.IsNullOrWhiteSpace(resolvedPlayerName) ? "Hero" : resolvedPlayerName;
+
+        if (string.IsNullOrWhiteSpace(title))
+            return string.IsNullOrWhiteSpace(resolvedPlayerName) ? "Hero" : resolvedPlayerName;
+
+        if (!string.IsNullOrWhiteSpace(resolvedPlayerName) && title.Contains("%s", StringComparison.OrdinalIgnoreCase))
+            return Regex.Replace(title, "%s", m => resolvedPlayerName, RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+
+        return title;
     }
 
     private string ApplyPlayerReplacement(string text)
@@ -485,7 +523,8 @@ public sealed class TtsSessionAssembler
 
         var mode = (AppServices.Settings.PlayerNameMode ?? "generic").Trim().ToLowerInvariant();
 
-        var replacement = _currentPlayerName;
+        var actualNameWithRealm = BuildPlayerNameWithOptionalRealm(_currentPlayerName);
+        var replacement = actualNameWithRealm;
         if (mode != "actual" && mode != "split")
         {
             var preset = (AppServices.Settings.PlayerNameReplacementPreset ?? "hero").Trim().ToLowerInvariant();
@@ -493,12 +532,21 @@ public sealed class TtsSessionAssembler
             {
                 "champion" => "Champion",
                 "class" => string.IsNullOrWhiteSpace(_currentPlayerClass) ? "Hero" : _currentPlayerClass,
+                "title" => ResolvePlayerTitleReplacement(_currentPlayerTitle, actualNameWithRealm),
                 _ => "Hero",
             };
         }
+        else if (AppServices.Settings.PlayerNameEnableTitle)
+        {
+            replacement = ResolvePlayerTitleReplacement(_currentPlayerTitle, actualNameWithRealm);
+        }
 
-        if (AppServices.Settings.PlayerNameAppendRealm && !string.IsNullOrWhiteSpace(_currentPlayerRealm))
-            replacement = $"{replacement} of {_currentPlayerRealm}";
+        if (mode != "actual" && mode != "split")
+        {
+            var preset = (AppServices.Settings.PlayerNameReplacementPreset ?? "hero").Trim().ToLowerInvariant();
+            if (preset != "title" && AppServices.Settings.PlayerNameAppendRealm && !string.IsNullOrWhiteSpace(_currentPlayerRealm))
+                replacement = $"{replacement} of {_currentPlayerRealm}";
+        }
 
         if (string.Equals(replacement, _currentPlayerName, StringComparison.Ordinal))
             return text;
