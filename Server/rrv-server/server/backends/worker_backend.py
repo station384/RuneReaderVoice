@@ -55,6 +55,7 @@ import struct
 import subprocess
 import sys
 import tempfile
+import threading
 import time
 from pathlib import Path
 from typing import Optional
@@ -153,6 +154,12 @@ class WorkerBackend(AbstractTtsBackend):
         self._reader: Optional[asyncio.StreamReader] = None
         self._writer: Optional[asyncio.StreamWriter] = None
         self._lock = asyncio.Lock()
+        self._stdout_thread: Optional[threading.Thread] = None
+
+        # Crash / timeout recovery
+        self._broken: bool = False               # set immediately on failure, before shutdown()
+        self._restart_attempts: int = 0          # incremented on each auto-restart attempt
+        self._MAX_RESTART_ATTEMPTS: int = 3      # give up after this many consecutive failures
 
         # Usage tracking for ResourceManager
         self._last_used: float = 0.0
@@ -363,6 +370,16 @@ class WorkerBackend(AbstractTtsBackend):
             self._kill_worker()
             raise RuntimeError(f"Worker '{self._backend_name}' startup failed: {exc}") from exc
 
+        # Drain worker stdout continuously — prevents pipe buffer from filling
+        # (64 KB on Linux) which would block the worker mid-log and appear as a
+        # synthesis stall or timeout. All worker log lines appear in host console.
+        self._stdout_thread = threading.Thread(
+            target=self._forward_stdout,
+            name=f"rrv-stdout-{self._backend_name}",
+            daemon=True,
+        )
+        self._stdout_thread.start()
+
         # Connect to the worker's Unix socket
         try:
             self._reader, self._writer = await asyncio.open_unix_connection(self._socket_path)
@@ -446,6 +463,37 @@ class WorkerBackend(AbstractTtsBackend):
             f"Worker '{self._backend_name}' exited with code {rc} before becoming ready"
         )
 
+    def _forward_stdout(self) -> None:
+        """
+        Drain worker stdout after READY, forwarding all lines to the host logger.
+
+        Must run in a daemon thread for the lifetime of the worker process.
+        Prevents the 64 KB pipe buffer from filling — a full buffer would cause
+        the worker to block inside a logging write(), which manifests as a
+        synthesis stall or spurious 300s timeout with no CUDA involvement.
+
+        Log level mapping: worker lines already carry a level prefix from
+        logging.basicConfig (e.g. '[worker:chatterbox_full] INFO ...').
+        We emit them at INFO so they appear in the host console by default.
+        Use DEBUG prefix lines are passed through at DEBUG to avoid spam.
+        """
+        assert self._process is not None
+        assert self._process.stdout is not None
+
+        for raw_line in self._process.stdout:
+            line = raw_line.decode("utf-8", errors="replace").rstrip()
+            if not line:
+                continue
+            lower = line.lower()
+            if " debug " in lower or lower.startswith("debug"):
+                log.debug("[worker:%s] %s", self._backend_name, line)
+            elif " warning " in lower or " warn " in lower:
+                log.warning("[worker:%s] %s", self._backend_name, line)
+            elif " error " in lower or " critical " in lower:
+                log.error("[worker:%s] %s", self._backend_name, line)
+            else:
+                log.info("[worker:%s] %s", self._backend_name, line)
+
     async def _ping(self) -> None:
         await _send_message(self._writer, {"cmd": "ping"})
         resp = await _recv_message(self._reader)
@@ -460,6 +508,11 @@ class WorkerBackend(AbstractTtsBackend):
 
     async def _reset_broken_worker(self, reason: str) -> None:
         log.error("Worker '%s' marked broken: %s", self._backend_name, reason)
+        # Null transport FIRST — tasks queued on _lock see _broken=True and
+        # _writer=None before they wake up, preventing the NoneType cascade.
+        self._broken = True
+        self._reader = None
+        self._writer = None
         await asyncio.get_event_loop().run_in_executor(None, self.shutdown)
         self._is_loaded = False
 
@@ -483,6 +536,29 @@ class WorkerBackend(AbstractTtsBackend):
         msg = _request_to_dict(request)
 
         async with self._lock:
+            # Re-check INSIDE the lock — a previous waiter may have already
+            # triggered _reset_broken_worker() while we were queued. Attempt
+            # auto-restart up to _MAX_RESTART_ATTEMPTS times before giving up.
+            if self._broken or self._writer is None:
+                if self._restart_attempts < self._MAX_RESTART_ATTEMPTS:
+                    self._restart_attempts += 1
+                    log.info(
+                        "Worker '%s' broken — auto-restart attempt %d/%d",
+                        self._backend_name, self._restart_attempts, self._MAX_RESTART_ATTEMPTS,
+                    )
+                    self._broken = False
+                    try:
+                        await self.load()
+                    except Exception as exc:
+                        raise RuntimeError(
+                            f"Worker '{self._backend_name}' auto-restart failed: {exc}"
+                        ) from exc
+                else:
+                    raise RuntimeError(
+                        f"Worker '{self._backend_name}' broken and restart limit "
+                        f"({self._MAX_RESTART_ATTEMPTS}) reached — server restart required"
+                    )
+
             try:
                 await _send_message(self._writer, msg)
                 # vLLM backends compile CUDA kernels on first inference — allow extra time
@@ -537,6 +613,8 @@ class WorkerBackend(AbstractTtsBackend):
                     f"Worker '{self._backend_name}' audio payload failed: {exc}"
                 ) from exc
 
+        # Synthesis succeeded — reset restart counter and update usage tracking
+        self._restart_attempts = 0
         self._last_used = time.monotonic()
         self._use_count += 1
         return SynthesisResult(
