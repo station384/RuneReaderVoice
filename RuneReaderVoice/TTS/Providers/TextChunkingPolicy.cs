@@ -43,6 +43,8 @@ internal sealed class ChunkProfile
     public bool IsLongcatFamily { get; init; }
     public bool IsTurbo { get; init; }
     public int PivotMergeWordLimit { get; init; }
+    public bool SplitOnParagraphs { get; init; } = true;
+    public bool SplitOnSingleLines { get; init; } = true;
 }
 
 public static class TextChunkingPolicy
@@ -71,9 +73,13 @@ public static class TextChunkingPolicy
             return new[] { new TextChunk { Text = text } };
 
         var results = new List<TextChunk>();
-        foreach (var paragraph in TextSplitter.SplitParagraphs(normalized))
+        var paragraphBlocks = chunkProfile.SplitOnParagraphs
+            ? TextSplitter.SplitParagraphs(normalized)
+            : new List<string> { normalized };
+
+        foreach (var paragraph in paragraphBlocks)
         {
-            AppendBlock(paragraph, "paragraph", chunkProfile, results);
+            AppendBlock(paragraph, chunkProfile.SplitOnParagraphs ? "paragraph" : string.Empty, chunkProfile, results);
         }
 
         if (results.Count == 0)
@@ -93,10 +99,14 @@ public static class TextChunkingPolicy
         var trimmed = block.Trim();
         if (trimmed.Length == 0) return;
 
-        foreach (var lineBlock in TextSplitter.SplitSingleLines(trimmed))
+        var lineBlocks = profile.SplitOnSingleLines
+            ? TextSplitter.SplitSingleLines(trimmed)
+            : new List<string> { trimmed };
+
+        foreach (var lineBlock in lineBlocks)
         {
             AppendSized(lineBlock.Trim(), boundaryBefore, profile, dest);
-            boundaryBefore = "line";
+            boundaryBefore = profile.SplitOnSingleLines ? "line" : boundaryBefore;
         }
     }
 
@@ -302,7 +312,7 @@ public static class TextChunkingPolicy
             //   Kokoro:            850 / 1050
             //   F5-TTS:           575 / 725
             //   Chatterbox Turbo: 600 / 720
-            //   Chatterbox Full:  380 / 480
+            //   Chatterbox Full:  8000 / 8000
             //   CosyVoice:        380 / 480
             //   LongCat: use conservative client-side chunking around ~20 words (~100 chars)
             //            with a harder cap around ~30 words. The backend can continue
@@ -312,7 +322,7 @@ public static class TextChunkingPolicy
                                   : kokoro     ? 850
                                   : f5         ? 575
                                   : turbo      ? 600
-                                  : chatterbox ? 380
+                                  : chatterbox ? 8000
                                   : cosyvoice  ? 380
                                   : 700,
 
@@ -320,7 +330,7 @@ public static class TextChunkingPolicy
                                   : kokoro     ? 1050
                                   : f5         ? 725
                                   : turbo      ? 720
-                                  : chatterbox ? 480
+                                  : chatterbox ? 8000
                                   : cosyvoice  ? 480
                                   : 850,
 
@@ -345,6 +355,8 @@ public static class TextChunkingPolicy
             IsLongcatFamily       = longcat,
             IsTurbo               = turbo,
             PivotMergeWordLimit   = longcat ? 0 : (turbo ? 11 : (chatterbox ? 10 : 0)),
+            SplitOnParagraphs     = !chatterbox,
+            SplitOnSingleLines    = !chatterbox,
         };
 
         // Further tighten for high exaggeration — test showed exaggeration >= 1.0
@@ -363,6 +375,8 @@ public static class TextChunkingPolicy
                 IsLongcatFamily       = result.IsLongcatFamily,
                 IsTurbo               = result.IsTurbo,
                 PivotMergeWordLimit   = result.PivotMergeWordLimit,
+                SplitOnParagraphs     = result.SplitOnParagraphs,
+                SplitOnSingleLines    = result.SplitOnSingleLines,
             };
         }
 
