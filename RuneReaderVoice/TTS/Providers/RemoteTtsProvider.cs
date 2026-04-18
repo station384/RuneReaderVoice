@@ -563,6 +563,13 @@ public sealed class RemoteTtsProvider : ITtsProvider
 
         var fallback = fallbackSlot.HasValue ? ResolveProfile(fallbackSlot.Value)?.Clone() : null;
         fallback ??= VoiceProfileDefaults.Create(sampleId);
+
+        // Bespoke/sample-specific playback may borrow synthesis defaults from the
+        // fallback slot when no stored sample profile exists, but it must not
+        // inherit the slot DSP chain. If the bespoke/sample profile has no DSP of
+        // its own, play it dry so the sample comes through as intended.
+        fallback.Dsp = null;
+
         fallback.VoiceId = sampleId;
         if (string.IsNullOrWhiteSpace(fallback.LangCode))
             fallback.LangCode = VoiceProfileDefaults.GetDefaultLangCodeForVoice(sampleId);
