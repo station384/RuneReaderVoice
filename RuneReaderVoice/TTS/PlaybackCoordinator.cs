@@ -212,14 +212,14 @@ public sealed class PlaybackCoordinator : IDisposable
 
                 audio = await nextTask;
             }
-            catch (OperationCanceledException) { AppServices.ClearOperationStatus(); break; }
+            catch (OperationCanceledException) { AppServices.ClearPlaybackActivity(); break; }
             catch (Exception ex) when (IsCancellationIoException(ex, ct))
             {
-                AppServices.ClearOperationStatus(); break;
+                AppServices.ClearPlaybackActivity(); break;
             }
             catch (Exception ex)
             {
-                AppServices.ClearOperationStatus();
+                AppServices.ClearPlaybackActivity();
                 System.Diagnostics.Debug.WriteLine(
                     $"[PlaybackCoordinator] Synthesis error segment {_nextExpectedIndex}: {ex.Message}");
                 lock (_queueLock) { _synthTasks.Remove(_nextExpectedIndex); _nextExpectedIndex++; }
@@ -277,21 +277,21 @@ public sealed class PlaybackCoordinator : IDisposable
 
                 try
                 {
-                    AppServices.SetOperationStatus("Playing audio…");
+                    AppServices.SetPlaybackActivity(MainActivityKind.Playing, "Playing audio…");
                     var mergedBatchAudio = ConcatenatePcm(batchAudios);
                     System.Diagnostics.Debug.WriteLine($"[PC] Play batch merged start segs={startSeg}-{endSeg} items={batchAudios.Count} samples={mergedBatchAudio.Samples.Length} pending={_synthTasks.Count}");
                     await _player.PlayAsync(mergedBatchAudio, ct);
-                    AppServices.ClearOperationStatus();
+                    AppServices.ClearPlaybackActivity();
                     System.Diagnostics.Debug.WriteLine($"[PC] Play batch merged done segs={startSeg}-{endSeg}");
                 }
-                catch (OperationCanceledException) { AppServices.ClearOperationStatus(); break; }
+                catch (OperationCanceledException) { AppServices.ClearPlaybackActivity(); break; }
                 catch (Exception ex) when (IsCancellationIoException(ex, ct))
                 {
-                    AppServices.ClearOperationStatus(); break;
+                    AppServices.ClearPlaybackActivity(); break;
                 }
                 catch (Exception ex)
                 {
-                    AppServices.ClearOperationStatus();
+                    AppServices.ClearPlaybackActivity();
                     System.Diagnostics.Debug.WriteLine($"[PlaybackCoordinator] Batch playback error: {ex.Message}");
                 }
 
@@ -301,7 +301,7 @@ public sealed class PlaybackCoordinator : IDisposable
             // Play segment N. While playing, synthesis of segment N+1 is already running.
             try
             {
-                AppServices.SetOperationStatus("Playing audio…");
+                AppServices.SetPlaybackActivity(MainActivityKind.Playing, "Playing audio…");
                 int segIdx = _nextExpectedIndex - 1;
                 System.Diagnostics.Debug.WriteLine(
                     $"[PC] Play start seg={segIdx} samples={audio?.Samples.Length} pending={_synthTasks.Count}");
@@ -309,17 +309,17 @@ public sealed class PlaybackCoordinator : IDisposable
                 {
                     await _player.PlayAsync(audio, ct);
                 }
-                AppServices.ClearOperationStatus();
+                AppServices.ClearPlaybackActivity();
                 System.Diagnostics.Debug.WriteLine($"[PC] Play done seg={segIdx}");
             }
-            catch (OperationCanceledException) { AppServices.ClearOperationStatus(); break; }
+            catch (OperationCanceledException) { AppServices.ClearPlaybackActivity(); break; }
             catch (Exception ex) when (IsCancellationIoException(ex, ct))
             {
-                AppServices.ClearOperationStatus(); break;
+                AppServices.ClearPlaybackActivity(); break;
             }
             catch (Exception ex)
             {
-                AppServices.ClearOperationStatus();
+                AppServices.ClearPlaybackActivity();
                 System.Diagnostics.Debug.WriteLine($"[PlaybackCoordinator] Playback error: {ex.Message}");
             }
         }
@@ -569,10 +569,10 @@ public sealed class PlaybackCoordinator : IDisposable
 
             if (tasksToAwait != null)
             {
-                AppServices.SetOperationStatus("Waiting for full text…");
+                AppServices.SetPlaybackActivity(MainActivityKind.Waiting, "Waiting for full text…");
                 System.Diagnostics.Debug.WriteLine($"[PC] WaitForFullText holding playback until segs {firstNeeded}-{_expectedDialogSegments - 1} ({tasksToAwait.Length} segment(s)) are synthesized");
                 await Task.WhenAll(tasksToAwait);
-                AppServices.ClearOperationStatus();
+                AppServices.ClearPlaybackActivity();
                 System.Diagnostics.Debug.WriteLine("[PC] WaitForFullText released playback");
                 return;
             }

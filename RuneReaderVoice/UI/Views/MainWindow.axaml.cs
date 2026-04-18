@@ -115,7 +115,7 @@ public partial class MainWindow : Window
         });
 
         HookProviderStatusCallbacks(AppServices.Provider);
-        AppServices.OperationStatusChanged += OnOperationStatusChanged;
+        AppServices.MainActivityChanged += OnMainActivityChanged;
 
         // Restore saved window position
         var s = AppServices.Settings;
@@ -148,12 +148,28 @@ public partial class MainWindow : Window
             : Avalonia.Media.Brushes.IndianRed;
 
         // Playback state
-        bool playing = AppServices.Player.IsPlaying;
-        var op = AppServices.OperationStatus;
-        PlaybackStatus.Text       = !string.IsNullOrWhiteSpace(op) ? op : (playing ? "Playing" : "Idle");
-        PlaybackStatus.Foreground = !string.IsNullOrWhiteSpace(op)
-            ? Avalonia.Media.Brushes.Gold
-            : (playing ? Avalonia.Media.Brushes.LightSkyBlue : Avalonia.Media.SolidColorBrush.Parse("#4ECDC4"));
+        var resolved = AppServices.GetResolvedMainActivity();
+        if (resolved.IsActive)
+        {
+            PlaybackStatus.Text = string.IsNullOrWhiteSpace(resolved.Detail)
+                ? resolved.Headline
+                : $"{resolved.Headline} • {resolved.Detail}";
+            PlaybackStatus.Foreground = resolved.Kind switch
+            {
+                MainActivityKind.Playing => Avalonia.Media.Brushes.LightSkyBlue,
+                MainActivityKind.Capturing => Avalonia.Media.Brushes.LightGreen,
+                MainActivityKind.UpdateAvailable => Avalonia.Media.Brushes.Orange,
+                _ => Avalonia.Media.Brushes.Gold,
+            };
+        }
+        else
+        {
+            bool playing = AppServices.Player.IsPlaying;
+            PlaybackStatus.Text = playing ? "Playing" : "Idle";
+            PlaybackStatus.Foreground = playing
+                ? Avalonia.Media.Brushes.LightSkyBlue
+                : Avalonia.Media.SolidColorBrush.Parse("#4ECDC4");
+        }
 
         // Cache stats
         var cache = AppServices.Cache;
@@ -178,16 +194,26 @@ public partial class MainWindow : Window
     }
 
 
-    private void OnOperationStatusChanged(string status)
+    private void OnMainActivityChanged(MainActivityState state)
     {
         Dispatcher.UIThread.Post(() =>
         {
-            PlaybackStatus.Text = string.IsNullOrWhiteSpace(status)
-                ? (AppServices.Player.IsPlaying ? "Playing" : "Idle")
-                : status;
-            PlaybackStatus.Foreground = string.IsNullOrWhiteSpace(status)
-                ? (AppServices.Player.IsPlaying ? Avalonia.Media.Brushes.LightSkyBlue : Avalonia.Media.SolidColorBrush.Parse("#4ECDC4"))
-                : Avalonia.Media.Brushes.Gold;
+            if (state.IsActive)
+            {
+                PlaybackStatus.Text = string.IsNullOrWhiteSpace(state.Detail)
+                    ? state.Headline
+                    : $"{state.Headline} • {state.Detail}";
+                PlaybackStatus.Foreground = state.Kind == MainActivityKind.Playing
+                    ? Avalonia.Media.Brushes.LightSkyBlue
+                    : Avalonia.Media.Brushes.Gold;
+            }
+            else
+            {
+                PlaybackStatus.Text = AppServices.Player.IsPlaying ? "Playing" : "Idle";
+                PlaybackStatus.Foreground = AppServices.Player.IsPlaying
+                    ? Avalonia.Media.Brushes.LightSkyBlue
+                    : Avalonia.Media.SolidColorBrush.Parse("#4ECDC4");
+            }
         });
     }
 
@@ -199,6 +225,7 @@ public partial class MainWindow : Window
         {
             _ = AppServices.Monitor.StopAsync();
             _capturing              = false;
+            AppServices.ClearCaptureActivity();
             StartStopButton.Content = "Start";
             StartStopButton.Background = Avalonia.Media.SolidColorBrush.Parse("#E94560");
         }
@@ -206,6 +233,7 @@ public partial class MainWindow : Window
         {
             AppServices.Monitor.Start();
             _capturing              = true;
+            AppServices.SetCaptureActivity("Monitoring screen…");
             StartStopButton.Content = "Stop";
             StartStopButton.Background = Avalonia.Media.SolidColorBrush.Parse("#2ECC71");
         }

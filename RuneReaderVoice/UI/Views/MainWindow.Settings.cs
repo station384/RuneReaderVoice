@@ -499,6 +499,18 @@ public partial class MainWindow
                 if (state != RuneReaderVoice.Sync.UpdateState.Downloading)
                     UpdateBannerProgressBar.Value = 0;
             }
+
+            switch (state)
+            {
+                case RuneReaderVoice.Sync.UpdateState.UpdateAvailable:
+                case RuneReaderVoice.Sync.UpdateState.Downloading:
+                case RuneReaderVoice.Sync.UpdateState.ReadyToInstall:
+                    AppServices.SetUpdateActivity(message);
+                    break;
+                default:
+                    AppServices.ClearUpdateActivity();
+                    break;
+            }
         });
     }
 

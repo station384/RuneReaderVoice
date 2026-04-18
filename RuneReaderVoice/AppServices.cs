@@ -36,6 +36,22 @@ using RuneReaderVoice.TTS.TextSwap;
 
 namespace RuneReaderVoice;
 
+public enum MainActivityKind
+{
+    None,
+    Playing,
+    Waiting,
+    Generating,
+    Capturing,
+    UpdateAvailable,
+}
+
+public readonly record struct MainActivityState(MainActivityKind Kind, string Headline, string Detail)
+{
+    public static MainActivityState None => new(MainActivityKind.None, string.Empty, string.Empty);
+    public bool IsActive => Kind != MainActivityKind.None;
+}
+
 public static class AppServices
 {
     public static VoiceUserSettings              Settings               { get; private set; } = new();
@@ -73,6 +89,13 @@ public static class AppServices
     public static string OperationStatus { get; private set; } = string.Empty;
     public static event Action<string>? OperationStatusChanged;
 
+    private static readonly object _mainActivityLock = new();
+    private static MainActivityState _playbackActivity = MainActivityState.None;
+    private static MainActivityState _generationActivity = MainActivityState.None;
+    private static MainActivityState _captureActivity = MainActivityState.None;
+    private static MainActivityState _updateActivity = MainActivityState.None;
+    public static event Action<MainActivityState>? MainActivityChanged;
+
     public static void SetOperationStatus(string status)
     {
         OperationStatus = status ?? string.Empty;
@@ -80,6 +103,102 @@ public static class AppServices
     }
 
     public static void ClearOperationStatus() => SetOperationStatus(string.Empty);
+
+    public static void SetPlaybackActivity(MainActivityKind kind, string headline, string? detail = null)
+    {
+        lock (_mainActivityLock)
+            _playbackActivity = new(kind, headline ?? string.Empty, detail ?? string.Empty);
+        RaiseMainActivityChanged();
+    }
+
+    public static void ClearPlaybackActivity()
+    {
+        lock (_mainActivityLock)
+            _playbackActivity = MainActivityState.None;
+        RaiseMainActivityChanged();
+    }
+
+    public static void SetGenerationActivity(string headline, string? detail = null)
+    {
+        lock (_mainActivityLock)
+            _generationActivity = new(MainActivityKind.Generating, headline ?? string.Empty, detail ?? string.Empty);
+        RaiseMainActivityChanged();
+    }
+
+    public static void ClearGenerationActivity()
+    {
+        lock (_mainActivityLock)
+            _generationActivity = MainActivityState.None;
+        RaiseMainActivityChanged();
+    }
+
+    public static void SetCaptureActivity(string headline, string? detail = null)
+    {
+        lock (_mainActivityLock)
+            _captureActivity = new(MainActivityKind.Capturing, headline ?? string.Empty, detail ?? string.Empty);
+        RaiseMainActivityChanged();
+    }
+
+    public static void ClearCaptureActivity()
+    {
+        lock (_mainActivityLock)
+            _captureActivity = MainActivityState.None;
+        RaiseMainActivityChanged();
+    }
+
+    public static void SetUpdateActivity(string headline, string? detail = null)
+    {
+        lock (_mainActivityLock)
+            _updateActivity = new(MainActivityKind.UpdateAvailable, headline ?? string.Empty, detail ?? string.Empty);
+        RaiseMainActivityChanged();
+    }
+
+    public static void ClearUpdateActivity()
+    {
+        lock (_mainActivityLock)
+            _updateActivity = MainActivityState.None;
+        RaiseMainActivityChanged();
+    }
+
+    public static MainActivityState GetResolvedMainActivity()
+    {
+        lock (_mainActivityLock)
+        {
+            if (_playbackActivity.IsActive)
+            {
+                var detail = !string.IsNullOrWhiteSpace(_generationActivity.Headline)
+                    ? _generationActivity.Headline
+                    : _playbackActivity.Detail;
+                return _playbackActivity with { Detail = detail ?? string.Empty };
+            }
+
+            if (_generationActivity.IsActive)
+            {
+                var detail = !string.IsNullOrWhiteSpace(_captureActivity.Headline)
+                    ? _captureActivity.Headline
+                    : _generationActivity.Detail;
+                return _generationActivity with { Detail = detail ?? string.Empty };
+            }
+
+            if (_captureActivity.IsActive)
+            {
+                var detail = !string.IsNullOrWhiteSpace(_updateActivity.Headline)
+                    ? _updateActivity.Headline
+                    : _captureActivity.Detail;
+                return _captureActivity with { Detail = detail ?? string.Empty };
+            }
+
+            if (_updateActivity.IsActive)
+                return _updateActivity;
+
+            return MainActivityState.None;
+        }
+    }
+
+    private static void RaiseMainActivityChanged()
+    {
+        MainActivityChanged?.Invoke(GetResolvedMainActivity());
+    }
 
     /// <summary>
     /// The most recently completed segment. Updated by TtsSessionAssembler

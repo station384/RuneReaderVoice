@@ -167,7 +167,7 @@ public sealed class RemoteTtsProvider : ITtsProvider
         catch
         {
             monitorCts.Cancel();
-            AppServices.ClearOperationStatus();
+            AppServices.ClearGenerationActivity();
             throw;
         }
         finally
@@ -195,14 +195,14 @@ public sealed class RemoteTtsProvider : ITtsProvider
 
                 if (string.Equals(evt.Status, "complete", StringComparison.OrdinalIgnoreCase))
                 {
-                    AppServices.ClearOperationStatus();
+                    AppServices.ClearGenerationActivity();
                     break;
                 }
 
                 var statusText = evt.Total > 1
                     ? $"Generating voice... ({evt.Completed}/{evt.Total})"
                     : "Generating voice...";
-                AppServices.SetOperationStatus(statusText);
+                AppServices.SetGenerationActivity(statusText);
             }
 
             if (gotEvents) break;
