@@ -63,6 +63,7 @@ public partial class MainWindow : Window
 
 
         InitNpcOverridesUI();
+        HookNpcSyncEvents();
         InitUpdatePanel();
 
         // Warm the voice cache in the background so the NPC sample dropdown
@@ -276,6 +277,10 @@ public partial class MainWindow : Window
         PiperModelDir.Text       = s.PiperModelDirectory;
         RemoteServerUrl.Text     = s.RemoteServerUrl;
         RemoteApiKey.Text        = s.RemoteApiKey;
+        ContributeKeyBox.Text    = s.ContributeKey;
+        AdminKeyBox.Text         = s.AdminKey;
+        ContributeByDefaultCheck.IsChecked = s.ContributeByDefault;
+        FirstLoadCompleteCheck.IsChecked   = s.FirstLoadComplete;
         UpdateRemoteProvidersStatus();
 
         var playbackMatch = PlaybackModeSelector.Items
@@ -451,6 +456,31 @@ public partial class MainWindow : Window
 #endif
     }
 
+
+    private void HookNpcSyncEvents()
+    {
+        if (AppServices.NpcSync == null)
+            return;
+
+        AppServices.NpcSync.NpcRecordsMerged -= OnNpcRecordsMergedFromSync;
+        AppServices.NpcSync.NpcRecordsMerged += OnNpcRecordsMergedFromSync;
+    }
+
+    private void OnNpcRecordsMergedFromSync(int mergedCount)
+    {
+        Dispatcher.UIThread.Post(() =>
+        {
+            try
+            {
+                RefreshNpcOverridesGrid();
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"[NpcPanel] Refresh after sync failed: {ex.Message}");
+            }
+        });
+    }
+
     private void RefreshPiperModelList()
     {
 #if LINUX
@@ -468,6 +498,8 @@ public partial class MainWindow : Window
 
     protected override void OnClosing(Avalonia.Controls.WindowClosingEventArgs e)
     {
+        if (AppServices.NpcSync != null)
+            AppServices.NpcSync.NpcRecordsMerged -= OnNpcRecordsMergedFromSync;
         _statusTimer.Stop();
         _ = VoiceSettingsManager.SaveSettingsAsync(AppServices.Settings);
         base.OnClosing(e);
