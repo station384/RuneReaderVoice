@@ -429,6 +429,12 @@ public partial class MainWindow
                 if (ExpanderUpdate != null)
                     ExpanderUpdate.IsVisible = false;
             }
+            else
+            {
+                _ = AppServices.Updater.CheckSilentlyAsync();
+            }
+
+            OnUpdateStatusChanged(AppServices.Updater.State, AppServices.Updater.StatusMessage);
         }
     }
 
@@ -458,6 +464,67 @@ public partial class MainWindow
                 if (state != RuneReaderVoice.Sync.UpdateState.Downloading)
                     UpdateProgressBar.Value = 0;
             }
+
+            if (UpdateBanner != null)
+                UpdateBanner.IsVisible = state is
+                    RuneReaderVoice.Sync.UpdateState.UpdateAvailable or
+                    RuneReaderVoice.Sync.UpdateState.Downloading or
+                    RuneReaderVoice.Sync.UpdateState.ReadyToInstall;
+
+            if (UpdateBannerText != null)
+            {
+                UpdateBannerText.Text = state switch
+                {
+                    RuneReaderVoice.Sync.UpdateState.UpdateAvailable => message,
+                    RuneReaderVoice.Sync.UpdateState.Downloading => "Downloading update…",
+                    RuneReaderVoice.Sync.UpdateState.ReadyToInstall => message,
+                    _ => string.Empty,
+                };
+            }
+
+            if (UpdateBannerActionButton != null)
+            {
+                UpdateBannerActionButton.IsVisible = state is
+                    RuneReaderVoice.Sync.UpdateState.UpdateAvailable or
+                    RuneReaderVoice.Sync.UpdateState.ReadyToInstall;
+                UpdateBannerActionButton.IsEnabled = state is not RuneReaderVoice.Sync.UpdateState.Downloading;
+                UpdateBannerActionButton.Content = state == RuneReaderVoice.Sync.UpdateState.ReadyToInstall
+                    ? "Restart & Install"
+                    : "Download & Install";
+            }
+
+            if (UpdateBannerProgressBar != null)
+            {
+                UpdateBannerProgressBar.IsVisible = state == RuneReaderVoice.Sync.UpdateState.Downloading;
+                if (state != RuneReaderVoice.Sync.UpdateState.Downloading)
+                    UpdateBannerProgressBar.Value = 0;
+            }
+        });
+    }
+
+
+    private async void OnUpdateBannerActionClicked(object? sender, RoutedEventArgs e)
+    {
+        if (AppServices.Updater == null) return;
+
+        if (AppServices.Updater.State == RuneReaderVoice.Sync.UpdateState.ReadyToInstall)
+        {
+            AppServices.Updater.RestartAndInstall();
+            return;
+        }
+
+        if (AppServices.Updater.State != RuneReaderVoice.Sync.UpdateState.UpdateAvailable)
+            return;
+
+        await AppServices.Updater.DownloadAndStageAsync(progress =>
+        {
+            Dispatcher.UIThread.Post(() =>
+            {
+                if (UpdateProgressBar != null)
+                    UpdateProgressBar.Value = progress;
+                if (UpdateBannerProgressBar != null)
+                    UpdateBannerProgressBar.Value = progress;
+            });
         });
     }
 
@@ -476,6 +543,8 @@ public partial class MainWindow
             {
                 if (UpdateProgressBar != null)
                     UpdateProgressBar.Value = progress;
+                if (UpdateBannerProgressBar != null)
+                    UpdateBannerProgressBar.Value = progress;
             });
         });
     }

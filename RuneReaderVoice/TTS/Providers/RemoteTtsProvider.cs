@@ -18,6 +18,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Globalization;
 using System.Security.Cryptography;
 using System.Text;
@@ -224,7 +225,9 @@ public sealed class RemoteTtsProvider : ITtsProvider
         if (batchSegments == null || batchSegments.Count == 0)
             throw new ArgumentException("Batch must contain at least one segment.", nameof(batchSegments));
 
-        var profile = ResolveProfile(slot);
+        VoiceProfile? profile = ResolveProfile(slot);
+
+        
         if (!string.IsNullOrWhiteSpace(bespokeSampleId))
         {
             profile = ResolveSampleProfile(bespokeSampleId, slot);
@@ -233,66 +236,90 @@ public sealed class RemoteTtsProvider : ITtsProvider
         }
 
         if (suppressStoredSeed || forcedSynthesisSeed.HasValue)
-            profile = profile.Clone();
-
-        if (suppressStoredSeed)
-            profile.SynthesisSeed = null;
-
-        if (forcedSynthesisSeed.HasValue)
-            profile.SynthesisSeed = forcedSynthesisSeed;
-
-        profile = ApplyProviderMinimums(profile);
-
-        var voiceSpec = BuildVoiceSpec(profile);
-        var speechRate = profile.SpeechRate <= 0f ? 1.0f : Math.Clamp(profile.SpeechRate, 0.5f, 2.0f);
-        var request = new RemoteSynthesizeV2BatchRequest();
-        foreach (var plan in batchSegments)
         {
-            var text = plan.Text;
-            var providerId = _descriptor.RemoteProviderId ?? string.Empty;
-            if (providerId.Contains("chatterbox", StringComparison.OrdinalIgnoreCase) ||
-                providerId.Contains("cosyvoice", StringComparison.OrdinalIgnoreCase))
-                text = ChatterboxPreprocess(text);
-
-            request.Segments.Add(new RemoteBatchSegmentRequest
-            {
-                SegmentId = plan.SegmentId,
-                ProviderId = _descriptor.RemoteProviderId!,
-                Text = text,
-                Voice = voiceSpec,
-                LangCode = string.IsNullOrWhiteSpace(profile.LangCode) ? "en" : profile.LangCode,
-                SpeechRate = speechRate,
-                CfgWeight = profile.CfgWeight,
-                Exaggeration = profile.Exaggeration,
-                CbTemperature = profile.ChatterboxTemperature,
-                CbTopP = profile.ChatterboxTopP,
-                CbRepetitionPenalty = profile.ChatterboxRepetitionPenalty,
-                CosyInstruct = string.IsNullOrWhiteSpace(profile.CosyInstruct) ? null : profile.CosyInstruct.Trim(),
-                VoiceInstruct = string.IsNullOrWhiteSpace(profile.VoiceInstruct) ? null : profile.VoiceInstruct.Trim(),
-                LongcatSteps = profile.LongcatSteps,
-                LongcatCfgStrength = profile.LongcatCfgStrength,
-                LongcatGuidance = string.IsNullOrWhiteSpace(profile.LongcatGuidance) ? null : profile.LongcatGuidance.Trim(),
-                SynthesisSeed = profile.SynthesisSeed,
-                CfgStrength = profile.CfgStrength,
-                NfeStep = profile.NfeStep,
-                CrossFadeDuration = profile.CrossFadeDuration,
-                SwaySamplingCoef = profile.SwaysamplingCoef,
-                VoiceContext = slot.ToString(),
-                CacheKey = BuildRemoteCacheKey(_descriptor.RemoteProviderId!, text, slot.ToString(), profile, voiceSpec, speechRate),
-                PrimeFromSegment = plan.PrimeFromSegmentId,
-            });
+            profile = profile?.Clone();
         }
 
-        var submitted = await _client.SynthesizeV2BatchAsync(request, ct);
-        System.Diagnostics.Debug.WriteLine($"[RemoteTTS] v2 batch submitted: batchId={submitted.BatchId} segments={submitted.Segments.Count}");
-        foreach (var seg in submitted.Segments)
-            System.Diagnostics.Debug.WriteLine($"[RemoteTTS] v2 batch seg={seg.SegmentId} status={seg.Status} progressKey={seg.ProgressKey} cacheKey={seg.CacheKey}");
-
-        return new RemoteBatchResolution
+        if (suppressStoredSeed && profile != null)
         {
-            BatchId = string.IsNullOrWhiteSpace(submitted.BatchId) ? (batchId ?? string.Empty) : submitted.BatchId,
-            Segments = submitted.Segments.ToDictionary(s => s.SegmentId, StringComparer.Ordinal)
-        };
+            profile.SynthesisSeed = null;
+        }
+
+        if (forcedSynthesisSeed.HasValue && profile != null)
+        {
+            profile.SynthesisSeed = forcedSynthesisSeed;
+        }
+
+        if (profile != null)
+        {
+            profile = ApplyProviderMinimums(profile);
+
+            var voiceSpec = BuildVoiceSpec(profile);
+            var speechRate = profile.SpeechRate <= 0f ? 1.0f : Math.Clamp(profile.SpeechRate, 0.5f, 2.0f);
+            var request = new RemoteSynthesizeV2BatchRequest();
+            foreach (var plan in batchSegments)
+            {
+                var text = plan.Text;
+                var providerId = _descriptor.RemoteProviderId ?? string.Empty;
+                if (providerId.Contains("chatterbox", StringComparison.OrdinalIgnoreCase) ||
+                    providerId.Contains("cosyvoice", StringComparison.OrdinalIgnoreCase))
+                    text = ChatterboxPreprocess(text);
+
+                request.Segments.Add(new RemoteBatchSegmentRequest
+                {
+                    SegmentId = plan.SegmentId,
+                    ProviderId = _descriptor.RemoteProviderId!,
+                    Text = text,
+                    Voice = voiceSpec,
+                    LangCode = string.IsNullOrWhiteSpace(profile.LangCode) ? "en" : profile.LangCode,
+                    SpeechRate = speechRate,
+                    CfgWeight = profile.CfgWeight,
+                    Exaggeration = profile.Exaggeration,
+                    CbTemperature = profile.ChatterboxTemperature,
+                    CbTopP = profile.ChatterboxTopP,
+                    CbRepetitionPenalty = profile.ChatterboxRepetitionPenalty,
+                    CosyInstruct = string.IsNullOrWhiteSpace(profile.CosyInstruct) ? null : profile.CosyInstruct.Trim(),
+                    VoiceInstruct = string.IsNullOrWhiteSpace(profile.VoiceInstruct)
+                        ? null
+                        : profile.VoiceInstruct.Trim(),
+                    LongcatSteps = profile.LongcatSteps,
+                    LongcatCfgStrength = profile.LongcatCfgStrength,
+                    LongcatGuidance = string.IsNullOrWhiteSpace(profile.LongcatGuidance)
+                        ? null
+                        : profile.LongcatGuidance.Trim(),
+                    SynthesisSeed = profile.SynthesisSeed,
+                    CfgStrength = profile.CfgStrength,
+                    NfeStep = profile.NfeStep,
+                    CrossFadeDuration = profile.CrossFadeDuration,
+                    SwaySamplingCoef = profile.SwaysamplingCoef,
+                    VoiceContext = slot.ToString(),
+                    CacheKey = BuildRemoteCacheKey(_descriptor.RemoteProviderId!, text, slot.ToString(), profile,
+                        voiceSpec, speechRate),
+                    PrimeFromSegment = plan.PrimeFromSegmentId,
+                });
+            }
+
+            var submitted = await _client.SynthesizeV2BatchAsync(request, ct);
+            System.Diagnostics.Debug.WriteLine(
+                $"[RemoteTTS] v2 batch submitted: batchId={submitted.BatchId} segments={submitted.Segments.Count}");
+            foreach (var seg in submitted.Segments)
+                System.Diagnostics.Debug.WriteLine(
+                    $"[RemoteTTS] v2 batch seg={seg.SegmentId} status={seg.Status} progressKey={seg.ProgressKey} cacheKey={seg.CacheKey}");
+
+            return new RemoteBatchResolution
+            {
+                BatchId = string.IsNullOrWhiteSpace(submitted.BatchId) ? (batchId ?? string.Empty) : submitted.BatchId,
+                Segments = submitted.Segments.ToDictionary(s => s.SegmentId, StringComparer.Ordinal)
+            };
+        }
+        else 
+        // SHOULD NEVER get to this point.  but just encase
+        // This will most likely cause some really odd results IF it ever gets where but if it does somthing really wrong had to occur before this point.
+            return new RemoteBatchResolution()
+            {
+                BatchId = string.Empty, 
+                Segments = new Dictionary<string, V2BatchSegmentResponse>(StringComparer.Ordinal)
+            };
     }
 
     public async Task<byte[]> FetchBatchSegmentResultAsync(string batchId, string progressKey, string cacheKey, CancellationToken ct)
@@ -507,25 +534,20 @@ public sealed class RemoteTtsProvider : ITtsProvider
     {
         if (AppServices.TryGetStoredVoiceProfile(ProviderId, slot, out var storedProfile) && storedProfile != null)
         {
-#if DEBUG
-            Console.WriteLine($"[RaceVoiceDebug] RemoteTtsProvider.ResolveProfile provider={ProviderId} slot={slot} source=db voiceId={(storedProfile.VoiceId ?? "<null>")}");
-#endif
+
+            Debug.WriteLine($"[RaceVoiceDebug] RemoteTtsProvider.ResolveProfile provider={ProviderId} slot={slot} source=db voiceId={(storedProfile.VoiceId ?? "<null>")}");
             return storedProfile;
         }
 
         if (_descriptor.VoiceSourceKind == RemoteVoiceSourceKind.Samples)
         {
             var fallbackSample = GetDefaultSampleProfile(slot);
-#if DEBUG
-            Console.WriteLine($"[RaceVoiceDebug] RemoteTtsProvider.ResolveProfile provider={ProviderId} slot={slot} source=sample-default voiceId={(fallbackSample?.VoiceId ?? "<null>")}");
-#endif
+            Debug.WriteLine($"[RaceVoiceDebug] RemoteTtsProvider.ResolveProfile provider={ProviderId} slot={slot} source=sample-default voiceId={(fallbackSample?.VoiceId ?? "<null>")}");
             return fallbackSample;
         }
 
         var fallbackVoice = VoiceProfileDefaults.Create(GetAvailableVoices().FirstOrDefault()?.VoiceId ?? string.Empty);
-#if DEBUG
-        Console.WriteLine($"[RaceVoiceDebug] RemoteTtsProvider.ResolveProfile provider={ProviderId} slot={slot} source=provider-default voiceId={(fallbackVoice?.VoiceId ?? "<null>")}");
-#endif
+        Debug.WriteLine($"[RaceVoiceDebug] RemoteTtsProvider.ResolveProfile provider={ProviderId} slot={slot} source=provider-default voiceId={(fallbackVoice?.VoiceId ?? "<null>")}");
         return fallbackVoice;
     }
 

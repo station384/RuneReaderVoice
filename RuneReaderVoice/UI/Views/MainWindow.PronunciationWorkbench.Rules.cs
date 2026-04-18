@@ -41,12 +41,12 @@ public partial class MainWindow
     /// <summary>
     /// Called from PopulatePronunciationWorkbench (Init.cs) and after any save/delete/import.
     /// </summary>
-    internal async Task ReloadPronunciationRuleListAsync()
+    private async Task ReloadPronunciationRuleListAsync()
     {
         PronRuleList.Items.Clear();
 
-        if (PronRulePageSizeComboBox?.SelectedItem == null)
-            PronRulePageSizeComboBox.SelectedIndex = 0;
+        if (PronRulePageSizeComboBox.SelectedItem == null)
+                PronRulePageSizeComboBox.SelectedIndex = 0;
 
         var page = await AppServices.PronunciationRules.QueryPageAsync(_pronRulePageNumber, _pronRulePageSize);
         var totalPages = Math.Max(1, (int)Math.Ceiling(page.TotalCount / (double)page.PageSize));

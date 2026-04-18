@@ -517,10 +517,17 @@ public sealed class PlaybackCoordinator : IDisposable
         var chunkTexts = TextChunkingPolicy.GetChunkTexts(segment.Text ?? string.Empty, _provider, profile, AppServices.Settings);
         var chunks     = new List<PcmAudio>();
 
+        if (segment.Text == null) return ConcatenatePcm(chunks);
+        
         await foreach (var (audio, phraseIndex, phraseCount) in
-            _provider.SynthesizePhraseStreamAsync(segment.Text, segment.Slot, _tempDirectory, ct))
+                       _provider.SynthesizePhraseStreamAsync(segment.Text, segment.Slot, _tempDirectory, ct))
         {
-            if (phraseIndex == 0) { sw.Stop(); LastSynthesisLatency = sw.Elapsed; }
+            if (phraseIndex == 0)
+            {
+                sw.Stop();
+                LastSynthesisLatency = sw.Elapsed;
+            }
+
             var phraseText = GetPhraseText(segment.Text, phraseIndex, phraseCount, chunkTexts);
             await _cache.StoreAsync(audio, phraseText, effectiveVoiceId, _provider.ProviderId, "", ct);
             chunks.Add(DspFilterChain.Apply(audio, profile?.Dsp));

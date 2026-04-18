@@ -147,6 +147,41 @@ public sealed class UpdateService
         }
     }
 
+
+    /// <summary>
+    /// Background update check used at app startup. Failures are ignored so the
+    /// app remains fully functional even if the feed cannot be reached.
+    /// </summary>
+    public async Task CheckSilentlyAsync(CancellationToken ct = default)
+    {
+        if (_manager == null || !_manager.IsInstalled) return;
+        if (_state is UpdateState.Checking or UpdateState.Downloading or UpdateState.ReadyToInstall) return;
+
+        try
+        {
+            var update = await _manager.CheckForUpdatesAsync().WaitAsync(ct);
+            if (update == null)
+            {
+                _pendingUpdate = null;
+                SetState(UpdateState.UpToDate, "RuneReader Voice is up to date.");
+            }
+            else
+            {
+                _pendingUpdate = update;
+                SetState(UpdateState.UpdateAvailable,
+                    $"Version {update.TargetFullRelease?.Version} is available.");
+            }
+        }
+        catch (OperationCanceledException)
+        {
+        }
+        catch
+        {
+            if (_state == UpdateState.Checking)
+                SetState(UpdateState.Idle, string.Empty);
+        }
+    }
+
     /// <summary>
     /// Download and stage the pending update. Call CheckAsync first.
     /// <paramref name="onProgress"/> receives values 0–100.
@@ -185,7 +220,8 @@ public sealed class UpdateService
     public void RestartAndInstall()
     {
         if (_manager == null || _state != UpdateState.ReadyToInstall) return;
-        _manager.ApplyUpdatesAndRestart(_pendingUpdate);
+        if (_pendingUpdate != null) 
+            _manager.ApplyUpdatesAndRestart(_pendingUpdate);
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────

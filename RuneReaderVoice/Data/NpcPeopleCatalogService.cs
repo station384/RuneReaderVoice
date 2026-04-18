@@ -20,8 +20,10 @@ public sealed class NpcPeopleCatalogService
     public Task<NpcPeopleCatalogPage> QueryPageAsync(string? filter, int pageNumber, int pageSize)
         => _store.QueryPageAsync(filter, pageNumber, pageSize);
 
-    public Task<NpcPeopleCatalogRow?> GetByIdAsync(string id)
-        => _store.GetByIdAsync(id);
+    public Task<NpcPeopleCatalogRow> GetByIdAsync(string id)
+    {
+        return _store.GetByIdAsync(id);
+    }
 
     public IReadOnlyList<NpcPeopleCatalogRow> GetAllRows()
         => _store.GetAllAsync().GetAwaiter().GetResult()

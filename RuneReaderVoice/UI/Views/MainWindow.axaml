@@ -36,7 +36,7 @@ along with RuneReaderVoice. If not, see <https://www.gnu.org/licenses/>.
         x:Name="PrimaryDisplayWindow"
      >
 
-    <Grid RowDefinitions="Auto,Auto,Auto,Auto,*" >
+    <Grid RowDefinitions="Auto,Auto,Auto,Auto,Auto,*" >
 
         <!-- ── Title bar ──────────────────────────────────────────────── -->
         <Border Grid.Row="0" 
@@ -52,8 +52,31 @@ along with RuneReaderVoice. If not, see <https://www.gnu.org/licenses/>.
             </StackPanel>
         </Border>
 
+
+        <!-- ── Update banner ─────────────────────────────────────────────── -->
+        <Border Grid.Row="1"
+                x:Name="UpdateBanner"
+                Background="#5C2B29" Margin="8,8,8,0"
+                CornerRadius="6" Padding="12,8"
+                IsVisible="False">
+            <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto" ColumnSpacing="12" RowSpacing="6">
+                <TextBlock x:Name="UpdateBannerText" Grid.Row="0" Grid.Column="0"
+                           Text="A new version is available."
+                           Foreground="#FFE7E5" FontSize="11" FontWeight="SemiBold"
+                           TextWrapping="Wrap" VerticalAlignment="Center"/>
+                <Button x:Name="UpdateBannerActionButton" Grid.Row="0" Grid.Column="1"
+                        Content="Download &amp; Install"
+                        MinWidth="150" Height="30"
+                        Background="#E94560" Foreground="White" FontWeight="SemiBold"
+                        Click="OnUpdateBannerActionClicked"/>
+                <ProgressBar x:Name="UpdateBannerProgressBar" Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2"
+                             Minimum="0" Maximum="100" Value="0"
+                             Height="6" IsVisible="False"/>
+            </Grid>
+        </Border>
+
         <!-- ── Live status panel ──────────────────────────────────────── -->
-        <Border Grid.Row="1" 
+        <Border Grid.Row="2" 
                 Background="#0F3460" Margin="8,8,8,0"
                 CornerRadius="6" Padding="12,10">
             <Grid ColumnDefinitions="*,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto">
@@ -91,7 +114,7 @@ along with RuneReaderVoice. If not, see <https://www.gnu.org/licenses/>.
 
 
         <!-- ── Volume + Start/Stop row ──────────────────────────────────────── -->
-        <Border Grid.Row="2" Margin="8,8,8,0">
+        <Border Grid.Row="4" Margin="8,8,8,0">
             <Grid ColumnDefinitions="Auto,*,Auto,Auto" ColumnSpacing="10">
                 <TextBlock Grid.Column="0"
                            Text="Vol" Foreground="#888" FontSize="11"
