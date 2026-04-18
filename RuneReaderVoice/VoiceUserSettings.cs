@@ -133,7 +133,7 @@ public sealed class VoiceUserSettings
     public string PiperBinaryPath { get; set; } = "";
     public string PiperModelDirectory { get; set; } = "";
 
-    public string RemoteServerUrl { get; set; } = "";
+    public string RemoteServerUrl { get; set; } = "https://rrv.mkfam.com";
     public string RemoteApiKey { get; set; } = "";
     public string RemoteProviderCatalogJson { get; set; } = "";
 
