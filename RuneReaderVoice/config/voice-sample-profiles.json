@@ -1755,8 +1755,222 @@
               "Kind": 18,
               "Enabled": true,
               "Params": {
-                "roomSize": 0.1125,
                 "damping": 0.9,
+                "roomSize": 0.1125,
+                "wet": 0.1
+              }
+            }
+          ],
+          "IsNeutral": false
+        }
+      },
+      "U_Cyrus_Crestfall_1": {
+        "VoiceId": "U_Cyrus_Crestfall_1",
+        "LangCode": "en-us",
+        "SpeechRate": 1,
+        "CfgWeight": 0.5,
+        "Exaggeration": 0.6,
+        "CfgStrength": null,
+        "NfeStep": null,
+        "CrossFadeDuration": null,
+        "SwaysamplingCoef": null,
+        "VoiceInstruct": null,
+        "CosyInstruct": null,
+        "SynthesisSeed": null,
+        "ChatterboxTemperature": 0.8,
+        "ChatterboxTopP": 1,
+        "ChatterboxRepetitionPenalty": 1.2,
+        "LongcatSteps": null,
+        "LongcatCfgStrength": null,
+        "LongcatGuidance": null,
+        "DisableChunking": false,
+        "Dsp": {
+          "Enabled": true,
+          "Effects": [
+            {
+              "Kind": 8,
+              "Enabled": true,
+              "Params": {
+                "amount": 0.104234524
+              }
+            }
+          ],
+          "IsNeutral": false
+        }
+      },
+      "U_Decimus": {
+        "VoiceId": "U_Decimus",
+        "LangCode": "en-us",
+        "SpeechRate": 1,
+        "CfgWeight": 0.5,
+        "Exaggeration": 0.5,
+        "CfgStrength": null,
+        "NfeStep": null,
+        "CrossFadeDuration": null,
+        "SwaysamplingCoef": null,
+        "VoiceInstruct": null,
+        "CosyInstruct": null,
+        "SynthesisSeed": null,
+        "ChatterboxTemperature": 0.8,
+        "ChatterboxTopP": 1,
+        "ChatterboxRepetitionPenalty": 1.2,
+        "LongcatSteps": null,
+        "LongcatCfgStrength": null,
+        "LongcatGuidance": null,
+        "DisableChunking": false,
+        "Dsp": {
+          "Enabled": true,
+          "Effects": [
+            {
+              "Kind": 8,
+              "Enabled": true,
+              "Params": {
+                "amount": 0.6
+              }
+            },
+            {
+              "Kind": 18,
+              "Enabled": true,
+              "Params": {
+                "damping": 0.9,
+                "roomSize": 0.1125,
+                "wet": 0.1
+              }
+            }
+          ],
+          "IsNeutral": false
+        }
+      },
+      "U_Flynn_Fairwind_1": {
+        "VoiceId": "U_Flynn_Fairwind_1",
+        "LangCode": "en-us",
+        "SpeechRate": 1,
+        "CfgWeight": 0.5,
+        "Exaggeration": 0.5,
+        "CfgStrength": null,
+        "NfeStep": null,
+        "CrossFadeDuration": null,
+        "SwaysamplingCoef": null,
+        "VoiceInstruct": null,
+        "CosyInstruct": null,
+        "SynthesisSeed": null,
+        "ChatterboxTemperature": 0.8,
+        "ChatterboxTopP": 1,
+        "ChatterboxRepetitionPenalty": 1.2,
+        "LongcatSteps": null,
+        "LongcatCfgStrength": null,
+        "LongcatGuidance": null,
+        "DisableChunking": false,
+        "Dsp": {
+          "Enabled": true,
+          "Effects": [
+            {
+              "Kind": 8,
+              "Enabled": true,
+              "Params": {
+                "amount": 0.6
+              }
+            },
+            {
+              "Kind": 18,
+              "Enabled": true,
+              "Params": {
+                "damping": 0.9,
+                "roomSize": 0.1125,
+                "wet": 0.1
+              }
+            }
+          ],
+          "IsNeutral": false
+        }
+      },
+      "U_Genn_Greymane_1": {
+        "VoiceId": "U_Genn_Greymane_1",
+        "LangCode": "en-us",
+        "SpeechRate": 1,
+        "CfgWeight": 0.5,
+        "Exaggeration": 0.6,
+        "CfgStrength": null,
+        "NfeStep": null,
+        "CrossFadeDuration": null,
+        "SwaysamplingCoef": null,
+        "VoiceInstruct": null,
+        "CosyInstruct": null,
+        "SynthesisSeed": null,
+        "ChatterboxTemperature": 0.8,
+        "ChatterboxTopP": 1,
+        "ChatterboxRepetitionPenalty": 1.2,
+        "LongcatSteps": null,
+        "LongcatCfgStrength": null,
+        "LongcatGuidance": null,
+        "DisableChunking": false,
+        "Dsp": {
+          "Enabled": true,
+          "Effects": [
+            {
+              "Kind": 6,
+              "Enabled": true,
+              "Params": {
+                "db": 0.78175896,
+                "hz": 1772.6384
+              }
+            },
+            {
+              "Kind": 8,
+              "Enabled": true,
+              "Params": {
+                "amount": 0.3110749
+              }
+            },
+            {
+              "Kind": 18,
+              "Enabled": true,
+              "Params": {
+                "damping": 0.9,
+                "roomSize": 0.1125,
+                "wet": 0.1
+              }
+            }
+          ],
+          "IsNeutral": false
+        }
+      },
+      "U_Taelia_1": {
+        "VoiceId": "U_Taelia_1",
+        "LangCode": "en-us",
+        "SpeechRate": 1,
+        "CfgWeight": 0.5,
+        "Exaggeration": 0.61,
+        "CfgStrength": null,
+        "NfeStep": null,
+        "CrossFadeDuration": null,
+        "SwaysamplingCoef": null,
+        "VoiceInstruct": null,
+        "CosyInstruct": null,
+        "SynthesisSeed": null,
+        "ChatterboxTemperature": 0.8,
+        "ChatterboxTopP": 1,
+        "ChatterboxRepetitionPenalty": 1.2,
+        "LongcatSteps": null,
+        "LongcatCfgStrength": null,
+        "LongcatGuidance": null,
+        "DisableChunking": false,
+        "Dsp": {
+          "Enabled": true,
+          "Effects": [
+            {
+              "Kind": 8,
+              "Enabled": true,
+              "Params": {
+                "amount": 0.6
+              }
+            },
+            {
+              "Kind": 18,
+              "Enabled": true,
+              "Params": {
+                "damping": 0.9,
+                "roomSize": 0.1125,
                 "wet": 0.1
               }
             }
