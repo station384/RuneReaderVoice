@@ -561,12 +561,18 @@ class WorkerBackend(AbstractTtsBackend):
 
             try:
                 await _send_message(self._writer, msg)
-                # vLLM backends compile CUDA kernels on first inference — allow extra time
-                synth_timeout = (
-                    _VLLM_SYNTHESIS_TIMEOUT
-                    if "vllm" in self._backend_name.lower()
-                    else _SYNTHESIS_TIMEOUT
-                )
+                # Scale timeout to input length — long texts chunk internally and
+                # each chunk takes ~15s. Base is _SYNTHESIS_TIMEOUT (300s), scaled
+                # up by 0.1s per char beyond 1000 chars, capped at 1800s (30min).
+                # vLLM backends get a separate higher floor for CUDA kernel compile.
+                text_len = len(msg.get("text", ""))
+                if "vllm" in self._backend_name.lower():
+                    synth_timeout = _VLLM_SYNTHESIS_TIMEOUT
+                else:
+                    synth_timeout = max(
+                        _SYNTHESIS_TIMEOUT,
+                        min(1800.0, _SYNTHESIS_TIMEOUT + max(0, text_len - 1000) * 0.1)
+                    )
                 header = await asyncio.wait_for(
                     _recv_message(self._reader),
                     timeout=synth_timeout,

@@ -87,7 +87,7 @@ class VoiceSpec(BaseModel):
 
 class SynthesizeRequest(BaseModel):
     provider_id:  str
-    text:         str        = Field(min_length=1, max_length=8000)
+    text:         str        = Field(min_length=1, max_length=180000)
     voice:        VoiceSpec
     lang_code:    str        = "en"
     speech_rate:  float      = Field(default=1.0, ge=0.5, le=2.0)

@@ -319,6 +319,7 @@ class ChatterboxBackend(AbstractTtsBackend):
             )
             self._patch_mel_filters()
             self._patch_t3_hidden_states()
+            self._patch_watermarker()
             import hashlib
             files = sorted(str(p) for p in local_model_dir.rglob("*.safetensors"))
             self._model_version = (
@@ -333,6 +334,12 @@ class ChatterboxBackend(AbstractTtsBackend):
             )
 
     # ── Patches ───────────────────────────────────────────────────────────────
+
+    def _patch_watermarker(self) -> None:
+        """No-op the Perth implicit watermarker (see chatterbox_full_backend for full explanation)."""
+        if self._model is not None and hasattr(self._model, "watermarker"):
+            self._model.watermarker.apply_watermark = lambda wav, sample_rate=None: wav
+            log.info("Chatterbox: Perth watermarker disabled (no-op patch applied)")
 
     def _patch_mel_filters(self) -> None:
         """Force float32 through Chatterbox's pipeline. See chatterbox_full_backend.py for explanation."""

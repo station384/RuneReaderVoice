@@ -320,6 +320,7 @@ class ChatterboxFullBackend(AbstractTtsBackend):
             )
             self._patch_mel_filters()
             self._patch_t3_hidden_states()
+            self._patch_watermarker()
             import hashlib
             files = sorted(str(p) for p in local_model_dir.rglob("*.safetensors"))
             self._model_version = (
@@ -334,6 +335,20 @@ class ChatterboxFullBackend(AbstractTtsBackend):
             )
 
     # ── Patches ───────────────────────────────────────────────────────────────
+
+    def _patch_watermarker(self) -> None:
+        """
+        No-op the Perth implicit watermarker.
+
+        Resemble AI embeds an imperceptible steganographic watermark in every
+        generated waveform via perth.PerthImplicitWatermarker. This is a CPU
+        signal-processing pass that runs on every chunk after S3Gen inference.
+        Since audio never leaves the local network, the watermark serves no
+        purpose and adds unnecessary per-chunk overhead.
+        """
+        if self._model is not None and hasattr(self._model, "watermarker"):
+            self._model.watermarker.apply_watermark = lambda wav, sample_rate=None: wav
+            log.info("Chatterbox: Perth watermarker disabled (no-op patch applied)")
 
     def _patch_mel_filters(self) -> None:
         """Force float32 through Chatterbox's pipeline. See chatterbox_backend.py for full explanation."""
@@ -933,44 +948,12 @@ class ChatterboxFullBackend(AbstractTtsBackend):
 
         all_samples: list[np.ndarray] = []
 
-#         def _run_inference(chunk_text: str, active_t3_cond) -> tuple:
-#             """Run t3.inference() + s3gen.inference() directly, return (wav_np, tokens)."""
-#             text_proc = self._model.tokenizer.text_to_tokens(chunk_text).to(self._model.device)
-#             # Chatterbox T3 always runs in CFG batch mode (bos_embed is unconditionally
-#             # doubled). text_proc must always be [2, seq] regardless of cfg_weight.
-#             # When cfg_weight=0.0, the uncond row is zeroed inside prepare_input_embeds.
-#             text_proc = _torch.cat([text_proc, text_proc], dim=0)
-#             sot = self._model.t3.hp.start_text_token
-#             eot = self._model.t3.hp.stop_text_token
-#             text_proc = _F.pad(text_proc, (1, 0), value=sot)
-#             text_proc = _F.pad(text_proc, (0, 1), value=eot)
-#             with _torch.inference_mode():
-#                 speech_tokens = self._model.t3.inference(
-#                     t3_cond=active_t3_cond,
-#                     text_tokens=text_proc,
-#                     max_new_tokens=1000,
-#                     temperature=temperature,
-#                     cfg_weight=cfg_weight,
-#                     repetition_penalty=repetition_penalty,
-#                     min_p=0.05,
-#                     top_p=top_p,
-#                 )
-#                 clean = _drop_invalid(speech_tokens[0])
-#                 clean = clean[clean < 6561].to(self._model.device)
-#                 wav, _ = self._model.s3gen.inference(
-#                     speech_tokens=clean,
-#                     ref_dict=gen_dict,
-#                 )
-#                 wav_np = wav.squeeze(0).detach().cpu().numpy()
-#                 wav_np = self._model.watermarker.apply_watermark(
-#                     wav_np, sample_rate=self._model.sr)
-#             return wav_np, clean
         def _run_inference(chunk_text: str, active_t3_cond) -> tuple:
-            log.info(
-                "T3 inference start: chars=%d text=%r",
-                len(chunk_text), chunk_text[:120]   # truncate — don't flood log with huge chunks
-            )
+            """Run t3.inference() + s3gen.inference() directly, return (wav_np, tokens)."""
             text_proc = self._model.tokenizer.text_to_tokens(chunk_text).to(self._model.device)
+            # Chatterbox T3 always runs in CFG batch mode (bos_embed is unconditionally
+            # doubled). text_proc must always be [2, seq] regardless of cfg_weight.
+            # When cfg_weight=0.0, the uncond row is zeroed inside prepare_input_embeds.
             text_proc = _torch.cat([text_proc, text_proc], dim=0)
             sot = self._model.t3.hp.start_text_token
             eot = self._model.t3.hp.stop_text_token
@@ -989,29 +972,15 @@ class ChatterboxFullBackend(AbstractTtsBackend):
                 )
                 clean = _drop_invalid(speech_tokens[0])
                 clean = clean[clean < 6561].to(self._model.device)
-        
-                log.info(
-                    "T3 inference done: tokens=%d has_nan=%s has_inf=%s min=%d max=%d",
-                    clean.shape[-1],
-                    bool(_torch.isnan(clean.float()).any()),
-                    bool(_torch.isinf(clean.float()).any()),
-                    int(clean.min()) if clean.numel() > 0 else -1,
-                    int(clean.max()) if clean.numel() > 0 else -1,
-                )
-        
-                if clean.numel() == 0:
-                    log.error("T3 produced zero valid tokens for text=%r — skipping s3gen", chunk_text[:120])
-                    return np.zeros(self._model.sr, dtype=np.float32), clean
-        
                 wav, _ = self._model.s3gen.inference(
                     speech_tokens=clean,
                     ref_dict=gen_dict,
                 )
-                log.info("S3Gen inference done: wav_samples=%d", wav.numel())
                 wav_np = wav.squeeze(0).detach().cpu().numpy()
                 wav_np = self._model.watermarker.apply_watermark(
                     wav_np, sample_rate=self._model.sr)
             return wav_np, clean
+
         try:
             for i, chunk_text in enumerate(chunks):
                 if not chunk_text.strip():

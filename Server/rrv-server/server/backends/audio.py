@@ -61,13 +61,7 @@ def pcm_to_ogg(samples, sample_rate: int) -> bytes:
     if not isinstance(samples, np.ndarray) or samples.dtype != np.float32:
         samples = np.array(samples, dtype=np.float32)
 
-    # Determine channel count from array shape so ffmpeg output can be forced
-    # back to the expected layout after loudnorm processing.
-    if samples.ndim == 1:
-        channels = 1
-    elif samples.ndim == 2:
-        channels = int(samples.shape[1])
-    else:
+    if samples.ndim not in (1, 2):
         raise ValueError(f"Unsupported PCM shape for OGG encode: {samples.shape}")
 
     # Clamp to prevent clipping artefacts in the encoder
@@ -85,20 +79,6 @@ def pcm_to_ogg(samples, sample_rate: int) -> bytes:
             [
                 "ffmpeg", "-y",
                 "-i", tmp_wav_path,
-                # Loudness normalisation — aligns all backends to consistent
-                # perceived volume. Target is -21 LUFS which matches Chatterbox's
-                # natural output level (-20.6 LUFS measured). F5 outputs at
-                # ~-16 LUFS natively so this reduces it by ~4-5dB.
-                # I=-21    target integrated loudness (LUFS)
-                # LRA=11   loudness range — preserves natural dynamics
-                # TP=-1.5  true peak ceiling — prevents clipping after encode
-                "-af", "loudnorm=I=-21:LRA=11:TP=-1.5",
-                # loudnorm may internally upsample to 192 kHz for true-peak
-                # analysis; force the encoded output back to the model/native
-                # PCM format so downstream caches and clients see stable audio
-                # formats.
-                "-ar", str(int(sample_rate)),
-                "-ac", str(int(channels)),
                 "-c:a", "libvorbis",
                 "-q:a", str(OGG_QUALITY),
                 "-f", "ogg",
