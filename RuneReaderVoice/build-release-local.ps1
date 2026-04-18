@@ -88,7 +88,7 @@ function Invoke-Publish([string]$OutputDir, [bool]$IncludeModel) {
         "--output", $OutputDir,
         "-p:PublishSingleFile=false",
         "-p:PublishTrimmed=false",
-        "-p:PublishReadyToRun=true",
+        "-p:PublishReadyToRun=false",
         "-p:DebugType=none",
         "-p:DebugSymbols=false",
         "-p:Version=$Version",

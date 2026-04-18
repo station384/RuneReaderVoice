@@ -199,14 +199,14 @@ public partial class MainWindow : Window
         {
             _ = AppServices.Monitor.StopAsync();
             _capturing              = false;
-            StartStopButton.Content = "Start Capture";
+            StartStopButton.Content = "Start";
             StartStopButton.Background = Avalonia.Media.SolidColorBrush.Parse("#E94560");
         }
         else
         {
             AppServices.Monitor.Start();
             _capturing              = true;
-            StartStopButton.Content = "Stop Capture";
+            StartStopButton.Content = "Stop";
             StartStopButton.Background = Avalonia.Media.SolidColorBrush.Parse("#2ECC71");
         }
     }

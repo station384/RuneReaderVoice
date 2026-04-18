@@ -130,7 +130,9 @@ along with RuneReaderVoice. If not, see <https://www.gnu.org/licenses/>.
                            VerticalAlignment="Center" Width="34"/>
                 <Button Grid.Column="3"
                         x:Name="StartStopButton"
-                        Content="Start Capture"
+                        Content="Start"
+                        VerticalContentAlignment="Center"
+                        HorizontalContentAlignment="Center"
                         Width="130" Height="36"
                         Background="#E94560"
                         Foreground="White"
@@ -214,7 +216,7 @@ along with RuneReaderVoice. If not, see <https://www.gnu.org/licenses/>.
         <!-- ── Settings expander ──────────────────────────────────────── -->
         <Expander x:Name="ExpanderSettings"
                   Header="Settings"
-                  Grid.Row="4"
+                  Grid.Row="5"
                   IsExpanded="False"
                   HorizontalAlignment="Stretch"
                   VerticalAlignment="Stretch" 
