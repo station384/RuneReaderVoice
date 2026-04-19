@@ -146,26 +146,45 @@ function Invoke-Upload([string]$ReleaseDir, [string]$Channel) {
         # Archive any existing versioned files that don't match current version
         $archiveDir = Join-Path $LocalCopyPath "archive"
         New-Item -ItemType Directory -Path $archiveDir -Force | Out-Null
-        Get-ChildItem $LocalCopyPath -File | Where-Object {
-            $_.Name -notlike "*-$Version-*" -and
-            $_.Name -match "\d+\.\d+\.\d+"
-        } | ForEach-Object {
-            attrib -R $_.FullName
-            Move-Item $_.FullName -Destination (Join-Path $archiveDir $_.Name) -Force
-            Write-Host "  Archived: $($_.Name)" -ForegroundColor DarkGray
+#         Get-ChildItem $LocalCopyPath -File | Where-Object {
+#             $_.Name -notlike "*-$Version-*" -and
+#             $_.Name -match "\d+\.\d+\.\d+"
+#         } | ForEach-Object {
+#             attrib -R $_.FullName
+#             Move-Item $_.FullName -Destination (Join-Path $archiveDir $_.Name) -Force
+#             Write-Host "  Archived: $($_.Name)" -ForegroundColor DarkGray
+#         }
+        [System.IO.Directory]::EnumerateFiles($LocalCopyPath) | ForEach-Object {
+            $name = [System.IO.Path]::GetFileName($_)
+            if ($name -notlike "*-$Version-*" -and $name -match "\d+\.\d+\.\d+") {
+                attrib -R $_
+                $dest = Join-Path $archiveDir $name
+                if ([System.IO.File]::Exists($dest)) {
+                    [System.IO.File]::Delete($dest)
+                }
+                [System.IO.File]::Move($_, $dest)
+                Write-Host "  Archived: $name" -ForegroundColor DarkGray
+            }
         }
 
         Write-Host ""
         Write-Host "Copying $Channel release to $LocalCopyPath..." -ForegroundColor Cyan
-        Get-ChildItem $ReleaseDir | ForEach-Object {
-            $dest = Join-Path $LocalCopyPath $_.Name
-#             if (Test-Path $dest) {
-#                 attrib -R $dest
-#                 Remove-Item $dest -Force
-#             }
-            Copy-Item $_.FullName -Destination $LocalCopyPath -Force
-            Write-Host "  Copied: $($_.Name)"
+#         Get-ChildItem $ReleaseDir | ForEach-Object {
+#             $dest = Join-Path $LocalCopyPath $_.Name
+# #             if (Test-Path $dest) {
+# #                 attrib -R $dest
+# #                 Remove-Item $dest -Force
+# #             }
+#             Copy-Item $_.FullName -Destination $LocalCopyPath -Force
+#             Write-Host "  Copied: $($_.Name)"
+#         }
+        [System.IO.Directory]::EnumerateFiles($ReleaseDir) | ForEach-Object {
+            $name = [System.IO.Path]::GetFileName($_)
+            $dest = Join-Path $LocalCopyPath $name
+            [System.IO.File]::Copy($_, $dest, $true)
+            Write-Host "  Copied: $name"
         }
+
         Write-Host "  Done." -ForegroundColor Green
         return
     }
