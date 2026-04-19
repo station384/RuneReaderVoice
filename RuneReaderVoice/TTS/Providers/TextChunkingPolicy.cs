@@ -322,7 +322,7 @@ public static class TextChunkingPolicy
                                   : kokoro     ? 850
                                   : f5         ? 575
                                   : turbo      ? 600
-                                  : chatterbox ? 8000
+                                  : chatterbox ? 800
                                   : cosyvoice  ? 380
                                   : 700,
 
@@ -330,7 +330,7 @@ public static class TextChunkingPolicy
                                   : kokoro     ? 1050
                                   : f5         ? 725
                                   : turbo      ? 720
-                                  : chatterbox ? 8000
+                                  : chatterbox ? 1042
                                   : cosyvoice  ? 480
                                   : 850,
 
@@ -355,7 +355,7 @@ public static class TextChunkingPolicy
             IsLongcatFamily       = longcat,
             IsTurbo               = turbo,
             PivotMergeWordLimit   = longcat ? 0 : (turbo ? 11 : (chatterbox ? 10 : 0)),
-            SplitOnParagraphs     = !chatterbox,
+            //SplitOnParagraphs     = !chatterbox,
             SplitOnSingleLines    = !chatterbox,
         };
 

@@ -188,10 +188,11 @@ internal static class Program
 
         assembler.OnSegmentComplete += seg =>
         {
-            AppServices.LastDecodedText = seg.Text ?? string.Empty;
+            var rawText = HtmlTextStripper.Strip(seg.Text);
+            AppServices.LastDecodedText = rawText;
             AppServices.LastRuntimeSlot = seg.Slot;
             var activeProvider = AppServices.Provider;
-            var shapedText = AppServices.TextSwapProcessor.Process(seg.Text);
+            var shapedText = AppServices.TextSwapProcessor.Process(rawText);
             var shapedSegment = new AssembledSegment
             {
                 Text                = shapedText,

@@ -368,7 +368,14 @@ public sealed class PlaybackCoordinator : IDisposable
         var oggBytes = await remoteProvider.FetchBatchSegmentResultAsync(batch.BatchId, response.ProgressKey, response.CacheKey, ct);
         System.Diagnostics.Debug.WriteLine($"[PC] Remote batch synth complete seg={segment.SegmentIndex} batchId={batch.BatchId} batchSeg={segment.BatchSegmentId} progressKey={response.ProgressKey} cacheKey={response.CacheKey} bytes={oggBytes.Length}");
         var audio = await RemoteTtsProvider.DecodeOggAsync(oggBytes, ct);
-        return DspFilterChain.Apply(audio, _provider.ResolveProfile(segment.Slot)?.Dsp);
+
+        bool applyBespoke = !string.IsNullOrWhiteSpace(segment.BespokeSampleId)
+                            && !segment.Slot.IsNarrator;
+        var playbackProfile = applyBespoke
+            ? remoteProvider.ResolveSampleProfile(segment.BespokeSampleId!, segment.Slot)
+            : _provider.ResolveProfile(segment.Slot);
+
+        return DspFilterChain.Apply(audio, playbackProfile?.Dsp);
     }
 
     // ── Synthesis ─────────────────────────────────────────────────────────────

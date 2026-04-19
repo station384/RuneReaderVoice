@@ -259,6 +259,7 @@ public sealed class RemoteTtsProvider : ITtsProvider
             var request = new RemoteSynthesizeV2BatchRequest();
             foreach (var plan in batchSegments)
             {
+                var cacheKeyText = NormalizeSubmittedTextForCache(plan.Text);
                 var text = plan.Text;
                 var providerId = _descriptor.RemoteProviderId ?? string.Empty;
                 if (providerId.Contains("chatterbox", StringComparison.OrdinalIgnoreCase) ||
@@ -293,7 +294,7 @@ public sealed class RemoteTtsProvider : ITtsProvider
                     CrossFadeDuration = profile.CrossFadeDuration,
                     SwaySamplingCoef = profile.SwaysamplingCoef,
                     VoiceContext = slot.ToString(),
-                    CacheKey = BuildRemoteCacheKey(_descriptor.RemoteProviderId!, text, slot.ToString(), profile,
+                    CacheKey = BuildRemoteCacheKey(_descriptor.RemoteProviderId!, cacheKeyText, slot.ToString(), profile,
                         voiceSpec, speechRate),
                     PrimeFromSegment = plan.PrimeFromSegmentId,
                 });
@@ -375,6 +376,7 @@ public sealed class RemoteTtsProvider : ITtsProvider
 
         profile = ApplyProviderMinimums(profile);
 
+        var cacheKeyText = NormalizeSubmittedTextForCache(text);
         var providerId = _descriptor.RemoteProviderId ?? string.Empty;
         if (providerId.Contains("chatterbox", StringComparison.OrdinalIgnoreCase) ||
             providerId.Contains("cosyvoice", StringComparison.OrdinalIgnoreCase))
@@ -407,7 +409,7 @@ public sealed class RemoteTtsProvider : ITtsProvider
             CrossFadeDuration     = profile.CrossFadeDuration,
             SwaysamplingCoef      = profile.SwaysamplingCoef,
             VoiceContext          = slot.ToString(),   // discriminates narrator vs NPC slots sharing same sample
-            CacheKey              = BuildRemoteCacheKey(_descriptor.RemoteProviderId!, text, slot.ToString(), profile, voiceSpec, speechRate),
+            CacheKey              = BuildRemoteCacheKey(_descriptor.RemoteProviderId!, cacheKeyText, slot.ToString(), profile, voiceSpec, speechRate),
         };
 
         var submitted = await _client.SynthesizeV2Async(v2Request, ct);
@@ -517,11 +519,16 @@ public sealed class RemoteTtsProvider : ITtsProvider
 
     public string NormalizeSubmittedTextForCache(string text)
     {
-        var providerId = _descriptor.RemoteProviderId ?? string.Empty;
-        if (providerId.Contains("chatterbox", StringComparison.OrdinalIgnoreCase) ||
-            providerId.Contains("cosyvoice", StringComparison.OrdinalIgnoreCase))
-            return ChatterboxPreprocess(text);
-        return text;
+        if (string.IsNullOrEmpty(text))
+            return string.Empty;
+
+        // Preserve semantically meaningful internal line/paragraph breaks for
+        // cache identity while still normalizing transport-equivalent line
+        // endings and trimming outer noise.
+        return text
+            .Replace("\r\n", "\n")
+            .Replace('\r', '\n')
+            .Trim();
     }
 
     public string ResolveVoiceId(VoiceSlot slot)
