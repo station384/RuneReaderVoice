@@ -181,7 +181,8 @@ public sealed class TtsSessionAssembler
                 _currentPlayerName  = AppServices.CurrentPlayerName  ?? string.Empty;
                 _currentPlayerRealm = AppServices.CurrentPlayerRealm ?? string.Empty;
                 _currentPlayerClass = AppServices.CurrentPlayerClass ?? string.Empty;
-                _currentPlayerTitle = AppServices.CurrentPlayerTitle ?? string.Empty;
+                _currentPlayerTitle = string.Empty;
+                AppServices.CurrentPlayerTitle = string.Empty;
                 OnSessionReset?.Invoke(_currentDialogId);
                 System.Diagnostics.Debug.WriteLine(
                     $"[Assembler] New dialog 0x{packet.DialogId:X4} seqTotal={packet.SeqTotal}");
@@ -461,6 +462,14 @@ public sealed class TtsSessionAssembler
 
         var key = body[..equals].Trim().ToUpperInvariant();
         var value = body[(equals + 1)..].Trim();
+
+        if (key == "TITLE")
+        {
+            _currentPlayerTitle = value;
+            AppServices.CurrentPlayerTitle = value;
+            return;
+        }
+
         if (string.IsNullOrWhiteSpace(value)) return;
 
         if (key == "PLAYER")
@@ -480,11 +489,6 @@ public sealed class TtsSessionAssembler
         {
             _currentPlayerClass = value;
             AppServices.CurrentPlayerClass = value;
-        }
-        else if (key == "TITLE")
-        {
-            _currentPlayerTitle = value;
-            AppServices.CurrentPlayerTitle = value;
         }
     }
 
