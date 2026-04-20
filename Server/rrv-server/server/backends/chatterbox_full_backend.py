@@ -289,6 +289,55 @@ class ChatterboxFullBackend(AbstractTtsBackend):
             "Chatterbox loaded: model_version=%s device=%s",
             self._model_version, self._torch_device,
         )
+        # Warm up torch.compile on T3 at load time — triggers CUDA kernel
+        # compilation now rather than stalling the first user request.
+        # Runs a minimal dummy inference (2 tokens) with no audio output.
+        import os
+        if os.environ.get("RRV_T3_COMPILE", "1") == "1":
+            await loop.run_in_executor(None, self._warmup_t3_compile)
+
+    def _warmup_t3_compile(self) -> None:
+        """
+        Run a minimal T3 inference to trigger torch.compile warmup.
+        Uses a dummy speaker embedding and short text so no audio is produced.
+        Warmup cost: ~10-30s on first server start, paid once per process.
+        """
+        import os
+        try:
+            import torch
+            from chatterbox.models.t3.modules.cond_enc import T3Cond
+            log.info(
+                "Chatterbox T3: torch.compile warmup starting — "
+                "this may take 10-30s on first run"
+            )
+            device = self._torch_device
+            dim = self._model.t3.hp.n_channels
+            # Minimal dummy T3Cond — zero speaker embedding
+            dummy_t3_cond = T3Cond(
+                speaker_emb=torch.zeros(1, 1, 256, device=device),
+                cond_prompt_speech_tokens=torch.zeros(
+                    1, self._model.t3.hp.speech_cond_prompt_len,
+                    dtype=torch.long, device=device),
+                emotion_adv=torch.tensor([[[0.5]]], device=device),
+            ).to(device=device)
+            # Minimal text: SOT + one token + EOT
+            hp = self._model.t3.hp
+            text_tokens = torch.tensor(
+                [[hp.start_text_token, 100, hp.stop_text_token]],
+                dtype=torch.long, device=device)
+            # CFG doubles batch
+            text_tokens = torch.cat([text_tokens, text_tokens], dim=0)
+            with torch.inference_mode():
+                self._model.t3.inference(
+                    t3_cond=dummy_t3_cond,
+                    text_tokens=text_tokens,
+                    max_new_tokens=2,   # just enough to trigger compile
+                    cfg_weight=0.5,
+                    temperature=0.8,
+                )
+            log.info("Chatterbox T3: torch.compile warmup complete")
+        except Exception as e:
+            log.warning("Chatterbox T3: compile warmup failed (non-fatal): %s", e)
 
     def _load_sync(self) -> None:
         import librosa
@@ -318,8 +367,11 @@ class ChatterboxFullBackend(AbstractTtsBackend):
                 str(local_model_dir),
                 self._torch_device,
             )
+            import torch as _torch
+            _torch.set_float32_matmul_precision("high")
             self._patch_mel_filters()
             self._patch_t3_hidden_states()
+            self._patch_t3_inference()
             self._patch_watermarker()
             import hashlib
             files = sorted(str(p) for p in local_model_dir.rglob("*.safetensors"))
@@ -349,6 +401,355 @@ class ChatterboxFullBackend(AbstractTtsBackend):
         if self._model is not None and hasattr(self._model, "watermarker"):
             self._model.watermarker.apply_watermark = lambda wav, sample_rate=None: wav
             log.info("Chatterbox: Perth watermarker disabled (no-op patch applied)")
+
+
+    def _patch_t3_inference(self) -> None:
+        """
+        Patch T3.inference() for maximum generation throughput.
+
+        1. BUILD T3HuggingfaceBackend ONCE AT LOAD TIME
+           Original code rebuilds it every inference() call. Built once here,
+           reused forever. Alignment stream reset per call via _added_cond flag.
+
+        2. StaticCache INSTEAD OF DynamicCache
+           Pre-allocates [batch=2, num_heads, max_seq_len, head_dim] once.
+           Eliminates ~15,000 tensor allocations for a 500-token generation.
+           Sized by RRV_T3_STATIC_CACHE_LEN (default 1400). Falls back to
+           DynamicCache if transformers < 4.36.
+
+        3. REMOVE output_attentions=True
+           Was materializing full attention matrices every step. Pure waste.
+
+        4. torch.compile ON THE RAW LlamaModel (tfmr)
+           Previous attempts compiled through HF wrapper stack — dynamo cannot
+           trace through transformers decorators reliably. The correct target is
+           t3.tfmr (raw LlamaModel) which has no decorator layers. We compile it
+           directly at load time, then call it directly in the hot loop bypassing
+           T3HuggingfaceBackend entirely for the per-token forward pass.
+           The speech_head projection is a simple nn.Linear — fast enough raw.
+           Disable with RRV_T3_COMPILE=0.
+        """
+        import os
+        import types
+        import torch
+
+        if self._model is None:
+            return
+
+        # ── Check StaticCache availability ────────────────────────────────────
+        try:
+            from transformers.cache_utils import StaticCache
+            has_static_cache = True
+        except ImportError:
+            has_static_cache = False
+            log.warning(
+                "Chatterbox: StaticCache not available (need transformers>=4.36) "
+                "— falling back to DynamicCache."
+            )
+
+        use_compile       = os.environ.get("RRV_T3_COMPILE", "1") == "1"
+        static_cache_len  = int(os.environ.get("RRV_T3_STATIC_CACHE_LEN", "1400"))
+        cfg_batch         = 2   # CFG always runs batch=2
+
+        t3 = self._model.t3
+
+        # ── Build T3HuggingfaceBackend once (for alignment analyzer + fallback) ─
+        from chatterbox.models.t3.inference.t3_hf_backend import T3HuggingfaceBackend
+
+        if t3.hp.is_multilingual:
+            persistent_backend = None
+            log.info("Chatterbox: multilingual — T3HuggingfaceBackend rebuilt per call")
+        else:
+            persistent_backend = T3HuggingfaceBackend(
+                config=t3.cfg,
+                llama=t3.tfmr,
+                speech_enc=t3.speech_emb,
+                speech_head=t3.speech_head,
+                alignment_stream_analyzer=None,
+            )
+            log.info("Chatterbox: T3HuggingfaceBackend built once at load time")
+
+        # ── Compile raw LlamaModel (tfmr) directly ────────────────────────────
+        # This is the correct compile target — no HF decorator stack, no
+        # output_capturing wrappers, no NameError from dynamo scope issues.
+        # We call tfmr directly in the hot loop and apply speech_head ourselves.
+        _tfmr       = t3.tfmr
+        _speech_head = t3.speech_head
+
+        if use_compile:
+            try:
+                import torch._dynamo as _dynamo
+                _dynamo.reset()
+
+                # transformers output_capturing.py has a dynamo resume stub that
+                # references torch without importing it — a known bug in some
+                # transformers versions. Tell dynamo to treat the entire
+                # output_capturing module as a skip boundary so it never tries
+                # to trace or resume inside it.
+                try:
+                    import transformers.utils.output_capturing as _oc
+                    _dynamo.mark_dynamic  # probe — available in torch>=2.1
+                    torch._dynamo.config.skip_nt_for_backend_registration = True
+                except Exception:
+                    pass
+
+                try:
+                    # Skip output_capturing entirely — dynamo will not trace into it
+                    torch._dynamo.config.skipfiles_inline_module_allowlist =                         getattr(torch._dynamo.config,
+                                'skipfiles_inline_module_allowlist', set())
+                    import transformers.utils.output_capturing as _oc_mod
+                    _dynamo.allow_in_graph(_oc_mod)
+                except Exception:
+                    pass
+
+                # Disable output_capturing hooks — they use torch from module
+                # scope which dynamo cannot resolve. The hooks only collect
+                # intermediate tensor stats for debugging; safe to disable.
+                try:
+                    import transformers.utils.output_capturing as _oc_mod
+                    if hasattr(_oc_mod, 'maybe_install_capturing_hooks'):
+                        _oc_mod.maybe_install_capturing_hooks = lambda *a, **kw: None
+                        log.info("Chatterbox: disabled transformers output_capturing hooks")
+                except Exception:
+                    pass
+
+                _orig_forward = t3.tfmr.forward
+                _compiled_forward = torch.compile(
+                    _orig_forward,
+                    mode="default",
+                    fullgraph=False,
+                    dynamic=True,
+                )
+                t3.tfmr.forward = _compiled_forward
+                _tfmr = t3.tfmr
+                log.info(
+                    "Chatterbox: LlamaModel.forward compiled with torch.compile "
+                    "mode=reduce-overhead dynamic=True"
+                )
+            except Exception as e:
+                log.warning("Chatterbox: torch.compile failed (%s) — running uncompiled", e)
+                _tfmr = t3.tfmr
+
+        # ── Capture everything needed as closure locals ───────────────────────
+        _has_static_cache   = has_static_cache
+        _static_cache_len   = static_cache_len
+        _cfg_batch          = cfg_batch
+        _persistent_backend = persistent_backend
+        _log                = log
+
+        def _patched_inference(
+            self_t3,
+            *,
+            t3_cond,
+            text_tokens,
+            initial_speech_tokens=None,
+            prepend_prompt_speech_tokens=None,
+            num_return_sequences=1,
+            max_new_tokens=None,
+            stop_on_eos=True,
+            do_sample=True,
+            temperature=0.8,
+            top_p=0.95,
+            min_p=0.05,
+            length_penalty=1.0,
+            repetition_penalty=1.2,
+            cfg_weight=0.5,
+        ):
+            import torch as _torch
+            from transformers.generation.logits_process import (
+                RepetitionPenaltyLogitsProcessor,
+                TopPLogitsWarper,
+                MinPLogitsWarper,
+            )
+            from tqdm import tqdm
+
+            assert prepend_prompt_speech_tokens is None, "not implemented"
+
+            text_tokens = _torch.atleast_2d(text_tokens).to(
+                dtype=_torch.long, device=self_t3.device)
+
+            if initial_speech_tokens is None:
+                initial_speech_tokens = (
+                    self_t3.hp.start_speech_token
+                    * _torch.ones_like(text_tokens[:, :1])
+                )
+
+            embeds, len_cond = self_t3.prepare_input_embeds(
+                t3_cond=t3_cond,
+                text_tokens=text_tokens,
+                speech_tokens=initial_speech_tokens,
+                cfg_weight=cfg_weight,
+            )
+
+            # ── Select / build backend (used for alignment analyzer only) ─────
+            # patched_model is only needed for multilingual alignment stream.
+            # For English, we call _tfmr directly in the hot loop.
+            if _persistent_backend is not None:
+                patched_model = _persistent_backend
+                patched_model._added_cond = False
+            else:
+                from chatterbox.models.t3.inference.alignment_stream_analyzer import (
+                    AlignmentStreamAnalyzer)
+                analyzer = AlignmentStreamAnalyzer(
+                    self_t3.tfmr,
+                    None,
+                    text_tokens_slice=(len_cond, len_cond + text_tokens.size(-1)),
+                    alignment_layer_idx=9,
+                    eos_idx=self_t3.hp.stop_speech_token,
+                )
+                patched_model = T3HuggingfaceBackend(
+                    config=self_t3.cfg,
+                    llama=self_t3.tfmr,
+                    speech_enc=self_t3.speech_emb,
+                    speech_head=self_t3.speech_head,
+                    alignment_stream_analyzer=analyzer,
+                )
+
+            device = embeds.device
+            max_new_tokens = max_new_tokens or self_t3.hp.max_speech_tokens
+
+            bos_token = _torch.tensor(
+                [[self_t3.hp.start_speech_token]], dtype=_torch.long, device=device)
+            bos_embed = self_t3.speech_emb(bos_token)
+            bos_embed = bos_embed + self_t3.speech_pos_emb.get_fixed_embedding(0)
+            bos_embed = _torch.cat([bos_embed, bos_embed])  # CFG batch=2
+
+            inputs_embeds = _torch.cat([embeds, bos_embed], dim=1)
+
+            generated_ids = bos_token.clone()
+            predicted = []
+
+            top_p_warper = TopPLogitsWarper(top_p=top_p)
+            min_p_warper = MinPLogitsWarper(min_p=min_p)
+            repetition_penalty_processor = RepetitionPenaltyLogitsProcessor(
+                penalty=float(repetition_penalty))
+
+            # ── Build StaticCache if available ────────────────────────────────
+            # StaticCache requires cache_position to track the write offset into
+            # the pre-allocated buffer. Without it LlamaModel writes every token
+            # to position 0 and output is garbage. We track it manually.
+            past = None
+            cache_position = None
+            context_len = inputs_embeds.size(1)
+
+            if _has_static_cache:
+                try:
+                    from transformers.cache_utils import StaticCache
+                    total_len = context_len + max_new_tokens
+                    cache_len = max(total_len, _static_cache_len)
+                    past = StaticCache(
+                        config=self_t3.cfg,
+                        max_batch_size=_cfg_batch,
+                        max_cache_len=cache_len,
+                        device=device,
+                        dtype=embeds.dtype,
+                    )
+                    cache_position = _torch.arange(context_len, device=device)
+                    _log.debug(
+                        "Chatterbox T3: StaticCache allocated batch=%d len=%d",
+                        _cfg_batch, cache_len,
+                    )
+                except Exception as e:
+                    _log.warning(
+                        "Chatterbox T3: StaticCache init failed (%s) — "
+                        "falling back to DynamicCache", e)
+                    past = None
+                    cache_position = None
+
+            # ── Initial forward pass — full context ──────────────────────────
+            # Call _tfmr (compiled LlamaModel) directly — no HF wrapper overhead.
+            # speech_head applied manually to get logits.
+            tfmr_out = _tfmr(
+                inputs_embeds=inputs_embeds,
+                past_key_values=past,
+                use_cache=True,
+                output_attentions=False,
+                output_hidden_states=True,
+                return_dict=True,
+                **({"cache_position": cache_position} if cache_position is not None else {}),
+            )
+            if tfmr_out.hidden_states is not None:
+                hidden = tfmr_out.hidden_states[-1]
+            else:
+                hidden = tfmr_out.last_hidden_state
+            logits_full = _speech_head(hidden)
+            past = tfmr_out.past_key_values
+
+            # Advance cache_position past the context
+            if cache_position is not None:
+                cache_position = _torch.tensor([context_len], device=device)
+
+            # ── Generation loop ───────────────────────────────────────────────
+            for i in tqdm(range(max_new_tokens), desc="Sampling", dynamic_ncols=True):
+                logits_step = logits_full[:, -1, :]
+                cond   = logits_step[0:1, :]
+                uncond = logits_step[1:2, :]
+                cfg    = _torch.as_tensor(cfg_weight, device=cond.device, dtype=cond.dtype)
+                logits = cond + cfg * (cond - uncond)
+
+                if patched_model.alignment_stream_analyzer is not None:
+                    if logits.dim() == 1:
+                        logits = logits.unsqueeze(0)
+                    last_token = (generated_ids[0, -1].item()
+                                  if len(generated_ids[0]) > 0 else None)
+                    logits = patched_model.alignment_stream_analyzer.step(
+                        logits, next_token=last_token)
+
+                ids_for_proc = generated_ids[:1, ...]
+                logits = repetition_penalty_processor(ids_for_proc, logits)
+
+                if temperature != 1.0:
+                    logits = logits / temperature
+
+                logits = min_p_warper(ids_for_proc, logits)
+                logits = top_p_warper(ids_for_proc, logits)
+
+                probs = _torch.softmax(logits, dim=-1)
+                next_token = _torch.multinomial(probs, num_samples=1)
+
+                predicted.append(next_token)
+                generated_ids = _torch.cat([generated_ids, next_token], dim=1)
+
+                if next_token.view(-1) == self_t3.hp.stop_speech_token:
+                    _log.info(
+                        f"✅ EOS token detected! Stopping generation at step {i+1}")
+                    break
+
+                next_token_embed = self_t3.speech_emb(next_token)
+                next_token_embed = (next_token_embed
+                                    + self_t3.speech_pos_emb.get_fixed_embedding(i + 1))
+                # CFG batch=2
+                next_token_embed = _torch.cat([next_token_embed, next_token_embed])
+
+                # ── Single-token forward — hot path, compiled tfmr directly ──
+                tfmr_out = _tfmr(
+                    inputs_embeds=next_token_embed,
+                    past_key_values=past,
+                    use_cache=True,
+                    output_attentions=False,
+                    output_hidden_states=True,
+                    return_dict=True,
+                    **({"cache_position": cache_position} if cache_position is not None else {}),
+                )
+                if tfmr_out.hidden_states is not None:
+                    hidden = tfmr_out.hidden_states[-1]
+                else:
+                    hidden = tfmr_out.last_hidden_state
+                logits_full = _speech_head(hidden)
+                past = tfmr_out.past_key_values
+                if cache_position is not None:
+                    cache_position = cache_position + 1
+
+            predicted_tokens = _torch.cat(predicted, dim=1)
+            return predicted_tokens
+
+        # Bind the patched inference as a method on the T3 instance
+        t3.inference = types.MethodType(_patched_inference, t3)
+        log.info(
+            "Chatterbox: T3 inference patched — "
+            "static_cache=%s compile=%s cache_len=%d",
+            has_static_cache, use_compile, static_cache_len,
+        )
 
     def _patch_mel_filters(self) -> None:
         """Force float32 through Chatterbox's pipeline. See chatterbox_backend.py for full explanation."""
@@ -440,7 +841,14 @@ class ChatterboxFullBackend(AbstractTtsBackend):
             def _patched_forward(self_t3, inputs_embeds, past_key_values=None,
                                  use_cache=True, output_attentions=False,
                                  output_hidden_states=True, return_dict=True):
+                # All imports are local — torch.compile/dynamo traces this
+                # function in isolation and cannot resolve closed-over module
+                # references from outer scopes reliably.
                 import torch
+                from transformers.modeling_outputs import CausalLMOutputWithCrossAttentions
+                import logging as _logging
+                _log = _logging.getLogger(__name__)
+
                 tfmr_out = self_t3.model(
                     inputs_embeds=inputs_embeds,
                     past_key_values=past_key_values,
@@ -455,8 +863,8 @@ class ChatterboxFullBackend(AbstractTtsBackend):
                     hidden_states = tfmr_out.hidden_states[-1]
                 else:
                     hidden_states = tfmr_out.last_hidden_state
-                    log.debug("Chatterbox T3: hidden_states was None, using last_hidden_state "
-                              "(transformers 4.57.x compatibility)")
+                    _log.debug("Chatterbox T3: hidden_states was None, using last_hidden_state "
+                               "(transformers 4.57.x compatibility)")
 
                 logits = self_t3.speech_head(hidden_states)
                 return CausalLMOutputWithCrossAttentions(

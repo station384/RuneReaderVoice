@@ -65,7 +65,9 @@ from .base import AbstractTtsBackend, SynthesisRequest, SynthesisResult, VoiceIn
 log = logging.getLogger(__name__)
 
 # How long to wait for the worker to print its READY line (seconds)
-_WORKER_START_TIMEOUT = 60.0
+# No practical ceiling on startup — compile warmup, large model loads,
+# and cold CUDA initialization can all take significant time.
+_WORKER_START_TIMEOUT = 3600.0
 # How long to wait for a ping response (seconds)
 _PING_TIMEOUT = 10.0
 # How long to wait for synthesis to complete (seconds).

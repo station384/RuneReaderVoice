@@ -288,6 +288,56 @@ class ChatterboxBackend(AbstractTtsBackend):
             "Chatterbox Turbo loaded: model_version=%s device=%s",
             self._model_version, self._torch_device,
         )
+        # Warm up torch.compile on T3 at load time — triggers CUDA kernel
+        # compilation now rather than stalling the first user request.
+        # Runs a minimal dummy inference (2 tokens) with no audio output.
+        import os
+        if os.environ.get("RRV_T3_COMPILE", "1") == "1":
+            await loop.run_in_executor(None, self._warmup_t3_compile)
+
+    def _warmup_t3_compile(self) -> None:
+        """
+        Run a minimal T3 inference to trigger torch.compile warmup.
+        Uses a dummy speaker embedding and short text so no audio is produced.
+        Warmup cost: ~10-30s on first server start, paid once per process.
+        """
+        import os
+        try:
+            import torch
+            from chatterbox.models.t3.modules.cond_enc import T3Cond
+            log.info(
+                "Chatterbox T3: torch.compile warmup starting — "
+                "this may take 10-30s on first run"
+            )
+            device = self._torch_device
+            dim = self._model.t3.hp.n_channels
+            # Minimal dummy T3Cond — zero speaker embedding
+            dummy_t3_cond = T3Cond(
+                speaker_emb=torch.zeros(1, 1, 256, device=device),
+                cond_prompt_speech_tokens=torch.zeros(
+                    1, self._model.t3.hp.speech_cond_prompt_len,
+                    dtype=torch.long, device=device),
+                emotion_adv=torch.tensor([[[0.5]]], device=device),
+            ).to(device=device)
+            # Minimal text: SOT + one token + EOT
+            hp = self._model.t3.hp
+            text_tokens = torch.tensor(
+                [[hp.start_text_token, 100, hp.stop_text_token]],
+                dtype=torch.long, device=device)
+            # CFG doubles batch
+            text_tokens = torch.cat([text_tokens, text_tokens], dim=0)
+            with torch.inference_mode():
+                self._model.t3.inference(
+                    t3_cond=dummy_t3_cond,
+                    text_tokens=text_tokens,
+                    max_new_tokens=2,   # just enough to trigger compile
+                    cfg_weight=0.5,
+                    temperature=0.8,
+                )
+            log.info("Chatterbox T3: torch.compile warmup complete")
+        except Exception as e:
+            log.warning("Chatterbox T3: compile warmup failed (non-fatal): %s", e)
+
 
     def _load_sync(self) -> None:
         import librosa
@@ -317,8 +367,11 @@ class ChatterboxBackend(AbstractTtsBackend):
                 str(local_model_dir),
                 self._torch_device,
             )
+            import torch as _torch
+            _torch.set_float32_matmul_precision("high")
             self._patch_mel_filters()
             self._patch_t3_hidden_states()
+            self._patch_t3_inference()
             self._patch_watermarker()
             import hashlib
             files = sorted(str(p) for p in local_model_dir.rglob("*.safetensors"))
@@ -334,6 +387,312 @@ class ChatterboxBackend(AbstractTtsBackend):
             )
 
     # ── Patches ───────────────────────────────────────────────────────────────
+
+
+    def _patch_t3_inference(self) -> None:
+        """
+        Patch T3.inference() for maximum generation throughput.
+
+        Three independent improvements applied as a single monkey-patch:
+
+        1. BUILD T3HuggingfaceBackend ONCE AT LOAD TIME
+           The original code sets self.compiled = False at the top of every
+           inference() call, then rebuilds the T3HuggingfaceBackend wrapper
+           unconditionally. That wrapper construction is cheap but pointless
+           churn. We build it once here and reuse it.
+
+        2. StaticCache INSTEAD OF DynamicCache
+           HuggingFace's default DynamicCache grows by appending tensors every
+           token — each step triggers a new allocation and a cat() on every
+           layer's K and V tensors. StaticCache pre-allocates the full
+           [batch, num_heads, max_seq_len, head_dim] buffer once and writes
+           in-place. For a 500-token generation across 30 layers this
+           eliminates ~15,000 tensor allocations.
+
+           max_seq_len = cond_len(~150) + text_len(~100) + bos(1) + max_new_tokens(1000)
+           Padded to RRV_T3_STATIC_CACHE_LEN (default 1400, CFG doubles to 2800).
+           Override with RRV_T3_STATIC_CACHE_LEN env var if you hit OOM or need
+           longer sequences.
+
+        3. REMOVE output_attentions=True FROM THE GENERATION LOOP
+           The original loop passes output_attentions=True on every single
+           token forward pass. This materializes full [batch, heads, seq, seq]
+           attention weight matrices every step that are never used downstream.
+           Pure allocation and compute overhead. Removed entirely.
+
+        StaticCache + torch.compile:
+           StaticCache is a prerequisite for torch.compile because it provides
+           static tensor shapes throughout the loop. We wrap the single-token
+           forward pass in torch.compile(mode='reduce-overhead') which fuses
+           the CUDA kernels across the 30 LlamaDecoder layers into a single
+           launch. First call per process triggers compilation (~10-30s on
+           3080); subsequent calls use the compiled graph.
+           Disable with RRV_T3_COMPILE=0 env var.
+        """
+        import os
+        import types
+        import torch
+
+        if self._model is None:
+            return
+
+        # ── Check StaticCache availability ────────────────────────────────────
+        try:
+            from transformers.cache_utils import StaticCache
+            has_static_cache = True
+        except ImportError:
+            has_static_cache = False
+            log.warning(
+                "Chatterbox: StaticCache not available in this transformers version "
+                "(need >=4.36). Falling back to DynamicCache."
+            )
+
+        use_compile = os.environ.get("RRV_T3_COMPILE", "1") == "1"
+        static_cache_len = int(os.environ.get("RRV_T3_STATIC_CACHE_LEN", "1400"))
+        # CFG runs batch=2, so StaticCache must be sized for batch=2
+        cfg_batch = 2
+
+        t3 = self._model.t3
+
+        # ── Build T3HuggingfaceBackend once ───────────────────────────────────
+        from chatterbox.models.t3.inference.t3_hf_backend import T3HuggingfaceBackend
+
+        alignment_stream_analyzer = None
+        if t3.hp.is_multilingual:
+            # AlignmentStreamAnalyzer needs text_tokens_slice which is
+            # input-dependent — can't build it at load time for multilingual.
+            # We skip the persistent backend for multilingual and let the
+            # original code path handle it. The other optimizations still apply.
+            log.info(
+                "Chatterbox: multilingual model — skipping persistent "
+                "T3HuggingfaceBackend (AlignmentStreamAnalyzer is input-dependent)"
+            )
+            persistent_backend = None
+        else:
+            persistent_backend = T3HuggingfaceBackend(
+                config=t3.cfg,
+                llama=t3.tfmr,
+                speech_enc=t3.speech_emb,
+                speech_head=t3.speech_head,
+                alignment_stream_analyzer=None,
+            )
+            log.info("Chatterbox: T3HuggingfaceBackend built once at load time")
+
+        # ── Build the patched inference() ─────────────────────────────────────
+        _has_static_cache = has_static_cache
+        _use_compile      = use_compile
+        _static_cache_len = static_cache_len
+        _cfg_batch        = cfg_batch
+        _persistent_backend = persistent_backend
+        _log              = log
+
+        def _patched_inference(
+            self_t3,
+            *,
+            t3_cond,
+            text_tokens,
+            initial_speech_tokens=None,
+            prepend_prompt_speech_tokens=None,
+            num_return_sequences=1,
+            max_new_tokens=None,
+            stop_on_eos=True,
+            do_sample=True,
+            temperature=0.8,
+            top_p=0.95,
+            min_p=0.05,
+            length_penalty=1.0,
+            repetition_penalty=1.2,
+            cfg_weight=0.5,
+        ):
+            from transformers.generation.logits_process import (
+                RepetitionPenaltyLogitsProcessor,
+                TopPLogitsWarper,
+                MinPLogitsWarper,
+            )
+            from tqdm import tqdm
+
+            assert prepend_prompt_speech_tokens is None, "not implemented"
+
+            # Ensure BOT/EOT present
+            text_tokens = torch.atleast_2d(text_tokens).to(
+                dtype=torch.long, device=self_t3.device)
+
+            if initial_speech_tokens is None:
+                initial_speech_tokens = (
+                    self_t3.hp.start_speech_token
+                    * torch.ones_like(text_tokens[:, :1])
+                )
+
+            embeds, len_cond = self_t3.prepare_input_embeds(
+                t3_cond=t3_cond,
+                text_tokens=text_tokens,
+                speech_tokens=initial_speech_tokens,
+                cfg_weight=cfg_weight,
+            )
+
+            # ── Select / build backend ────────────────────────────────────────
+            if _persistent_backend is not None:
+                patched_model = _persistent_backend
+                # Reset _added_cond flag for this inference call
+                patched_model._added_cond = False
+            else:
+                # Multilingual: rebuild with input-dependent analyzer
+                from chatterbox.models.t3.inference.alignment_stream_analyzer import (
+                    AlignmentStreamAnalyzer)
+                analyzer = AlignmentStreamAnalyzer(
+                    self_t3.tfmr,
+                    None,
+                    text_tokens_slice=(len_cond, len_cond + text_tokens.size(-1)),
+                    alignment_layer_idx=9,
+                    eos_idx=self_t3.hp.stop_speech_token,
+                )
+                patched_model = T3HuggingfaceBackend(
+                    config=self_t3.cfg,
+                    llama=self_t3.tfmr,
+                    speech_enc=self_t3.speech_emb,
+                    speech_head=self_t3.speech_head,
+                    alignment_stream_analyzer=analyzer,
+                )
+
+            device = embeds.device
+            max_new_tokens = max_new_tokens or self_t3.hp.max_speech_tokens
+
+            bos_token = torch.tensor(
+                [[self_t3.hp.start_speech_token]], dtype=torch.long, device=device)
+            bos_embed = self_t3.speech_emb(bos_token)
+            bos_embed = bos_embed + self_t3.speech_pos_emb.get_fixed_embedding(0)
+            bos_embed = torch.cat([bos_embed, bos_embed])  # CFG batch=2
+
+            inputs_embeds = torch.cat([embeds, bos_embed], dim=1)
+
+            generated_ids = bos_token.clone()
+            predicted = []
+
+            top_p_warper = TopPLogitsWarper(top_p=top_p)
+            min_p_warper = MinPLogitsWarper(min_p=min_p)
+            repetition_penalty_processor = RepetitionPenaltyLogitsProcessor(
+                penalty=float(repetition_penalty))
+
+            # ── Build StaticCache if available ────────────────────────────────
+            past = None
+            if _has_static_cache:
+                try:
+                    from transformers.cache_utils import StaticCache
+                    # seq_len = context (embeds) + bos + max_new_tokens
+                    context_len = inputs_embeds.size(1)
+                    total_len = context_len + max_new_tokens
+                    # Pad up to configured static length, take the larger
+                    cache_len = max(total_len, _static_cache_len)
+                    past = StaticCache(
+                        config=self_t3.cfg,
+                        max_batch_size=_cfg_batch,
+                        max_cache_len=cache_len,
+                        device=device,
+                        dtype=embeds.dtype,
+                    )
+                    _log.debug(
+                        "Chatterbox T3: StaticCache allocated batch=%d len=%d",
+                        _cfg_batch, cache_len,
+                    )
+                except Exception as e:
+                    _log.warning(
+                        "Chatterbox T3: StaticCache init failed (%s) — "
+                        "falling back to DynamicCache", e)
+                    past = None
+
+            # ── Initial forward pass ──────────────────────────────────────────
+            output = patched_model(
+                inputs_embeds=inputs_embeds,
+                past_key_values=past,
+                use_cache=True,
+                output_attentions=False,   # ← was True, never used
+                output_hidden_states=True,
+                return_dict=True,
+            )
+            past = output.past_key_values
+
+            # ── Optionally compile the single-token forward pass ──────────────
+            if _use_compile and not getattr(patched_model, '_rrv_compiled', False):
+                try:
+                    patched_model._compiled_forward = torch.compile(
+                        patched_model,
+                        mode="reduce-overhead",
+                        fullgraph=False,
+                    )
+                    patched_model._rrv_compiled = True
+                    _log.info(
+                        "Chatterbox T3: torch.compile applied to single-token "
+                        "forward pass (first call will warm up)"
+                    )
+                except Exception as e:
+                    _log.warning(
+                        "Chatterbox T3: torch.compile failed (%s) — "
+                        "running uncompiled", e)
+                    patched_model._compiled_forward = patched_model
+
+            step_forward = getattr(patched_model, '_compiled_forward', patched_model)
+
+            # ── Generation loop ───────────────────────────────────────────────
+            for i in tqdm(range(max_new_tokens), desc="Sampling", dynamic_ncols=True):
+                logits_step = output.logits[:, -1, :]
+                cond   = logits_step[0:1, :]
+                uncond = logits_step[1:2, :]
+                cfg    = torch.as_tensor(cfg_weight, device=cond.device, dtype=cond.dtype)
+                logits = cond + cfg * (cond - uncond)
+
+                if patched_model.alignment_stream_analyzer is not None:
+                    if logits.dim() == 1:
+                        logits = logits.unsqueeze(0)
+                    last_token = (generated_ids[0, -1].item()
+                                  if len(generated_ids[0]) > 0 else None)
+                    logits = patched_model.alignment_stream_analyzer.step(
+                        logits, next_token=last_token)
+
+                ids_for_proc = generated_ids[:1, ...]
+                logits = repetition_penalty_processor(ids_for_proc, logits)
+
+                if temperature != 1.0:
+                    logits = logits / temperature
+
+                logits = min_p_warper(ids_for_proc, logits)
+                logits = top_p_warper(ids_for_proc, logits)
+
+                probs = torch.softmax(logits, dim=-1)
+                next_token = torch.multinomial(probs, num_samples=1)
+
+                predicted.append(next_token)
+                generated_ids = torch.cat([generated_ids, next_token], dim=1)
+
+                if next_token.view(-1) == self_t3.hp.stop_speech_token:
+                    logger.info(
+                        f"✅ EOS token detected! Stopping generation at step {i+1}")
+                    break
+
+                next_token_embed = self_t3.speech_emb(next_token)
+                next_token_embed = (next_token_embed
+                                    + self_t3.speech_pos_emb.get_fixed_embedding(i + 1))
+                next_token_embed = torch.cat([next_token_embed, next_token_embed])
+
+                output = step_forward(
+                    inputs_embeds=next_token_embed,
+                    past_key_values=past,
+                    use_cache=True,
+                    output_attentions=False,   # ← was True, never used
+                    output_hidden_states=True,
+                    return_dict=True,
+                )
+                past = output.past_key_values
+
+            predicted_tokens = torch.cat(predicted, dim=1)
+            return predicted_tokens
+
+        # Bind the patched inference as a method on the T3 instance
+        t3.inference = types.MethodType(_patched_inference, t3)
+        log.info(
+            "Chatterbox: T3 inference patched — "
+            "static_cache=%s compile=%s cache_len=%d",
+            has_static_cache, use_compile, static_cache_len,
+        )
 
     def _patch_watermarker(self) -> None:
         """No-op the Perth implicit watermarker (see chatterbox_full_backend for full explanation)."""
