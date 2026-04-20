@@ -22,13 +22,15 @@ param(
     [switch]$SkipSign,
     [string]$Version          = "1.5.1.1",
     [string]$UpdateFeedUrl    = "https://www.mkfam.com/filedump/",
-    [string]$LocalCopyPath    = "X:\dataStore\webhost\filedump",
+    [string]$LocalCopyPath    = "X:\webhost\filedump",
     [string]$ScpTarget        = "",   # e.g. "user@mkfam.com:/var/www/filedump/"
     [string]$AppId            = "RuneReaderVoice",
     [string]$AppFriendlyName  = "RuneReader Voice (Test)",
     [string]$CertSubject      = "Michael Sutton",
     [string]$PfxPath          = "",
-    [string]$PfxPassword      = ""
+    [string]$PfxPassword      = "",
+    [string]$ScpUser = "",
+    [string]$ScpPassword = ""
 )
 
 Set-StrictMode -Version Latest
@@ -154,41 +156,47 @@ function Invoke-Upload([string]$ReleaseDir, [string]$Channel) {
 #             Move-Item $_.FullName -Destination (Join-Path $archiveDir $_.Name) -Force
 #             Write-Host "  Archived: $($_.Name)" -ForegroundColor DarkGray
 #         }
-        [System.IO.Directory]::EnumerateFiles($LocalCopyPath) | ForEach-Object {
-            $name = [System.IO.Path]::GetFileName($_)
-            if ($name -notlike "*-$Version-*" -and $name -match "\d+\.\d+\.\d+") {
-                attrib -R $_
-                $dest = Join-Path $archiveDir $name
-                if ([System.IO.File]::Exists($dest)) {
-                    [System.IO.File]::Delete($dest)
-                }
-                [System.IO.File]::Move($_, $dest)
-                Write-Host "  Archived: $name" -ForegroundColor DarkGray
-            }
-        }
 
-        Write-Host ""
-        Write-Host "Copying $Channel release to $LocalCopyPath..." -ForegroundColor Cyan
-#         Get-ChildItem $ReleaseDir | ForEach-Object {
-#             $dest = Join-Path $LocalCopyPath $_.Name
-# #             if (Test-Path $dest) {
-# #                 attrib -R $dest
-# #                 Remove-Item $dest -Force
-# #             }
-#             Copy-Item $_.FullName -Destination $LocalCopyPath -Force
-#             Write-Host "  Copied: $($_.Name)"
-#         }
-        [System.IO.Directory]::EnumerateFiles($ReleaseDir) | ForEach-Object {
-            $name = [System.IO.Path]::GetFileName($_)
-            $dest = Join-Path $LocalCopyPath $name
-            [System.IO.File]::Copy($_, $dest, $true)
-            Write-Host "  Copied: $name"
+Get-ChildItem $ReleaseDir -File | ForEach-Object {
+    $dest = Join-Path $LocalCopyPath $_.Name
+
+    if (Test-Path $dest) {
+        $item = Get-Item $dest -Force
+        if ($item.IsReadOnly) {
+            $item.IsReadOnly = $false
         }
+        Remove-Item $dest -Force
+    }
+
+    Copy-Item $_.FullName -Destination $LocalCopyPath -Force
+    Write-Host "  Copied: $($_.Name)"
+}
 
         Write-Host "  Done." -ForegroundColor Green
         return
     }
-    # ... SCP fallback unchanged
+    
+    # SCP fallback
+  # SFTP fallback via WinSCP .NET
+      # SCP fallback
+      if ($ScpTarget) {
+          if (-not $ScpUser -or -not $ScpPassword) {
+              Write-Warning "ScpUser and ScpPassword required for SFTP upload"
+              return
+          }
+          Write-Host ""
+          Write-Host "Uploading $Channel release via SFTP to $ScpTarget..." -ForegroundColor Cyan
+          $scpHost = $ScpTarget.Split(':')[0]
+          $scpPath = $ScpTarget.Split(':')[1]
+          Get-ChildItem $ReleaseDir | Select-Object -ExpandProperty FullName | ForEach-Object {
+              $fname = [System.IO.Path]::GetFileName($_)
+              $cmd = "put `"$_`" `"$scpPath/$fname`""
+              echo $cmd | & psftp $scpHost -P 21 -pw $ScpPassword -l "$ScpUser"
+              #@
+              if ($LASTEXITCODE -ne 0) { Write-Warning "SFTP failed for: $_" }
+          }
+          return
+      }
 }
 
 # ── Main ──────────────────────────────────────────────────────────────────────
