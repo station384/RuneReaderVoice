@@ -1402,7 +1402,27 @@
       "UseNpcIdAsSeed": false
     },
     {
+      "NpcId": 247800,
+      "CatalogId": "bloodelf",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": null,
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false
+    },
+    {
       "NpcId": 248059,
+      "CatalogId": "bloodelf",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": null,
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false
+    },
+    {
+      "NpcId": 248194,
       "CatalogId": "bloodelf",
       "RaceId": 0,
       "Notes": "",
@@ -1452,7 +1472,37 @@
       "UseNpcIdAsSeed": false
     },
     {
+      "NpcId": 249436,
+      "CatalogId": "bloodelf",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": null,
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false
+    },
+    {
+      "NpcId": 249437,
+      "CatalogId": "bloodelf",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": null,
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false
+    },
+    {
       "NpcId": 249499,
+      "CatalogId": "bloodelf",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": null,
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false
+    },
+    {
+      "NpcId": 249870,
       "CatalogId": "bloodelf",
       "RaceId": 0,
       "Notes": "",
@@ -1473,6 +1523,36 @@
     },
     {
       "NpcId": 250190,
+      "CatalogId": "bloodelf",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": null,
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false
+    },
+    {
+      "NpcId": 250387,
+      "CatalogId": "bloodelf",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": null,
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false
+    },
+    {
+      "NpcId": 250388,
+      "CatalogId": "bloodelf",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": null,
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false
+    },
+    {
+      "NpcId": 250389,
       "CatalogId": "bloodelf",
       "RaceId": 0,
       "Notes": "",
@@ -1553,6 +1633,16 @@
     },
     {
       "NpcId": 251405,
+      "CatalogId": "bloodelf",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": null,
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false
+    },
+    {
+      "NpcId": 251408,
       "CatalogId": "bloodelf",
       "RaceId": 0,
       "Notes": "",
@@ -1727,6 +1817,26 @@
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false
+    },
+    {
+      "NpcId": 16128680,
+      "CatalogId": "bloodelf",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": "U_Vereesa_Windrunner_1",
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false
+    },
+    {
+      "NpcId": 16192384,
+      "CatalogId": "bloodelf",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": "U_Sylvanas_Windrunner_1",
       "BespokeExaggeration": null,
       "BespokeCfgWeight": null,
       "UseNpcIdAsSeed": false

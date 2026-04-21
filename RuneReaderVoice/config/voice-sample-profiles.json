@@ -2233,40 +2233,6 @@
           "IsNeutral": false
         }
       },
-      "U_Vereesa_Windrunner_1": {
-        "VoiceId": "U_Vereesa_Windrunner_1",
-        "LangCode": "en-us",
-        "SpeechRate": 1,
-        "CfgWeight": 0.61,
-        "Exaggeration": 0.58,
-        "CfgStrength": null,
-        "NfeStep": null,
-        "CrossFadeDuration": null,
-        "SwaysamplingCoef": null,
-        "VoiceInstruct": null,
-        "CosyInstruct": null,
-        "SynthesisSeed": 5,
-        "ChatterboxTemperature": 0.6,
-        "ChatterboxTopP": 1,
-        "ChatterboxRepetitionPenalty": 1.2,
-        "LongcatSteps": null,
-        "LongcatCfgStrength": null,
-        "LongcatGuidance": null,
-        "DisableChunking": false,
-        "Dsp": {
-          "Enabled": true,
-          "Effects": [
-            {
-              "Kind": 8,
-              "Enabled": true,
-              "Params": {
-                "amount": 0.6
-              }
-            }
-          ],
-          "IsNeutral": false
-        }
-      },
       "U_ZulJan_1_Normal": {
         "VoiceId": "U_ZulJan_1_Normal",
         "LangCode": "en-us",
@@ -2835,6 +2801,126 @@
         "Dsp": {
           "Enabled": true,
           "Effects": [
+            {
+              "Kind": 8,
+              "Enabled": true,
+              "Params": {
+                "amount": 0.6
+              }
+            }
+          ],
+          "IsNeutral": false
+        }
+      },
+      "U_Vereesa_Windrunner_2": {
+        "VoiceId": "U_Vereesa_Windrunner_2",
+        "LangCode": "en-us",
+        "SpeechRate": 1,
+        "CfgWeight": 0.65,
+        "Exaggeration": 0.67,
+        "CfgStrength": null,
+        "NfeStep": null,
+        "CrossFadeDuration": null,
+        "SwaysamplingCoef": null,
+        "VoiceInstruct": null,
+        "CosyInstruct": null,
+        "SynthesisSeed": 10,
+        "ChatterboxTemperature": 0.8,
+        "ChatterboxTopP": 1,
+        "ChatterboxRepetitionPenalty": 1.2,
+        "LongcatSteps": null,
+        "LongcatCfgStrength": null,
+        "LongcatGuidance": null,
+        "DisableChunking": false,
+        "Dsp": {
+          "Enabled": true,
+          "Effects": [
+            {
+              "Kind": 8,
+              "Enabled": true,
+              "Params": {
+                "amount": 0.6
+              }
+            },
+            {
+              "Kind": 18,
+              "Enabled": true,
+              "Params": {
+                "roomSize": 0.1125,
+                "damping": 0.9,
+                "wet": 0.1
+              }
+            }
+          ],
+          "IsNeutral": false
+        }
+      },
+      "U_Vereesa_Windrunner_1": {
+        "VoiceId": "U_Vereesa_Windrunner_1",
+        "LangCode": "en-us",
+        "SpeechRate": 1,
+        "CfgWeight": 0.61,
+        "Exaggeration": 0.58,
+        "CfgStrength": null,
+        "NfeStep": null,
+        "CrossFadeDuration": null,
+        "SwaysamplingCoef": null,
+        "VoiceInstruct": null,
+        "CosyInstruct": null,
+        "SynthesisSeed": 5,
+        "ChatterboxTemperature": 0.6,
+        "ChatterboxTopP": 1,
+        "ChatterboxRepetitionPenalty": 1.2,
+        "LongcatSteps": null,
+        "LongcatCfgStrength": null,
+        "LongcatGuidance": null,
+        "DisableChunking": false,
+        "Dsp": {
+          "Enabled": true,
+          "Effects": [
+            {
+              "Kind": 8,
+              "Enabled": true,
+              "Params": {
+                "amount": 0.6
+              }
+            }
+          ],
+          "IsNeutral": false
+        }
+      },
+      "U_Sylvanas_Windrunner_1": {
+        "VoiceId": "U_Sylvanas_Windrunner_1",
+        "LangCode": "en-us",
+        "SpeechRate": 1,
+        "CfgWeight": 0.93,
+        "Exaggeration": 0.62,
+        "CfgStrength": null,
+        "NfeStep": null,
+        "CrossFadeDuration": null,
+        "SwaysamplingCoef": null,
+        "VoiceInstruct": null,
+        "CosyInstruct": null,
+        "SynthesisSeed": 143,
+        "ChatterboxTemperature": 0.57,
+        "ChatterboxTopP": 1,
+        "ChatterboxRepetitionPenalty": 1.5,
+        "LongcatSteps": null,
+        "LongcatCfgStrength": null,
+        "LongcatGuidance": null,
+        "DisableChunking": false,
+        "Dsp": {
+          "Enabled": true,
+          "Effects": [
+            {
+              "Kind": 12,
+              "Enabled": true,
+              "Params": {
+                "wet": 0.24429968,
+                "rate": 1.5,
+                "width": 0.018224755
+              }
+            },
             {
               "Kind": 8,
               "Enabled": true,
