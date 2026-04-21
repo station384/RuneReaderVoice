@@ -952,6 +952,16 @@
       "UseNpcIdAsSeed": false
     },
     {
+      "NpcId": 239673,
+      "CatalogId": "bloodelf",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": null,
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false
+    },
+    {
       "NpcId": 239676,
       "CatalogId": "dracthyr",
       "RaceId": 0,
@@ -1003,6 +1013,16 @@
     },
     {
       "NpcId": 240837,
+      "CatalogId": "bloodelf",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": null,
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false
+    },
+    {
+      "NpcId": 240936,
       "CatalogId": "bloodelf",
       "RaceId": 0,
       "Notes": "",
@@ -1352,6 +1372,16 @@
       "UseNpcIdAsSeed": false
     },
     {
+      "NpcId": 247503,
+      "CatalogId": "bloodelf",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": null,
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false
+    },
+    {
       "NpcId": 247645,
       "CatalogId": "bloodelf",
       "RaceId": 0,
@@ -1364,6 +1394,26 @@
     {
       "NpcId": 247647,
       "CatalogId": "draenei",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": null,
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false
+    },
+    {
+      "NpcId": 248059,
+      "CatalogId": "bloodelf",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": null,
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false
+    },
+    {
+      "NpcId": 248629,
+      "CatalogId": "kultiran",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -1493,6 +1543,16 @@
     },
     {
       "NpcId": 251304,
+      "CatalogId": "bloodelf",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": null,
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false
+    },
+    {
+      "NpcId": 251405,
       "CatalogId": "bloodelf",
       "RaceId": 0,
       "Notes": "",
@@ -1632,6 +1692,16 @@
       "UseNpcIdAsSeed": true
     },
     {
+      "NpcId": 259345,
+      "CatalogId": "Niffin",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": null,
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false
+    },
+    {
       "NpcId": 259652,
       "CatalogId": "goblin",
       "RaceId": 0,
@@ -1650,6 +1720,16 @@
       "BespokeExaggeration": null,
       "BespokeCfgWeight": null,
       "UseNpcIdAsSeed": true
+    },
+    {
+      "NpcId": 261304,
+      "CatalogId": "human",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": null,
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false
     }
   ]
 }

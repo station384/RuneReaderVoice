@@ -95,10 +95,20 @@
       "FindText": "SI:7",
       "ReplaceText": "SI 7",
       "ReplaceWithCrLf": false,
-      "WholeWord": false,
+      "WholeWord": true,
       "CaseSensitive": false,
       "Enabled": true,
-      "Priority": 80,
+      "Priority": 50,
+      "Notes": ""
+    },
+    {
+      "FindText": "fel",
+      "ReplaceText": "fell",
+      "ReplaceWithCrLf": false,
+      "WholeWord": true,
+      "CaseSensitive": false,
+      "Enabled": true,
+      "Priority": 83,
       "Notes": ""
     }
   ]
