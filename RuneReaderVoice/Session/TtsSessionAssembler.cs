@@ -299,10 +299,14 @@ public sealed class TtsSessionAssembler
 
         if (toFire != null)
         {
-            var audibleCount = toFire.Count;
-            for (var audibleIndex = 0; audibleIndex < toFire.Count; audibleIndex++)
+            var expandedSegments = new List<AssembledSegment>();
+            foreach (var seg in toFire)
+                expandedSegments.AddRange(ExpandNarratorForcedSegments(seg));
+
+            var audibleCount = expandedSegments.Count;
+            for (var audibleIndex = 0; audibleIndex < expandedSegments.Count; audibleIndex++)
             {
-                var seg = toFire[audibleIndex];
+                var seg = expandedSegments[audibleIndex];
                 var emitted = new AssembledSegment
                 {
                     Text = seg.Text,
@@ -354,6 +358,7 @@ public sealed class TtsSessionAssembler
 
         var text = DecodeAndClean(acc.Subs!);
         text = ExtractAndApplyDialogMetadata(text);
+        text = InjectSyntheticParagraphPeriods(text);
 
         var utteranceKey = MakeUtteranceKey(_currentDialogId, acc.Slot, acc.NpcId, text, acc.SeqIndex);
         if (_completedUtteranceKeys.Contains(utteranceKey)) return;
@@ -367,7 +372,7 @@ public sealed class TtsSessionAssembler
         float? bespokeCfgWeight = null;
         var useNpcIdAsSeed = false;
 
-        if (!acc.IsNarrator && acc.NpcId != 0)
+        if (!acc.IsNarrator || IsSyntheticBookNpcId(acc.NpcId))
         {
             var entry = _overrideDb.GetOverrideAsync(acc.NpcId).GetAwaiter().GetResult();
             if (entry != null)
@@ -406,6 +411,206 @@ public sealed class TtsSessionAssembler
             BespokeCfgWeight    = bespokeCfgWeight,
             UseNpcIdAsSeed      = useNpcIdAsSeed,
         };
+    }
+
+    private static IReadOnlyList<AssembledSegment> ExpandNarratorForcedSegments(AssembledSegment segment)
+    {
+        if (segment.NpcId == 0 || string.IsNullOrWhiteSpace(segment.Text))
+            return new[] { segment };
+
+        var runs = SplitNarratorForcedRuns(segment.Text);
+        if (runs.Count <= 1)
+            return new[] { segment };
+
+        var narratorSlot = segment.Slot.Gender == Gender.Female
+            ? VoiceSlot.FemaleNarrator
+            : VoiceSlot.MaleNarrator;
+
+        var expanded = new List<AssembledSegment>(runs.Count);
+        foreach (var run in runs)
+        {
+            var trimmed = run.Text.Trim();
+            if (trimmed.Length == 0)
+                continue;
+
+            if (run.IsNarrator)
+            {
+                expanded.Add(new AssembledSegment
+                {
+                    Text = trimmed,
+                    Slot = narratorSlot,
+                    DialogId = segment.DialogId,
+                    SegmentIndex = segment.SegmentIndex,
+                    DialogSegmentCount = segment.DialogSegmentCount,
+                    NpcId = 0,
+                    PlayerName = segment.PlayerName,
+                    PlayerRealm = segment.PlayerRealm,
+                    PlayerClass = segment.PlayerClass,
+                    PlayerTitle = segment.PlayerTitle,
+                    BatchId = null,
+                    BatchSegmentId = null,
+                    PrimeFromBatchSegmentId = null,
+                    BatchSegments = null,
+                    BespokeSampleId = null,
+                    BespokeExaggeration = null,
+                    BespokeCfgWeight = null,
+                    UseNpcIdAsSeed = false,
+                });
+            }
+            else
+            {
+                expanded.Add(new AssembledSegment
+                {
+                    Text = trimmed,
+                    Slot = segment.Slot,
+                    DialogId = segment.DialogId,
+                    SegmentIndex = segment.SegmentIndex,
+                    DialogSegmentCount = segment.DialogSegmentCount,
+                    NpcId = segment.NpcId,
+                    PlayerName = segment.PlayerName,
+                    PlayerRealm = segment.PlayerRealm,
+                    PlayerClass = segment.PlayerClass,
+                    PlayerTitle = segment.PlayerTitle,
+                    BatchId = segment.BatchId,
+                    BatchSegmentId = segment.BatchSegmentId,
+                    PrimeFromBatchSegmentId = segment.PrimeFromBatchSegmentId,
+                    BatchSegments = segment.BatchSegments,
+                    BespokeSampleId = segment.BespokeSampleId,
+                    BespokeExaggeration = segment.BespokeExaggeration,
+                    BespokeCfgWeight = segment.BespokeCfgWeight,
+                    UseNpcIdAsSeed = segment.UseNpcIdAsSeed,
+                });
+            }
+        }
+
+        return expanded.Count == 0 ? new[] { segment } : expanded;
+    }
+
+    private static List<(string Text, bool IsNarrator)> SplitNarratorForcedRuns(string text)
+    {
+        var runs = new List<(string Text, bool IsNarrator)>();
+        if (string.IsNullOrWhiteSpace(text))
+            return runs;
+
+        var sb = new StringBuilder();
+        for (int i = 0; i < text.Length; i++)
+        {
+            var ch = text[i];
+            bool isAngle = ch == '<';
+            bool isBracket = ch == '[';
+            if (!isAngle && !isBracket)
+            {
+                sb.Append(ch);
+                continue;
+            }
+
+            var close = isAngle ? '>' : ']';
+            var end = text.IndexOf(close, i + 1);
+            if (end <= i + 1)
+            {
+                sb.Append(ch);
+                continue;
+            }
+
+            if (sb.Length > 0)
+            {
+                runs.Add((sb.ToString(), false));
+                sb.Clear();
+            }
+
+            var inner = text.Substring(i + 1, end - i - 1);
+            if (!string.IsNullOrWhiteSpace(inner))
+                runs.Add((inner, true));
+
+            i = end;
+        }
+
+        if (sb.Length > 0)
+            runs.Add((sb.ToString(), false));
+
+        return runs;
+    }
+
+    private static string InjectSyntheticParagraphPeriods(string text)
+    {
+        if (string.IsNullOrWhiteSpace(text))
+            return text;
+
+        var normalized = text.Replace("\r\n", "\n").Replace('\r', '\n');
+        var rawParts = Regex.Split(normalized, "(\\n\\s*\\n)+");
+        var paragraphs = new List<string>();
+
+        for (int i = 0; i < rawParts.Length; i += 2)
+        {
+            var part = rawParts[i];
+            if (string.IsNullOrWhiteSpace(part))
+                continue;
+
+            var trimmedEnd = part.TrimEnd();
+            if (trimmedEnd.Length == 0)
+                continue;
+
+            if (!Regex.IsMatch(trimmedEnd, @"^\s*[-*•]"))
+            {
+                var last = trimmedEnd[^1];
+                if (".!?…:;)]}\"'".IndexOf(last) < 0)
+                    trimmedEnd += ".";
+            }
+
+            var wordCount = CountWords(trimmedEnd);
+            var isBullet = Regex.IsMatch(trimmedEnd, @"^\s*[-*•]");
+
+            if (!isBullet && wordCount > 0 && wordCount <= 3 && paragraphs.Count > 0)
+            {
+                paragraphs[^1] = MergeShortParagraph(paragraphs[^1], trimmedEnd);
+
+                while (paragraphs.Count > 1 && CountWords(paragraphs[^1]) < 6)
+                {
+                    var carry = paragraphs[^1];
+                    paragraphs.RemoveAt(paragraphs.Count - 1);
+                    paragraphs[^1] = MergeShortParagraph(paragraphs[^1], carry);
+                }
+            }
+            else
+            {
+                paragraphs.Add(trimmedEnd);
+            }
+        }
+
+        return string.Join("\n\n", paragraphs);
+    }
+
+    private static bool IsSyntheticBookNpcId(int npcId)
+        => npcId >= 0xF00000 && npcId <= 0xFFFFFF;
+
+    private static int CountWords(string text)
+        => string.IsNullOrWhiteSpace(text)
+            ? 0
+            : Regex.Matches(text, @"\b[\p{L}\p{N}']+\b").Count;
+
+    private static string MergeShortParagraph(string left, string right)
+    {
+        var mergedLeft = (left ?? string.Empty).TrimEnd();
+        var mergedRight = (right ?? string.Empty).Trim();
+
+        if (mergedLeft.Length == 0)
+            return mergedRight;
+        if (mergedRight.Length == 0)
+            return mergedLeft;
+
+        if (mergedLeft.EndsWith(".,", StringComparison.Ordinal))
+            return mergedLeft + " " + mergedRight;
+
+        if (mergedLeft.EndsWith(".", StringComparison.Ordinal))
+            mergedLeft = mergedLeft[..^1] + ".,";
+        else if (mergedLeft.EndsWith("!", StringComparison.Ordinal) ||
+                 mergedLeft.EndsWith("?", StringComparison.Ordinal) ||
+                 mergedLeft.EndsWith("…", StringComparison.Ordinal))
+            mergedLeft += ",";
+        else if (!mergedLeft.EndsWith(",", StringComparison.Ordinal))
+            mergedLeft += ".,";
+
+        return mergedLeft + " " + mergedRight;
     }
 
     private static string MakeUtteranceKey(int dialogId, VoiceSlot slot, int npcId,
