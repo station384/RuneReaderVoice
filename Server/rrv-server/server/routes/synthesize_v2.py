@@ -91,6 +91,7 @@ class JobState:
     batch_index:  int          = -1
     batch_total:  int          = 0
     result:       Optional[bytes] = None        # OGG bytes when complete
+    batch_refs:   dict[str, int] = field(default_factory=dict)
     created_at:   float        = field(default_factory=time.monotonic)
     completed_at: float        = 0.0
     _waiters:     list         = field(default_factory=list)  # SSE subscriber queues
@@ -167,6 +168,71 @@ async def _cleanup_expired() -> None:
         for k in expired_b:
             del _batches[k]
             log.debug("synthesize_v2: expired batch %s", k)
+
+
+_ACTIVE_JOB_STATUSES = {"queued", "preprocessing", "generating"}
+
+
+def _find_active_job_by_cache_key_locked(cache_key: str) -> JobState | None:
+    for job in _jobs.values():
+        if job.cache_key == cache_key and job.status in _ACTIVE_JOB_STATUSES and job.completed_at == 0.0:
+            return job
+    return None
+
+
+def _attach_job_to_batch_locked(job: JobState, batch_id: str | None, batch_total: int | None) -> None:
+    if not batch_id or not batch_total:
+        return
+
+    if batch_id not in _batches:
+        _batches[batch_id] = BatchState(batch_id=batch_id, total=batch_total)
+    else:
+        batch = _batches[batch_id]
+        if batch_total > batch.total:
+            batch.total = batch_total
+
+    _batches[batch_id].job_keys.append(job.progress_key)
+    job.batch_refs[batch_id] = job.batch_refs.get(batch_id, 0) + 1
+
+
+def _complete_batch_ref_locked(batch_id: str, success: bool, count: int = 1) -> None:
+    if not batch_id or count <= 0:
+        return
+
+    batch = _batches.get(batch_id)
+    if batch is None:
+        return
+
+    if success:
+        batch.completed += count
+    else:
+        batch.failed += count
+
+    event = {
+        "status":    "complete" if batch.is_done() else "progress",
+        "completed": batch.completed,
+        "failed":    batch.failed,
+        "total":     batch.total,
+    }
+    batch.push_event(event)
+
+    if batch.is_done():
+        batch.completed_at = time.monotonic()
+        for q in batch._waiters:
+            try:
+                q.put_nowait(None)
+            except asyncio.QueueFull:
+                pass
+        log.info(
+            "synthesize_v2: batch %s complete — %d/%d succeeded, %d failed",
+            batch_id, batch.completed, batch.total, batch.failed
+        )
+
+
+def _update_batches_for_job(job: JobState, success: bool) -> None:
+    refs = job.batch_refs or ({job.batch_id: 1} if job.batch_id else {})
+    for batch_id, count in refs.items():
+        _complete_batch_ref_locked(batch_id, success=success, count=count)
 
 
 # ── POST /api/v1/synthesize/v2 ────────────────────────────────────────────────
@@ -283,48 +349,51 @@ async def synthesize_v2(body: SynthesizeRequest, request: Request) -> dict:
             lux_return_smooth=body.lux_return_smooth,
         )
 
-    # 4. Check cache — if hit, job completes immediately
-    progress_key = str(uuid.uuid4()).replace("-", "")
-    job = JobState(progress_key=progress_key, cache_key=cache_key, provider_id=body.provider_id, batch_id=body.batch_id or "")
-
-    # Stamp input metrics onto the job now — available at result-fetch time
-    # regardless of cache hit/miss and without the caller needing to re-send them.
-    job.input_chars = len(normalized_text)
-    job.input_words = len(normalized_text.split())
-
-    async with _jobs_lock:
-        _jobs[progress_key] = job
-
-    # Register with batch if batch_id provided
-    if body.batch_id and body.batch_total:
-        async with _jobs_lock:
-            if body.batch_id not in _batches:
-                _batches[body.batch_id] = BatchState(
-                    batch_id=body.batch_id,
-                    total=body.batch_total,
-                )
-            else:
-                # Update total if client sends a higher count as more segments arrive
-                batch = _batches[body.batch_id]
-                if body.batch_total > batch.total:
-                    batch.total = body.batch_total
-            _batches[body.batch_id].job_keys.append(progress_key)
+    # 4. Check cache first. Then dedupe against active in-flight jobs using cache_key.
+    input_chars = len(normalized_text)
+    input_words = len(normalized_text.split())
 
     cached = await cache.get(cache_key)
     if cached is not None:
-        job.status       = "complete"
-        job.result       = cached
-        job.cache_hit    = True
+        progress_key = str(uuid.uuid4()).replace("-", "")
+        job = JobState(progress_key=progress_key, cache_key=cache_key, provider_id=body.provider_id, batch_id=body.batch_id or "")
+        job.input_chars = input_chars
+        job.input_words = input_words
+        job.status = "complete"
+        job.result = cached
+        job.cache_hit = True
         job.completed_at = time.monotonic()
+        async with _jobs_lock:
+            _jobs[progress_key] = job
+            _attach_job_to_batch_locked(job, body.batch_id, body.batch_total)
         log.debug("synthesize_v2: cache hit for key=%s", cache_key)
-        # cached=true signals the client to skip SSE and fetch result directly
         return {
             "progress_key": progress_key,
             "cache_key":    cache_key,
             "cached":       True,
-            "input_chars":  job.input_chars,
-            "input_words":  job.input_words,
+            "input_chars":  input_chars,
+            "input_words":  input_words,
         }
+
+    async with _jobs_lock:
+        existing_job = _find_active_job_by_cache_key_locked(cache_key)
+        if existing_job is not None:
+            _attach_job_to_batch_locked(existing_job, body.batch_id, body.batch_total)
+            log.info("synthesize_v2: deduped submit key=%s existing_progress=%s", cache_key, existing_job.progress_key)
+            return {
+                "progress_key": existing_job.progress_key,
+                "cache_key":    cache_key,
+                "cached":       False,
+                "input_chars":  existing_job.input_chars or input_chars,
+                "input_words":  existing_job.input_words or input_words,
+            }
+
+        progress_key = str(uuid.uuid4()).replace("-", "")
+        job = JobState(progress_key=progress_key, cache_key=cache_key, provider_id=body.provider_id, batch_id=body.batch_id or "")
+        job.input_chars = input_chars
+        job.input_words = input_words
+        _jobs[progress_key] = job
+        _attach_job_to_batch_locked(job, body.batch_id, body.batch_total)
 
     # 5. Build synthesis request
     # Single-request v2 calls do not participate in the explicit T3 batch continuity chain.
@@ -518,36 +587,65 @@ async def _process_one_segment(
             lux_return_smooth=seg.lux_return_smooth,
         )
 
-    progress_key = str(uuid.uuid4()).replace("-", "")
-    job = JobState(
-        progress_key=progress_key,
-        cache_key=cache_key,
-        provider_id=seg.provider_id,
-        batch_id=batch_id,
-        batch_index=batch_index,
-        batch_total=batch_total,
-    )
-    job.input_chars = len(normalized_text)
-    job.input_words = len(normalized_text.split())
+    input_chars = len(normalized_text)
+    input_words = len(normalized_text.split())
 
-    async with _jobs_lock:
-        _jobs[progress_key] = job
-
-    # Cache hit — complete immediately
     cached_ogg = await cache.get(cache_key)
     if cached_ogg is not None:
-        job.status       = "complete"
-        job.result       = cached_ogg
-        job.cache_hit    = True
+        progress_key = str(uuid.uuid4()).replace("-", "")
+        job = JobState(
+            progress_key=progress_key,
+            cache_key=cache_key,
+            provider_id=seg.provider_id,
+            batch_id=batch_id,
+            batch_index=batch_index,
+            batch_total=batch_total,
+        )
+        job.input_chars = input_chars
+        job.input_words = input_words
+        job.status = "complete"
+        job.result = cached_ogg
+        job.cache_hit = True
         job.completed_at = time.monotonic()
+        async with _jobs_lock:
+            _jobs[progress_key] = job
+            _attach_job_to_batch_locked(job, batch_id, batch_total)
         return {
             "segment_id":   seg.segment_id,
             "progress_key": progress_key,
             "cache_key":    cache_key,
             "cached":       True,
-            "input_chars":  job.input_chars,
-            "input_words":  job.input_words,
+            "input_chars":  input_chars,
+            "input_words":  input_words,
         }
+
+    async with _jobs_lock:
+        existing_job = _find_active_job_by_cache_key_locked(cache_key)
+        if existing_job is not None:
+            _attach_job_to_batch_locked(existing_job, batch_id, batch_total)
+            log.info("synthesize_v2: deduped batch segment key=%s existing_progress=%s", cache_key, existing_job.progress_key)
+            return {
+                "segment_id":   seg.segment_id,
+                "progress_key": existing_job.progress_key,
+                "cache_key":    cache_key,
+                "cached":       False,
+                "input_chars":  existing_job.input_chars or input_chars,
+                "input_words":  existing_job.input_words or input_words,
+            }
+
+        progress_key = str(uuid.uuid4()).replace("-", "")
+        job = JobState(
+            progress_key=progress_key,
+            cache_key=cache_key,
+            provider_id=seg.provider_id,
+            batch_id=batch_id,
+            batch_index=batch_index,
+            batch_total=batch_total,
+        )
+        job.input_chars = input_chars
+        job.input_words = input_words
+        _jobs[progress_key] = job
+        _attach_job_to_batch_locked(job, batch_id, batch_total)
 
     # Cache miss — build SynthesisRequest and dispatch
     synth_request = SynthesisRequest(
@@ -733,7 +831,7 @@ async def _run_synthesis(
             cache_key, result.duration_sec, elapsed, realtime_factor,
             job.input_chars, job.input_words,
         )
-        _update_batch(job.batch_id, success=True)
+        _update_batches_for_job(job, success=True)
 
     except Exception as e:
         job.status       = "error"
@@ -741,7 +839,7 @@ async def _run_synthesis(
         job.completed_at = _time.monotonic()
         job.push_event({"status": "error", "message": str(e)})
         log.exception("synthesize_v2: synthesis failed key=%s", cache_key)
-        _update_batch(job.batch_id, success=False)
+        _update_batches_for_job(job, success=False)
 
     finally:
         # Signal all SSE subscribers to close
@@ -752,40 +850,6 @@ async def _run_synthesis(
                 pass
 
 
-# ── Batch update helper ──────────────────────────────────────────────────────
-
-def _update_batch(batch_id: str, success: bool) -> None:
-    """Update batch progress when a job completes or fails."""
-    if not batch_id:
-        return
-    batch = _batches.get(batch_id)
-    if batch is None:
-        return
-    if success:
-        batch.completed += 1
-    else:
-        batch.failed += 1
-
-    event = {
-        "status":    "complete" if batch.is_done() else "progress",
-        "completed": batch.completed,
-        "failed":    batch.failed,
-        "total":     batch.total,
-    }
-    batch.push_event(event)
-
-    if batch.is_done():
-        batch.completed_at = time.monotonic()
-        # Signal SSE subscribers to close
-        for q in batch._waiters:
-            try:
-                q.put_nowait(None)
-            except asyncio.QueueFull:
-                pass
-        log.info(
-            "synthesize_v2: batch %s complete — %d/%d succeeded, %d failed",
-            batch_id, batch.completed, batch.total, batch.failed
-        )
 
 
 # ── GET /api/v1/synthesize/v2/batch/{batch_id}/progress (SSE) ────────────────
@@ -803,7 +867,6 @@ async def batch_progress(batch_id: str, request: Request) -> StreamingResponse:
         raise HTTPException(status_code=404, detail=f"Batch '{batch_id}' not found")
 
     async def event_stream():
-        # If already done emit final state and close
         if batch.is_done():
             yield _sse({
                 "status":    "complete",
@@ -813,7 +876,6 @@ async def batch_progress(batch_id: str, request: Request) -> StreamingResponse:
             })
             return
 
-        # Emit current state immediately
         yield _sse({
             "status":    "progress",
             "completed": batch.completed,
@@ -864,7 +926,6 @@ async def synthesize_v2_progress(progress_key: str, request: Request) -> Streami
     job = await _get_job(progress_key)
 
     async def event_stream():
-        # If already complete, emit final state immediately and close
         if job.status in ("complete", "error"):
             if job.status == "complete":
                 yield _sse({"status": "complete", "duration_sec": job.duration_sec,
@@ -873,27 +934,22 @@ async def synthesize_v2_progress(progress_key: str, request: Request) -> Streami
                 yield _sse({"status": "error", "message": job.error})
             return
 
-        # Subscribe to future events
         q: asyncio.Queue = asyncio.Queue(maxsize=32)
         job._waiters.append(q)
         try:
-            # Emit current state immediately
             yield _sse({"status": job.status, "chunk": job.chunk, "total": job.total})
 
             while True:
-                # Check client disconnect
                 if await request.is_disconnected():
                     break
 
                 try:
                     event = await asyncio.wait_for(q.get(), timeout=1.0)
                 except asyncio.TimeoutError:
-                    # Keepalive ping
                     yield ": ping\n\n"
                     continue
 
                 if event is None:
-                    # Synthesis complete — final event already pushed by _run_synthesis
                     break
 
                 yield _sse(event)
@@ -912,7 +968,7 @@ async def synthesize_v2_progress(progress_key: str, request: Request) -> Streami
         media_type="text/event-stream",
         headers={
             "Cache-Control": "no-cache",
-            "X-Accel-Buffering": "no",   # disable nginx buffering
+            "X-Accel-Buffering": "no",
         },
     )
 
@@ -944,15 +1000,6 @@ async def synthesize_v2_result(progress_key: str, request: Request) -> Response:
     response_audio = job.result
     response_duration = job.duration_sec
 
-    # Maintainer note:
-    # Batch join tail trim exists for client-requested Chatterbox batch segments only.
-    # We intentionally leave the backend's internal long-text sentence splitting alone,
-    # because its tiny sentence pause sounds correct at true sentence boundaries.
-    #
-    # The batch/player-name use case is different: adjacent results can be merged by the
-    # client mid-sentence, which makes the same trailing pad stand out as a seam. To keep
-    # cache contents pristine for normal playback, we trim ONLY on outbound result fetch,
-    # ONLY for non-final batch segments, and ONLY for Chatterbox-family providers.
     if (
         job.batch_id
         and 0 <= job.batch_index < max(job.batch_total - 1, 0)
