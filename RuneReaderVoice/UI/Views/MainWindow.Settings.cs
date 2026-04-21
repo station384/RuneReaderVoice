@@ -56,6 +56,7 @@ public partial class MainWindow
                 AppServices.NpcOverrides,
                 AppServices.PronunciationRules,
                 AppServices.TextSwapRules,
+                AppServices.NpcPeopleCatalog,
                 syncClient,
                 assemblerBridge);
             await npcSync.StartAsync();
@@ -66,7 +67,8 @@ public partial class MainWindow
                 AppServices.Settings,
                 AppServices.NpcOverrides,
                 AppServices.PronunciationRules,
-                AppServices.TextSwapRules);
+                AppServices.TextSwapRules,
+                AppServices.NpcPeopleCatalog);
         }
 
         AppServices.SwapNpcSync(npcSync);

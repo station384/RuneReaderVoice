@@ -100,6 +100,25 @@ public partial class MainWindow
             RaceEditorStatus.Text = message;
     }
 
+    private async Task TrySyncRaceCatalogToServerAsync(string successMessage)
+    {
+        if (string.IsNullOrWhiteSpace(AppServices.Settings.RemoteServerUrl))
+            return;
+
+        try
+        {
+            var ok = await AppServices.NpcSync.PushNpcPeopleCatalogAsync();
+            if (ok)
+                SetRaceEditorStatus(successMessage);
+            else
+                SetRaceEditorStatus(successMessage + " Server sync failed.");
+        }
+        catch (Exception ex)
+        {
+            SetRaceEditorStatus(successMessage + $" Server sync failed: {ex.Message}");
+        }
+    }
+
     private void ClearRaceEditorForm(bool keepStatus = true)
     {
         _raceEditorSelectedId = null;
@@ -192,7 +211,9 @@ public partial class MainWindow
             LoadRaceEditorRow(row);
             PopulateVoiceGrid();
             await RefreshNpcOverrideUiAfterRaceCatalogChangeAsync();
-            SetRaceEditorStatus($"Saved {row.DisplayName}.");
+            var status = $"Saved {row.DisplayName}.";
+            SetRaceEditorStatus(status);
+            await TrySyncRaceCatalogToServerAsync(status);
         }
         catch (Exception ex)
         {
@@ -226,7 +247,9 @@ public partial class MainWindow
             var row = await AppServices.NpcPeopleCatalog.GetByIdAsync(id);
             if (row != null)
                 LoadRaceEditorRow(row);
-            SetRaceEditorStatus(enabled ? $"Activated {id}." : $"Deactivated {id}.");
+            var status = enabled ? $"Activated {id}." : $"Deactivated {id}.";
+            SetRaceEditorStatus(status);
+            await TrySyncRaceCatalogToServerAsync(status);
         }
         catch (Exception ex)
         {
@@ -244,6 +267,47 @@ public partial class MainWindow
         catch (Exception ex)
         {
             SetRaceEditorStatus($"Refresh failed: {ex.Message}");
+        }
+    }
+
+    private async void OnRaceEditorPushToServerClicked(object? sender, RoutedEventArgs e)
+    {
+        if (string.IsNullOrWhiteSpace(AppServices.Settings.RemoteServerUrl))
+        {
+            SetRaceEditorStatus("No server URL configured.");
+            return;
+        }
+
+        try
+        {
+            var ok = await AppServices.NpcSync.PushNpcPeopleCatalogAsync();
+            SetRaceEditorStatus(ok ? "Race catalog pushed to server." : "Push failed — check server logs.");
+        }
+        catch (Exception ex)
+        {
+            SetRaceEditorStatus($"Push failed: {ex.Message}");
+        }
+    }
+
+    private async void OnRaceEditorPullFromServerClicked(object? sender, RoutedEventArgs e)
+    {
+        if (string.IsNullOrWhiteSpace(AppServices.Settings.RemoteServerUrl))
+        {
+            SetRaceEditorStatus("No server URL configured.");
+            return;
+        }
+
+        try
+        {
+            var ok = await AppServices.NpcSync.PullAndApplyNpcPeopleCatalogAsync();
+            if (ok)
+                await ReloadRaceEditorAsync();
+
+            SetRaceEditorStatus(ok ? "Race catalog pulled from server." : "No race catalog on server.");
+        }
+        catch (Exception ex)
+        {
+            SetRaceEditorStatus($"Pull failed: {ex.Message}");
         }
     }
 

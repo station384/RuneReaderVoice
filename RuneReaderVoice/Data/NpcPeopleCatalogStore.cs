@@ -113,6 +113,18 @@ public sealed class NpcPeopleCatalogStore
         await _db.Connection.InsertOrReplaceAsync(row);
     }
 
+    public async Task ReplaceAllAsync(IEnumerable<NpcPeopleCatalogRow> rows)
+    {
+        var materialized = rows?.ToList() ?? new List<NpcPeopleCatalogRow>();
+
+        await _db.Connection.RunInTransactionAsync(conn =>
+        {
+            conn.DeleteAll<NpcPeopleCatalogRow>();
+            foreach (var row in materialized)
+                conn.InsertOrReplace(row);
+        });
+    }
+
     public async Task SeedFromLegacyCatalogAsync()
     {
         var count = await _db.Connection.Table<NpcPeopleCatalogRow>().CountAsync();

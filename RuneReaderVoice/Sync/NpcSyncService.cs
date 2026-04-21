@@ -43,6 +43,7 @@ public sealed class NpcSyncService : IDisposable
     private readonly NpcRaceOverrideDb       _npcDb;
     private readonly PronunciationRuleStore  _pronunciationRules;
     private readonly TextSwapRuleStore       _textSwapRules;
+    private readonly NpcPeopleCatalogService _npcPeopleCatalog;
     private readonly ServerDefaultsClient    _client;
     private readonly TtsSessionAssemblerBridge _assemblerBridge;
 
@@ -68,13 +69,14 @@ public sealed class NpcSyncService : IDisposable
         VoiceUserSettings settings,
         NpcRaceOverrideDb npcDb,
         PronunciationRuleStore pronunciationRules,
-        TextSwapRuleStore textSwapRules)
+        TextSwapRuleStore textSwapRules,
+        NpcPeopleCatalogService npcPeopleCatalog)
     {
         // Dummy client pointing nowhere — all calls return null/false immediately
         var noopClient = new ServerDefaultsClient("http://localhost:0");
         var noopBridge = new TtsSessionAssemblerBridge(null!, npcDb);
         return new NpcSyncService(settings, npcDb, pronunciationRules, textSwapRules,
-            noopClient, noopBridge);
+            npcPeopleCatalog, noopClient, noopBridge);
     }
 
     public NpcSyncService(
@@ -82,6 +84,7 @@ public sealed class NpcSyncService : IDisposable
         NpcRaceOverrideDb      npcDb,
         PronunciationRuleStore pronunciationRules,
         TextSwapRuleStore      textSwapRules,
+        NpcPeopleCatalogService npcPeopleCatalog,
         ServerDefaultsClient   client,
         TtsSessionAssemblerBridge assemblerBridge)
     {
@@ -89,6 +92,7 @@ public sealed class NpcSyncService : IDisposable
         _npcDb              = npcDb;
         _pronunciationRules = pronunciationRules;
         _textSwapRules      = textSwapRules;
+        _npcPeopleCatalog   = npcPeopleCatalog;
         _client             = client;
         _assemblerBridge    = assemblerBridge;
     }
@@ -121,6 +125,7 @@ public sealed class NpcSyncService : IDisposable
         await PullAndApplyProviderSlotProfilesAsync("sample").ConfigureAwait(false);
         await PullAndApplyDefaultsAsync("pronunciation").ConfigureAwait(false);
         await PullAndApplyDefaultsAsync("text-shaping").ConfigureAwait(false);
+        await PullAndApplyNpcPeopleCatalogAsync().ConfigureAwait(false);
 
         _settings.FirstLoadComplete = true;
         _settings.LastNpcSyncAt     = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() / 1000.0;
@@ -139,6 +144,7 @@ public sealed class NpcSyncService : IDisposable
             {
                 await Task.Delay(PollInterval, ct).ConfigureAwait(false);
                 await PollNpcOverridesAsync(_settings.LastNpcSyncAt).ConfigureAwait(false);
+                await PullAndApplyNpcPeopleCatalogAsync().ConfigureAwait(false);
             }
             catch (OperationCanceledException)
             {
@@ -611,6 +617,76 @@ public sealed class NpcSyncService : IDisposable
             await _textSwapRules.UpsertRuleAsync(entry).ConfigureAwait(false);
     }
 
+    public async Task<bool> PushNpcPeopleCatalogAsync()
+    {
+        var export = new NpcPeopleCatalogExportFile
+        {
+            Entries = _npcPeopleCatalog.GetAllRowsSnapshot()
+                .Select(row => new NpcPeopleCatalogExportEntry
+                {
+                    Id = row.Id,
+                    DisplayName = row.DisplayName,
+                    AccentLabel = row.AccentLabel,
+                    HasMale = row.HasMale,
+                    HasFemale = row.HasFemale,
+                    HasNeutral = row.HasNeutral,
+                    Enabled = row.Enabled,
+                    SortOrder = row.SortOrder,
+                    Source = row.Source,
+                    UpdatedUtc = row.UpdatedUtc,
+                })
+                .ToList()
+        };
+
+        return await _client.PutNpcPeopleCatalogAsync(export).ConfigureAwait(false);
+    }
+
+    public async Task<bool> PullAndApplyNpcPeopleCatalogAsync()
+    {
+        var response = await _client.GetNpcPeopleCatalogAsync().ConfigureAwait(false);
+        if (response == null || !response.Exists || response.Payload == null)
+            return false;
+
+        try
+        {
+            var payload = response.Payload.Value;
+            if (payload.ValueKind is JsonValueKind.Null or JsonValueKind.Undefined)
+                return false;
+
+            var file = payload.Deserialize<NpcPeopleCatalogExportFile>(JsonOptions);
+            if (file?.Entries == null || file.Entries.Count == 0)
+                return false;
+
+            var rows = file.Entries
+                .Where(x => !string.IsNullOrWhiteSpace(x.Id) && !string.IsNullOrWhiteSpace(x.DisplayName))
+                .Select(x => new NpcPeopleCatalogRow
+                {
+                    Id = x.Id.Trim(),
+                    DisplayName = x.DisplayName.Trim(),
+                    AccentLabel = string.IsNullOrWhiteSpace(x.AccentLabel) ? x.DisplayName.Trim() : x.AccentLabel.Trim(),
+                    HasMale = x.HasMale,
+                    HasFemale = x.HasFemale,
+                    HasNeutral = x.HasNeutral,
+                    Enabled = x.Enabled,
+                    SortOrder = x.SortOrder,
+                    Source = string.IsNullOrWhiteSpace(x.Source) ? "ServerSync" : x.Source!,
+                    UpdatedUtc = x.UpdatedUtc > 0 ? x.UpdatedUtc : DateTimeOffset.UtcNow.ToUnixTimeSeconds(),
+                })
+                .ToList();
+
+            if (rows.Count == 0)
+                return false;
+
+            await _npcPeopleCatalog.ReplaceAllAsync(rows).ConfigureAwait(false);
+            return true;
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"[NpcSyncService] Apply npc-people-catalog failed: {ex.Message}");
+            return false;
+        }
+    }
+
     // ── Helpers ───────────────────────────────────────────────────────────────
 
     private void SetStatus(string msg) => SyncStatusChanged?.Invoke(msg);
@@ -669,4 +745,37 @@ internal sealed class NpcOverrideExportEntry
     public float?  BespokeExaggeration { get; set; }
     [System.Text.Json.Serialization.JsonPropertyName("BespokeCfgWeight")]
     public float?  BespokeCfgWeight    { get; set; }
+}
+
+internal sealed class NpcPeopleCatalogExportFile
+{
+    [System.Text.Json.Serialization.JsonPropertyName("version")]
+    public string Version { get; set; } = "1";
+
+    [System.Text.Json.Serialization.JsonPropertyName("entries")]
+    public List<NpcPeopleCatalogExportEntry> Entries { get; set; } = new();
+}
+
+internal sealed class NpcPeopleCatalogExportEntry
+{
+    [System.Text.Json.Serialization.JsonPropertyName("Id")]
+    public string Id { get; set; } = string.Empty;
+    [System.Text.Json.Serialization.JsonPropertyName("DisplayName")]
+    public string DisplayName { get; set; } = string.Empty;
+    [System.Text.Json.Serialization.JsonPropertyName("AccentLabel")]
+    public string AccentLabel { get; set; } = string.Empty;
+    [System.Text.Json.Serialization.JsonPropertyName("HasMale")]
+    public bool HasMale { get; set; }
+    [System.Text.Json.Serialization.JsonPropertyName("HasFemale")]
+    public bool HasFemale { get; set; }
+    [System.Text.Json.Serialization.JsonPropertyName("HasNeutral")]
+    public bool HasNeutral { get; set; }
+    [System.Text.Json.Serialization.JsonPropertyName("Enabled")]
+    public bool Enabled { get; set; } = true;
+    [System.Text.Json.Serialization.JsonPropertyName("SortOrder")]
+    public int SortOrder { get; set; }
+    [System.Text.Json.Serialization.JsonPropertyName("Source")]
+    public string? Source { get; set; }
+    [System.Text.Json.Serialization.JsonPropertyName("UpdatedUtc")]
+    public long UpdatedUtc { get; set; }
 }

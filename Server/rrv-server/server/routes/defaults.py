@@ -40,7 +40,7 @@ log = logging.getLogger(__name__)
 
 router = APIRouter()
 
-VALID_TYPES = frozenset({"voice-profiles", "voice-sample-profiles", "pronunciation", "text-shaping", "npc-overrides"})
+VALID_TYPES = frozenset({"voice-profiles", "voice-sample-profiles", "pronunciation", "text-shaping", "npc-overrides", "npc-people-catalog"})
 
 
 # ── Auth helper ───────────────────────────────────────────────────────────────

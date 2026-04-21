@@ -153,14 +153,14 @@ internal static class Program
             var assemblerBridge = new TtsSessionAssemblerBridge(assembler, npcOverrides);
             npcSync = new NpcSyncService(
                 settings, npcOverrides, pronunciationRules, textSwapRules,
-                syncClient, assemblerBridge);
+                npcPeopleCatalogService, syncClient, assemblerBridge);
             npcSync.StartAsync().GetAwaiter().GetResult();
         }
         else
         {
             // No server configured — create a no-op stub so AppServices is never null
             npcSync = NpcSyncService.CreateNoOp(
-                settings, npcOverrides, pronunciationRules, textSwapRules);
+                settings, npcOverrides, pronunciationRules, textSwapRules, npcPeopleCatalogService);
         }
 
         var textSwapProcessor      = BuildTextSwapProcessorAsync(textSwapRules).GetAwaiter().GetResult();;

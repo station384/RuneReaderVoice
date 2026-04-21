@@ -44,6 +44,14 @@ public sealed class NpcPeopleCatalogService
     public async Task SetEnabledAsync(string id, bool enabled)
         => await _store.SetEnabledAsync(id, enabled);
 
+    public async Task ReplaceAllAsync(IEnumerable<NpcPeopleCatalogRow> rows)
+        => await _store.ReplaceAllAsync(rows);
+
+    public IReadOnlyList<NpcPeopleCatalogRow> GetAllRowsSnapshot()
+        => _store.GetAllAsync().GetAwaiter().GetResult()
+            .OrderBy(x => x.SortOrder)
+            .ThenBy(x => x.DisplayName, StringComparer.OrdinalIgnoreCase)
+            .ToList();
 
     public IReadOnlyList<NpcPeopleCatalogRow> SearchEnabledRows(string? filter, int limit = 500)
         => _store.QueryEnabledAsync(filter, limit).GetAwaiter().GetResult();

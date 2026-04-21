@@ -306,6 +306,45 @@ public sealed class ServerDefaultsClient
         }
     }
 
+    public async Task<ServerDefaultsResponse?> GetNpcPeopleCatalogAsync(CancellationToken ct = default)
+    {
+        try
+        {
+            using var request = new HttpRequestMessage(HttpMethod.Get, "api/v1/defaults/npc-people-catalog");
+            using var response = await _http.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, ct).ConfigureAwait(false);
+            response.EnsureSuccessStatusCode();
+            return await response.Content.ReadFromJsonAsync<ServerDefaultsResponse>(_jsonOptions, ct).ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"[ServerDefaultsClient] GetNpcPeopleCatalog failed: {ex.Message}");
+            return null;
+        }
+    }
+
+    public async Task<bool> PutNpcPeopleCatalogAsync(object payload, CancellationToken ct = default)
+    {
+        try
+        {
+            var request = new HttpRequestMessage(HttpMethod.Put, "api/v1/defaults/npc-people-catalog")
+            {
+                Content = JsonContent.Create(payload),
+            };
+
+            if (!string.IsNullOrWhiteSpace(_adminKey))
+                request.Headers.Authorization =
+                    new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", _adminKey);
+
+            var response = await _http.SendAsync(request, ct).ConfigureAwait(false);
+            return response.IsSuccessStatusCode;
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"[ServerDefaultsClient] PutNpcPeopleCatalog failed: {ex.Message}");
+            return false;
+        }
+    }
+
     /// <summary>
     /// Pushes a JSON payload to the server as the defaults for a type.
     /// Requires admin key if server is configured with one.
