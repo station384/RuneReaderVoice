@@ -9178,10 +9178,10 @@
         }
       },
       "Dracthyr/Female": {
-        "VoiceId": "F_Narrator_1",
+        "VoiceId": "F_Dracthyr",
         "LangCode": "en-us",
         "SpeechRate": 1,
-        "CfgWeight": 0.5,
+        "CfgWeight": 0.6,
         "Exaggeration": 0.6,
         "CfgStrength": null,
         "NfeStep": null,
@@ -9206,24 +9206,31 @@
               "Params": {
                 "amount": 0.6
               }
+            },
+            {
+              "Kind": 7,
+              "Enabled": true,
+              "Params": {
+                "db": 7.42671
+              }
             }
           ],
           "IsNeutral": false
         }
       },
       "Dracthyr/Male": {
-        "VoiceId": "M_Narrator",
+        "VoiceId": "M_Dracthyr",
         "LangCode": "en-us",
         "SpeechRate": 1,
-        "CfgWeight": 0.67,
-        "Exaggeration": 0.67,
+        "CfgWeight": 0.57,
+        "Exaggeration": 0.6,
         "CfgStrength": null,
         "NfeStep": null,
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "VoiceInstruct": null,
         "CosyInstruct": null,
-        "SynthesisSeed": 7,
+        "SynthesisSeed": 8,
         "ChatterboxTemperature": 0.6,
         "ChatterboxTopP": 1,
         "ChatterboxRepetitionPenalty": 1.2,
@@ -10198,7 +10205,7 @@
         }
       },
       "HighmountainTauren/Female": {
-        "VoiceId": "F_Narrator_1",
+        "VoiceId": "F_Highmountain_Tauren",
         "LangCode": "en-us",
         "SpeechRate": 1,
         "CfgWeight": 0.5,
@@ -10209,7 +10216,7 @@
         "SwaysamplingCoef": null,
         "VoiceInstruct": null,
         "CosyInstruct": null,
-        "SynthesisSeed": 6,
+        "SynthesisSeed": 8,
         "ChatterboxTemperature": 0.6,
         "ChatterboxTopP": 1,
         "ChatterboxRepetitionPenalty": 1.2,
@@ -10226,13 +10233,20 @@
               "Params": {
                 "amount": 0.6
               }
+            },
+            {
+              "Kind": 7,
+              "Enabled": true,
+              "Params": {
+                "db": 5.042345
+              }
             }
           ],
           "IsNeutral": false
         }
       },
       "HighmountainTauren/Male": {
-        "VoiceId": "M_Narrator",
+        "VoiceId": "M_Highmountain_Tauren",
         "LangCode": "en-us",
         "SpeechRate": 1,
         "CfgWeight": 0.67,
@@ -11028,21 +11042,21 @@
         }
       },
       "Nightborne/Female": {
-        "VoiceId": "F_Nightborne_5",
+        "VoiceId": "F_Nightborne_2",
         "LangCode": "en-gb",
         "SpeechRate": 1,
-        "CfgWeight": 0.5,
-        "Exaggeration": 0.65,
+        "CfgWeight": 0.61,
+        "Exaggeration": 0.6,
         "CfgStrength": null,
         "NfeStep": null,
         "CrossFadeDuration": null,
         "SwaysamplingCoef": null,
         "VoiceInstruct": null,
         "CosyInstruct": null,
-        "SynthesisSeed": 7,
+        "SynthesisSeed": 9,
         "ChatterboxTemperature": 0.7,
         "ChatterboxTopP": 1,
-        "ChatterboxRepetitionPenalty": 1.2,
+        "ChatterboxRepetitionPenalty": 1.4,
         "LongcatSteps": null,
         "LongcatCfgStrength": null,
         "LongcatGuidance": null,
@@ -11063,7 +11077,7 @@
       },
       "Nightborne/Male": {
         "VoiceId": "M_Nightborne_5",
-        "LangCode": "en-gb",
+        "LangCode": "en-us",
         "SpeechRate": 1,
         "CfgWeight": 0.68,
         "Exaggeration": 0.64,
@@ -11073,7 +11087,7 @@
         "SwaysamplingCoef": null,
         "VoiceInstruct": null,
         "CosyInstruct": null,
-        "SynthesisSeed": null,
+        "SynthesisSeed": 12,
         "ChatterboxTemperature": 0.8,
         "ChatterboxTopP": 1,
         "ChatterboxRepetitionPenalty": 1.2,
@@ -11368,7 +11382,7 @@
         }
       },
       "Tauren/Female": {
-        "VoiceId": "F_Narrator_1",
+        "VoiceId": "F_Tauren",
         "LangCode": "en-us",
         "SpeechRate": 1,
         "CfgWeight": 0.5,
@@ -11394,7 +11408,14 @@
               "Kind": 8,
               "Enabled": true,
               "Params": {
-                "amount": 0.6
+                "amount": 0.8811075
+              }
+            },
+            {
+              "Kind": 7,
+              "Enabled": true,
+              "Params": {
+                "db": 8.95114
               }
             }
           ],
@@ -11402,7 +11423,7 @@
         }
       },
       "Tauren/Male": {
-        "VoiceId": "M_Narrator",
+        "VoiceId": "M_Tauren",
         "LangCode": "en-us",
         "SpeechRate": 1,
         "CfgWeight": 0.67,
@@ -11946,7 +11967,7 @@
         }
       },
       "Tortollan/Female": {
-        "VoiceId": "F_Narrator_1",
+        "VoiceId": "F_Tortollan",
         "LangCode": "en-us",
         "SpeechRate": 1,
         "CfgWeight": 0.5,
@@ -11980,7 +12001,7 @@
         }
       },
       "Tortollan/Male": {
-        "VoiceId": "M_Narrator",
+        "VoiceId": "M_Tortollan",
         "LangCode": "en-us",
         "SpeechRate": 1,
         "CfgWeight": 0.67,
@@ -12014,9 +12035,9 @@
         }
       },
       "Tuskarr/Female": {
-        "VoiceId": "F_Narrator_1",
+        "VoiceId": "F_Tuskarr",
         "LangCode": "en-us",
-        "SpeechRate": 1,
+        "SpeechRate": 0.72,
         "CfgWeight": 0.5,
         "Exaggeration": 0.6,
         "CfgStrength": null,
@@ -12025,7 +12046,7 @@
         "SwaysamplingCoef": null,
         "VoiceInstruct": null,
         "CosyInstruct": null,
-        "SynthesisSeed": 6,
+        "SynthesisSeed": 10,
         "ChatterboxTemperature": 0.6,
         "ChatterboxTopP": 1,
         "ChatterboxRepetitionPenalty": 1.2,
@@ -12048,9 +12069,9 @@
         }
       },
       "Tuskarr/Male": {
-        "VoiceId": "M_Narrator",
+        "VoiceId": "M_Tuskarr",
         "LangCode": "en-us",
-        "SpeechRate": 1,
+        "SpeechRate": 0.6,
         "CfgWeight": 0.67,
         "Exaggeration": 0.67,
         "CfgStrength": null,

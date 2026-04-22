@@ -427,18 +427,15 @@ public sealed class PlaybackCoordinator : IDisposable
             System.Diagnostics.Debug.WriteLine(
                 $"[PC] Bespoke applied seg={segment.SegmentIndex} sample={segment.BespokeSampleId}");
 
-        var profile = applyBespoke && _provider is RemoteTtsProvider remoteProviderForSample
-            ? remoteProviderForSample.ResolveSampleProfile(segment.BespokeSampleId!, segment.Slot)
+        var profile = _provider is RemoteTtsProvider remoteProfileProvider
+            ? remoteProfileProvider.ResolveEffectiveSynthesisProfile(
+                segment.Slot,
+                applyBespoke ? segment.BespokeSampleId : null,
+                applyBespoke ? segment.BespokeExaggeration : null,
+                applyBespoke ? segment.BespokeCfgWeight : null,
+                forcedNpcSeed,
+                suppressStoredSeed)
             : _provider.ResolveProfile(segment.Slot);
-
-        if (_provider is RemoteTtsProvider && profile != null && (forcedNpcSeed.HasValue || suppressStoredSeed))
-        {
-            profile = profile.Clone();
-            if (suppressStoredSeed)
-                profile.SynthesisSeed = null;
-            if (forcedNpcSeed.HasValue)
-                profile.SynthesisSeed = forcedNpcSeed;
-        }
 
         var voiceId = applyBespoke
             ? $"sample:{profile?.BuildIdentityKey() ?? segment.BespokeSampleId!}"

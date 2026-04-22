@@ -98,7 +98,7 @@
       "WholeWord": true,
       "CaseSensitive": false,
       "Enabled": true,
-      "Priority": 50,
+      "Priority": 0,
       "Notes": ""
     },
     {
@@ -108,7 +108,17 @@
       "WholeWord": true,
       "CaseSensitive": false,
       "Enabled": true,
-      "Priority": 83,
+      "Priority": 0,
+      "Notes": ""
+    },
+    {
+      "FindText": "mechagnome",
+      "ReplaceText": "mecha-gnome",
+      "ReplaceWithCrLf": false,
+      "WholeWord": true,
+      "CaseSensitive": false,
+      "Enabled": true,
+      "Priority": 0,
       "Notes": ""
     }
   ]

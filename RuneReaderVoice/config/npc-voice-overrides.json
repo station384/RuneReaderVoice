@@ -782,11 +782,61 @@
       "UseNpcIdAsSeed": false
     },
     {
+      "NpcId": 236087,
+      "CatalogId": "voidelf",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": "U_Umbric",
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false
+    },
+    {
+      "NpcId": 236100,
+      "CatalogId": "bloodelf",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": "U_Arator_1",
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false
+    },
+    {
       "NpcId": 236693,
       "CatalogId": "human",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_Liadrin_4",
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false
+    },
+    {
+      "NpcId": 236716,
+      "CatalogId": "bloodelf",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": "U_Arator_1",
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false
+    },
+    {
+      "NpcId": 236736,
+      "CatalogId": "bloodelf",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": "U_Arator_1",
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false
+    },
+    {
+      "NpcId": 236743,
+      "CatalogId": "haranir",
+      "RaceId": 0,
+      "Notes": "Orweyna",
+      "BespokeSampleId": "U_Orweyna_1",
       "BespokeExaggeration": null,
       "BespokeCfgWeight": null,
       "UseNpcIdAsSeed": false
@@ -817,6 +867,16 @@
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_Lorthemar_Theron_1",
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false
+    },
+    {
+      "NpcId": 236903,
+      "CatalogId": "haranir",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": "U_Orweyna_1",
       "BespokeExaggeration": null,
       "BespokeCfgWeight": null,
       "UseNpcIdAsSeed": false
@@ -952,6 +1012,16 @@
       "UseNpcIdAsSeed": false
     },
     {
+      "NpcId": 237565,
+      "CatalogId": "undead",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": "U_Alonsus_Faol",
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false
+    },
+    {
       "NpcId": 239673,
       "CatalogId": "bloodelf",
       "RaceId": 0,
@@ -1007,6 +1077,26 @@
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false
+    },
+    {
+      "NpcId": 240539,
+      "CatalogId": "haranir",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": "U_Orweyna_1",
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false
+    },
+    {
+      "NpcId": 240663,
+      "CatalogId": "haranir",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": "U_Orweyna_1",
       "BespokeExaggeration": null,
       "BespokeCfgWeight": null,
       "UseNpcIdAsSeed": false
@@ -1364,6 +1454,46 @@
     {
       "NpcId": 245418,
       "CatalogId": "bloodelf",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": null,
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false
+    },
+    {
+      "NpcId": 245419,
+      "CatalogId": "bloodelf",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": "U_Arator_1",
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false
+    },
+    {
+      "NpcId": 245420,
+      "CatalogId": "bloodelf",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": "U_Arator_1",
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false
+    },
+    {
+      "NpcId": 245422,
+      "CatalogId": "bloodelf",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": "U_Arator_1",
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false
+    },
+    {
+      "NpcId": 245762,
+      "CatalogId": "undead",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -1742,6 +1872,46 @@
       "UseNpcIdAsSeed": false
     },
     {
+      "NpcId": 255473,
+      "CatalogId": "bloodelf",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": null,
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false
+    },
+    {
+      "NpcId": 255474,
+      "CatalogId": "bloodelf",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": null,
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false
+    },
+    {
+      "NpcId": 255495,
+      "CatalogId": "nightborne",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": null,
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false
+    },
+    {
+      "NpcId": 255503,
+      "CatalogId": "bloodelf",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": null,
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false
+    },
+    {
       "NpcId": 255519,
       "CatalogId": "dwarf",
       "RaceId": 0,
@@ -1762,7 +1932,37 @@
       "UseNpcIdAsSeed": false
     },
     {
+      "NpcId": 256307,
+      "CatalogId": "bloodelf",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": null,
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false
+    },
+    {
       "NpcId": 257039,
+      "CatalogId": "bloodelf",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": null,
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false
+    },
+    {
+      "NpcId": 257415,
+      "CatalogId": "troll",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": null,
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false
+    },
+    {
+      "NpcId": 257459,
       "CatalogId": "bloodelf",
       "RaceId": 0,
       "Notes": "",
@@ -1817,6 +2017,16 @@
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false
+    },
+    {
+      "NpcId": 15907392,
+      "CatalogId": "bloodelf",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": "U_Alleria_Windrunner_1",
       "BespokeExaggeration": null,
       "BespokeCfgWeight": null,
       "UseNpcIdAsSeed": false

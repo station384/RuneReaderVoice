@@ -210,6 +210,37 @@ public sealed class RemoteTtsProvider : ITtsProvider
     }
 
 
+    public VoiceProfile ResolveEffectiveSynthesisProfile(
+        VoiceSlot slot,
+        string? bespokeSampleId = null,
+        float? bespokeExaggeration = null,
+        float? bespokeCfgWeight = null,
+        int? forcedSynthesisSeed = null,
+        bool suppressStoredSeed = false)
+    {
+        VoiceProfile? profile = ResolveProfile(slot);
+
+        if (!string.IsNullOrWhiteSpace(bespokeSampleId))
+        {
+            profile = ResolveSampleProfile(bespokeSampleId, slot);
+            if (bespokeExaggeration.HasValue) profile.Exaggeration = bespokeExaggeration;
+            if (bespokeCfgWeight.HasValue)    profile.CfgWeight    = bespokeCfgWeight;
+        }
+
+        profile ??= VoiceProfileDefaults.Create(string.Empty);
+
+        if (suppressStoredSeed || forcedSynthesisSeed.HasValue)
+            profile = profile.Clone();
+
+        if (suppressStoredSeed)
+            profile.SynthesisSeed = null;
+
+        if (forcedSynthesisSeed.HasValue)
+            profile.SynthesisSeed = forcedSynthesisSeed;
+
+        return ApplyProviderMinimums(profile);
+    }
+
     public async Task<RemoteBatchResolution> SubmitSplitBatchAsync(
         IReadOnlyList<BatchSegmentPlan> batchSegments,
         VoiceSlot slot,
@@ -225,34 +256,11 @@ public sealed class RemoteTtsProvider : ITtsProvider
         if (batchSegments == null || batchSegments.Count == 0)
             throw new ArgumentException("Batch must contain at least one segment.", nameof(batchSegments));
 
-        VoiceProfile? profile = ResolveProfile(slot);
-
-        
-        if (!string.IsNullOrWhiteSpace(bespokeSampleId))
-        {
-            profile = ResolveSampleProfile(bespokeSampleId, slot);
-            if (bespokeExaggeration.HasValue) profile.Exaggeration = bespokeExaggeration;
-            if (bespokeCfgWeight.HasValue)    profile.CfgWeight    = bespokeCfgWeight;
-        }
-
-        if (suppressStoredSeed || forcedSynthesisSeed.HasValue)
-        {
-            profile = profile?.Clone();
-        }
-
-        if (suppressStoredSeed && profile != null)
-        {
-            profile.SynthesisSeed = null;
-        }
-
-        if (forcedSynthesisSeed.HasValue && profile != null)
-        {
-            profile.SynthesisSeed = forcedSynthesisSeed;
-        }
+        var profile = ResolveEffectiveSynthesisProfile(
+            slot, bespokeSampleId, bespokeExaggeration, bespokeCfgWeight, forcedSynthesisSeed, suppressStoredSeed);
 
         if (profile != null)
         {
-            profile = ApplyProviderMinimums(profile);
 
             var voiceSpec = BuildVoiceSpec(profile);
             var speechRate = profile.SpeechRate <= 0f ? 1.0f : Math.Clamp(profile.SpeechRate, 0.5f, 2.0f);
@@ -358,23 +366,8 @@ public sealed class RemoteTtsProvider : ITtsProvider
         int?    forcedSynthesisSeed = null,
         bool    suppressStoredSeed  = false)
     {
-        if (!string.IsNullOrWhiteSpace(bespokeSampleId))
-        {
-            profile = ResolveSampleProfile(bespokeSampleId, slot);
-            if (bespokeExaggeration.HasValue) profile.Exaggeration = bespokeExaggeration;
-            if (bespokeCfgWeight.HasValue)    profile.CfgWeight    = bespokeCfgWeight;
-        }
-
-        if (suppressStoredSeed || forcedSynthesisSeed.HasValue)
-            profile = profile.Clone();
-
-        if (suppressStoredSeed)
-            profile.SynthesisSeed = null;
-
-        if (forcedSynthesisSeed.HasValue)
-            profile.SynthesisSeed = forcedSynthesisSeed;
-
-        profile = ApplyProviderMinimums(profile);
+        profile = ResolveEffectiveSynthesisProfile(
+            slot, bespokeSampleId, bespokeExaggeration, bespokeCfgWeight, forcedSynthesisSeed, suppressStoredSeed);
 
         var cacheKeyText = NormalizeSubmittedTextForCache(text);
         var providerId = _descriptor.RemoteProviderId ?? string.Empty;
