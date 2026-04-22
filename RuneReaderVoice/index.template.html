@@ -1,0 +1,655 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RuneReader Voice — WoW AI Voice Synthesis</title>
+<style>
+  :root {
+    --gold:        #c9a84c;
+    --gold-light:  #e8cc7a;
+    --gold-dim:    #7a621e;
+    --blue:        #4a8fc9;
+    --blue-light:  #6fb3f0;
+    --blue-dim:    #1e3a5c;
+    --bg-deep:     #080c12;
+    --bg-mid:      #0d1520;
+    --bg-card:     #111c2a;
+    --bg-card2:    #0f1824;
+    --border:      rgba(201,168,76,0.18);
+    --border-blue: rgba(74,143,201,0.25);
+    --text:        #c8d8e8;
+    --text-dim:    #6a8aaa;
+    --text-faint:  #3a5070;
+    --green:       #4ab87a;
+    --full-accent: #c9a84c;
+    --slim-accent: #4a8fc9;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    font-family: Georgia, 'Palatino Linotype', Palatino, serif;
+    background: var(--bg-deep);
+    color: var(--text);
+    min-height: 100vh;
+    overflow-x: hidden;
+    position: relative;
+  }
+
+  /* ── Atmospheric background ── */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background:
+      radial-gradient(ellipse 80% 50% at 20% 0%, rgba(74,143,201,0.07) 0%, transparent 60%),
+      radial-gradient(ellipse 60% 40% at 80% 100%, rgba(201,168,76,0.06) 0%, transparent 55%),
+      radial-gradient(ellipse 40% 60% at 50% 50%, rgba(13,21,32,0.95) 0%, transparent 100%);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* Subtle noise grain */
+  body::after {
+    content: '';
+    position: fixed;
+    inset: 0;
+    opacity: 0.025;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
+    background-size: 200px 200px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .container {
+    position: relative;
+    z-index: 1;
+    max-width: 860px;
+    margin: 0 auto;
+    padding: 0 24px;
+  }
+
+  /* ── Header ── */
+  header {
+    padding: 64px 0 48px;
+    text-align: center;
+    position: relative;
+  }
+
+  .logo-wrap {
+    display: inline-flex;
+    align-items: center;
+    gap: 20px;
+    margin-bottom: 32px;
+    animation: fadeDown 0.7s ease both;
+  }
+
+  .logo-img {
+    width: 72px;
+    height: 72px;
+    border-radius: 16px;
+    box-shadow:
+      0 0 0 1px var(--border),
+      0 0 24px rgba(201,168,76,0.2),
+      0 8px 32px rgba(0,0,0,0.5);
+  }
+
+  .logo-text {
+    text-align: left;
+  }
+
+  .logo-text h1 {
+    font-family: 'Palatino Linotype', Palatino, 'Book Antiqua', 'Garamond', serif;
+    font-size: 2rem;
+    font-weight: 700;
+    color: var(--gold-light);
+    letter-spacing: 0.04em;
+    line-height: 1.1;
+    text-shadow: 0 0 40px rgba(201,168,76,0.3);
+  }
+
+  .logo-text .subtitle {
+    font-family: 'Palatino Linotype', Palatino, 'Book Antiqua', 'Garamond', serif;
+    font-size: 0.7rem;
+    font-weight: 400;
+    color: var(--text-dim);
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    margin-top: 4px;
+  }
+
+  .version-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: rgba(201,168,76,0.08);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 4px 14px;
+    font-family: 'Cascadia Code', Consolas, 'Courier New', monospace;
+    font-size: 0.75rem;
+    color: var(--gold);
+    letter-spacing: 0.05em;
+    margin-bottom: 28px;
+    animation: fadeDown 0.7s 0.1s ease both;
+  }
+
+  .version-badge::before {
+    content: '';
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--green);
+    box-shadow: 0 0 8px var(--green);
+  }
+
+  .tagline {
+    font-size: 1.2rem;
+    font-weight: 300;
+    font-style: italic;
+    color: var(--text-dim);
+    max-width: 520px;
+    margin: 0 auto 16px;
+    line-height: 1.6;
+    animation: fadeDown 0.7s 0.15s ease both;
+  }
+
+  /* ── Divider ── */
+  .rune-divider {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin: 40px 0;
+    animation: fadeIn 0.7s 0.2s ease both;
+  }
+
+  .rune-divider::before,
+  .rune-divider::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--border), transparent);
+  }
+
+  .rune-divider span {
+    color: var(--gold-dim);
+    font-size: 1rem;
+    letter-spacing: 0.3em;
+  }
+
+  /* ── Description ── */
+  .description {
+    animation: fadeUp 0.7s 0.25s ease both;
+  }
+
+  .description p {
+    font-size: 1.05rem;
+    line-height: 1.75;
+    color: var(--text);
+    margin-bottom: 16px;
+  }
+
+  .description p:last-child { margin-bottom: 0; }
+
+  .description strong {
+    color: var(--gold-light);
+    font-weight: 400;
+  }
+
+  .description a {
+    color: var(--blue-light);
+    text-decoration: none;
+    border-bottom: 1px solid rgba(111,179,240,0.3);
+    transition: color 0.2s, border-color 0.2s;
+  }
+
+  .description a:hover {
+    color: #fff;
+    border-color: var(--blue-light);
+  }
+
+  /* ── Feature pills ── */
+  .features {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin: 24px 0 0;
+  }
+
+  .pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: rgba(74,143,201,0.07);
+    border: 1px solid var(--border-blue);
+    border-radius: 4px;
+    padding: 4px 12px;
+    font-size: 0.8rem;
+    color: var(--blue-light);
+    font-family: 'Cascadia Code', Consolas, 'Courier New', monospace;
+    letter-spacing: 0.03em;
+  }
+
+  .pill::before {
+    content: '*';
+    font-size: 0.45rem;
+    color: var(--blue);
+  }
+
+  /* ── Download section ── */
+  .downloads-heading {
+    font-family: 'Palatino Linotype', Palatino, 'Book Antiqua', 'Garamond', serif;
+    font-size: 0.65rem;
+    font-weight: 600;
+    letter-spacing: 0.3em;
+    text-transform: uppercase;
+    color: var(--text-faint);
+    margin-bottom: 20px;
+    animation: fadeUp 0.7s 0.3s ease both;
+  }
+
+  .download-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    animation: fadeUp 0.7s 0.35s ease both;
+  }
+
+  @media (max-width: 580px) {
+    .download-grid { grid-template-columns: 1fr; }
+  }
+
+  .download-card {
+    position: relative;
+    background: var(--bg-card);
+    border-radius: 8px;
+    padding: 28px 24px;
+    text-decoration: none;
+    color: inherit;
+    overflow: hidden;
+    transition: transform 0.2s, box-shadow 0.2s;
+    display: block;
+  }
+
+  .download-card::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: 8px;
+    padding: 1px;
+    background: linear-gradient(135deg, var(--border-color, var(--border)), transparent 60%);
+    -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+    pointer-events: none;
+  }
+
+  .download-card.full { --border-color: rgba(201,168,76,0.35); }
+  .download-card.slim { --border-color: rgba(74,143,201,0.35); }
+
+  .download-card::after {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+    border-radius: 8px 8px 0 0;
+  }
+
+  .download-card.full::after {
+    background: linear-gradient(90deg, transparent, var(--gold), transparent);
+    opacity: 0.6;
+  }
+
+  .download-card.slim::after {
+    background: linear-gradient(90deg, transparent, var(--blue), transparent);
+    opacity: 0.6;
+  }
+
+  .download-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 12px 40px rgba(0,0,0,0.4);
+  }
+
+  .download-card.full:hover {
+    box-shadow: 0 12px 40px rgba(0,0,0,0.4), 0 0 20px rgba(201,168,76,0.08);
+  }
+
+  .download-card.slim:hover {
+    box-shadow: 0 12px 40px rgba(0,0,0,0.4), 0 0 20px rgba(74,143,201,0.08);
+  }
+
+  /* Subtle glow in corner */
+  .card-glow {
+    position: absolute;
+    top: -30px; right: -30px;
+    width: 120px; height: 120px;
+    border-radius: 50%;
+    opacity: 0.06;
+    pointer-events: none;
+  }
+
+  .full .card-glow { background: var(--gold); }
+  .slim .card-glow { background: var(--blue); }
+
+  .card-type {
+    font-family: 'Palatino Linotype', Palatino, 'Book Antiqua', 'Garamond', serif;
+    font-size: 0.6rem;
+    font-weight: 600;
+    letter-spacing: 0.25em;
+    text-transform: uppercase;
+    margin-bottom: 10px;
+  }
+
+  .full .card-type { color: var(--gold); }
+  .slim .card-type { color: var(--blue-light); }
+
+  .card-name {
+    font-family: 'Palatino Linotype', Palatino, 'Book Antiqua', 'Garamond', serif;
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: #e8f0f8;
+    margin-bottom: 10px;
+    line-height: 1.2;
+  }
+
+  .card-desc {
+    font-size: 0.9rem;
+    line-height: 1.6;
+    color: var(--text-dim);
+    margin-bottom: 20px;
+    font-style: italic;
+  }
+
+  .card-size {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-family: 'Cascadia Code', Consolas, 'Courier New', monospace;
+    font-size: 0.72rem;
+    color: var(--text-faint);
+    margin-bottom: 20px;
+  }
+
+  .card-size::before { content: '↓'; }
+
+  .btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    width: 100%;
+    padding: 11px 20px;
+    border-radius: 5px;
+    font-family: 'Palatino Linotype', Palatino, 'Book Antiqua', 'Garamond', serif;
+    font-size: 0.8rem;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .btn-full {
+    background: linear-gradient(135deg, rgba(201,168,76,0.15), rgba(201,168,76,0.05));
+    border: 1px solid rgba(201,168,76,0.4);
+    color: var(--gold-light);
+  }
+
+  .btn-full:hover {
+    background: linear-gradient(135deg, rgba(201,168,76,0.25), rgba(201,168,76,0.1));
+    border-color: var(--gold);
+    box-shadow: 0 0 16px rgba(201,168,76,0.15);
+  }
+
+  .btn-slim {
+    background: linear-gradient(135deg, rgba(74,143,201,0.15), rgba(74,143,201,0.05));
+    border: 1px solid rgba(74,143,201,0.4);
+    color: var(--blue-light);
+  }
+
+  .btn-slim:hover {
+    background: linear-gradient(135deg, rgba(74,143,201,0.25), rgba(74,143,201,0.1));
+    border-color: var(--blue);
+    box-shadow: 0 0 16px rgba(74,143,201,0.15);
+  }
+
+  .btn svg {
+    width: 14px; height: 14px;
+    flex-shrink: 0;
+  }
+
+  /* ── Requirements ── */
+  .requirements {
+    margin-top: 16px;
+    padding: 14px 18px;
+    background: rgba(8,12,18,0.6);
+    border: 1px solid var(--text-faint);
+    border-left: 2px solid var(--text-faint);
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    flex-wrap: wrap;
+    animation: fadeUp 0.7s 0.4s ease both;
+  }
+
+  .req-label {
+    font-family: 'Cascadia Code', Consolas, 'Courier New', monospace;
+    font-size: 0.65rem;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--text-faint);
+    flex-shrink: 0;
+  }
+
+  .req-items {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .req-item {
+    font-family: 'Cascadia Code', Consolas, 'Courier New', monospace;
+    font-size: 0.72rem;
+    color: var(--text-dim);
+    display: flex;
+    align-items: center;
+    gap: 5px;
+  }
+
+  .req-item::before {
+    content: '*';
+    color: var(--text-faint);
+  }
+
+  /* ── Footer links ── */
+  .footer-links {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 32px;
+    flex-wrap: wrap;
+    padding: 48px 0 64px;
+    animation: fadeUp 0.7s 0.45s ease both;
+  }
+
+  .footer-link {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    text-decoration: none;
+    color: var(--text-dim);
+    font-size: 0.875rem;
+    transition: color 0.2s;
+    font-family: 'Palatino Linotype', Palatino, 'Book Antiqua', 'Garamond', serif;
+    font-size: 0.75rem;
+    letter-spacing: 0.08em;
+  }
+
+  .footer-link:hover { color: var(--text); }
+
+  .footer-link.curseforge:hover { color: #f16436; }
+  .footer-link.tanstaafl:hover  { color: var(--gold-light); }
+
+  .footer-link svg {
+    width: 18px; height: 18px;
+    flex-shrink: 0;
+    opacity: 0.7;
+  }
+
+  .footer-link:hover svg { opacity: 1; }
+
+  .footer-divider {
+    width: 1px;
+    height: 16px;
+    background: var(--text-faint);
+    opacity: 0.4;
+  }
+
+  .copyright {
+    text-align: center;
+    padding-bottom: 40px;
+    font-size: 0.75rem;
+    color: var(--text-faint);
+    font-family: 'Cascadia Code', Consolas, 'Courier New', monospace;
+    animation: fadeUp 0.7s 0.5s ease both;
+  }
+
+  /* ── Animations ── */
+  @keyframes fadeDown {
+    from { opacity: 0; transform: translateY(-16px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(16px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  @keyframes fadeIn {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+  }
+
+  /* ── Update note ── */
+  .update-note {
+    margin-top: 12px;
+    font-size: 0.8rem;
+    color: var(--text-faint);
+    font-style: italic;
+    text-align: center;
+    animation: fadeUp 0.7s 0.42s ease both;
+  }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <!-- Header -->
+  <header>
+    <div class="logo-wrap">
+      <img class="logo-img" src="RuneReaderVoice_512x512.png" alt="RuneReader Voice">
+      <div class="logo-text">
+        <h1>RuneReader Voice</h1>
+        <div class="subtitle">Tanstaafl Gaming</div>
+      </div>
+    </div>
+    <div>
+      <span class="version-badge">v<!--VERSION--></span>
+    </div>
+    <p class="tagline">Life like voice synthesis for World of Warcraft - every NPC, narrator, book and quest brought to life.</p>
+  </header>
+
+  <!-- Description -->
+  <div class="rune-divider"><span>* * *</span></div>
+
+  <section class="description">
+    <p>
+      <strong>RuneReader Voice</strong> is a companion desktop application for the
+      <a href="https://www.curseforge.com/wow/addons/rune-reader-voice" target="_blank" rel="noopener">RuneReader Voice WoW addon</a>.
+      Together they intercept NPC dialog, quest text, and narration as you play
+      and synthesize it into natural-sounding speech in near realtime - using either a
+      <strong>local AI voice model</strong> or a self-hosted <strong>remote TTS server</strong>.
+    </p>
+    <p>
+      Voices are created from reference samples, giving each NPC a consistent, character-appropriate
+      sound across every session - you just play the game.
+    </p>
+    <div class="features">
+      <span class="pill">Local &amp; remote processing</span>
+      <span class="pill">Auto-updates</span>
+      <span class="pill">494+ voice samples</span>
+      <span class="pill">Quest, Books &amp; NPC dialog</span>
+      <span class="pill">Player name voicing with or without titles</span>
+    </div>
+  </section>
+
+  <!-- Downloads -->
+  <div class="rune-divider" style="margin-top:48px;"><span>* * *</span></div>
+
+  <div class="downloads-heading">Choose your installer</div>
+
+  <div class="download-grid">
+
+    <!-- Full -->
+    <a class="download-card full" href="RuneReaderVoice-<!--VERSION-->-full-local-Setup.exe" download>
+      <div class="card-glow"></div>
+      <div class="card-type">Full Edition</div>
+      <div class="card-name">With Local Voice<br>Model</div>
+      <div class="card-desc">Includes the Kokoro TTS model for fully offline voice synthesis. No server required.</div>
+      <div class="card-size">~350 MB</div>
+      <div class="btn btn-full">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 15V3m0 12-4-4m4 4 4-4M2 17l.621 2.485A2 2 0 0 0 4.561 21h14.878a2 2 0 0 0 1.94-1.515L22 17"/></svg>
+        Download Full
+      </div>
+    </a>
+
+    <!-- Slim -->
+    <a class="download-card slim" href="RuneReaderVoice-<!--VERSION-->-slim-local-Setup.exe" download>
+      <div class="card-glow"></div>
+      <div class="card-type">Slim Edition</div>
+      <div class="card-name">Server-Dependent<br>Build</div>
+      <div class="card-desc">Lightweight install for use with a self-hosted rrv-server. Requires server access.</div>
+      <div class="card-size">~35 MB</div>
+      <div class="btn btn-slim">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 15V3m0 12-4-4m4 4 4-4M2 17l.621 2.485A2 2 0 0 0 4.561 21h14.878a2 2 0 0 0 1.94-1.515L22 17"/></svg>
+        Download Slim
+      </div>
+    </a>
+
+  </div>
+
+  <div class="requirements">
+    <span class="req-label">Requires</span>
+    <div class="req-items">
+      <span class="req-item">Windows 10/11 x64</span>
+      <span class="req-item">World of Warcraft (retail)</span>
+      <span class="req-item">RuneReader Voice addon</span>
+    </div>
+  </div>
+
+  <p class="update-note">Once installed, the app updates itself automatically when new versions are released.</p>
+
+  <!-- Footer -->
+  <div class="rune-divider" style="margin-top:48px;"><span>* * *</span></div>
+
+  <nav class="footer-links">
+    <a class="footer-link curseforge" href="https://www.curseforge.com/wow/addons/rune-reader-voice" target="_blank" rel="noopener">
+      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12.393 3.188 9.35 9.55l-2.552-.97 3.512-5.392zm5.664 0-3.04 6.362 2.551-.97-3.511-5.392zM5.097 9.55l2.553.97L3.543 4.927l1.554 4.623zm13.806 0 2.553-.97-2.553 4.623-.972-2.921zM9.35 10.52l-3.044 5.392 2.552.97.492-6.362zm5.3 0-.492 6.362 2.553-.97-2.062-5.392zM12 10.52l-1.554 6.362 1.554.97 1.554-.97z"/></svg>
+      CurseForge Addon
+    </a>
+    <div class="footer-divider"></div>
+    <a class="footer-link tanstaafl" href="https://github.com/station384" target="_blank" rel="noopener">
+      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0 1 12 6.844a9.59 9.59 0 0 1 2.504.337c1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.02 10.02 0 0 0 22 12.017C22 6.484 17.522 2 12 2z"/></svg>
+      GitHub
+    </a>
+  </nav>
+
+  <div class="copyright">(C) <!--YEAR--> Michael Sutton / Tanstaafl Gaming - RuneReader Voice <!--VERSION--></div>
+
+</div>
+</body>
+</html>

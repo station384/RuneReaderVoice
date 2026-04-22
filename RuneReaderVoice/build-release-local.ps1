@@ -199,6 +199,43 @@ Get-ChildItem $ReleaseDir -File | ForEach-Object {
       }
 }
 
+
+function Invoke-GenerateDownloadPage {
+    Write-Host ""
+    Write-Host "Generating download page..." -ForegroundColor Green
+
+    $templatePath = Join-Path $PSScriptRoot "index.template.html"
+    $iconPath     = Join-Path $PSScriptRoot "RuneReaderVoice_512x512.png"
+
+    if (-not (Test-Path $templatePath)) {
+        Write-Warning "index.template.html not found at $templatePath -- skipping page generation"
+        return
+    }
+
+    $year = (Get-Date).Year.ToString()
+    $html = Get-Content $templatePath -Raw
+    $html = $html -replace '<!--VERSION-->', $Version
+    $html = $html -replace '<!--YEAR-->',    $year
+
+    # Write into both release dirs so each upload gets the page
+    foreach ($dir in @(
+        (Join-Path $ReleaseBase "full"),
+        (Join-Path $ReleaseBase "slim")
+    )) {
+        if (Test-Path $dir) {
+            $outPath = Join-Path $dir "index.html"
+            Set-Content -Path $outPath -Value $html -Encoding UTF8
+            Write-Host "  Written: $outPath"
+
+            # Copy icon alongside the page if available
+            if (Test-Path $iconPath) {
+                Copy-Item $iconPath -Destination $dir -Force
+                Write-Host "  Copied icon to $dir"
+            }
+        }
+    }
+}
+
 # ── Main ──────────────────────────────────────────────────────────────────────
 
 Write-Host "RuneReader Voice LOCAL Build v$Version" -ForegroundColor Magenta
@@ -219,7 +256,6 @@ if ($Full) {
     $fullRelease = Join-Path $ReleaseBase "full"
     Invoke-Publish $fullPublish $true
     Invoke-VpkPack $fullPublish $fullRelease "full"
-    Invoke-Upload  $fullRelease "full"
 }
 
 if ($Slim) {
@@ -227,6 +263,18 @@ if ($Slim) {
     $slimRelease = Join-Path $ReleaseBase "slim"
     Invoke-Publish $slimPublish $false
     Invoke-VpkPack $slimPublish $slimRelease "slim"
+}
+
+# Generate page into release dirs before uploading so it gets included
+Invoke-GenerateDownloadPage
+
+if ($Full) {
+    $fullRelease = Join-Path $ReleaseBase "full"
+    Invoke-Upload  $fullRelease "full"
+}
+
+if ($Slim) {
+    $slimRelease = Join-Path $ReleaseBase "slim"
     Invoke-Upload  $slimRelease "slim"
 }
 
