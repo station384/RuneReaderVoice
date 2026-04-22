@@ -46,8 +46,9 @@ def _currency_sub(m: re.Match) -> str:
 # "2:30:00" → "2 hours 30 minutes"
 # "0:45:00" → "45 minutes"
 # "1:30" → "1 minute 30 seconds"  (mm:ss when < 1hr context)
-_DURATION_HHMMSS_RE = re.compile(r'\b(\d+):(\d{2}):(\d{2})\b')
-_DURATION_MMSS_RE   = re.compile(r'\b([0-5]?\d):([0-5]\d)\b')
+_DURATION_HHMMSS_RE = re.compile(r'\b(\d+):(\d{2}):(\d{2})\b(?!\s*[AaPp][Mm])')
+# Negative lookahead excludes clock times like '10:13 AM' / '10:13 PM'
+_DURATION_MMSS_RE   = re.compile(r'\b([0-5]?\d):([0-5]\d)\b(?!\s*[AaPp][Mm])')
 
 def _duration_hhmmss_sub(m: re.Match) -> str:
     h, mn, s = int(m.group(1)), int(m.group(2)), int(m.group(3))
