@@ -26,6 +26,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using RuneReaderVoice.Data;
 using RuneReaderVoice.Protocol;
+using RuneReaderVoice.TTS;
 
 namespace RuneReaderVoice.Session;
 
@@ -87,6 +88,7 @@ public sealed class AssembledSegment
     public float?    BespokeExaggeration { get; init; } = null;
     public float?    BespokeCfgWeight   { get; init; } = null;
     public bool      UseNpcIdAsSeed    { get; init; } = false;
+    public bool      SkipNarratorMarkerExpansion { get; init; } = false;
 }
 
 public sealed class BatchSegmentPlan
@@ -327,6 +329,7 @@ public sealed class TtsSessionAssembler
                     BespokeExaggeration = seg.BespokeExaggeration,
                     BespokeCfgWeight = seg.BespokeCfgWeight,
                     UseNpcIdAsSeed = seg.UseNpcIdAsSeed,
+                    SkipNarratorMarkerExpansion = seg.SkipNarratorMarkerExpansion,
                 };
                 System.Diagnostics.Debug.WriteLine(
                     $"[Assembler] Firing seg={emitted.SegmentIndex} slot={emitted.Slot} npc={emitted.NpcId}" +
@@ -358,6 +361,8 @@ public sealed class TtsSessionAssembler
 
         var text = DecodeAndClean(acc.Subs!);
         text = ExtractAndApplyDialogMetadata(text);
+        var htmlMode = HtmlRenderedTextExtractor.LooksLikeHtml(text);
+        text = htmlMode ? HtmlRenderedTextExtractor.ExtractFromMixedText(text) : HtmlTextStripper.Strip(text);
         text = InjectSyntheticParagraphPeriods(text);
 
         var utteranceKey = MakeUtteranceKey(_currentDialogId, acc.Slot, acc.NpcId, text, acc.SeqIndex);
@@ -415,7 +420,7 @@ public sealed class TtsSessionAssembler
 
     private static IReadOnlyList<AssembledSegment> ExpandNarratorForcedSegments(AssembledSegment segment)
     {
-        if (segment.NpcId == 0 || string.IsNullOrWhiteSpace(segment.Text))
+        if (segment.SkipNarratorMarkerExpansion || segment.NpcId == 0 || string.IsNullOrWhiteSpace(segment.Text))
             return new[] { segment };
 
         var runs = SplitNarratorForcedRuns(segment.Text);
@@ -455,6 +460,7 @@ public sealed class TtsSessionAssembler
                     BespokeExaggeration = null,
                     BespokeCfgWeight = null,
                     UseNpcIdAsSeed = false,
+                    SkipNarratorMarkerExpansion = false,
                 });
             }
             else
@@ -479,6 +485,7 @@ public sealed class TtsSessionAssembler
                     BespokeExaggeration = segment.BespokeExaggeration,
                     BespokeCfgWeight = segment.BespokeCfgWeight,
                     UseNpcIdAsSeed = segment.UseNpcIdAsSeed,
+                    SkipNarratorMarkerExpansion = segment.SkipNarratorMarkerExpansion,
                 });
             }
         }

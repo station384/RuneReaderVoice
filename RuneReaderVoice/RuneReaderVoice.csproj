@@ -96,6 +96,7 @@ along with RuneReaderVoice. If not, see <https://www.gnu.org/licenses/>.
     <PackageReference Include="NWaves" Version="0.9.6" />
     <!-- Auto-update -->
     <PackageReference Include="Velopack" Version="0.0.1298" />
+    <PackageReference Include="HtmlAgilityPack" Version="1.11.71" />
 
   </ItemGroup>
 
