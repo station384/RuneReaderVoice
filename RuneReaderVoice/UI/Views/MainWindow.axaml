@@ -370,7 +370,7 @@ along with RuneReaderVoice. If not, see <https://www.gnu.org/licenses/>.
                         <!-- RIGHT: Dialog Sources -->
                         <StackPanel Grid.Column="1" Spacing="6">
 
-                            <Expander x:Name="ExpanderDialogSources"
+                            <Expander x:Name="ExpanderDialogSources" IsVisible="False"
                                       Header="Dialog Sources"
                                       HorizontalAlignment="Stretch"
                                       IsExpanded="False">
@@ -401,14 +401,10 @@ along with RuneReaderVoice. If not, see <https://www.gnu.org/licenses/>.
                                    Foreground="#888"
                                    FontSize="11"/>
                         <StackPanel Orientation="Horizontal" Spacing="8">
-                            <Button Content="Export Profiles"
-                                    Click="OnVoicesExportClicked"/>
-                            <Button Content="Import Profiles"
-                                    Click="OnVoicesImportClicked"/>
-                            <Button Content="Push to Server" FontSize="11"
-                                    Click="OnVoicesPushToServerClicked"/>
-                            <Button Content="Pull from Server" FontSize="11"
-                                    Click="OnVoicesPullFromServerClicked"/>
+                            <Button Content="Export Profiles" Click="OnVoicesExportClicked" ToolTip.Tip="Export all provider voice profiles to JSON."/>
+                            <Button Content="Import Profiles" Click="OnVoicesImportClicked" ToolTip.Tip="Import voice profiles from JSON."/>
+                            <Button Content="Push to Server" FontSize="11" Click="OnVoicesPushToServerClicked" ToolTip.Tip="Push voice profiles to the configured server."/>
+                            <Button Content="Pull from Server" FontSize="11" Click="OnVoicesPullFromServerClicked" ToolTip.Tip="Pull voice profiles from the configured server."/>
                         </StackPanel>
                         <TextBlock x:Name="VoicesStatus" Foreground="#888" FontSize="11"/>
                         <TextBox x:Name="VoiceSearchBox"
@@ -431,14 +427,16 @@ along with RuneReaderVoice. If not, see <https://www.gnu.org/licenses/>.
                                        TextWrapping="Wrap"
                                        Foreground="#888"
                                        FontSize="11"/>
-                            <StackPanel Orientation="Horizontal" Spacing="8">
-                                <Button Content="New" Click="OnRaceEditorNewClicked"/>
-                                <Button Content="Refresh" Click="OnRaceEditorRefreshClicked"/>
-                                <Button Content="Activate" Click="OnRaceEditorActivateClicked"/>
-                                <Button Content="Deactivate" Click="OnRaceEditorDeactivateClicked"/>
-                                <Button Content="Push to Server" FontSize="11" Click="OnRaceEditorPushToServerClicked"/>
-                                <Button Content="Pull from Server" FontSize="11" Click="OnRaceEditorPullFromServerClicked"/>
-                            </StackPanel>
+                            <WrapPanel Orientation="Horizontal">
+                                <Button Content="New" Margin="0,0,8,6" Click="OnRaceEditorNewClicked" ToolTip.Tip="Clear the editor for a new catalog row."/>
+                                <Button Content="Refresh" Margin="0,0,8,6" Click="OnRaceEditorRefreshClicked" ToolTip.Tip="Reload the local race catalog."/>
+                                <Button Content="Activate" Margin="0,0,8,6" Click="OnRaceEditorActivateClicked" ToolTip.Tip="Enable the selected row."/>
+                                <Button Content="Deactivate" Margin="0,0,8,6" Click="OnRaceEditorDeactivateClicked" ToolTip.Tip="Disable the selected row without deleting it."/>
+                                <Button Content="Export JSON" FontSize="11" Margin="0,0,8,6" Click="OnRaceEditorExportClicked" ToolTip.Tip="Export race catalog rows to JSON."/>
+                                <Button Content="Import JSON" FontSize="11" Margin="0,0,8,6" Click="OnRaceEditorImportClicked" ToolTip.Tip="Import race catalog rows from JSON."/>
+                                <Button Content="Push to Server" FontSize="11" Margin="0,0,8,6" Click="OnRaceEditorPushToServerClicked" ToolTip.Tip="Push local race catalog to server."/>
+                                <Button Content="Pull from Server" FontSize="11" Margin="0,0,8,6" Click="OnRaceEditorPullFromServerClicked" ToolTip.Tip="Pull race catalog defaults from server."/>
+                            </WrapPanel>
                             <TextBlock x:Name="RaceEditorStatus" Foreground="#888" FontSize="11"/>
                             <TextBox x:Name="RaceEditorSearchBox"
                                      PlaceholderText="Search race catalog..."
@@ -539,6 +537,9 @@ along with RuneReaderVoice. If not, see <https://www.gnu.org/licenses/>.
                             <Button Content="Pull from Server" FontSize="11" Click="OnSampleDefaultsPullFromServerClicked"/>
                         </StackPanel>
                         <TextBlock x:Name="SampleDefaultsStatus" Foreground="#888" FontSize="11"/>
+                        <TextBox x:Name="SampleDefaultsSearchBox"
+                                 PlaceholderText="Search voice defaults..."
+                                 TextChanged="OnSampleDefaultsSearchTextChanged"/>
                         <StackPanel Orientation="Horizontal" Spacing="8">
                             <Button x:Name="SampleDefaultsPrevButton"
                                     Content="Prev"
@@ -802,7 +803,7 @@ along with RuneReaderVoice. If not, see <https://www.gnu.org/licenses/>.
                 </ScrollViewer>
             </TabItem>
 
-            <TabItem Header="Pronunciation">
+            <TabItem x:Name="PronunciationTab" Header="Pronunciation">
                 <ScrollViewer>
                     <Grid Margin="12" ColumnDefinitions="1.1*,0.9*" ColumnSpacing="12">
 

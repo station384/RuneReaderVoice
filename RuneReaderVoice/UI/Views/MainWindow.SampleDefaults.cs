@@ -37,6 +37,7 @@ public partial class MainWindow
     private readonly JsonSerializerOptions _jsonSampleVoiceOptions = new() { WriteIndented = true };
     private int _sampleDefaultsPageNumber = 1;
     private int _sampleDefaultsPageSize = 25;
+    private string _sampleDefaultsSearchText = string.Empty;
 
     private async Task PopulateSampleDefaultsGridAsync()
     {
@@ -47,6 +48,8 @@ public partial class MainWindow
             var provider = AppServices.Provider;
             var descriptor = AppServices.ProviderRegistry.Get(provider.ProviderId);
             var voices = (await GetActiveProviderVoicesForUiAsync())
+                .Where(v => SampleDefaultMatchesProviderFamily(provider.ProviderId, v.VoiceId, v.Name))
+                .Where(v => SampleDefaultMatchesSearch(v))
                 .OrderBy(v => v.Name, StringComparer.OrdinalIgnoreCase)
                 .ThenBy(v => v.VoiceId, StringComparer.OrdinalIgnoreCase)
                 .ToList();
@@ -131,6 +134,29 @@ public partial class MainWindow
         {
             SampleDefaultsStatus.Text = $"Voice defaults refresh failed: {ex.Message}";
         }
+    }
+
+    private bool SampleDefaultMatchesSearch(VoiceInfo voice)
+    {
+        var q = _sampleDefaultsSearchText;
+        if (string.IsNullOrWhiteSpace(q))
+            return true;
+        return (voice.VoiceId?.IndexOf(q, StringComparison.OrdinalIgnoreCase) ?? -1) >= 0
+               || (voice.Name?.IndexOf(q, StringComparison.OrdinalIgnoreCase) ?? -1) >= 0;
+    }
+
+    private static bool SampleDefaultMatchesProviderFamily(string providerId, string? voiceId, string? name)
+    {
+        var text = ((voiceId ?? string.Empty) + " " + (name ?? string.Empty)).ToLowerInvariant();
+        if (providerId.Contains("chatterbox", StringComparison.OrdinalIgnoreCase))
+            return !text.Contains("-f5") && !text.Contains("-cosyvoice") && !text.Contains("-cozyvoice") && !text.Contains("-lux");
+        if (providerId.Contains("f5", StringComparison.OrdinalIgnoreCase))
+            return !text.Contains("-chatterbox") && !text.Contains("-cosyvoice") && !text.Contains("-cozyvoice") && !text.Contains("-lux");
+        if (providerId.Contains("cosyvoice", StringComparison.OrdinalIgnoreCase) || providerId.Contains("cozyvoice", StringComparison.OrdinalIgnoreCase))
+            return !text.Contains("-chatterbox") && !text.Contains("-f5") && !text.Contains("-lux");
+        if (providerId.Contains("lux", StringComparison.OrdinalIgnoreCase))
+            return !text.Contains("-chatterbox") && !text.Contains("-f5") && !text.Contains("-cosyvoice") && !text.Contains("-cozyvoice");
+        return true;
     }
 
     private string DescribeSampleProfile(string providerId, string sampleId)
@@ -229,6 +255,13 @@ public partial class MainWindow
 
     private async void OnSampleDefaultsRefreshClicked(object? sender, RoutedEventArgs e)
     {
+        _sampleDefaultsPageNumber = 1;
+        await PopulateSampleDefaultsGridAsync();
+    }
+
+    private async void OnSampleDefaultsSearchTextChanged(object? sender, TextChangedEventArgs e)
+    {
+        _sampleDefaultsSearchText = SampleDefaultsSearchBox?.Text?.Trim() ?? string.Empty;
         _sampleDefaultsPageNumber = 1;
         await PopulateSampleDefaultsGridAsync();
     }

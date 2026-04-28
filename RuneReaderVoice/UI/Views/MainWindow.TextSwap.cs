@@ -22,6 +22,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text.Json;
+using System.Threading;
 using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Controls;
@@ -41,6 +42,7 @@ public partial class MainWindow
     private bool _textSwapUiInitializing;
     private int _textSwapPageNumber = 1;
     private int _textSwapPageSize = 25;
+    private int _textSwapRuleListReloadSerial;
 
     private void PopulateTextSwapWorkbench()
     {
@@ -86,7 +88,7 @@ public partial class MainWindow
 
     private async Task ReloadTextSwapRuleListAsync()
     {
-        TextSwapRuleList.Items.Clear();
+        var reloadSerial = Interlocked.Increment(ref _textSwapRuleListReloadSerial);
 
         if (TextSwapPageSizeComboBox.SelectedItem == null)
             TextSwapPageSizeComboBox.SelectedIndex = 0;
@@ -99,6 +101,10 @@ public partial class MainWindow
             page = await AppServices.TextSwapRules.QueryPageAsync(_textSwapPageNumber, _textSwapPageSize);
         }
 
+        if (reloadSerial != _textSwapRuleListReloadSerial)
+            return;
+
+        TextSwapRuleList.Items.Clear();
         foreach (var rule in page.Items)
         {
             TextSwapRuleList.Items.Add(new ListBoxItem

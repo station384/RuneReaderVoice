@@ -379,7 +379,7 @@ public sealed class TtsSessionAssembler
 
         if (!acc.IsNarrator || IsSyntheticBookNpcId(acc.NpcId))
         {
-            var entry = _overrideDb.GetOverrideAsync(acc.NpcId).GetAwaiter().GetResult();
+            var entry = Task.Run(() => _overrideDb.GetOverrideAsync(acc.NpcId)).GetAwaiter().GetResult();
             if (entry != null)
             {
                 var g = acc.IsMale ? Gender.Male : acc.IsFemale ? Gender.Female : Gender.Unknown;

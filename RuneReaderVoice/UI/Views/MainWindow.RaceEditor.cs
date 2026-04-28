@@ -387,4 +387,71 @@ public partial class MainWindow
             _ = RefreshRaceEditorListAsync();
         }
     }
+
+    private sealed class RaceCatalogJsonFile
+    {
+        public List<NpcPeopleCatalogRow> Rows { get; set; } = new();
+    }
+
+    private async void OnRaceEditorExportClicked(object? sender, RoutedEventArgs e)
+    {
+        try
+        {
+            var storage = TopLevel.GetTopLevel(this)?.StorageProvider;
+            if (storage == null) return;
+            var file = await storage.SaveFilePickerAsync(new Avalonia.Platform.Storage.FilePickerSaveOptions
+            {
+                Title = "Export Race Catalog",
+                SuggestedFileName = "race-catalog.json",
+                FileTypeChoices = new[] { new Avalonia.Platform.Storage.FilePickerFileType("JSON") { Patterns = new[] { "*.json" } } }
+            });
+            if (file == null) return;
+
+            var rows = (await AppServices.NpcPeopleCatalog.QueryPageAsync(null, 1, 500)).Items.ToList();
+            var payload = new RaceCatalogJsonFile { Rows = rows };
+            await using var stream = await file.OpenWriteAsync();
+            await System.Text.Json.JsonSerializer.SerializeAsync(stream, payload, new System.Text.Json.JsonSerializerOptions { WriteIndented = true });
+            SetRaceEditorStatus($"Exported {rows.Count} race catalog row(s).");
+        }
+        catch (Exception ex)
+        {
+            SetRaceEditorStatus($"Export failed: {ex.Message}");
+        }
+    }
+
+    private async void OnRaceEditorImportClicked(object? sender, RoutedEventArgs e)
+    {
+        try
+        {
+            var storage = TopLevel.GetTopLevel(this)?.StorageProvider;
+            if (storage == null) return;
+            var files = await storage.OpenFilePickerAsync(new Avalonia.Platform.Storage.FilePickerOpenOptions
+            {
+                Title = "Import Race Catalog",
+                AllowMultiple = false,
+                FileTypeFilter = new[] { new Avalonia.Platform.Storage.FilePickerFileType("JSON") { Patterns = new[] { "*.json" } } }
+            });
+            var file = files.FirstOrDefault();
+            if (file == null) return;
+
+            await using var stream = await file.OpenReadAsync();
+            var payload = await System.Text.Json.JsonSerializer.DeserializeAsync<RaceCatalogJsonFile>(stream,
+                new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+            if (payload?.Rows == null || payload.Rows.Count == 0)
+            {
+                SetRaceEditorStatus("No race catalog rows found in file.");
+                return;
+            }
+
+            foreach (var row in payload.Rows)
+                await AppServices.NpcPeopleCatalog.UpsertAsync(row);
+
+            await ReloadRaceEditorAsync();
+            SetRaceEditorStatus($"Imported {payload.Rows.Count} race catalog row(s).");
+        }
+        catch (Exception ex)
+        {
+            SetRaceEditorStatus($"Import failed: {ex.Message}");
+        }
+    }
 }

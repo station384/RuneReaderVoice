@@ -97,6 +97,10 @@ public sealed class NpcSyncService : IDisposable
         _assemblerBridge    = assemblerBridge;
     }
 
+    private bool ShouldUseRemoteSync()
+        => !string.IsNullOrWhiteSpace(_settings.RemoteServerUrl)
+           && (_settings.ActiveProvider ?? string.Empty).StartsWith("remote:", StringComparison.OrdinalIgnoreCase);
+
     // ── Startup ───────────────────────────────────────────────────────────────
 
     /// <summary>
@@ -105,6 +109,13 @@ public sealed class NpcSyncService : IDisposable
     /// </summary>
     public async Task StartAsync()
     {
+        if (!ShouldUseRemoteSync())
+        {
+            System.Diagnostics.Debug.WriteLine("[NpcSync] Remote sync skipped — active provider is not remote or no server URL is configured.");
+            SetStatus("Remote sync skipped — local provider active.");
+            return;
+        }
+
         if (!_settings.FirstLoadComplete)
             await DoFirstLoadAsync().ConfigureAwait(false);
 
@@ -231,7 +242,7 @@ public sealed class NpcSyncService : IDisposable
     /// </summary>
     public void ContributeIfEnabled(NpcRaceOverride entry)
     {
-        if (!_settings.ContributeByDefault)
+        if (!_settings.ContributeByDefault || entry.Source != NpcOverrideSource.Local || !ShouldUseRemoteSync())
             return;
 
         _ = Task.Run(async () =>
@@ -613,6 +624,7 @@ public sealed class NpcSyncService : IDisposable
             json, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
         if (file?.Rules == null) return;
 
+        await _textSwapRules.ClearAllAsync().ConfigureAwait(false);
         foreach (var entry in file.Rules)
             await _textSwapRules.UpsertRuleAsync(entry).ConfigureAwait(false);
     }

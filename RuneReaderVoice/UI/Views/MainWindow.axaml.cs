@@ -310,6 +310,7 @@ public partial class MainWindow : Window
         ContributeByDefaultCheck.IsChecked = s.ContributeByDefault;
         FirstLoadCompleteCheck.IsChecked   = s.FirstLoadComplete;
         UpdateRemoteProvidersStatus();
+        UpdateProviderSensitiveUi();
 
         var playbackMatch = PlaybackModeSelector.Items
             .OfType<ComboBoxItem>()

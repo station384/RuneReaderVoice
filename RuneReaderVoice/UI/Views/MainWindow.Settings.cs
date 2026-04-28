@@ -382,9 +382,17 @@ public partial class MainWindow
         HookProviderStatusCallbacks(newProvider);
 
         AppServices.SwapProvider(newProvider);
+        UpdateProviderSensitiveUi();
         PopulateVoiceGrid();
         PopulateLastNpcSampleDropdown();
         _ = PopulateSampleDefaultsGridAsync();
+    }
+
+    private void UpdateProviderSensitiveUi()
+    {
+        var id = AppServices.Provider?.ProviderId ?? AppServices.Settings.ActiveProvider ?? string.Empty;
+        if (PronunciationTab != null)
+            PronunciationTab.IsVisible = id.Contains("kokoro", StringComparison.OrdinalIgnoreCase);
     }
 
     private void HookProviderStatusCallbacks(ITtsProvider provider)
