@@ -288,50 +288,6 @@ along with RuneReaderVoice. If not, see <https://www.gnu.org/licenses/>.
                                 </StackPanel>
                             </Expander>
 
-                            <Expander x:Name="ExpanderPlayerNameHandling"
-                                      Header="Player Name Handling"
-                                      HorizontalAlignment="Stretch"
-                                      IsExpanded="False">
-                                <StackPanel Margin="0,8,0,0" Spacing="6">
-                                    <TextBlock Text="Player name handling" Foreground="#888" FontSize="11"
-                                               ToolTip.Tip="Controls whether the detected player name is spoken as-is or replaced with a cache-friendly title before synthesis. All modes now isolate the variable piece using sentence-shaped segments so most of the text can stay cached."/>
-                                    <ComboBox x:Name="PlayerNameModeSelector"
-                                              HorizontalAlignment="Stretch"
-                                              SelectionChanged="OnPlayerNameModeChanged">
-                                        <ComboBoxItem Tag="generic" Content="Use cache-friendly title"/>
-                                        <ComboBoxItem Tag="actual" Content="Use actual player name"/>
-                                    </ComboBox>
-
-                                    <TextBlock Text="Replacement title" Foreground="#888" FontSize="11" Margin="0,6,0,0"
-                                               ToolTip.Tip="Used when player name handling is set to a cache-friendly title. The selected replacement is isolated into its own cache-preserving sentence-shaped segment when present."/>
-                                    <ComboBox x:Name="PlayerNamePresetSelector"
-                                              HorizontalAlignment="Stretch"
-                                              SelectionChanged="OnPlayerNamePresetChanged">
-                                        <ComboBoxItem Tag="hero" Content="Hero"/>
-                                        <ComboBoxItem Tag="champion" Content="Champion"/>
-                                        <ComboBoxItem Tag="class" Content="Player Class Name"/>
-                                        <ComboBoxItem Tag="title" Content="Current Player Title"/>
-                                    </ComboBox>
-
-                                    <CheckBox x:Name="PlayerNameAppendRealmCheck"
-                                              Content='Append realm as "of &lt;Realm&gt;"'
-                                              Margin="0,4,0,0"
-                                              Click="OnPlayerNameAppendRealmChanged"
-                                              ToolTip.Tip="When enabled, the replacement becomes values like 'Champion of Lothar', 'Warlock of Lothar', or the actual player name with realm appended."/>
-
-                                    <CheckBox x:Name="PlayerNameEnableTitleCheck"
-                                              Content="Enable current player title"
-                                              Margin="0,4,0,0"
-                                              IsChecked="True"
-                                              Click="OnPlayerNameEnableTitleChanged"
-                                              ToolTip.Tip="When enabled, the Current Player Title preset uses the in-game title form, such as 'Chef Tanstaafl' or 'Tanstaafl, Jenkins'. When disabled, title replacement falls back to the plain player name."/>
-
-                                    <Border Background="#33AA0000" BorderBrush="#CCFF4444" BorderThickness="1" CornerRadius="4" Padding="8" Margin="0,6,0,0">
-                                        <TextBlock Foreground="#FFFF6666" TextWrapping="Wrap"
-                                                   Text="Warning: changing player-name handling changes spoken text and may force regeneration instead of using cached audio."/>
-                                    </Border>
-                                </StackPanel>
-                            </Expander>
 
                             <Expander x:Name="ExpanderPlayback"
                                       Header="Playback"
@@ -382,6 +338,52 @@ along with RuneReaderVoice. If not, see <https://www.gnu.org/licenses/>.
                                     <CheckBox x:Name="EnableBooks"     Content="In-game Books (experimental)" IsChecked="False"/>
                                 </StackPanel>
                             </Expander>
+
+                            <Expander x:Name="ExpanderPlayerNameHandling"
+                                      Header="Player Name Handling"
+                                      HorizontalAlignment="Stretch"
+                                      IsExpanded="False">
+                                <StackPanel Margin="0,8,0,0" Spacing="6">
+                                    <TextBlock Text="Player name handling" Foreground="#888" FontSize="11"
+                                               ToolTip.Tip="Controls whether the detected player name is spoken as-is or replaced with a cache-friendly title before synthesis. All modes now isolate the variable piece using sentence-shaped segments so most of the text can stay cached."/>
+                                    <ComboBox x:Name="PlayerNameModeSelector"
+                                              HorizontalAlignment="Stretch"
+                                              SelectionChanged="OnPlayerNameModeChanged">
+                                        <ComboBoxItem Tag="generic" Content="Use cache-friendly title"/>
+                                        <ComboBoxItem Tag="actual" Content="Use actual player name"/>
+                                    </ComboBox>
+
+                                    <TextBlock Text="Replacement title" Foreground="#888" FontSize="11" Margin="0,6,0,0"
+                                               ToolTip.Tip="Used when player name handling is set to a cache-friendly title. The selected replacement is isolated into its own cache-preserving sentence-shaped segment when present."/>
+                                    <ComboBox x:Name="PlayerNamePresetSelector"
+                                              HorizontalAlignment="Stretch"
+                                              SelectionChanged="OnPlayerNamePresetChanged">
+                                        <ComboBoxItem Tag="hero" Content="Hero"/>
+                                        <ComboBoxItem Tag="champion" Content="Champion"/>
+                                        <ComboBoxItem Tag="class" Content="Player Class Name"/>
+                                        <ComboBoxItem Tag="title" Content="Current Player Title"/>
+                                    </ComboBox>
+
+                                    <CheckBox x:Name="PlayerNameAppendRealmCheck"
+                                              Content='Append realm as "of &lt;Realm&gt;"'
+                                              Margin="0,4,0,0"
+                                              Click="OnPlayerNameAppendRealmChanged"
+                                              ToolTip.Tip="When enabled, the replacement becomes values like 'Champion of Lothar', 'Warlock of Lothar', or the actual player name with realm appended."/>
+
+                                    <CheckBox x:Name="PlayerNameEnableTitleCheck"
+                                              Content="Enable current player title"
+                                              Margin="0,4,0,0"
+                                              IsChecked="True"
+                                              Click="OnPlayerNameEnableTitleChanged"
+                                              ToolTip.Tip="When enabled, the Current Player Title preset uses the in-game title form, such as 'Chef Tanstaafl' or 'Tanstaafl, Jenkins'. When disabled, title replacement falls back to the plain player name."/>
+
+                                    <Border Background="#33AA0000" BorderBrush="#CCFF4444" BorderThickness="1" CornerRadius="4" Padding="8" Margin="0,6,0,0">
+                                        <TextBlock Foreground="#FFFF6666" TextWrapping="Wrap"
+                                                   Text="Warning: changing player-name handling changes spoken text and may force regeneration instead of using cached audio."/>
+                                    </Border>
+                                </StackPanel>
+                            </Expander>
+
 
                         </StackPanel>
 
