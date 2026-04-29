@@ -120,6 +120,26 @@
       "Enabled": true,
       "Priority": 0,
       "Notes": ""
+    },
+    {
+      "FindText": " - Eslene",
+      "ReplaceText": ",aez lean",
+      "ReplaceWithCrLf": false,
+      "WholeWord": true,
+      "CaseSensitive": false,
+      "Enabled": true,
+      "Priority": 100,
+      "Notes": ""
+    },
+    {
+      "FindText": " - Valtrois",
+      "ReplaceText": ",VAL TWAH",
+      "ReplaceWithCrLf": false,
+      "WholeWord": true,
+      "CaseSensitive": false,
+      "Enabled": true,
+      "Priority": 100,
+      "Notes": ""
     }
   ]
 }
