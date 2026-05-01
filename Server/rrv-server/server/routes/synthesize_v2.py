@@ -95,6 +95,7 @@ class JobState:
     created_at:   float        = field(default_factory=time.monotonic)
     completed_at: float        = 0.0
     _waiters:     list         = field(default_factory=list)  # SSE subscriber queues
+    _synthesis_done: asyncio.Event = field(default_factory=asyncio.Event)  # set when synthesis completes or errors
 
     def push_event(self, event: dict) -> None:
         """Push an event to all SSE subscribers."""
@@ -363,6 +364,7 @@ async def synthesize_v2(body: SynthesizeRequest, request: Request) -> dict:
         job.result = cached
         job.cache_hit = True
         job.completed_at = time.monotonic()
+        job._synthesis_done.set()
         async with _jobs_lock:
             _jobs[progress_key] = job
             _attach_job_to_batch_locked(job, body.batch_id, body.batch_total)
@@ -607,6 +609,7 @@ async def _process_one_segment(
         job.result = cached_ogg
         job.cache_hit = True
         job.completed_at = time.monotonic()
+        job._synthesis_done.set()
         async with _jobs_lock:
             _jobs[progress_key] = job
             _attach_job_to_batch_locked(job, batch_id, batch_total)
@@ -738,10 +741,19 @@ async def synthesize_v2_batch(body: BatchSubmitRequest, request: Request) -> dic
     # Process all segments — cache checks run concurrently, synthesis dispatched async
     results = []
     segment_cache_keys: dict[str, str] = {}
+    segment_jobs: dict[str, JobState] = {}  # segment_id → job, for continuation awaiting
     for batch_index, seg in enumerate(body.segments):
         continue_from_cache_key = None
         if seg.prime_from_segment:
             continue_from_cache_key = segment_cache_keys.get(seg.prime_from_segment)
+            # Wait for prior segment synthesis to complete before dispatching this one.
+            # The sidecar (.tokens.pt) is written at the end of synthesis — if we
+            # dispatch immediately the sidecar won't exist yet and the explicit
+            # continue_from_cache_key disk load will miss, falling back to the
+            # reference clip and breaking prosodic continuity.
+            prior_job = segment_jobs.get(seg.prime_from_segment)
+            if prior_job is not None and not prior_job.cache_hit:
+                await prior_job._synthesis_done.wait()
         result = await _process_one_segment(
             seg,
             batch_id,
@@ -763,6 +775,8 @@ async def synthesize_v2_batch(body: BatchSubmitRequest, request: Request) -> dic
                 job = _jobs.get(result["progress_key"])
                 if job and job.cache_hit:
                     _batches[batch_id].completed += 1
+            if seg.segment_id and job is not None:
+                segment_jobs[seg.segment_id] = job
 
     # If all segments were cache hits, mark batch complete
     async with _jobs_lock:
@@ -842,6 +856,8 @@ async def _run_synthesis(
         _update_batches_for_job(job, success=False)
 
     finally:
+        # Signal synthesis completion (success or error) for chained batch segments
+        job._synthesis_done.set()
         # Signal all SSE subscribers to close
         for q in job._waiters:
             try:

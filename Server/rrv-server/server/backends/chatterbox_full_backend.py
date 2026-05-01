@@ -1444,10 +1444,10 @@ class ChatterboxFullBackend(AbstractTtsBackend):
                 self._prior_speech_tokens[_voice_key] = (tail, _ctx_tag)
 
                 # Write tail token sidecar to cache dir alongside the OGG.
-                # Only written for single-chunk requests (one segment = one cache
-                # key). Multi-chunk requests produce a combined OGG whose key
-                # doesn't map cleanly to any single chunk's tokens.
-                if total == 1 and request.cache_key and request.cache_dir:
+                # Written for all requests (single and multi-chunk) using the
+                # last chunk's tail tokens — this is what the next chained segment
+                # needs to prime from, regardless of how many chunks this request had.
+                if request.cache_key and request.cache_dir:
                     try:
                         import torch as _ts
                         _sidecar_dir = Path(request.cache_dir) / self.provider_id

@@ -1371,8 +1371,9 @@ class ChatterboxBackend(AbstractTtsBackend):
                 _ctx_tag = request.voice_context or ""
                 self._prior_speech_tokens[_voice_key] = (tail, _ctx_tag)
 
-                # Write tail token sidecar alongside the OGG cache entry
-                if total == 1 and request.cache_key and request.cache_dir:
+                # Write tail token sidecar alongside the OGG cache entry.
+                # Written for all requests using the last chunk's tail tokens.
+                if request.cache_key and request.cache_dir:
                     try:
                         import torch as _ts
                         _sidecar_dir = Path(request.cache_dir) / self.provider_id
