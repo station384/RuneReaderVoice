@@ -12,7 +12,17 @@
 
 import sys
 import asyncio
+import warnings
 from pathlib import Path
+
+# Suppress torch.backends.cuda.sdp_kernel() FutureWarning — emitted by chatterbox
+# internals on every inference call. The warning is harmless and unfixable without
+# patching the library; suppress it at the worker process level.
+warnings.filterwarnings(
+    "ignore",
+    message=r".*sdp_kernel.*deprecated.*",
+    category=FutureWarning,
+)
 
 # rrv-server/ is the sibling directory of this worker directory.
 # Path layout:  ~/rrvserver/rrv-kokoro/run_worker.py   (this file)
