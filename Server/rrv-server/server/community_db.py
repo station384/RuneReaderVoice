@@ -52,6 +52,7 @@ CREATE TABLE IF NOT EXISTS npc_overrides (
     bespoke_sample_id    TEXT    DEFAULT NULL,
     bespoke_exaggeration REAL    DEFAULT NULL,
     bespoke_cfg_weight   REAL    DEFAULT NULL,
+    gender_override      TEXT    NOT NULL DEFAULT 'auto',
     source               TEXT    NOT NULL DEFAULT 'crowdsourced',
     confidence           INTEGER NOT NULL DEFAULT 1,
     created_at           REAL    NOT NULL,
@@ -96,6 +97,8 @@ class CommunityDb:
             cols = {str(row[1]).lower() for row in await cursor.fetchall()}
         if "catalog_id" not in cols:
             await self._conn.execute("ALTER TABLE npc_overrides ADD COLUMN catalog_id TEXT DEFAULT ''")
+        if "gender_override" not in cols:
+            await self._conn.execute("ALTER TABLE npc_overrides ADD COLUMN gender_override TEXT NOT NULL DEFAULT 'auto'")
 
     # ── Queries ───────────────────────────────────────────────────────────────
 
@@ -127,6 +130,7 @@ class CommunityDb:
         bespoke_sample_id: str | None = None,
         bespoke_exaggeration: float | None = None,
         bespoke_cfg_weight: float | None = None,
+        gender_override: str | None = None,
         source: str = "crowdsourced",
         confidence_delta: int = 1,
     ) -> dict[str, Any]:
@@ -137,6 +141,11 @@ class CommunityDb:
         """
         assert self._conn
         now = time.time()
+        # Normalise gender_override — missing/null/unknown values become "auto"
+        _VALID_GENDERS = {"auto", "male", "female"}
+        gender_override = (gender_override or "auto").strip().lower()
+        if gender_override not in _VALID_GENDERS:
+            gender_override = "auto"
 
         # Check for existing record
         async with self._conn.execute(
@@ -162,6 +171,7 @@ class CommunityDb:
                     bespoke_sample_id    = ?,
                     bespoke_exaggeration = ?,
                     bespoke_cfg_weight   = ?,
+                    gender_override      = ?,
                     source               = ?,
                     confidence           = ?,
                     updated_at           = ?
@@ -174,6 +184,7 @@ class CommunityDb:
                     bespoke_sample_id,
                     bespoke_exaggeration,
                     bespoke_cfg_weight,
+                    gender_override,
                     new_source,
                     new_confidence,
                     now,
@@ -185,14 +196,14 @@ class CommunityDb:
                 """
                 INSERT INTO npc_overrides
                     (npc_id, catalog_id, race_id, notes, bespoke_sample_id,
-                     bespoke_exaggeration, bespoke_cfg_weight,
+                     bespoke_exaggeration, bespoke_cfg_weight, gender_override,
                      source, confidence, created_at, updated_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     npc_id, catalog_id or "", race_id, notes or "",
                     bespoke_sample_id, bespoke_exaggeration, bespoke_cfg_weight,
-                    source, confidence_delta, now, now,
+                    gender_override, source, confidence_delta, now, now,
                 ),
             )
 
@@ -231,6 +242,7 @@ class CommunityDb:
                 bespoke_sample_id=rec.get("bespoke_sample_id"),
                 bespoke_exaggeration=rec.get("bespoke_exaggeration"),
                 bespoke_cfg_weight=rec.get("bespoke_cfg_weight"),
+                gender_override=rec.get("gender_override"),
                 source=source,
                 confidence_delta=confidence_delta,
             )
