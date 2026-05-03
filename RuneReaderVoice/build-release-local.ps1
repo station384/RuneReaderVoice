@@ -33,7 +33,7 @@ param(
     [switch]$SkipSign,
     [string]$Version          = "1.5.1.1",
     [string]$FeedBaseUrl      = "https://www.mkfam.com/filedump/",  # channel subdir appended automatically
-    [string]$LocalCopyPath    = "X:\webhost\filedump",
+    [string]$LocalCopyPath    = "X:\dataStore\webhost\filedump",
     [string]$ScpTarget        = "",        # e.g. "192.168.45.13:/path/to/filedump"
     [string]$ScpUser          = "",
     [string]$ScpPassword      = "",
@@ -44,7 +44,7 @@ param(
     [string]$PfxPassword      = "",
     # Maximum number of old release versions to keep in the feed.
     # Keep at least 2 so users one version behind can still delta-update.
-    [int]$KeepMaxReleases     = 3
+    [int]$KeepMaxReleases     = 2
 )
 
 Set-StrictMode -Version Latest

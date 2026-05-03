@@ -322,7 +322,7 @@ public static class TextChunkingPolicy
                                   : kokoro     ? 850
                                   : f5         ? 575
                                   : turbo      ? 600
-                                  : chatterbox ? 380
+                                  : chatterbox ? 480
                                   : cosyvoice  ? 380
                                   : 700,
 
