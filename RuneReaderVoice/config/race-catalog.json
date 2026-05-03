@@ -1,6 +1,18 @@
 {
   "Rows": [
     {
+      "Id": "Domanaar",
+      "DisplayName": "Domanaar",
+      "AccentLabel": "Void",
+      "HasMale": true,
+      "HasFemale": true,
+      "HasNeutral": false,
+      "Enabled": true,
+      "SortOrder": 0,
+      "Source": "Local",
+      "UpdatedUtc": 1777580957
+    },
+    {
       "Id": "Niffin",
       "DisplayName": "Niffin",
       "AccentLabel": "Niffin",
@@ -61,6 +73,18 @@
       "UpdatedUtc": 1776402877
     },
     {
+      "Id": "Etherial",
+      "DisplayName": "Etherial",
+      "AccentLabel": "Consortium",
+      "HasMale": true,
+      "HasFemale": true,
+      "HasNeutral": false,
+      "Enabled": false,
+      "SortOrder": 50,
+      "Source": "Local",
+      "UpdatedUtc": 1777828756
+    },
+    {
       "Id": "gnome",
       "DisplayName": "Gnome",
       "AccentLabel": "Playful Squeaky",
@@ -71,6 +95,18 @@
       "SortOrder": 50,
       "Source": "Seeded",
       "UpdatedUtc": 1776402877
+    },
+    {
+      "Id": "Kareshi",
+      "DisplayName": "K\u0027areshi",
+      "AccentLabel": "Ethereal, Consortium",
+      "HasMale": true,
+      "HasFemale": true,
+      "HasNeutral": false,
+      "Enabled": true,
+      "SortOrder": 50,
+      "Source": "Local",
+      "UpdatedUtc": 1777828799
     },
     {
       "Id": "mechagnome",

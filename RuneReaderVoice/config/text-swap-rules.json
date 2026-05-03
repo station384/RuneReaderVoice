@@ -3,20 +3,22 @@
   "Rules": [
     {
       "FindText": "...",
-      "ReplaceText": "... ",
+      "ReplaceText": ". ",
       "ReplaceWithCrLf": false,
       "WholeWord": false,
       "CaseSensitive": true,
+      "UseRegex": false,
       "Enabled": true,
       "Priority": 300,
       "Notes": "Built-in default"
     },
     {
       "FindText": " -- ",
-      "ReplaceText": " ... ",
+      "ReplaceText": " . ",
       "ReplaceWithCrLf": false,
       "WholeWord": false,
       "CaseSensitive": true,
+      "UseRegex": false,
       "Enabled": true,
       "Priority": 290,
       "Notes": "Built-in default"
@@ -27,6 +29,7 @@
       "ReplaceWithCrLf": false,
       "WholeWord": false,
       "CaseSensitive": true,
+      "UseRegex": false,
       "Enabled": true,
       "Priority": 280,
       "Notes": "Built-in default"
@@ -37,6 +40,7 @@
       "ReplaceWithCrLf": false,
       "WholeWord": false,
       "CaseSensitive": true,
+      "UseRegex": false,
       "Enabled": true,
       "Priority": 270,
       "Notes": "Built-in default"
@@ -47,8 +51,9 @@
       "ReplaceWithCrLf": false,
       "WholeWord": false,
       "CaseSensitive": true,
+      "UseRegex": false,
       "Enabled": true,
-      "Priority": 260,
+      "Priority": 280,
       "Notes": "Built-in default"
     },
     {
@@ -57,6 +62,7 @@
       "ReplaceWithCrLf": false,
       "WholeWord": false,
       "CaseSensitive": true,
+      "UseRegex": false,
       "Enabled": true,
       "Priority": 250,
       "Notes": "Built-in default"
@@ -67,6 +73,7 @@
       "ReplaceWithCrLf": false,
       "WholeWord": false,
       "CaseSensitive": true,
+      "UseRegex": false,
       "Enabled": true,
       "Priority": 240,
       "Notes": "Built-in default"
@@ -77,6 +84,7 @@
       "ReplaceWithCrLf": false,
       "WholeWord": false,
       "CaseSensitive": true,
+      "UseRegex": false,
       "Enabled": true,
       "Priority": 230,
       "Notes": "Built-in default"
@@ -87,6 +95,7 @@
       "ReplaceWithCrLf": false,
       "WholeWord": false,
       "CaseSensitive": true,
+      "UseRegex": false,
       "Enabled": true,
       "Priority": 220,
       "Notes": "Built-in default"
@@ -97,6 +106,7 @@
       "ReplaceWithCrLf": false,
       "WholeWord": true,
       "CaseSensitive": false,
+      "UseRegex": false,
       "Enabled": true,
       "Priority": 0,
       "Notes": ""
@@ -107,6 +117,7 @@
       "ReplaceWithCrLf": false,
       "WholeWord": true,
       "CaseSensitive": false,
+      "UseRegex": false,
       "Enabled": true,
       "Priority": 0,
       "Notes": ""
@@ -117,6 +128,7 @@
       "ReplaceWithCrLf": false,
       "WholeWord": true,
       "CaseSensitive": false,
+      "UseRegex": false,
       "Enabled": true,
       "Priority": 0,
       "Notes": ""
@@ -127,6 +139,7 @@
       "ReplaceWithCrLf": false,
       "WholeWord": true,
       "CaseSensitive": false,
+      "UseRegex": false,
       "Enabled": true,
       "Priority": 100,
       "Notes": ""
@@ -137,8 +150,42 @@
       "ReplaceWithCrLf": false,
       "WholeWord": true,
       "CaseSensitive": false,
+      "UseRegex": false,
       "Enabled": true,
       "Priority": 100,
+      "Notes": ""
+    },
+    {
+      "FindText": "Illidan",
+      "ReplaceText": "Illa\u0027dan",
+      "ReplaceWithCrLf": false,
+      "WholeWord": true,
+      "CaseSensitive": false,
+      "UseRegex": false,
+      "Enabled": true,
+      "Priority": 0,
+      "Notes": ""
+    },
+    {
+      "FindText": "(?:\\r\\n|\\r|\\n)",
+      "ReplaceText": "\\t",
+      "ReplaceWithCrLf": false,
+      "WholeWord": false,
+      "CaseSensitive": false,
+      "UseRegex": true,
+      "Enabled": true,
+      "Priority": 290,
+      "Notes": ""
+    },
+    {
+      "FindText": "\\t{2,}",
+      "ReplaceText": "",
+      "ReplaceWithCrLf": true,
+      "WholeWord": false,
+      "CaseSensitive": false,
+      "UseRegex": true,
+      "Enabled": true,
+      "Priority": 289,
       "Notes": ""
     }
   ]
