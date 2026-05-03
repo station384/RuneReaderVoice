@@ -1038,7 +1038,10 @@ along with RuneReaderVoice. If not, see <https://www.gnu.org/licenses/>.
                                 </StackPanel>
                             </Grid>
 
-                            <Grid ColumnDefinitions="Auto,Auto,Auto,Auto,140" ColumnSpacing="12" VerticalAlignment="Center">
+                            <TextBlock Text="Escapes supported in Find and Replace: \n = line feed, \r = carriage return, \t = tab, \\ = literal backslash."
+                                       Foreground="#888" FontSize="11" TextWrapping="Wrap"/>
+
+                            <Grid ColumnDefinitions="Auto,Auto,Auto,Auto,Auto,140" ColumnSpacing="12" VerticalAlignment="Center">
                                 <CheckBox Grid.Column="0"
                                           x:Name="TextSwapWholeWord"
                                           Content="Whole word"
@@ -1050,17 +1053,23 @@ along with RuneReaderVoice. If not, see <https://www.gnu.org/licenses/>.
                                           IsChecked="False"
                                           Click="OnTextSwapClickChanged"/>
                                 <CheckBox Grid.Column="2"
+                                          x:Name="TextSwapUseRegex"
+                                          Content="Regex"
+                                          ToolTip.Tip="Use regular expression matching. Find/Replace support \n, \r, \t, and \\ escapes."
+                                          IsChecked="False"
+                                          Click="OnTextSwapClickChanged"/>
+                                <CheckBox Grid.Column="3"
                                           x:Name="TextSwapEnabled"
                                           Content="Enabled"
                                           IsChecked="True"
                                           Click="OnTextSwapClickChanged"/>
-                                <TextBlock Grid.Column="3"
+                                <TextBlock Grid.Column="4"
                                            Text="Priority"
                                            Foreground="#888"
                                            FontSize="11"
                                            VerticalAlignment="Center"
                                            Margin="8,0,0,0"/>
-                                <NumericUpDown Grid.Column="4"
+                                <NumericUpDown Grid.Column="5"
                                                x:Name="TextSwapPriority"
                                                Minimum="0"
                                                Maximum="1000"

@@ -188,6 +188,7 @@ public sealed class VoiceUserSettings
     public string TextSwapWorkbenchReplaceText { get; set; } = " ... ";
     public bool TextSwapWorkbenchWholeWord { get; set; } = false;
     public bool TextSwapWorkbenchCaseSensitive { get; set; } = false;
+    public bool TextSwapWorkbenchUseRegex { get; set; } = false;
     public string TextSwapWorkbenchNotes { get; set; } = string.Empty;
 
     /// <summary>

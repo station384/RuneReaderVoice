@@ -31,7 +31,7 @@ public sealed class DialogueTextSwapProcessor
     {
         _rules = (rules ?? Array.Empty<TextSwapRule>())
             .Where(r => r is not null && !r.IsEmpty)
-            .OrderByDescending(r => r.FindText.Length)
+            .OrderByDescending(r => DecodeTextSwapEscapes(r.FindText).Length)
             .ThenByDescending(r => r.Priority)
             .ToList();
     }
@@ -51,10 +51,53 @@ public sealed class DialogueTextSwapProcessor
 
     public IReadOnlyList<TextSwapRule> GetRules() => _rules;
 
+    public static string DecodeTextSwapEscapes(string? text)
+    {
+        if (string.IsNullOrEmpty(text) || text.IndexOf('\\') < 0)
+            return text ?? string.Empty;
+
+        var sb = new StringBuilder(text.Length);
+        for (var i = 0; i < text.Length; i++)
+        {
+            var ch = text[i];
+            if (ch != '\\' || i + 1 >= text.Length)
+            {
+                sb.Append(ch);
+                continue;
+            }
+
+            var next = text[++i];
+            sb.Append(next switch
+            {
+                'n' => '\n',
+                'r' => '\r',
+                't' => '\t',
+                '\\' => '\\',
+                _ => "\\" + next,
+            });
+        }
+
+        return sb.ToString();
+    }
+
     private static string ApplyRule(string source, TextSwapRule rule)
     {
         if (string.IsNullOrEmpty(source) || string.IsNullOrEmpty(rule.FindText))
             return source;
+
+        var findText = DecodeTextSwapEscapes(rule.FindText);
+        var replaceText = DecodeTextSwapEscapes(rule.ReplaceText);
+        if (string.IsNullOrEmpty(findText))
+            return source;
+
+        if (rule.UseRegex)
+        {
+            var regexOptions = RegexOptions.Compiled | RegexOptions.CultureInvariant;
+            if (!rule.CaseSensitive)
+                regexOptions |= RegexOptions.IgnoreCase;
+
+            return Regex.Replace(source, findText, replaceText, regexOptions);
+        }
 
         if (!rule.WholeWord)
         {
@@ -66,7 +109,7 @@ public sealed class DialogueTextSwapProcessor
             var scan = 0;
             while (scan < source.Length)
             {
-                var index = source.IndexOf(rule.FindText, scan, comparison);
+                var index = source.IndexOf(findText, scan, comparison);
                 if (index < 0)
                 {
                     sb.Append(source, scan, source.Length - scan);
@@ -74,19 +117,19 @@ public sealed class DialogueTextSwapProcessor
                 }
 
                 sb.Append(source, scan, index - scan);
-                sb.Append(rule.ReplaceText);
-                scan = index + rule.FindText.Length;
+                sb.Append(replaceText);
+                scan = index + findText.Length;
             }
 
             return sb.ToString();
         }
 
-        var escaped = Regex.Escape(rule.FindText);
+        var escaped = Regex.Escape(findText);
         var pattern = $@"(?<![\p{{L}}\p{{N}}_]){escaped}(?![\p{{L}}\p{{N}}_])";
         var options = RegexOptions.Compiled | RegexOptions.CultureInvariant;
         if (!rule.CaseSensitive)
             options |= RegexOptions.IgnoreCase;
 
-        return Regex.Replace(source, pattern, rule.ReplaceText, options);
+        return Regex.Replace(source, pattern, replaceText, options);
     }
 }

@@ -87,6 +87,7 @@ public sealed class TextSwapRuleRow
     public bool ReplaceWithCrLf { get; set; }
     public bool WholeWord { get; set; }
     public bool CaseSensitive { get; set; }
+    public bool UseRegex { get; set; }
     public bool Enabled { get; set; } = true;
     public int Priority { get; set; } = 100;
     public string Notes { get; set; } = string.Empty;
@@ -163,6 +164,7 @@ public sealed class RvrDb : IDisposable
         await _conn.CreateTableAsync<NpcPeopleCatalogRow>();
         await _conn.CreateTableAsync<ProviderSlotProfileRow>();
         await EnsureNpcRaceOverrideSchemaAsync();
+        await EnsureTextSwapRuleSchemaAsync();
 
     }
 
@@ -175,6 +177,14 @@ public sealed class RvrDb : IDisposable
             await Connection.ExecuteAsync("ALTER TABLE NpcRaceOverrides ADD COLUMN CatalogId TEXT NOT NULL DEFAULT ''");
         if (!cols.Any(c => string.Equals(c.name, "GenderOverride", StringComparison.OrdinalIgnoreCase)))
             await Connection.ExecuteAsync("ALTER TABLE NpcRaceOverrides ADD COLUMN GenderOverride TEXT NOT NULL DEFAULT 'Auto'");
+    }
+
+
+    private async Task EnsureTextSwapRuleSchemaAsync()
+    {
+        var cols = await Connection.QueryAsync<TableInfoRow>("PRAGMA table_info('TextSwapRules')");
+        if (!cols.Any(c => string.Equals(c.name, "UseRegex", StringComparison.OrdinalIgnoreCase)))
+            await Connection.ExecuteAsync("ALTER TABLE TextSwapRules ADD COLUMN UseRegex INTEGER NOT NULL DEFAULT 0");
     }
 
     private sealed class TableInfoRow

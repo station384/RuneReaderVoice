@@ -35,6 +35,7 @@ public static class TextSwapRuleRowExtensions
             ReplaceWithCrLf = entry.ReplaceWithCrLf,
             WholeWord      = entry.WholeWord,
             CaseSensitive  = entry.CaseSensitive,
+            UseRegex       = entry.UseRegex,
             Enabled        = entry.Enabled,
             Priority       = entry.Priority,
             Notes          = entry.Notes,
@@ -48,6 +49,7 @@ public static class TextSwapRuleRowExtensions
             ReplaceWithCrLf = row.ReplaceWithCrLf,
             WholeWord      = row.WholeWord,
             CaseSensitive  = row.CaseSensitive,
+            UseRegex       = row.UseRegex,
             Enabled        = row.Enabled,
             Priority       = row.Priority,
             Notes          = row.Notes,
@@ -113,13 +115,15 @@ public sealed class TextSwapRuleStore
         var existing = await _db.Connection.Table<TextSwapRuleRow>()
             .Where(r => r.FindText == entry.FindText
                      && r.WholeWord == entry.WholeWord
-                     && r.CaseSensitive == entry.CaseSensitive)
+                     && r.CaseSensitive == entry.CaseSensitive
+                     && r.UseRegex == entry.UseRegex)
             .FirstOrDefaultAsync();
 
         if (existing != null)
         {
             existing.ReplaceText    = entry.ReplaceText;
             existing.ReplaceWithCrLf = entry.ReplaceWithCrLf;
+            existing.UseRegex       = entry.UseRegex;
             existing.Enabled        = entry.Enabled;
             existing.Priority       = entry.Priority;
             existing.Notes          = entry.Notes;
@@ -136,7 +140,8 @@ public sealed class TextSwapRuleStore
         var existing = await _db.Connection.Table<TextSwapRuleRow>()
             .Where(r => r.FindText == entry.FindText
                      && r.WholeWord == entry.WholeWord
-                     && r.CaseSensitive == entry.CaseSensitive)
+                     && r.CaseSensitive == entry.CaseSensitive
+                     && r.UseRegex == entry.UseRegex)
             .FirstOrDefaultAsync();
 
         if (existing != null)
@@ -162,6 +167,7 @@ public sealed class TextSwapRuleEntry
     public bool ReplaceWithCrLf { get; set; }
     public bool WholeWord { get; set; }
     public bool CaseSensitive { get; set; }
+    public bool UseRegex { get; set; }
     public bool Enabled { get; set; } = true;
     public int Priority { get; set; } = 100;
     public string Notes { get; set; } = string.Empty;
@@ -172,7 +178,8 @@ public sealed class TextSwapRuleEntry
             ReplaceText:   ReplaceWithCrLf ? "\r\n" : ReplaceText,
             WholeWord:     WholeWord,
             CaseSensitive: CaseSensitive,
-            Priority:      Priority);
+            Priority:      Priority,
+            UseRegex:      UseRegex);
 
     public static TextSwapRuleEntry FromRule(TextSwapRule rule, string notes = "")
         => new()
@@ -182,6 +189,7 @@ public sealed class TextSwapRuleEntry
             ReplaceWithCrLf = rule.ReplaceText == "\r\n",
             WholeWord      = rule.WholeWord,
             CaseSensitive  = rule.CaseSensitive,
+            UseRegex       = rule.UseRegex,
             Enabled        = true,
             Priority       = rule.Priority,
             Notes          = notes,

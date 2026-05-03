@@ -22,7 +22,8 @@ public sealed record TextSwapRule(
     string ReplaceText,
     bool WholeWord = false,
     bool CaseSensitive = false,
-    int Priority = 0)
+    int Priority = 0,
+    bool UseRegex = false)
 {
     public bool IsEmpty => string.IsNullOrWhiteSpace(FindText);
 }

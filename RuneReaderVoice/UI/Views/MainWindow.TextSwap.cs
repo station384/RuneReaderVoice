@@ -22,6 +22,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using Avalonia;
@@ -55,6 +56,7 @@ public partial class MainWindow
         TextSwapReplaceText.Text = s.TextSwapWorkbenchReplaceText;
         TextSwapWholeWord.IsChecked = s.TextSwapWorkbenchWholeWord;
         TextSwapCaseSensitive.IsChecked = s.TextSwapWorkbenchCaseSensitive;
+        TextSwapUseRegex.IsChecked = s.TextSwapWorkbenchUseRegex;
         TextSwapRuleNotes.Text = s.TextSwapWorkbenchNotes;
         TextSwapEnabled.IsChecked = true;
         TextSwapPriority.Value = 100;
@@ -75,6 +77,7 @@ public partial class MainWindow
         s.TextSwapWorkbenchReplaceText = TextSwapReplaceText.Text ?? string.Empty;
         s.TextSwapWorkbenchWholeWord = TextSwapWholeWord.IsChecked ?? false;
         s.TextSwapWorkbenchCaseSensitive = TextSwapCaseSensitive.IsChecked ?? false;
+        s.TextSwapWorkbenchUseRegex = TextSwapUseRegex.IsChecked ?? false;
         s.TextSwapWorkbenchNotes = TextSwapRuleNotes.Text ?? string.Empty;
         VoiceSettingsManager.SaveSettings(s);
     }
@@ -126,6 +129,7 @@ public partial class MainWindow
             rule.Enabled ? "Enabled" : "Disabled",
             rule.WholeWord ? "Whole word" : "Phrase",
             rule.CaseSensitive ? "Case sensitive" : "Ignore case",
+            rule.UseRegex ? "Regex" : "Literal",
             $"Priority {rule.Priority}"
         });
 
@@ -145,7 +149,8 @@ public partial class MainWindow
             entries.RemoveAll(r =>
                 string.Equals(r.FindText, workingEntry.FindText, StringComparison.OrdinalIgnoreCase) &&
                 r.WholeWord == workingEntry.WholeWord &&
-                r.CaseSensitive == workingEntry.CaseSensitive);
+                r.CaseSensitive == workingEntry.CaseSensitive &&
+                r.UseRegex == workingEntry.UseRegex);
 
             if (workingEntry.Enabled)
                 entries.Add(workingEntry);
@@ -232,6 +237,7 @@ public partial class MainWindow
         TextSwapReplaceWithCrLf.IsChecked = entry.ReplaceWithCrLf;
         TextSwapWholeWord.IsChecked = entry.WholeWord;
         TextSwapCaseSensitive.IsChecked = entry.CaseSensitive;
+        TextSwapUseRegex.IsChecked = entry.UseRegex;
         TextSwapEnabled.IsChecked = entry.Enabled;
         TextSwapPriority.Value = entry.Priority;
         TextSwapRuleNotes.Text = entry.Notes;
@@ -252,6 +258,7 @@ public partial class MainWindow
                 : (TextSwapReplaceText.Text ?? string.Empty),
             WholeWord       = TextSwapWholeWord.IsChecked ?? false,
             CaseSensitive   = TextSwapCaseSensitive.IsChecked ?? false,
+            UseRegex        = TextSwapUseRegex.IsChecked ?? false,
             Enabled         = TextSwapEnabled.IsChecked ?? true,
             Priority        = (int)(TextSwapPriority.Value ?? 100),
             Notes           = TextSwapRuleNotes.Text ?? string.Empty,
@@ -263,6 +270,19 @@ public partial class MainWindow
         {
             TextSwapRuleStatus.Text = "Enter text to find before saving a rule.";
             return false;
+        }
+
+        if (entry.UseRegex)
+        {
+            try
+            {
+                _ = new Regex(DialogueTextSwapProcessor.DecodeTextSwapEscapes(entry.FindText));
+            }
+            catch (Exception ex)
+            {
+                TextSwapRuleStatus.Text = $"Regex is invalid: {ex.Message}";
+                return false;
+            }
         }
 
         return true;
@@ -301,6 +321,7 @@ public partial class MainWindow
         TextSwapReplaceWithCrLf.IsChecked = false;
         TextSwapWholeWord.IsChecked = false;
         TextSwapCaseSensitive.IsChecked = false;
+        TextSwapUseRegex.IsChecked = false;
         TextSwapEnabled.IsChecked = true;
         TextSwapPriority.Value = 100;
         TextSwapRuleNotes.Text = string.Empty;
