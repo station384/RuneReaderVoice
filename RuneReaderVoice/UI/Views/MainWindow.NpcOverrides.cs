@@ -61,6 +61,7 @@ public partial class MainWindow
         PopulateNpcOverrideRaceDropdown(LastNpcRaceDropdown);
         SyncLastNpcRaceSearchTextFromSelection();
         PopulateLastNpcSampleDropdown();
+        SelectLastNpcGenderOverride(NpcGenderOverride.Auto);
         if (NpcOverridesPageSizeDropdown != null)
             NpcOverridesPageSizeDropdown.SelectedIndex = 1;
         RefreshNpcOverridesGrid();
@@ -240,6 +241,33 @@ public partial class MainWindow
 
     // ── Last NPC panel ────────────────────────────────────────────────────────
 
+    private static NpcGenderOverride ParseNpcGenderOverride(string? value)
+        => Enum.TryParse<NpcGenderOverride>(value, true, out var result)
+            ? result
+            : NpcGenderOverride.Auto;
+
+    private NpcGenderOverride GetSelectedLastNpcGenderOverride()
+    {
+        if (LastNpcGenderOverrideDropdown?.SelectedItem is ComboBoxItem item)
+            return ParseNpcGenderOverride(item.Tag?.ToString());
+        return NpcGenderOverride.Auto;
+    }
+
+    private void SelectLastNpcGenderOverride(NpcGenderOverride value)
+    {
+        if (LastNpcGenderOverrideDropdown == null)
+            return;
+        foreach (var item in LastNpcGenderOverrideDropdown.Items.OfType<ComboBoxItem>())
+        {
+            if (string.Equals(item.Tag?.ToString(), value.ToString(), StringComparison.OrdinalIgnoreCase))
+            {
+                LastNpcGenderOverrideDropdown.SelectedItem = item;
+                return;
+            }
+        }
+        LastNpcGenderOverrideDropdown.SelectedIndex = 0;
+    }
+
     private void OnSegmentCompletedForNpcPanel(Session.AssembledSegment seg)
     {
         // NpcId=0 means narrator text / book — no NPC to assign.
@@ -279,6 +307,7 @@ public partial class MainWindow
                 // Bespoke sample — select existing or reset to "(no bespoke sample)"
                 SelectLastNpcSampleDropdown(existing?.BespokeSampleId);
                 LastNpcUseNpcIdAsSeedCheckBox.IsChecked = existing?.UseNpcIdAsSeed ?? false;
+                SelectLastNpcGenderOverride(existing?.GenderOverride ?? NpcGenderOverride.Auto);
 
                 LastNpcSaveButton.IsEnabled  = true;
                 LastNpcClearButton.IsEnabled = existing != null;
@@ -296,6 +325,7 @@ public partial class MainWindow
         var notes           = LastNpcNotesBox.Text?.Trim();
         var bespokeSampleId = GetSelectedLastNpcSampleId();
         var useNpcIdAsSeed  = LastNpcUseNpcIdAsSeedCheckBox.IsChecked == true;
+        var genderOverride  = GetSelectedLastNpcGenderOverride();
         BumpNpcCatalogSelection(catalogId);
         SelectionRecencyHelper.BumpVoice(AppServices.Settings, AppServices.Provider.ProviderId, bespokeSampleId);
         VoiceSettingsManager.SaveSettings(AppServices.Settings);
@@ -306,7 +336,8 @@ public partial class MainWindow
                 _lastNpcId, catalogId, notes,
                 raceId: raceId,
                 bespokeSampleId: bespokeSampleId,
-                useNpcIdAsSeed: useNpcIdAsSeed);
+                useNpcIdAsSeed: useNpcIdAsSeed,
+                genderOverride: genderOverride);
 
             // Contribute to server if enabled
             if (AppServices.Settings.ContributeByDefault)
@@ -325,6 +356,7 @@ public partial class MainWindow
                 PopulateLastNpcSampleDropdown();
                 SelectLastNpcSampleDropdown(bespokeSampleId);
                 LastNpcUseNpcIdAsSeedCheckBox.IsChecked = useNpcIdAsSeed;
+                SelectLastNpcGenderOverride(genderOverride);
 
                 LastNpcClearButton.IsEnabled = true;
                 RefreshNpcOverridesGrid();
@@ -345,6 +377,7 @@ public partial class MainWindow
                 LastNpcRaceDropdown.SelectedIndex = 0;
                 LastNpcNotesBox.Text = string.Empty;
                 LastNpcUseNpcIdAsSeedCheckBox.IsChecked = false;
+                SelectLastNpcGenderOverride(NpcGenderOverride.Auto);
                 LastNpcClearButton.IsEnabled = false;
                 RefreshNpcOverridesGrid();
             });
@@ -404,7 +437,7 @@ public partial class MainWindow
                 Margin     = new Avalonia.Thickness(4, 8, 4, 4),
             };
             Grid.SetRow(empty, 1);
-            Grid.SetColumnSpan(empty, 6);
+            Grid.SetColumnSpan(empty, 7);
             NpcOverridesGrid.Children.Add(empty);
             return;
         }
@@ -454,7 +487,7 @@ public partial class MainWindow
 
     private void AddOverrideHeaderRow()
     {
-        var headers = new[] { "NPC ID", "Notes", "Race / Accent", "Source", "", "" };
+        var headers = new[] { "NPC ID", "Notes", "Race / Accent", "Gender", "Source", "", "" };
         for (int col = 0; col < headers.Length; col++)
         {
             var tb = new TextBlock
@@ -477,6 +510,8 @@ public partial class MainWindow
         AddCell(entry.NpcId.ToString(), rowIndex, 0);
         AddCell(entry.Notes ?? string.Empty, rowIndex, 1, Brushes.LightGray);
         AddCell(GetNpcOverrideCatalogLabel(entry), rowIndex, 2, Brushes.LightGray);
+        AddCell(entry.GenderOverride.ToString(), rowIndex, 3,
+            entry.GenderOverride == NpcGenderOverride.Auto ? Brushes.DimGray : Brushes.LightGray, fontSize: 10);
 
         var sourceBrush = entry.Source switch
         {
@@ -484,7 +519,7 @@ public partial class MainWindow
             NpcOverrideSource.CrowdSourced => Brushes.SkyBlue,
             _                              => Brushes.DimGray,
         };
-        AddCell(entry.Source.ToString(), rowIndex, 3, sourceBrush, fontSize: 10);
+        AddCell(entry.Source.ToString(), rowIndex, 4, sourceBrush, fontSize: 10);
 
         if (isLocal)
         {
@@ -498,7 +533,7 @@ public partial class MainWindow
             };
             editBtn.Click += OnNpcOverrideEditClicked;
             Grid.SetRow(editBtn, rowIndex);
-            Grid.SetColumn(editBtn, 4);
+            Grid.SetColumn(editBtn, 5);
             NpcOverridesGrid.Children.Add(editBtn);
 
             var delBtn = new Button
@@ -512,7 +547,7 @@ public partial class MainWindow
             };
             delBtn.Click += OnNpcOverrideDeleteClicked;
             Grid.SetRow(delBtn, rowIndex);
-            Grid.SetColumn(delBtn, 5);
+            Grid.SetColumn(delBtn, 6);
             NpcOverridesGrid.Children.Add(delBtn);
         }
         else
@@ -527,7 +562,7 @@ public partial class MainWindow
             };
             overrideBtn.Click += OnNpcOverrideLocalOverrideClicked;
             Grid.SetRow(overrideBtn, rowIndex);
-            Grid.SetColumn(overrideBtn, 4);
+            Grid.SetColumn(overrideBtn, 5);
             Grid.SetColumnSpan(overrideBtn, 2);
             NpcOverridesGrid.Children.Add(overrideBtn);
         }
@@ -545,6 +580,8 @@ public partial class MainWindow
         SyncLastNpcRaceSearchTextFromSelection();
         PopulateLastNpcSampleDropdown();
         SelectLastNpcSampleDropdown(entry.BespokeSampleId);
+        LastNpcUseNpcIdAsSeedCheckBox.IsChecked = entry.UseNpcIdAsSeed;
+        SelectLastNpcGenderOverride(entry.GenderOverride);
         LastNpcClearButton.IsEnabled = true;
     }
 
@@ -570,7 +607,14 @@ public partial class MainWindow
             var catalogId = !string.IsNullOrWhiteSpace(entry.CatalogId)
                 ? entry.CatalogId
                 : NpcRaceOverrideDb.LegacyRaceIdToCatalogId(entry.RaceId);
-            await AppServices.NpcOverrides.UpsertAsync(entry.NpcId, catalogId, entry.Notes, raceId: entry.RaceId);
+            await AppServices.NpcOverrides.UpsertAsync(
+                entry.NpcId, catalogId, entry.Notes,
+                raceId: entry.RaceId,
+                bespokeSampleId: entry.BespokeSampleId,
+                bespokeExaggeration: entry.BespokeExaggeration,
+                bespokeCfgWeight: entry.BespokeCfgWeight,
+                useNpcIdAsSeed: entry.UseNpcIdAsSeed,
+                genderOverride: entry.GenderOverride);
             Dispatcher.UIThread.Post(() =>
             {
                 RefreshNpcOverridesGrid();
@@ -796,6 +840,7 @@ public partial class MainWindow
         public float?  BespokeExaggeration { get; set; }
         public float?  BespokeCfgWeight    { get; set; }
         public bool    UseNpcIdAsSeed     { get; set; }
+        public string? GenderOverride      { get; set; }
     }
 
     private sealed class NpcOverrideExportFile
@@ -831,6 +876,7 @@ public partial class MainWindow
                     BespokeExaggeration = x.BespokeExaggeration,
                     BespokeCfgWeight    = x.BespokeCfgWeight,
                     UseNpcIdAsSeed     = x.UseNpcIdAsSeed,
+                    GenderOverride     = x.GenderOverride.ToString(),
                 }).ToList(),
             };
 
@@ -900,7 +946,8 @@ public partial class MainWindow
                     bespokeSampleId:     entry.BespokeSampleId,
                     bespokeExaggeration: entry.BespokeExaggeration,
                     bespokeCfgWeight:    entry.BespokeCfgWeight,
-                    useNpcIdAsSeed:     entry.UseNpcIdAsSeed);
+                    useNpcIdAsSeed:     entry.UseNpcIdAsSeed,
+                    genderOverride:     ParseNpcGenderOverride(entry.GenderOverride));
 
                 count++;
             }

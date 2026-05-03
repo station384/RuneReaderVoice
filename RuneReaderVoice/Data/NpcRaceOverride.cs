@@ -36,6 +36,13 @@ public enum NpcOverrideSource
     Confirmed   = 2,   // Hand-verified by server admin. Read-only; shadowed by Local.
 }
 
+public enum NpcGenderOverride
+{
+    Auto   = 0,
+    Male   = 1,
+    Female = 2,
+}
+
 public sealed class NpcRaceOverride
 {
     /// <summary>NPC ID from the RV packet NPC field (unit GUID segment 6).</summary>
@@ -90,6 +97,9 @@ public sealed class NpcRaceOverride
     /// NPC-specific variance for this override.
     /// </summary>
     public bool UseNpcIdAsSeed { get; set; } = false;
+
+    /// <summary>Optional per-NPC gender override. Auto preserves Blizzard/QR-detected gender.</summary>
+    public NpcGenderOverride GenderOverride { get; set; } = NpcGenderOverride.Auto;
 
     /// <summary>Where this entry came from.</summary>
     public NpcOverrideSource Source { get; set; } = NpcOverrideSource.Local;

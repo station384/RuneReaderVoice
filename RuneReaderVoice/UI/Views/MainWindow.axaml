@@ -174,7 +174,7 @@ along with RuneReaderVoice. If not, see <https://www.gnu.org/licenses/>.
                         Background="#4A2020"
                         Click="OnLastNpcClearClicked"/>
 
-                <!-- Row 1: race dropdown -->
+                <!-- Row 1: race + gender dropdowns -->
                 <TextBlock Grid.Row="1" Grid.Column="0"
                            Text="Voice accent" Foreground="#888" FontSize="10"
                            VerticalAlignment="Center"/>
@@ -187,6 +187,15 @@ along with RuneReaderVoice. If not, see <https://www.gnu.org/licenses/>.
                              TextChanged="OnLastNpcRaceSearchTextChanged"/>
                     <ComboBox x:Name="LastNpcRaceDropdown"
                               FontSize="11" HorizontalAlignment="Stretch" MinWidth="220"/>
+                    <TextBlock Text="Gender" Foreground="#888" FontSize="10"
+                               VerticalAlignment="Center" Margin="8,0,0,0"/>
+                    <ComboBox x:Name="LastNpcGenderOverrideDropdown"
+                              FontSize="11" MinWidth="90"
+                              ToolTip.Tip="Override the NPC gender used for voice slot resolution. Auto uses the gender reported by the game.">
+                        <ComboBoxItem Content="Auto" Tag="Auto"/>
+                        <ComboBoxItem Content="Male" Tag="Male"/>
+                        <ComboBoxItem Content="Female" Tag="Female"/>
+                    </ComboBox>
                 </StackPanel>
 
                 <!-- Row 2: bespoke sample picker (hidden when no voice-matching provider active) -->
@@ -625,7 +634,7 @@ along with RuneReaderVoice. If not, see <https://www.gnu.org/licenses/>.
 
                         <!-- Rows populated in code-behind -->
                         <Grid x:Name="NpcOverridesGrid"
-                              ColumnDefinitions="70,*,180,80,60,60"
+                              ColumnDefinitions="70,*,180,70,80,60,60"
                               HorizontalAlignment="Stretch"/>
                     </StackPanel>
                 </ScrollViewer>

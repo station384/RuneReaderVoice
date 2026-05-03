@@ -382,7 +382,12 @@ public sealed class TtsSessionAssembler
             var entry = Task.Run(() => _overrideDb.GetOverrideAsync(acc.NpcId)).GetAwaiter().GetResult();
             if (entry != null)
             {
-                var g = acc.IsMale ? Gender.Male : acc.IsFemale ? Gender.Female : Gender.Unknown;
+                var g = entry.GenderOverride switch
+                {
+                    NpcGenderOverride.Male   => Gender.Male,
+                    NpcGenderOverride.Female => Gender.Female,
+                    _ => acc.IsMale ? Gender.Male : acc.IsFemale ? Gender.Female : Gender.Unknown,
+                };
                 var catalogId = !string.IsNullOrWhiteSpace(entry.CatalogId)
                     ? entry.CatalogId
                     : NpcRaceOverrideDb.LegacyRaceIdToCatalogId(entry.RaceId);

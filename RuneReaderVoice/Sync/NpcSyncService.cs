@@ -193,6 +193,7 @@ public sealed class NpcSyncService : IDisposable
             BespokeSampleId     = r.BespokeSampleId,
             BespokeExaggeration = r.BespokeExaggeration,
             BespokeCfgWeight    = r.BespokeCfgWeight,
+            GenderOverride      = NpcSyncGender.ParseNpcGenderOverride(r.GenderOverride),
             Source              = r.Source == "confirmed"
                                   ? NpcOverrideSource.Confirmed
                                   : NpcOverrideSource.CrowdSourced,
@@ -497,11 +498,14 @@ public sealed class NpcSyncService : IDisposable
         var records = file.Entries.Select(e => new NpcRaceOverride
         {
             NpcId               = e.NpcId,
+            CatalogId           = e.CatalogId ?? string.Empty,
             RaceId              = e.RaceId,
             Notes               = e.Notes,
             BespokeSampleId     = e.BespokeSampleId,
             BespokeExaggeration = e.BespokeExaggeration,
             BespokeCfgWeight    = e.BespokeCfgWeight,
+            UseNpcIdAsSeed      = e.UseNpcIdAsSeed,
+            GenderOverride      = NpcSyncGender.ParseNpcGenderOverride(e.GenderOverride),
             Source              = NpcOverrideSource.CrowdSourced,
         }).ToList();
 
@@ -734,6 +738,15 @@ public sealed class TtsSessionAssemblerBridge
 // ── Export file DTOs (mirrors client export format) ───────────────────────────
 // NpcOverrideExportFile mirrors the format written by MainWindow.NpcOverrides.cs
 
+internal static class NpcSyncGender
+{
+    public static NpcGenderOverride ParseNpcGenderOverride(string? value)
+        => string.Equals(value, "male", StringComparison.OrdinalIgnoreCase) ? NpcGenderOverride.Male
+         : string.Equals(value, "female", StringComparison.OrdinalIgnoreCase) ? NpcGenderOverride.Female
+         : Enum.TryParse<NpcGenderOverride>(value, true, out var parsed) ? parsed
+         : NpcGenderOverride.Auto;
+}
+
 internal sealed class NpcOverrideExportFile
 {
     [System.Text.Json.Serialization.JsonPropertyName("version")]
@@ -747,6 +760,8 @@ internal sealed class NpcOverrideExportEntry
 {
     [System.Text.Json.Serialization.JsonPropertyName("NpcId")]
     public int     NpcId               { get; set; }
+    [System.Text.Json.Serialization.JsonPropertyName("CatalogId")]
+    public string? CatalogId           { get; set; }
     [System.Text.Json.Serialization.JsonPropertyName("RaceId")]
     public int     RaceId              { get; set; }
     [System.Text.Json.Serialization.JsonPropertyName("Notes")]
@@ -757,6 +772,10 @@ internal sealed class NpcOverrideExportEntry
     public float?  BespokeExaggeration { get; set; }
     [System.Text.Json.Serialization.JsonPropertyName("BespokeCfgWeight")]
     public float?  BespokeCfgWeight    { get; set; }
+    [System.Text.Json.Serialization.JsonPropertyName("UseNpcIdAsSeed")]
+    public bool    UseNpcIdAsSeed     { get; set; }
+    [System.Text.Json.Serialization.JsonPropertyName("GenderOverride")]
+    public string? GenderOverride { get; set; }
 }
 
 internal sealed class NpcPeopleCatalogExportFile

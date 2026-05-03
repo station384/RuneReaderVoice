@@ -49,6 +49,7 @@ public sealed class ServerNpcOverrideRecord
     [JsonPropertyName("bespoke_sample_id")]    public string? BespokeSampleId     { get; set; }
     [JsonPropertyName("bespoke_exaggeration")] public float?  BespokeExaggeration { get; set; }
     [JsonPropertyName("bespoke_cfg_weight")]   public float?  BespokeCfgWeight    { get; set; }
+    [JsonPropertyName("gender_override")]      public string? GenderOverride      { get; set; }
     [JsonPropertyName("source")]               public string  Source              { get; set; } = "crowdsourced";
     [JsonPropertyName("confidence")]           public int     Confidence          { get; set; }
     [JsonPropertyName("updated_at")]           public double  UpdatedAt           { get; set; }
@@ -75,6 +76,7 @@ public sealed class ServerNpcOverrideBatchRecord
     [JsonPropertyName("bespoke_sample_id")] public string? BespokeSampleId { get; set; }
     [JsonPropertyName("bespoke_exaggeration")] public float? BespokeExaggeration { get; set; }
     [JsonPropertyName("bespoke_cfg_weight")] public float? BespokeCfgWeight { get; set; }
+    [JsonPropertyName("gender_override")] public string GenderOverride { get; set; } = "auto";
 }
 
 public sealed class ServerNpcOverrideBatchResponse
@@ -129,6 +131,14 @@ public sealed class ServerProviderSlotProfilesBatchResponse
 
 public sealed class ServerDefaultsClient
 {
+    private static string ToServerGenderOverride(NpcGenderOverride value)
+        => value switch
+        {
+            NpcGenderOverride.Male => "male",
+            NpcGenderOverride.Female => "female",
+            _ => "auto",
+        };
+
     private readonly HttpClient _http;
     private readonly string     _contributeKey;
     private readonly string     _adminKey;
@@ -203,6 +213,7 @@ public sealed class ServerDefaultsClient
                 bespoke_sample_id    = entry.BespokeSampleId,
                 bespoke_exaggeration = entry.BespokeExaggeration,
                 bespoke_cfg_weight   = entry.BespokeCfgWeight,
+                gender_override      = ToServerGenderOverride(entry.GenderOverride),
             };
 
             var request = new HttpRequestMessage(HttpMethod.Post, "api/v1/npc-overrides")
@@ -242,6 +253,7 @@ public sealed class ServerDefaultsClient
                     BespokeSampleId = entry.BespokeSampleId,
                     BespokeExaggeration = entry.BespokeExaggeration,
                     BespokeCfgWeight = entry.BespokeCfgWeight,
+                    GenderOverride = ToServerGenderOverride(entry.GenderOverride),
                 }).ToList(),
             };
 

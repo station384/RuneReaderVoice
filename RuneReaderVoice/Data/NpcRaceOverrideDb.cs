@@ -78,7 +78,8 @@ public sealed class NpcRaceOverrideDb
         if (!string.IsNullOrWhiteSpace(filter))
         {
             var like = $"%{filter.Trim()}%";
-            whereClauses.Add("(CAST(NpcId AS TEXT) LIKE ? OR Notes LIKE ? OR Source LIKE ? OR CatalogId LIKE ?)");
+            whereClauses.Add("(CAST(NpcId AS TEXT) LIKE ? OR Notes LIKE ? OR Source LIKE ? OR CatalogId LIKE ? OR GenderOverride LIKE ?)");
+            args.Add(like);
             args.Add(like);
             args.Add(like);
             args.Add(like);
@@ -113,6 +114,7 @@ public sealed class NpcRaceOverrideDb
         float? bespokeExaggeration = null,
         float? bespokeCfgWeight = null,
         bool useNpcIdAsSeed = false,
+        NpcGenderOverride genderOverride = NpcGenderOverride.Auto,
         string source = "Local",
         int confidence = 0)
     {
@@ -127,6 +129,7 @@ public sealed class NpcRaceOverrideDb
             BespokeExaggeration = bespokeExaggeration,
             BespokeCfgWeight    = bespokeCfgWeight,
             UseNpcIdAsSeed     = useNpcIdAsSeed,
+            GenderOverride     = genderOverride.ToString(),
             Source              = source,
             Confidence          = confidence,
             UpdatedAt           = now,
@@ -165,6 +168,7 @@ public sealed class NpcRaceOverrideDb
                 BespokeExaggeration = record.BespokeExaggeration,
                 BespokeCfgWeight    = record.BespokeCfgWeight,
                 UseNpcIdAsSeed     = record.UseNpcIdAsSeed,
+                GenderOverride     = record.GenderOverride.ToString(),
                 Source              = record.Source.ToString(),
                 Confidence          = record.Confidence ?? 0,
                 UpdatedAt           = record.UpdatedAt,
@@ -251,6 +255,8 @@ public sealed class NpcRaceOverrideDb
     private static NpcRaceOverride ToModel(NpcRaceOverrideRow row)
     {
         Enum.TryParse<NpcOverrideSource>(row.Source, out var source);
+        if (!Enum.TryParse<NpcGenderOverride>(row.GenderOverride, true, out var genderOverride))
+            genderOverride = NpcGenderOverride.Auto;
         return new()
         {
             NpcId               = row.NpcId,
@@ -261,6 +267,7 @@ public sealed class NpcRaceOverrideDb
             BespokeExaggeration = row.BespokeExaggeration,
             BespokeCfgWeight    = row.BespokeCfgWeight,
             UseNpcIdAsSeed      = row.UseNpcIdAsSeed,
+            GenderOverride      = genderOverride,
             Source              = source,
             Confidence          = row.Confidence,
             UpdatedAt           = row.UpdatedAt,
