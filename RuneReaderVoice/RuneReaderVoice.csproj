@@ -97,6 +97,7 @@ along with RuneReaderVoice. If not, see <https://www.gnu.org/licenses/>.
     <!-- Auto-update -->
     <PackageReference Include="Velopack" Version="0.0.1298" />
     <PackageReference Include="HtmlAgilityPack" Version="1.11.71" />
+    <PackageReference Include="Humanizer.Core" Version="2.14.1" />
 
   </ItemGroup>
 

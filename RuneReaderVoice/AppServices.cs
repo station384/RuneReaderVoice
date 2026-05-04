@@ -65,6 +65,7 @@ public static class AppServices
     public static RvBarcodeMonitor               Monitor                { get; private set; } = null!;
     public static DialoguePronunciationProcessor PronunciationProcessor { get; private set; } = null!;
     public static DialogueTextSwapProcessor      TextSwapProcessor      { get; private set; } = null!;
+    public static TextNormalizer                 TextNormalizer         { get; private set; } = new();
     public static NpcRaceOverrideDb              NpcOverrides           { get; private set; } = null!;
     public static NpcSyncService                 NpcSync                { get; private set; } = null!;
     public static UpdateService                  Updater                { get; private set; } = null!;
@@ -217,6 +218,7 @@ public static class AppServices
         RvBarcodeMonitor monitor,
         DialoguePronunciationProcessor pronunciationProcessor,
         DialogueTextSwapProcessor textSwapProcessor,
+        TextNormalizer textNormalizer,
         NpcRaceOverrideDb npcOverrides,
         NpcSyncService npcSync,
         UpdateService updater,
@@ -237,6 +239,7 @@ public static class AppServices
         Monitor                = monitor;
         PronunciationProcessor = pronunciationProcessor;
         TextSwapProcessor      = textSwapProcessor;
+        TextNormalizer         = textNormalizer;
         NpcOverrides           = npcOverrides;
         NpcSync                = npcSync;
         Updater                = updater;

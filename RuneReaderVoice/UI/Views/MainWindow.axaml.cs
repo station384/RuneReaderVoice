@@ -301,6 +301,7 @@ public partial class MainWindow : Window
         EnableReward.IsChecked   = s.EnableQuestReward;
         EnableBooks.IsChecked    = s.EnableBooks;
         PhraseChunking.IsChecked = s.EnablePhraseChunking;
+        TextNormalization.IsChecked = s.EnableTextNormalization;
         PiperBinaryPath.Text     = s.PiperBinaryPath;
         PiperModelDir.Text       = s.PiperModelDirectory;
         RemoteServerUrl.Text     = s.RemoteServerUrl;

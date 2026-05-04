@@ -316,6 +316,12 @@ along with RuneReaderVoice. If not, see <https://www.gnu.org/licenses/>.
                                               Margin="0,4,0,0"
                                               Click="OnPhraseChunkingChanged"/>
 
+                                    <CheckBox x:Name="TextNormalization"
+                                              Content="Text normalization — expand numbers, times, currency"
+                                              Margin="0,2,0,0"
+                                              ToolTip.Tip="Runs after Text Shaping and before Pronunciation/cache/TTS."
+                                              Click="OnTextNormalizationChanged"/>
+
                                     <TextBlock Text="Audio Output Device" Foreground="#888" FontSize="11" Margin="0,6,0,0"/>
                                     <ComboBox x:Name="AudioDeviceSelector"
                                               HorizontalAlignment="Stretch"

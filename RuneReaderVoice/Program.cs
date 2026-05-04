@@ -165,6 +165,7 @@ internal static class Program
 
         var textSwapProcessor      = BuildTextSwapProcessorAsync(textSwapRules).GetAwaiter().GetResult();;
         var pronunciationProcessor = BuildPronunciationProcessorAsync(pronunciationRules).GetAwaiter().GetResult();;
+        var textNormalizer         = new TextNormalizer();
 
         // ── Update service ────────────────────────────────────────────────────
         var updater = new UpdateService();
@@ -193,9 +194,10 @@ internal static class Program
             AppServices.LastRuntimeSlot = seg.Slot;
             var activeProvider = AppServices.Provider;
             var shapedText = AppServices.TextSwapProcessor.Process(rawText);
+            var normalizedText = AppServices.TextNormalizer.Normalize(shapedText, AppServices.Settings);
             var shapedSegment = new AssembledSegment
             {
-                Text                = shapedText,
+                Text                = normalizedText,
                 Slot                = seg.Slot,
                 DialogId            = seg.DialogId,
                 SegmentIndex        = seg.SegmentIndex,
@@ -282,7 +284,7 @@ internal static class Program
 
         AppServices.Initialize(
             settings, platform, provider, cache, player,
-            assembler, coordinator, monitor, pronunciationProcessor, textSwapProcessor,
+            assembler, coordinator, monitor, pronunciationProcessor, textSwapProcessor, textNormalizer,
             npcOverrides, npcSync, updater, npcPeopleCatalogService, providerSlotProfileStore,
             db, pronunciationRules, textSwapRules, providerRegistry);
 

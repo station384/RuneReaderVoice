@@ -260,6 +260,15 @@ public partial class MainWindow
         VoiceSettingsManager.SaveSettings(AppServices.Settings);
     }
 
+
+    private void OnTextNormalizationChanged(object? sender, RoutedEventArgs e)
+    {
+        if (_uiInitializing) return;
+        var enabled = TextNormalization.IsChecked == true;
+        AppServices.Settings.EnableTextNormalization = enabled;
+        VoiceSettingsManager.SaveSettings(AppServices.Settings);
+    }
+
     private void OnAudioDeviceChanged(object? sender, SelectionChangedEventArgs e)
     {
         if (AudioDeviceSelector.SelectedItem is not ComboBoxItem item)
