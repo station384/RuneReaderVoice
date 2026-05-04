@@ -174,7 +174,7 @@
       "CaseSensitive": false,
       "UseRegex": true,
       "Enabled": true,
-      "Priority": 290,
+      "Priority": 400,
       "Notes": ""
     },
     {
@@ -185,7 +185,29 @@
       "CaseSensitive": false,
       "UseRegex": true,
       "Enabled": true,
-      "Priority": 289,
+      "Priority": 399,
+      "Notes": ""
+    },
+    {
+      "FindText": " - ",
+      "ReplaceText": ", ",
+      "ReplaceWithCrLf": false,
+      "WholeWord": false,
+      "CaseSensitive": false,
+      "UseRegex": false,
+      "Enabled": true,
+      "Priority": 275,
+      "Notes": ""
+    },
+    {
+      "FindText": "-",
+      "ReplaceText": " ",
+      "ReplaceWithCrLf": false,
+      "WholeWord": false,
+      "CaseSensitive": false,
+      "UseRegex": false,
+      "Enabled": true,
+      "Priority": 275,
       "Notes": ""
     }
   ]
