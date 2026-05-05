@@ -626,8 +626,8 @@ public partial class MainWindow
     // ── Helpers ───────────────────────────────────────────────────────────────
 
     /// <summary>
-    /// Populates a ComboBox with all race ID → accent group options.
-    /// Uses the player race map entries, sorted by accent group name.
+    /// Populates a ComboBox with all race ID → catalog options.
+    /// Uses the player race map entries, sorted by catalog display name.
     /// </summary>
     /// <summary>
     /// Populates a ComboBox with one entry per enabled catalog row.

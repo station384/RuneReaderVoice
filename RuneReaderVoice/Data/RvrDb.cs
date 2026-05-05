@@ -69,6 +69,8 @@ public sealed class PronunciationRuleRow
     public string MatchText { get; set; } = string.Empty;
     public string PhonemeText { get; set; } = string.Empty;
     public string Scope { get; set; } = "Global";
+    // TODO(db-cleanup): SQLite column name remains AccentGroup for old databases.
+    // Rename/migrate to CatalogId in a future schema bump once compatibility is no longer needed.
     [Column("AccentGroup")]
     public string? CatalogId { get; set; }
     public bool WholeWord { get; set; } = true;

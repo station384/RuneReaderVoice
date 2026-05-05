@@ -32,7 +32,7 @@ public partial class MainWindow
     {
         _pronunciationUiInitializing = true;
 
-        PopulateWorkbenchAccentGroups();
+        PopulateWorkbenchRaces();
         PopulateWorkbenchGender();
         PopulateWorkbenchInputs();
         PopulateRuleEditors();
@@ -44,31 +44,31 @@ public partial class MainWindow
         _ = ReloadPronunciationRuleListAsync();
     }
 
-    private void PopulateWorkbenchAccentGroups()
+    private void PopulateWorkbenchRaces()
     {
-        PronAccentGroupSelector.Items.Clear();
+        PronRaceSelector.Items.Clear();
 
         foreach (var row in AppServices.NpcPeopleCatalog.GetEnabledRows())
         {
-            PronAccentGroupSelector.Items.Add(new ComboBoxItem
+            PronRaceSelector.Items.Add(new ComboBoxItem
             {
                 Content = row.DisplayName,
                 Tag = row.Id
             });
         }
 
-        var savedGroup = VoiceSlot.NormalizeCatalogId(AppServices.Settings.PronunciationWorkbenchAccentGroup);
-        if (string.IsNullOrWhiteSpace(savedGroup))
-            savedGroup = "troll";
+        var savedCatalogId = VoiceSlot.NormalizeCatalogId(AppServices.Settings.PronunciationWorkbenchCatalogId);
+        if (string.IsNullOrWhiteSpace(savedCatalogId))
+            savedCatalogId = "troll";
 
-        var groupItem = PronAccentGroupSelector.Items
+        var catalogItem = PronRaceSelector.Items
             .OfType<ComboBoxItem>()
-            .FirstOrDefault(i => string.Equals(i.Tag?.ToString(), savedGroup, StringComparison.OrdinalIgnoreCase));
+            .FirstOrDefault(i => string.Equals(i.Tag?.ToString(), savedCatalogId, StringComparison.OrdinalIgnoreCase));
 
-        if (groupItem != null)
-            PronAccentGroupSelector.SelectedItem = groupItem;
+        if (catalogItem != null)
+            PronRaceSelector.SelectedItem = catalogItem;
         else
-            PronAccentGroupSelector.SelectedIndex = 0;
+            PronRaceSelector.SelectedIndex = 0;
     }
 
     private void PopulateWorkbenchGender()
@@ -97,26 +97,26 @@ public partial class MainWindow
     {
         PronRuleScopeSelector.SelectedIndex = 0;
 
-        PronRuleAccentGroupSelector.Items.Clear();
+        PronRuleRaceSelector.Items.Clear();
 
         foreach (var row in AppServices.NpcPeopleCatalog.GetEnabledRows())
         {
-            PronRuleAccentGroupSelector.Items.Add(new ComboBoxItem
+            PronRuleRaceSelector.Items.Add(new ComboBoxItem
             {
                 Content = row.DisplayName,
                 Tag = row.Id
             });
         }
 
-        var selectedWorkbenchGroup = ResolveWorkbenchGroup();
+        var selectedWorkbenchCatalogId = ResolveWorkbenchCatalogId();
 
-        var defaultRuleGroupItem = PronRuleAccentGroupSelector.Items
+        var defaultRuleCatalogItem = PronRuleRaceSelector.Items
             .OfType<ComboBoxItem>()
-            .FirstOrDefault(i => string.Equals(i.Tag?.ToString(), selectedWorkbenchGroup, StringComparison.OrdinalIgnoreCase));
+            .FirstOrDefault(i => string.Equals(i.Tag?.ToString(), selectedWorkbenchCatalogId, StringComparison.OrdinalIgnoreCase));
 
-        PronRuleAccentGroupSelector.SelectedItem =
-            defaultRuleGroupItem ??
-            PronRuleAccentGroupSelector.Items.OfType<ComboBoxItem>().FirstOrDefault();
+        PronRuleRaceSelector.SelectedItem =
+            defaultRuleCatalogItem ??
+            PronRuleRaceSelector.Items.OfType<ComboBoxItem>().FirstOrDefault();
     }
 
     private void PopulatePronunciationSymbolCatalog()

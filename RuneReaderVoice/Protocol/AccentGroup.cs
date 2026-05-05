@@ -62,6 +62,8 @@ public readonly record struct VoiceSlot(string SlotKey, Gender Gender)
     /// Normalizes old enum-style names and UI labels to current DB catalog ids.
     /// This is a compatibility boundary only; new code should already pass catalog ids.
     /// </summary>
+    ///
+    // Todo:  This needs to be removed.    We don't need backwards compatibility.  There should not be any normalization going on as there are no predefined races.
     public static string NormalizeCatalogId(string? key)
     {
         if (string.IsNullOrWhiteSpace(key))

@@ -53,15 +53,15 @@ public partial class MainWindow
         AppServices.Settings.PronunciationWorkbenchTestSentence = PronTestSentence.Text ?? string.Empty;
         AppServices.Settings.PronunciationWorkbenchTargetText = PronTargetText.Text ?? string.Empty;
         AppServices.Settings.PronunciationWorkbenchPhonemeText = PronPhonemeText.Text ?? string.Empty;
-        AppServices.Settings.PronunciationWorkbenchAccentGroup = ResolveWorkbenchGroup().ToString();
+        AppServices.Settings.PronunciationWorkbenchCatalogId = ResolveWorkbenchCatalogId().ToString();
         AppServices.Settings.PronunciationWorkbenchGender = ResolveWorkbenchGenderTag();
 
         VoiceSettingsManager.SaveSettings(AppServices.Settings);
     }
 
-    private string ResolveWorkbenchGroup()
+    private string ResolveWorkbenchCatalogId()
     {
-        if (PronAccentGroupSelector.SelectedItem is ComboBoxItem item)
+        if (PronRaceSelector.SelectedItem is ComboBoxItem item)
             return VoiceSlot.NormalizeCatalogId(item.Tag?.ToString());
 
         return "Narrator";
@@ -76,10 +76,10 @@ public partial class MainWindow
 
     private VoiceSlot ResolveWorkbenchSlot()
     {
-        var group = ResolveWorkbenchGroup();
+        var catalogId = ResolveWorkbenchCatalogId();
         var tag = ResolveWorkbenchGenderTag();
 
-        if (string.Equals(group, "Narrator", StringComparison.OrdinalIgnoreCase) ||
+        if (string.Equals(catalogId, "Narrator", StringComparison.OrdinalIgnoreCase) ||
             string.Equals(tag, "Narrator", StringComparison.OrdinalIgnoreCase))
         {
             return VoiceSlot.Narrator;
@@ -89,6 +89,6 @@ public partial class MainWindow
             ? Gender.Female
             : Gender.Male;
 
-        return VoiceSlot.CreateCatalog(group, gender);
+        return VoiceSlot.CreateCatalog(catalogId, gender);
     }
 }

@@ -72,8 +72,8 @@ public partial class MainWindow
 
     private static string BuildPronunciationRuleSummary(PronunciationRuleEntry entry)
     {
-        var scope = string.Equals(entry.Scope, "AccentGroup", StringComparison.OrdinalIgnoreCase)
-            ? $"AccentGroup:{entry.AccentGroup}"
+        var scope = PronunciationRuleEntry.IsCatalogScope(entry.Scope)
+            ? $"Race:{entry.CatalogId}"
             : "Global";
         var flags = entry.WholeWord ? "Whole word" : "Phrase";
         return $"{entry.MatchText} → {entry.PhonemeText}  [{scope}, {flags}]";
@@ -109,14 +109,14 @@ public partial class MainWindow
             }
         }
 
-        // Accent group selector
-        if (!string.IsNullOrEmpty(entry.AccentGroup))
+        // Race/catalog selector
+        if (!string.IsNullOrEmpty(entry.CatalogId))
         {
-            foreach (var item in PronRuleAccentGroupSelector.Items.OfType<ComboBoxItem>())
+            foreach (var item in PronRuleRaceSelector.Items.OfType<ComboBoxItem>())
             {
-                if (string.Equals(VoiceSlot.NormalizeCatalogId(item.Tag?.ToString()), VoiceSlot.NormalizeCatalogId(entry.AccentGroup), StringComparison.OrdinalIgnoreCase))
+                if (string.Equals(VoiceSlot.NormalizeCatalogId(item.Tag?.ToString()), VoiceSlot.NormalizeCatalogId(entry.CatalogId), StringComparison.OrdinalIgnoreCase))
                 {
-                    PronRuleAccentGroupSelector.SelectedItem = item;
+                    PronRuleRaceSelector.SelectedItem = item;
                     break;
                 }
             }
@@ -151,8 +151,8 @@ public partial class MainWindow
     private void UpdatePronunciationRuleUi()
     {
         var scope = ResolveRuleScopeTag();
-        PronRuleAccentGroupSelector.IsEnabled =
-            string.Equals(scope, "AccentGroup", StringComparison.OrdinalIgnoreCase);
+        PronRuleRaceSelector.IsEnabled =
+            PronunciationRuleEntry.IsCatalogScope(scope);
     }
 
     private string ResolveRuleScopeTag()
@@ -160,18 +160,18 @@ public partial class MainWindow
             ? item.Tag?.ToString() ?? "Global"
             : "Global";
 
-    private string ResolveRuleAccentGroup()
+    private string ResolveRuleCatalogId()
     {
-        if (PronRuleAccentGroupSelector.SelectedItem is ComboBoxItem item)
+        if (PronRuleRaceSelector.SelectedItem is ComboBoxItem item)
             return VoiceSlot.NormalizeCatalogId(item.Tag?.ToString());
-        return ResolveWorkbenchGroup();
+        return ResolveWorkbenchCatalogId();
     }
 
     private PronunciationRuleEntry BuildWorkbenchRuleEntry()
     {
         var scope = ResolveRuleScopeTag();
-        var accentGroup = string.Equals(scope, "AccentGroup", StringComparison.OrdinalIgnoreCase)
-            ? ResolveRuleAccentGroup().ToString()
+        var catalogId = PronunciationRuleEntry.IsCatalogScope(scope)
+            ? ResolveRuleCatalogId().ToString()
             : null;
 
         return new PronunciationRuleEntry
@@ -179,7 +179,7 @@ public partial class MainWindow
             MatchText     = (PronTargetText.Text ?? string.Empty).Trim(),
             PhonemeText   = (PronPhonemeText.Text ?? string.Empty).Trim(),
             Scope         = scope,
-            AccentGroup   = accentGroup,
+            CatalogId     = catalogId,
             WholeWord     = PronRuleWholeWord.IsChecked ?? true,
             CaseSensitive = PronRuleCaseSensitive.IsChecked ?? false,
             Enabled       = PronRuleEnabled.IsChecked ?? true,

@@ -126,7 +126,7 @@ public interface ITtsProvider : IDisposable
 
     /// <summary>
     /// Returns the voices available for this provider on this platform.
-    /// The UI uses this to populate the accent group voice assignment grid.
+    /// The UI uses this to populate the race/catalog voice assignment grid.
     /// </summary>
     IReadOnlyList<VoiceInfo> GetAvailableVoices();
 }

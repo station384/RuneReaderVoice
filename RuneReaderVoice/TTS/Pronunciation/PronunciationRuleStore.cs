@@ -18,6 +18,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text.Json.Serialization;
 using System.Threading.Tasks;
 using RuneReaderVoice.Data;
 using RuneReaderVoice.Protocol;
@@ -33,8 +34,8 @@ public static class PronunciationRuleRowExtensions
         {
             MatchText     = entry.MatchText,
             PhonemeText   = entry.PhonemeText,
-            Scope         = entry.Scope,
-            CatalogId     = entry.AccentGroup,
+            Scope         = PronunciationRuleEntry.NormalizeScope(entry.Scope),
+            CatalogId     = entry.CatalogId,
             WholeWord     = entry.WholeWord,
             CaseSensitive = entry.CaseSensitive,
             Enabled       = entry.Enabled,
@@ -47,8 +48,8 @@ public static class PronunciationRuleRowExtensions
         {
             MatchText     = row.MatchText,
             PhonemeText   = row.PhonemeText,
-            Scope         = row.Scope,
-            AccentGroup   = row.CatalogId,
+            Scope         = PronunciationRuleEntry.NormalizeScope(row.Scope),
+            CatalogId     = row.CatalogId,
             WholeWord     = row.WholeWord,
             CaseSensitive = row.CaseSensitive,
             Enabled       = row.Enabled,
@@ -107,17 +108,20 @@ public sealed class PronunciationRuleStore
 
     public async Task UpsertRuleAsync(PronunciationRuleEntry entry)
     {
-        var existing = await _db.Connection.Table<PronunciationRuleRow>()
+        var scope = PronunciationRuleEntry.NormalizeScope(entry.Scope);
+        var candidates = await _db.Connection.Table<PronunciationRuleRow>()
             .Where(r => r.MatchText == entry.MatchText
-                     && r.Scope == entry.Scope
                      && r.WholeWord == entry.WholeWord
                      && r.CaseSensitive == entry.CaseSensitive)
-            .FirstOrDefaultAsync();
+            .ToListAsync();
+        var existing = candidates.FirstOrDefault(r =>
+            string.Equals(PronunciationRuleEntry.NormalizeScope(r.Scope), scope, StringComparison.OrdinalIgnoreCase));
 
         if (existing != null)
         {
             existing.PhonemeText  = entry.PhonemeText;
-            existing.CatalogId     = entry.AccentGroup;
+            existing.Scope         = scope;
+            existing.CatalogId     = entry.CatalogId;
             existing.Enabled      = entry.Enabled;
             existing.Priority     = entry.Priority;
             existing.Notes        = entry.Notes;
@@ -131,12 +135,14 @@ public sealed class PronunciationRuleStore
 
     public async Task DeleteRuleAsync(PronunciationRuleEntry entry)
     {
-        var existing = await _db.Connection.Table<PronunciationRuleRow>()
+        var scope = PronunciationRuleEntry.NormalizeScope(entry.Scope);
+        var candidates = await _db.Connection.Table<PronunciationRuleRow>()
             .Where(r => r.MatchText == entry.MatchText
-                     && r.Scope == entry.Scope
                      && r.WholeWord == entry.WholeWord
                      && r.CaseSensitive == entry.CaseSensitive)
-            .FirstOrDefaultAsync();
+            .ToListAsync();
+        var existing = candidates.FirstOrDefault(r =>
+            string.Equals(PronunciationRuleEntry.NormalizeScope(r.Scope), scope, StringComparison.OrdinalIgnoreCase));
 
         if (existing != null)
             await _db.Connection.DeleteAsync(existing);
@@ -159,17 +165,33 @@ public sealed class PronunciationRuleEntry
     public string MatchText { get; set; } = string.Empty;
     public string PhonemeText { get; set; } = string.Empty;
     public string Scope { get; set; } = "Global";
-    public string? AccentGroup { get; set; }
+    public string? CatalogId { get; set; }
+
+    // TODO(db-cleanup): Remove the AccentGroup JSON alias after old exported pronunciation-rule files
+    // and existing server/default payloads have all moved to CatalogId.
+    [JsonPropertyName("AccentGroup")]
+    public string? AccentGroup
+    {
+        get => CatalogId;
+        set => CatalogId = value;
+    }
     public bool WholeWord { get; set; } = true;
     public bool CaseSensitive { get; set; }
     public bool Enabled { get; set; } = true;
     public int Priority { get; set; } = 100;
     public string Notes { get; set; } = string.Empty;
 
+    public static bool IsCatalogScope(string? scope)
+        => string.Equals(scope, "CatalogId", StringComparison.OrdinalIgnoreCase)
+        || string.Equals(scope, "AccentGroup", StringComparison.OrdinalIgnoreCase);
+
+    public static string NormalizeScope(string? scope)
+        => IsCatalogScope(scope) ? "CatalogId" : "Global";
+
     public PronunciationRule ToRule()
     {
-        var scopeKey = string.Equals(Scope, "AccentGroup", StringComparison.OrdinalIgnoreCase)
-            ? RuneReaderVoice.Protocol.VoiceSlot.NormalizeCatalogId(AccentGroup)
+        var scopeKey = IsCatalogScope(Scope)
+            ? RuneReaderVoice.Protocol.VoiceSlot.NormalizeCatalogId(CatalogId)
             : null;
 
         return new PronunciationRule(
@@ -186,8 +208,8 @@ public sealed class PronunciationRuleEntry
         {
             MatchText     = rule.MatchText,
             PhonemeText   = rule.PhonemeText,
-            Scope         = !string.IsNullOrWhiteSpace(rule.ScopeKey) ? "AccentGroup" : "Global",
-            AccentGroup   = rule.ScopeKey,
+            Scope         = !string.IsNullOrWhiteSpace(rule.ScopeKey) ? "CatalogId" : "Global",
+            CatalogId     = rule.ScopeKey,
             WholeWord     = rule.WholeWord,
             CaseSensitive = rule.CaseSensitive,
             Enabled       = true,

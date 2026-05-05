@@ -924,8 +924,8 @@ along with RuneReaderVoice. If not, see <https://www.gnu.org/licenses/>.
 
                             <Grid ColumnDefinitions="*,*" RowDefinitions="Auto,Auto" ColumnSpacing="10" RowSpacing="6">
                                 <StackPanel Grid.Row="0" Grid.Column="0" Spacing="4">
-                                    <TextBlock Text="Accent Group" Foreground="#888" FontSize="11"/>
-                                    <ComboBox x:Name="PronAccentGroupSelector"
+                                    <TextBlock Text="Race / Catalog" Foreground="#888" FontSize="11"/>
+                                    <ComboBox x:Name="PronRaceSelector"
                                               SelectionChanged="OnPronunciationSelectionChanged"/>
                                 </StackPanel>
 
@@ -1057,13 +1057,13 @@ along with RuneReaderVoice. If not, see <https://www.gnu.org/licenses/>.
                                     <ComboBox x:Name="PronRuleScopeSelector"
                                               SelectionChanged="OnPronunciationRuleSelectionChanged">
                                         <ComboBoxItem Content="Global"       Tag="Global"/>
-                                        <ComboBoxItem Content="Accent Group" Tag="AccentGroup"/>
+                                        <ComboBoxItem Content="Race / Catalog" Tag="CatalogId"/>
                                     </ComboBox>
                                 </StackPanel>
 
                                 <StackPanel Grid.Row="0" Grid.Column="1" Spacing="4">
-                                    <TextBlock Text="Rule Accent Group" Foreground="#888" FontSize="11"/>
-                                    <ComboBox x:Name="PronRuleAccentGroupSelector"
+                                    <TextBlock Text="Rule Race / Catalog" Foreground="#888" FontSize="11"/>
+                                    <ComboBox x:Name="PronRuleRaceSelector"
                                               SelectionChanged="OnPronunciationRuleSelectionChanged"/>
                                 </StackPanel>
 

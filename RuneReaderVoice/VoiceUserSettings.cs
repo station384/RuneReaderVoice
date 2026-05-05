@@ -177,7 +177,21 @@ public sealed class VoiceUserSettings
     public string PronunciationWorkbenchTestSentence { get; set; } = "Stay away from Atal'zul, mon.";
     public string PronunciationWorkbenchTargetText { get; set; } = "Atal'zul";
     public string PronunciationWorkbenchPhonemeText { get; set; } = "ə tɑl zʊl";
-    public string PronunciationWorkbenchAccentGroup { get; set; } = "troll";
+    public string PronunciationWorkbenchCatalogId { get; set; } = "troll";
+
+    // TODO(db-cleanup): Remove this JSON compatibility alias after old settings.json files
+    // using PronunciationWorkbenchAccentGroup have migrated to PronunciationWorkbenchCatalogId.
+    [System.Text.Json.Serialization.JsonPropertyName("PronunciationWorkbenchAccentGroup")]
+    public string? LegacyPronunciationWorkbenchAccentGroup
+    {
+        get => PronunciationWorkbenchCatalogId;
+        set
+        {
+            if (!string.IsNullOrWhiteSpace(value))
+                PronunciationWorkbenchCatalogId = value;
+        }
+    }
+
     public string PronunciationWorkbenchGender { get; set; } = "Male";
 
     public bool RepeatSuppressionEnabled { get; set; } = true;
