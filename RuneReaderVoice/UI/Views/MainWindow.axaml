@@ -444,23 +444,43 @@ along with RuneReaderVoice. If not, see <https://www.gnu.org/licenses/>.
                                                    VerticalAlignment="Center"/>
                                     </StackPanel>
 
-                                    <TextBlock x:Name="TestQrLatencyStatus"
-                                               Text="Latency: waiting for QR decode."
-                                               Foreground="#888"
-                                               FontSize="11"
-                                               TextWrapping="Wrap"/>
+                                    <Border Margin="0,6,0,0"
+                                            Padding="4"
+                                            BorderBrush="#333"
+                                            BorderThickness="1"
+                                            CornerRadius="4">
+                                        <StackPanel Spacing="3">
+                                            <TextBlock Text="Latency"
+                                                       Foreground="#888"
+                                                       FontSize="11"/>
+                                            <Grid ColumnDefinitions="44,60,66,66,78,78,62"
+                                                  Margin="0,0,0,2">
+                                                <TextBlock Grid.Column="0" Text="Seq" Foreground="#888" FontSize="10"/>
+                                                <TextBlock Grid.Column="1" Text="Scan" Foreground="#888" FontSize="10"/>
+                                                <TextBlock Grid.Column="2" Text="TTS" Foreground="#888" FontSize="10"/>
+                                                <TextBlock Grid.Column="3" Text="Play" Foreground="#888" FontSize="10"/>
+                                                <TextBlock Grid.Column="4" Text="Total" Foreground="#888" FontSize="10"/>
+                                                <TextBlock Grid.Column="5" Text="Avg" Foreground="#888" FontSize="10"/>
+                                                <TextBlock Grid.Column="6" Text="Cache" Foreground="#888" FontSize="10"/>
+                                            </Grid>
+                                            <ScrollViewer Height="84"
+                                                          VerticalScrollBarVisibility="Auto"
+                                                          HorizontalScrollBarVisibility="Disabled">
+                                                <StackPanel x:Name="TestQrLatencyRows" Spacing="2"/>
+                                            </ScrollViewer>
+                                        </StackPanel>
+                                    </Border>
 
                                     <Expander Header="Debug" IsExpanded="False" Margin="0,6,0,0">
                                         <StackPanel Spacing="6" Margin="0,6,0,0">
                                             <ScrollViewer HorizontalScrollBarVisibility="Auto"
-                                                          VerticalScrollBarVisibility="Auto"  FontFamily="Consolas, Lucida Console, Cascadia Mono, monospace">
+                                                          VerticalScrollBarVisibility="Auto" >
                                                 <TextBox x:Name="TestQrDebugText"
                                                          IsReadOnly="True"
                                                          AcceptsReturn="True"
                                                          TextWrapping="NoWrap"
                                                          Height="150"
-                                                         FontFamily="Consolas, Cascadia Mono, monospace"
-                                                         FontFeatures="+tnum"/>
+                                                         FontFamily="Consolas"/>
                                             </ScrollViewer>
                                            
                                             <Button Content="Copy Debug Text"

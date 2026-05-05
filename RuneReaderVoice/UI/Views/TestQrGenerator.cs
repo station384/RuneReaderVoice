@@ -7,6 +7,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using RuneReaderVoice.Protocol;
+using RuneReaderVoice.Data;
 
 namespace RuneReaderVoice.UI.Views;
 
@@ -17,7 +18,7 @@ internal enum TestQrScenario
     Full,
 }
 
-internal sealed record TestQrRaceOption(string Label, int RaceId, Gender Gender)
+internal sealed record TestQrRaceOption(string Label, VoiceSlot Slot, int RaceId, Gender Gender)
 {
     public override string ToString() => Label;
 }
@@ -40,14 +41,18 @@ internal static class TestQrGenerator
 
     private static int _dialogCounter = Random.Shared.Next(1, 0xFFFF);
 
-    public static IReadOnlyList<TestQrRaceOption> BuildRaceOptions()
+    public static IReadOnlyList<TestQrRaceOption> BuildRaceOptions(IEnumerable<VoiceSlotCatalogRow>? catalogSlots = null)
     {
         var result = new List<TestQrRaceOption>();
 
-        foreach (var item in NpcVoiceSlotCatalog.All
+        var source = catalogSlots?.Where(i => !i.Slot.IsNarrator)
+                     ?? NpcVoiceSlotCatalog.All.Select(i =>
+                         new VoiceSlotCatalogRow(i.Slot, i.NpcLabel, i.AccentLabel, i.SortOrder));
+
+        foreach (var item in source
                      .Where(i => !i.Slot.IsNarrator)
                      .OrderBy(i => i.SortOrder)
-                     .ThenBy(i => i.NpcLabel))
+                     .ThenBy(i => i.NpcLabel, StringComparer.OrdinalIgnoreCase))
         {
             if (item.Slot.Gender is not (Gender.Male or Gender.Female))
                 continue;
@@ -56,7 +61,7 @@ internal static class TestQrGenerator
             if (raceId is null or < 0 or > 0xFF)
                 continue;
 
-            result.Add(new TestQrRaceOption(item.NpcLabel, raceId.Value, item.Slot.Gender));
+            result.Add(new TestQrRaceOption(item.NpcLabel, item.Slot, raceId.Value, item.Slot.Gender));
         }
 
         return result;

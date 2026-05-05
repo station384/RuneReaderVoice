@@ -9,7 +9,9 @@ using System.Text;
 using Avalonia.Controls;
 using Avalonia.Input.Platform;
 using Avalonia.Interactivity;
+using Avalonia.Layout;
 using Avalonia.Threading;
+using RuneReaderVoice.TTS.Providers;
 
 namespace RuneReaderVoice.UI.Views;
 
@@ -20,6 +22,9 @@ public partial class MainWindow
     private IReadOnlyList<TestQrPacket> _testQrPackets = Array.Empty<TestQrPacket>();
     private int _testQrPacketIndex;
     private string? _testQrNonce;
+    private int? _testQrLatencyDialogId;
+    private readonly Dictionary<(int DialogId, int SegmentIndex), PipelineLatencySnapshot> _testQrLatencySnapshots = new();
+    private readonly List<(int DialogId, int SegmentIndex)> _testQrLatencyOrder = new();
 
     private void InitTestQrUi()
     {
@@ -33,23 +38,95 @@ public partial class MainWindow
 
     private void PopulateTestQrRaceSelector()
     {
+        var previousSlot = (TestQrRaceSelector.SelectedItem as ComboBoxItem)?.Tag is TestQrRaceOption previous
+            ? previous.Slot.SlotKey + "/" + previous.Slot.Gender
+            : null;
+
         TestQrRaceSelector.Items.Clear();
-        foreach (var option in TestQrGenerator.BuildRaceOptions())
+
+        foreach (var option in TestQrGenerator.BuildRaceOptions(AppServices.NpcPeopleCatalog?.GetVoiceSlots()))
         {
+            if (!TryDescribeValidTestQrRaceOption(option, out var label))
+                continue;
+
             TestQrRaceSelector.Items.Add(new ComboBoxItem
             {
-                Content = option.Label,
+                Content = label,
                 Tag = option,
             });
         }
 
-        if (TestQrRaceSelector.Items.Count > 0)
+        if (TestQrRaceSelector.Items.Count == 0)
         {
-            var bloodElfFemale = TestQrRaceSelector.Items
-                .OfType<ComboBoxItem>()
-                .FirstOrDefault(i => i.Content?.ToString()?.Contains("Blood Elf / Female", StringComparison.OrdinalIgnoreCase) == true);
-            TestQrRaceSelector.SelectedItem = bloodElfFemale ?? TestQrRaceSelector.Items[0];
+            TestQrRaceSelector.Items.Add(new ComboBoxItem
+            {
+                Content = "No race slots have a valid voice for the active provider",
+                IsEnabled = false,
+            });
+            TestQrRaceSelector.SelectedIndex = 0;
+            TestQrStatus.Text = "No QR test race slots are valid for the active provider. Check Race Voices / Voice Defaults.";
+            return;
         }
+
+        ComboBoxItem? selected = null;
+        if (!string.IsNullOrWhiteSpace(previousSlot))
+        {
+            selected = TestQrRaceSelector.Items
+                .OfType<ComboBoxItem>()
+                .FirstOrDefault(i => i.Tag is TestQrRaceOption o &&
+                                     string.Equals(o.Slot.SlotKey + "/" + o.Slot.Gender, previousSlot, StringComparison.OrdinalIgnoreCase));
+        }
+
+        selected ??= TestQrRaceSelector.Items
+            .OfType<ComboBoxItem>()
+            .FirstOrDefault(i => i.Tag is TestQrRaceOption &&
+                                 i.Content?.ToString()?.Contains("Blood Elf / Female", StringComparison.OrdinalIgnoreCase) == true);
+
+        TestQrRaceSelector.SelectedItem = selected ?? TestQrRaceSelector.Items[0];
+    }
+
+    private bool TryDescribeValidTestQrRaceOption(TestQrRaceOption option, out string label)
+    {
+        // QR test slot selection must mirror the Race Voices / quick-select slot
+        // rules.  Do not use provider.ResolveProfile() directly here: remote
+        // providers may fall back through sample defaults, which is correct for
+        // bespoke sample rendering but wrong for the race-slot selector.
+        var provider = AppServices.Provider;
+        var providerId = provider.ProviderId;
+        var descriptor = AppServices.ProviderRegistry.Get(providerId);
+
+        VoiceProfile? profile = null;
+        if (AppServices.TryGetStoredVoiceProfile(providerId, option.Slot, out var stored) && stored != null)
+        {
+            profile = stored;
+        }
+        else if (provider is KokoroTtsProvider kokoro)
+        {
+            profile = kokoro.ResolveVoiceProfile(option.Slot);
+        }
+        else if (!ProviderRequiresExplicitVoiceSelection(descriptor))
+        {
+            profile = provider.ResolveProfile(option.Slot);
+        }
+
+        if (profile == null || string.IsNullOrWhiteSpace(profile.VoiceId))
+        {
+            if (ProviderRequiresExplicitVoiceSelection(descriptor))
+            {
+                label = string.Empty;
+                return false;
+            }
+
+            label = $"{option.Label} — (default)";
+            return true;
+        }
+
+        var voiceText = profile.VoiceId.StartsWith(KokoroTtsProvider.MixPrefix, StringComparison.OrdinalIgnoreCase)
+            ? "Blend"
+            : ResolveVoiceDisplayName(provider, profile.VoiceId);
+
+        label = $"{option.Label} — {voiceText}";
+        return true;
     }
 
     private void PopulateTestQrScenarioSelector()
@@ -87,6 +164,8 @@ public partial class MainWindow
         if (!BuildTestQrPackets(reuseNonce: false))
             return;
 
+        ClearTestQrLatencyRows();
+
         _testQrWindow = new TestQrOverlayWindow();
         _testQrWindow.Closed += (_, _) => StopTestQrOverlay();
         _testQrWindow.Show();
@@ -119,7 +198,7 @@ public partial class MainWindow
     {
         if (TestQrRaceSelector.SelectedItem is not ComboBoxItem raceItem || raceItem.Tag is not TestQrRaceOption race)
         {
-            TestQrStatus.Text = "Select a race first.";
+            TestQrStatus.Text = "Select a valid race slot first.";
             return false;
         }
 
@@ -209,8 +288,95 @@ public partial class MainWindow
     {
         Dispatcher.UIThread.Post(() =>
         {
-            TestQrLatencyStatus.Text = "Latency: " + snapshot.Summary;
+            if (_testQrLatencyDialogId != snapshot.DialogId)
+                ClearTestQrLatencyRows(snapshot.DialogId);
+
+            var key = (snapshot.DialogId, snapshot.SegmentIndex);
+            if (!_testQrLatencySnapshots.ContainsKey(key))
+                _testQrLatencyOrder.Add(key);
+
+            _testQrLatencySnapshots[key] = snapshot;
+            RebuildTestQrLatencyRows();
         });
+    }
+
+    private void ClearTestQrLatencyRows(int? activeDialogId = null)
+    {
+        _testQrLatencyDialogId = activeDialogId;
+        _testQrLatencySnapshots.Clear();
+        _testQrLatencyOrder.Clear();
+        TestQrLatencyRows.Children.Clear();
+    }
+
+    private void RebuildTestQrLatencyRows()
+    {
+        TestQrLatencyRows.Children.Clear();
+
+        var completedTotals = _testQrLatencyOrder
+            .Select(k => _testQrLatencySnapshots.TryGetValue(k, out var s) ? s.TotalMs : null)
+            .Where(v => v.HasValue)
+            .Select(v => v!.Value)
+            .ToList();
+        var avgTotal = completedTotals.Count > 0 ? completedTotals.Average() : (double?)null;
+
+        foreach (var key in _testQrLatencyOrder)
+        {
+            if (!_testQrLatencySnapshots.TryGetValue(key, out var snapshot))
+                continue;
+
+            TestQrLatencyRows.Children.Add(BuildLatencyRow(snapshot, avgTotal));
+        }
+    }
+
+    private static Grid BuildLatencyRow(PipelineLatencySnapshot snapshot, double? avgTotalMs)
+    {
+        var row = new Grid
+        {
+            ColumnDefinitions = new ColumnDefinitions("44,60,66,66,78,78,62"),
+        };
+
+        AddLatencyCell(row, 0, snapshot.SegmentIndex.ToString("000"));
+        AddLatencyCell(row, 1, FormatFixedMs(snapshot.ScanToAssembleMs, 3));
+        AddLatencyCell(row, 2, FormatFixedMs(snapshot.AssembleToTtsStartMs, 5));
+        AddLatencyCell(row, 3, FormatFixedSeconds(snapshot.TtsStartToAudioStartMs));
+        AddLatencyCell(row, 4, FormatFixedSeconds(snapshot.TotalMs));
+        AddLatencyCell(row, 5, FormatFixedSeconds(avgTotalMs));
+        AddLatencyCell(row, 6, snapshot.CacheState.PadRight(4));
+
+        return row;
+    }
+
+    private static void AddLatencyCell(Grid row, int column, string text)
+    {
+        var tb = new TextBlock
+        {
+            Text = text,
+            FontFamily = "Consolas",
+            FontSize = 11,
+            HorizontalAlignment = HorizontalAlignment.Right,
+            VerticalAlignment = VerticalAlignment.Center,
+        };
+
+        Grid.SetColumn(tb, column);
+        row.Children.Add(tb);
+    }
+
+    private static string FormatFixedMs(double? value, int digits)
+    {
+        if (!value.HasValue)
+            return new string('-', digits) + "ms";
+
+        var rounded = (int)Math.Round(Math.Clamp(value.Value, 0, Math.Pow(10, digits) - 1));
+        return rounded.ToString(new string('0', digits)) + "ms";
+    }
+
+    private static string FormatFixedSeconds(double? valueMs)
+    {
+        if (!valueMs.HasValue)
+            return "----.-s";
+
+        var seconds = Math.Clamp(valueMs.Value / 1000.0, 0, 9999.9);
+        return seconds.ToString("0000.0") + "s";
     }
 
     private static string BuildSpeakableTestTimestamp(DateTime now)

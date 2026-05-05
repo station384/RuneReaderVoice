@@ -95,6 +95,7 @@ public partial class MainWindow
         {
             PopulateVoiceGrid();
             PopulateLastNpcSampleDropdown();
+            PopulateTestQrRaceSelector();
             RefreshNpcOverridesGrid();
             _ = PopulateSampleDefaultsGridAsync();
         }

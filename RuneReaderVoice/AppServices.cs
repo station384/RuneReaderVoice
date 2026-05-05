@@ -116,7 +116,6 @@ public static class AppServices
         public long? TtsStartTicks;
         public long? AudioStartTicks;
         public string CacheState = "unknown";
-        public bool TotalAddedToAverage;
     }
 
     private static readonly object _pipelineLatencyLock = new();
@@ -333,26 +332,20 @@ public static class AppServices
         double? ttsToAudio = DeltaMs(item.TtsStartTicks, item.AudioStartTicks);
         double? total = DeltaMs(item.FirstScanTicks, item.AudioStartTicks);
 
-        if (total.HasValue && item.AudioStartTicks.HasValue && !item.TotalAddedToAverage)
+        if (total.HasValue && item.AudioStartTicks.HasValue)
         {
-            item.TotalAddedToAverage = true;
             _recentPipelineTotals.Enqueue(total.Value);
             while (_recentPipelineTotals.Count > 10)
                 _recentPipelineTotals.Dequeue();
         }
 
         var avg = _recentPipelineTotals.Count > 0 ? _recentPipelineTotals.Average() : (double?)null;
-        var subPart = item.SubIndex.HasValue && item.SubTotal.HasValue
-            ? $" Sub {(item.SubIndex.Value + 1):000}/{item.SubTotal.Value:000}"
-            : string.Empty;
-
-        var summary = $"Dlg {item.DialogId:X4} Seq {item.SegmentIndex:000}{subPart} | " +
-                      $"scan {FormatMsFixed(scanToAssemble, 3)} | " +
-                      $"tts {FormatMsFixed(assembleToTts, 5)} | " +
-                      $"play {FormatSecondsFixed(ttsToAudio)} | " +
-                      $"total {FormatSecondsFixed(total)} | " +
-                      $"cache {item.CacheState,-4}" +
-                      (avg.HasValue ? $" | avg {FormatSecondsFixed(avg)}" : string.Empty);
+        var summary = $"Dlg {item.DialogId:X4} Seg {item.SegmentIndex}: " +
+                      $"scan→asm {FormatMs(scanToAssemble)}, " +
+                      $"asm→tts {FormatMs(assembleToTts)}, " +
+                      $"tts→play {FormatMs(ttsToAudio)}, " +
+                      $"total {FormatMs(total)}, cache {item.CacheState}" +
+                      (avg.HasValue ? $", avg {avg.Value:0} ms" : string.Empty);
 
         var snapshot = new PipelineLatencySnapshot(
             item.DialogId,
@@ -377,23 +370,8 @@ public static class AppServices
         return (endTicks.Value - startTicks.Value) * 1000.0 / Stopwatch.Frequency;
     }
 
-    private static string FormatMsFixed(double? value, int digits)
-    {
-        if (!value.HasValue)
-            return new string('-', digits) + "ms";
-
-        var rounded = Math.Max(0, (int)Math.Round(value.Value));
-        return rounded.ToString(new string('0', digits)) + "ms";
-    }
-
-    private static string FormatSecondsFixed(double? valueMs)
-    {
-        if (!valueMs.HasValue)
-            return "----.-s";
-
-        var seconds = Math.Max(0, valueMs.Value / 1000.0);
-        return seconds.ToString("0000.0") + "s";
-    }
+    private static string FormatMs(double? value)
+        => value.HasValue ? $"{value.Value:0} ms" : "—";
 
     public static void Initialize(
         VoiceUserSettings settings,

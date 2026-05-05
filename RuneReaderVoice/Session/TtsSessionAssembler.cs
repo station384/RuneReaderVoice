@@ -194,7 +194,19 @@ public sealed class TtsSessionAssembler
             // Packet race/gender provides the protocol baseline. Local NPC overrides
             // remain authoritative and are applied when the segment completes.
             int effectiveRace = packet.Race;
-            var resolvedSlot = RaceAccentMapping.Resolve(effectiveRace, packet.Flags, packet.IsMale, packet.IsFemale);
+            var packetGender = packet.IsFemale ? Gender.Female : packet.IsMale ? Gender.Male : Gender.Unknown;
+            VoiceSlot resolvedSlot;
+            if (packet.IsNarrator)
+            {
+                resolvedSlot = packet.IsFemale ? VoiceSlot.FemaleNarrator : VoiceSlot.MaleNarrator;
+            }
+            else
+            {
+                var catalogId = NpcRaceOverrideDb.LegacyRaceIdToCatalogId(effectiveRace);
+                resolvedSlot = !string.IsNullOrWhiteSpace(catalogId)
+                    ? (AppServices.NpcPeopleCatalog?.ResolveCatalogSlot(catalogId, packetGender) ?? new VoiceSlot(catalogId, packetGender))
+                    : RaceAccentMapping.Resolve(effectiveRace, packet.Flags, packet.IsMale, packet.IsFemale);
+            }
 
             if (packet.SubIndex == 0)
             {
