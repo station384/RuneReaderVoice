@@ -334,6 +334,7 @@ public sealed class TtsSessionAssembler
                     $"[Assembler] Firing seg={emitted.SegmentIndex} slot={emitted.Slot} npc={emitted.NpcId}" +
                     $" bespoke={emitted.BespokeSampleId ?? "none"} text='{emitted.Text.Substring(0, Math.Min(60, emitted.Text.Length))}'");
                 AppServices.LastSegment = emitted;
+                RuneReaderVoice.AppServices.RecordSegmentAssembled(emitted);
                 OnSegmentComplete?.Invoke(emitted);
             }
         }

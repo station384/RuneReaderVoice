@@ -22,6 +22,8 @@
 
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
+using System.Linq;
 using RuneReaderVoice.Data;
 using RuneReaderVoice.Platform;
 using RuneReaderVoice.Protocol;
@@ -35,6 +37,19 @@ using RuneReaderVoice.TTS.Providers;
 using RuneReaderVoice.TTS.TextSwap;
 
 namespace RuneReaderVoice;
+
+
+public sealed record PipelineLatencySnapshot(
+    int DialogId,
+    int SegmentIndex,
+    int? SubIndex,
+    int? SubTotal,
+    double? ScanToAssembleMs,
+    double? AssembleToTtsStartMs,
+    double? TtsStartToAudioStartMs,
+    double? TotalMs,
+    string CacheState,
+    string Summary);
 
 public enum MainActivityKind
 {
@@ -89,6 +104,27 @@ public static class AppServices
 
     public static string OperationStatus { get; private set; } = string.Empty;
     public static event Action<string>? OperationStatusChanged;
+
+    private sealed class PipelineLatencyMutable
+    {
+        public int DialogId;
+        public int SegmentIndex;
+        public int? SubIndex;
+        public int? SubTotal;
+        public long? FirstScanTicks;
+        public long? AssembledTicks;
+        public long? TtsStartTicks;
+        public long? AudioStartTicks;
+        public string CacheState = "unknown";
+        public bool TotalAddedToAverage;
+    }
+
+    private static readonly object _pipelineLatencyLock = new();
+    private static readonly Dictionary<(int DialogId, int SegmentIndex), PipelineLatencyMutable> _pipelineLatency = new();
+    private static readonly Queue<double> _recentPipelineTotals = new();
+    public static PipelineLatencySnapshot? LastPipelineLatency { get; private set; }
+    public static event Action<PipelineLatencySnapshot>? PipelineLatencyChanged;
+
 
     private static readonly object _mainActivityLock = new();
     private static MainActivityState _playbackActivity = MainActivityState.None;
@@ -206,6 +242,158 @@ public static class AppServices
     /// via OnSegmentComplete. The UI reads this to populate the "Last NPC" panel.
     /// </summary>
     public static AssembledSegment? LastSegment { get; set; }
+
+
+    public static void RecordQrPacketDecoded(RvPacket packet)
+    {
+        lock (_pipelineLatencyLock)
+        {
+            var key = (packet.DialogId, packet.SeqIndex);
+            if (!_pipelineLatency.TryGetValue(key, out var item))
+            {
+                item = new PipelineLatencyMutable { DialogId = packet.DialogId, SegmentIndex = packet.SeqIndex };
+                _pipelineLatency[key] = item;
+            }
+
+            item.SubIndex = packet.SubIndex;
+            item.SubTotal = packet.SubTotal;
+            item.FirstScanTicks ??= Stopwatch.GetTimestamp();
+            PublishPipelineLatency(item);
+        }
+    }
+
+    public static void RecordSegmentAssembled(AssembledSegment segment)
+    {
+        lock (_pipelineLatencyLock)
+        {
+            var key = (segment.DialogId, segment.SegmentIndex);
+            if (!_pipelineLatency.TryGetValue(key, out var item))
+            {
+                item = new PipelineLatencyMutable { DialogId = segment.DialogId, SegmentIndex = segment.SegmentIndex };
+                _pipelineLatency[key] = item;
+            }
+
+            item.AssembledTicks = Stopwatch.GetTimestamp();
+            PublishPipelineLatency(item);
+        }
+    }
+
+    public static void RecordTtsStart(AssembledSegment segment)
+    {
+        lock (_pipelineLatencyLock)
+        {
+            var key = (segment.DialogId, segment.SegmentIndex);
+            if (!_pipelineLatency.TryGetValue(key, out var item))
+            {
+                item = new PipelineLatencyMutable { DialogId = segment.DialogId, SegmentIndex = segment.SegmentIndex };
+                _pipelineLatency[key] = item;
+            }
+
+            item.TtsStartTicks = Stopwatch.GetTimestamp();
+            PublishPipelineLatency(item);
+        }
+    }
+
+    public static void RecordCacheState(AssembledSegment segment, bool hit)
+    {
+        lock (_pipelineLatencyLock)
+        {
+            var key = (segment.DialogId, segment.SegmentIndex);
+            if (!_pipelineLatency.TryGetValue(key, out var item))
+            {
+                item = new PipelineLatencyMutable { DialogId = segment.DialogId, SegmentIndex = segment.SegmentIndex };
+                _pipelineLatency[key] = item;
+            }
+
+            item.CacheState = hit ? "HIT" : "MISS";
+            PublishPipelineLatency(item);
+        }
+    }
+
+    public static void RecordAudioStart(int segmentIndex)
+    {
+        lock (_pipelineLatencyLock)
+        {
+            var item = _pipelineLatency.Values
+                .Where(x => x.SegmentIndex == segmentIndex)
+                .OrderByDescending(x => x.AssembledTicks ?? x.FirstScanTicks ?? 0)
+                .FirstOrDefault();
+            if (item == null)
+                return;
+
+            item.AudioStartTicks = Stopwatch.GetTimestamp();
+            PublishPipelineLatency(item);
+        }
+    }
+
+    private static void PublishPipelineLatency(PipelineLatencyMutable item)
+    {
+        double? scanToAssemble = DeltaMs(item.FirstScanTicks, item.AssembledTicks);
+        double? assembleToTts = DeltaMs(item.AssembledTicks, item.TtsStartTicks);
+        double? ttsToAudio = DeltaMs(item.TtsStartTicks, item.AudioStartTicks);
+        double? total = DeltaMs(item.FirstScanTicks, item.AudioStartTicks);
+
+        if (total.HasValue && item.AudioStartTicks.HasValue && !item.TotalAddedToAverage)
+        {
+            item.TotalAddedToAverage = true;
+            _recentPipelineTotals.Enqueue(total.Value);
+            while (_recentPipelineTotals.Count > 10)
+                _recentPipelineTotals.Dequeue();
+        }
+
+        var avg = _recentPipelineTotals.Count > 0 ? _recentPipelineTotals.Average() : (double?)null;
+        var subPart = item.SubIndex.HasValue && item.SubTotal.HasValue
+            ? $" Sub {(item.SubIndex.Value + 1):000}/{item.SubTotal.Value:000}"
+            : string.Empty;
+
+        var summary = $"Dlg {item.DialogId:X4} Seq {item.SegmentIndex:000}{subPart} | " +
+                      $"scan {FormatMsFixed(scanToAssemble, 3)} | " +
+                      $"tts {FormatMsFixed(assembleToTts, 5)} | " +
+                      $"play {FormatSecondsFixed(ttsToAudio)} | " +
+                      $"total {FormatSecondsFixed(total)} | " +
+                      $"cache {item.CacheState,-4}" +
+                      (avg.HasValue ? $" | avg {FormatSecondsFixed(avg)}" : string.Empty);
+
+        var snapshot = new PipelineLatencySnapshot(
+            item.DialogId,
+            item.SegmentIndex,
+            item.SubIndex,
+            item.SubTotal,
+            scanToAssemble,
+            assembleToTts,
+            ttsToAudio,
+            total,
+            item.CacheState,
+            summary);
+
+        LastPipelineLatency = snapshot;
+        PipelineLatencyChanged?.Invoke(snapshot);
+    }
+
+    private static double? DeltaMs(long? startTicks, long? endTicks)
+    {
+        if (!startTicks.HasValue || !endTicks.HasValue || endTicks.Value < startTicks.Value)
+            return null;
+        return (endTicks.Value - startTicks.Value) * 1000.0 / Stopwatch.Frequency;
+    }
+
+    private static string FormatMsFixed(double? value, int digits)
+    {
+        if (!value.HasValue)
+            return new string('-', digits) + "ms";
+
+        var rounded = Math.Max(0, (int)Math.Round(value.Value));
+        return rounded.ToString(new string('0', digits)) + "ms";
+    }
+
+    private static string FormatSecondsFixed(double? valueMs)
+    {
+        if (!valueMs.HasValue)
+            return "----.-s";
+
+        var seconds = Math.Max(0, valueMs.Value / 1000.0);
+        return seconds.ToString("0000.0") + "s";
+    }
 
     public static void Initialize(
         VoiceUserSettings settings,

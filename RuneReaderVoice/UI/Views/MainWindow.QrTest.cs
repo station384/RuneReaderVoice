@@ -5,7 +5,9 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text;
 using Avalonia.Controls;
+using Avalonia.Input.Platform;
 using Avalonia.Interactivity;
 using Avalonia.Threading;
 
@@ -13,7 +15,7 @@ namespace RuneReaderVoice.UI.Views;
 
 public partial class MainWindow
 {
-    private readonly DispatcherTimer _testQrTimer = new() { Interval = TimeSpan.FromMilliseconds(100) };
+    private readonly DispatcherTimer _testQrTimer = new() { Interval = TimeSpan.FromMilliseconds(25) };
     private TestQrOverlayWindow? _testQrWindow;
     private IReadOnlyList<TestQrPacket> _testQrPackets = Array.Empty<TestQrPacket>();
     private int _testQrPacketIndex;
@@ -26,6 +28,7 @@ public partial class MainWindow
         TestQrIncludeNarratorCheck.IsChecked = true;
         TestQrForceGenerationCheck.IsChecked = false;
         _testQrTimer.Tick += (_, _) => AdvanceTestQrPacket();
+        AppServices.PipelineLatencyChanged += OnPipelineLatencyChanged;
     }
 
     private void PopulateTestQrRaceSelector()
@@ -133,7 +136,7 @@ public partial class MainWindow
         }
         else if (!reuseNonce || string.IsNullOrWhiteSpace(_testQrNonce))
         {
-            _testQrNonce = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff");
+            _testQrNonce = BuildSpeakableTestTimestamp(DateTime.Now);
         }
 
         _testQrPackets = TestQrGenerator.BuildPackets(new TestQrBuildOptions(
@@ -167,5 +170,65 @@ public partial class MainWindow
         _testQrWindow.SetQrText(
             packet.EncodedQrText,
             $"SEQ {packet.SeqIndex + 1}/{packet.SeqTotal}  SUB {packet.SubIndex + 1}/{packet.SubTotal}");
+        UpdateTestQrDebug(packet);
     }
+
+
+    private void UpdateTestQrDebug(TestQrPacket packet)
+    {
+        var sb = new StringBuilder();
+        sb.AppendLine($"Packet {_testQrPacketIndex + 1}/{_testQrPackets.Count}");
+        sb.AppendLine($"SEQ {packet.SeqIndex + 1}/{packet.SeqTotal}  SUB {packet.SubIndex + 1}/{packet.SubTotal}");
+        sb.AppendLine();
+        sb.AppendLine("Raw RV packet:");
+        sb.AppendLine(packet.RawPacket);
+        sb.AppendLine();
+        sb.AppendLine("Base45 QR text:");
+        sb.AppendLine(packet.EncodedQrText);
+        sb.AppendLine();
+        sb.AppendLine("Decoded text payload:");
+        sb.AppendLine(packet.TextPayload.TrimEnd());
+        TestQrDebugText.Text = sb.ToString();
+    }
+
+    private async void OnCopyTestQrDebugClicked(object? sender, RoutedEventArgs e)
+    {
+        try
+        {
+            var clipboard = TopLevel.GetTopLevel(this)?.Clipboard;
+            if (clipboard != null)
+                await clipboard.SetTextAsync(TestQrDebugText.Text ?? string.Empty);
+        }
+        catch
+        {
+            // Debug copy is best-effort only.
+        }
+    }
+
+    private void OnPipelineLatencyChanged(PipelineLatencySnapshot snapshot)
+    {
+        Dispatcher.UIThread.Post(() =>
+        {
+            TestQrLatencyStatus.Text = "Latency: " + snapshot.Summary;
+        });
+    }
+
+    private static string BuildSpeakableTestTimestamp(DateTime now)
+        => $"{now:MMMM} {now.Day}{GetOrdinalSuffix(now.Day)} {now:yyyy h:mm tt}";
+
+    private static string GetOrdinalSuffix(int day)
+    {
+        var mod100 = day % 100;
+        if (mod100 is >= 11 and <= 13)
+            return "th";
+
+        return (day % 10) switch
+        {
+            1 => "st",
+            2 => "nd",
+            3 => "rd",
+            _ => "th",
+        };
+    }
+
 }

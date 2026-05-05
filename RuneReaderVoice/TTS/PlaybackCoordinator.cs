@@ -303,6 +303,7 @@ public sealed class PlaybackCoordinator : IDisposable
             {
                 AppServices.SetPlaybackActivity(MainActivityKind.Playing, "Playing audio…");
                 int segIdx = _nextExpectedIndex - 1;
+                RuneReaderVoice.AppServices.RecordAudioStart(segIdx);
                 System.Diagnostics.Debug.WriteLine(
                     $"[PC] Play start seg={segIdx} samples={audio?.Samples.Length} pending={_synthTasks.Count}");
                 if (audio != null)
@@ -382,6 +383,7 @@ public sealed class PlaybackCoordinator : IDisposable
 
     private async Task<PcmAudio?> SynthesizeSegmentAsync(AssembledSegment segment, CancellationToken ct)
     {
+        RuneReaderVoice.AppServices.RecordTtsStart(segment);
         System.Diagnostics.Debug.WriteLine(
             $"[PC] Synth start seg={segment.SegmentIndex} slot={segment.Slot} provider={_provider.ProviderId}");
         // Suppressor key includes SegmentIndex so two segments with identical text
@@ -469,6 +471,7 @@ public sealed class PlaybackCoordinator : IDisposable
         var cached = await _cache.TryGetDecodedAsync(cacheText, effectiveVoiceId, _provider.ProviderId, "", ct);
         if (cached != null)
         {
+            RuneReaderVoice.AppServices.RecordCacheState(segment, hit: true);
             System.Diagnostics.Debug.WriteLine($"[PC] Cache HIT seg={segment.SegmentIndex} slot={cacheSlotKey} voice={effectiveVoiceId} words={Regex.Matches(segment.Text ?? string.Empty, @"\b[\p{L}\p{N}']+\b", RegexOptions.CultureInvariant).Count} text='{PreviewSegment(segment.Text)}'");
             DebugCacheTrace(
                 phase: "Hit",
@@ -481,6 +484,7 @@ public sealed class PlaybackCoordinator : IDisposable
                 originalText: segment.Text);
             return DspFilterChain.Apply(cached, profile?.Dsp);
         }
+        RuneReaderVoice.AppServices.RecordCacheState(segment, hit: false);
         System.Diagnostics.Debug.WriteLine($"[PC] Cache MISS seg={segment.SegmentIndex} slot={cacheSlotKey} voice={effectiveVoiceId} words={Regex.Matches(segment.Text ?? string.Empty, @"\b[\p{L}\p{N}']+\b", RegexOptions.CultureInvariant).Count} text='{PreviewSegment(segment.Text)}'");
         DebugCacheTrace(
             phase: "Miss",

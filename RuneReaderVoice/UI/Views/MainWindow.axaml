@@ -443,6 +443,31 @@ along with RuneReaderVoice. If not, see <https://www.gnu.org/licenses/>.
                                                    FontSize="11"
                                                    VerticalAlignment="Center"/>
                                     </StackPanel>
+
+                                    <TextBlock x:Name="TestQrLatencyStatus"
+                                               Text="Latency: waiting for QR decode."
+                                               Foreground="#888"
+                                               FontSize="11"
+                                               TextWrapping="Wrap"/>
+
+                                    <Expander Header="Debug" IsExpanded="False" Margin="0,6,0,0">
+                                        <StackPanel Spacing="6" Margin="0,6,0,0">
+                                            <ScrollViewer HorizontalScrollBarVisibility="Auto"
+                                                          VerticalScrollBarVisibility="Auto"  FontFamily="Consolas, Lucida Console, Cascadia Mono, monospace">
+                                                <TextBox x:Name="TestQrDebugText"
+                                                         IsReadOnly="True"
+                                                         AcceptsReturn="True"
+                                                         TextWrapping="NoWrap"
+                                                         Height="150"
+                                                         FontFamily="Consolas, Cascadia Mono, monospace"
+                                                         FontFeatures="+tnum"/>
+                                            </ScrollViewer>
+                                           
+                                            <Button Content="Copy Debug Text"
+                                                    Click="OnCopyTestQrDebugClicked"
+                                                    ToolTip.Tip="Copy the current packet details, raw RV packet, Base45 QR text, and decoded payload to the clipboard."/>
+                                        </StackPanel>
+                                    </Expander>
                                 </StackPanel>
                             </Expander>
 

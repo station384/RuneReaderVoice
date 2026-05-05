@@ -22,7 +22,7 @@ internal sealed record TestQrRaceOption(string Label, int RaceId, Gender Gender)
     public override string ToString() => Label;
 }
 
-internal sealed record TestQrPacket(int SeqIndex, int SubIndex, int SeqTotal, int SubTotal, string RawPacket, string EncodedQrText);
+internal sealed record TestQrPacket(int SeqIndex, int SubIndex, int SeqTotal, int SubTotal, string RawPacket, string EncodedQrText, string TextPayload);
 
 internal sealed record TestQrBuildOptions(
     TestQrRaceOption Race,
@@ -95,7 +95,8 @@ internal static class TestQrGenerator
                     segments.Count,
                     chunks.Count,
                     rawPacket,
-                    Base45Simple.EncodeUtf8(rawPacket)));
+                    Base45Simple.EncodeUtf8(rawPacket),
+                    rawPayload));
             }
         }
 

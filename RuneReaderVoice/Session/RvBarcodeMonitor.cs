@@ -373,6 +373,7 @@ public sealed class RvBarcodeMonitor : IDisposable
                 _sourceGoneSignalled = false;
             }
 
+            RuneReaderVoice.AppServices.RecordQrPacketDecoded(packet);
             OnPacketDecoded?.Invoke(packet);
         }
         finally
