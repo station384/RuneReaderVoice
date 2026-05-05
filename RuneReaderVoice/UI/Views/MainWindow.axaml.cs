@@ -428,14 +428,16 @@ public partial class MainWindow : Window
     private void PopulateVolumeTrimGrid()
     {
         VolumeTrimGrid.Children.Clear();
-        foreach (AccentGroup group in Enum.GetValues<AccentGroup>())
+        var slots = AppServices.NpcPeopleCatalog.GetVoiceSlots()
+            .Where(s => s.Slot.Gender != Gender.Female)
+            .OrderBy(s => s.SortOrder)
+            .ThenBy(s => s.NpcLabel, StringComparer.OrdinalIgnoreCase);
+        foreach (var item in slots)
         {
-            var key = group == AccentGroup.Narrator
-                ? VoiceSlot.Narrator.ToString()
-                : $"{group}/Male";
+            var key = item.Slot.ToString();
 
             var row = new Grid { ColumnDefinitions = new ColumnDefinitions("2*,*,Auto") };
-            AddGridLabel(row, group.ToString(), 0, Avalonia.Media.Brushes.LightGray);
+            AddGridLabel(row, item.NpcLabel, 0, Avalonia.Media.Brushes.LightGray);
 
             var slider = new Slider
             {

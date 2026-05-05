@@ -69,7 +69,8 @@ public sealed class PronunciationRuleRow
     public string MatchText { get; set; } = string.Empty;
     public string PhonemeText { get; set; } = string.Empty;
     public string Scope { get; set; } = "Global";
-    public string? AccentGroup { get; set; }
+    [Column("AccentGroup")]
+    public string? CatalogId { get; set; }
     public bool WholeWord { get; set; } = true;
     public bool CaseSensitive { get; set; }
     public bool Enabled { get; set; } = true;

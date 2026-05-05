@@ -49,24 +49,14 @@ public static class WowPronunciationRules
             // new("Amirdrassil", "əmirdræsɪl", WholeWord: true, Priority: 100),
             // new("Dornogal", "dɔːrnəɡæl", WholeWord: true, Priority: 100),
             //
-            // // ── Troll / Caribbean accent-group-specific ──────────────────────
-            // // These should only apply to Caribbean voices.
-            // new("mon",           "mɔn", Group: AccentGroup.Caribbean, WholeWord: true, Priority: 200),
-            // new("Mon",           "mɔn", Group: AccentGroup.Caribbean, WholeWord: true, Priority: 200),
-            // new("ya",            "jɑ", Group: AccentGroup.Caribbean, WholeWord: true, Priority: 150),
-            // new("Ya",            "jɑ", Group: AccentGroup.Caribbean, WholeWord: true, Priority: 150),
             //
             // // ── Scottish examples ────────────────────────────────────────────
             // // Keep these conservative. The authored line should carry most of the flavor.
             // // These are just pronunciation nudges.
-            // new("aye",           "aɪ", Group: AccentGroup.Scottish, WholeWord: true, Priority: 150),
-            // new("Aye",           "aɪ", Group: AccentGroup.Scottish, WholeWord: true, Priority: 150),
             //
             // // ── British Haughty examples ─────────────────────────────────────
-            // new("mana",          "mɑːnə", Group: AccentGroup.BritishHaughty, WholeWord: true, Priority: 120),
             //
             // // ── Eastern European / Draenei example hooks ─────────────────────
-            // new("Exodar",        "ɛk soʊ dɑɹ", Group: AccentGroup.EasternEuropean, WholeWord: true, Priority: 120),
             //
             //
             //

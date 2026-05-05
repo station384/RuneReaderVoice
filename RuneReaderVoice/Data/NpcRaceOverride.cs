@@ -18,8 +18,6 @@
 
 
 using System;
-using RuneReaderVoice.Protocol;
-
 namespace RuneReaderVoice.Data;
 // NpcRaceOverride.cs
 // Model for a user-defined (or crowd-sourced) NPC → race mapping.
@@ -60,13 +58,6 @@ public sealed class NpcRaceOverride
     /// </summary>
     public string CatalogId { get; set; } = string.Empty;
 
-    /// <summary>
-    /// Legacy compatibility view only. Runtime must not use this as source-of-truth.
-    /// </summary>
-    public AccentGroup AccentGroup =>
-        !string.IsNullOrWhiteSpace(CatalogId)
-            ? VoiceSlot.CreateCatalog(CatalogId, Gender.Unknown).Group
-            : (RaceAccentMapping.ResolveAccentGroup(RaceId) ?? AccentGroup.Narrator);
 
     /// <summary>Optional user-friendly label, e.g. "Rexxar" or "Thrall".</summary>
     public string? Notes { get; set; }

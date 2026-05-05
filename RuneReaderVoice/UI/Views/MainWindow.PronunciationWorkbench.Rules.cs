@@ -114,7 +114,7 @@ public partial class MainWindow
         {
             foreach (var item in PronRuleAccentGroupSelector.Items.OfType<ComboBoxItem>())
             {
-                if (string.Equals(item.Tag?.ToString(), entry.AccentGroup, StringComparison.OrdinalIgnoreCase))
+                if (string.Equals(VoiceSlot.NormalizeCatalogId(item.Tag?.ToString()), VoiceSlot.NormalizeCatalogId(entry.AccentGroup), StringComparison.OrdinalIgnoreCase))
                 {
                     PronRuleAccentGroupSelector.SelectedItem = item;
                     break;
@@ -160,10 +160,10 @@ public partial class MainWindow
             ? item.Tag?.ToString() ?? "Global"
             : "Global";
 
-    private AccentGroup ResolveRuleAccentGroup()
+    private string ResolveRuleAccentGroup()
     {
-        if (PronRuleAccentGroupSelector.SelectedItem is ComboBoxItem { Tag: AccentGroup group })
-            return group;
+        if (PronRuleAccentGroupSelector.SelectedItem is ComboBoxItem item)
+            return VoiceSlot.NormalizeCatalogId(item.Tag?.ToString());
         return ResolveWorkbenchGroup();
     }
 

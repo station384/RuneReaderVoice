@@ -77,7 +77,7 @@ public sealed class DialoguePronunciationProcessor
             return text;
 
         var applicableRules = _rules
-            .Where(r => r.Group is null || r.Group == slot.Group)
+            .Where(r => r.IsGlobal || string.Equals(RuneReaderVoice.Protocol.VoiceSlot.NormalizeCatalogId(r.ScopeKey), RuneReaderVoice.Protocol.VoiceSlot.NormalizeCatalogId(slot.SlotKey), StringComparison.OrdinalIgnoreCase))
             .ToArray();
 
         if (applicableRules.Length == 0)

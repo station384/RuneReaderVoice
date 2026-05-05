@@ -15,19 +15,17 @@
 // You should have received a copy of the GNU General Public License
 // along with RuneReaderVoice. If not, see <https://www.gnu.org/licenses/>.
 
-using RuneReaderVoice.Protocol;
-
 namespace RuneReaderVoice.TTS.Pronunciation;
 
 public sealed record PronunciationRule(
     string MatchText,
     string PhonemeText,
-    AccentGroup? Group = null,
+    string? ScopeKey = null,
     bool WholeWord = false,
     bool CaseSensitive = false,
     int Priority = 0)
 {
-    public bool IsGlobal => Group is null;
+    public bool IsGlobal => string.IsNullOrWhiteSpace(ScopeKey);
 
     public string ToKokoroMarkup() => $"[{MatchText}](/{PhonemeText}/)";
 }

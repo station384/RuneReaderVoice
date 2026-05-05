@@ -202,10 +202,10 @@ public sealed class TtsSessionAssembler
             }
             else
             {
-                var catalogId = NpcRaceOverrideDb.LegacyRaceIdToCatalogId(effectiveRace);
+                var catalogId = NpcPeopleCatalogService.CatalogIdFromRaceId(effectiveRace);
                 resolvedSlot = !string.IsNullOrWhiteSpace(catalogId)
-                    ? (AppServices.NpcPeopleCatalog?.ResolveCatalogSlot(catalogId, packetGender) ?? new VoiceSlot(catalogId, packetGender))
-                    : RaceAccentMapping.Resolve(effectiveRace, packet.Flags, packet.IsMale, packet.IsFemale);
+                    ? (AppServices.NpcPeopleCatalog?.ResolveCatalogSlot(catalogId, packetGender) ?? VoiceSlot.CreateCatalog(catalogId, packetGender))
+                    : (packet.IsFemale ? VoiceSlot.FemaleNarrator : VoiceSlot.MaleNarrator);
             }
 
             if (packet.SubIndex == 0)
@@ -407,7 +407,7 @@ public sealed class TtsSessionAssembler
                 if (!string.IsNullOrWhiteSpace(catalogId))
                 {
                     slot = AppServices.NpcPeopleCatalog?.ResolveCatalogSlot(catalogId, g)
-                           ?? new VoiceSlot(catalogId, g);
+                           ?? VoiceSlot.CreateCatalog(catalogId, g);
                 }
 
                 bespokeSampleId = entry.BespokeSampleId;

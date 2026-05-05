@@ -34,7 +34,7 @@ public static class PronunciationRuleRowExtensions
             MatchText     = entry.MatchText,
             PhonemeText   = entry.PhonemeText,
             Scope         = entry.Scope,
-            AccentGroup   = entry.AccentGroup,
+            CatalogId     = entry.AccentGroup,
             WholeWord     = entry.WholeWord,
             CaseSensitive = entry.CaseSensitive,
             Enabled       = entry.Enabled,
@@ -48,7 +48,7 @@ public static class PronunciationRuleRowExtensions
             MatchText     = row.MatchText,
             PhonemeText   = row.PhonemeText,
             Scope         = row.Scope,
-            AccentGroup   = row.AccentGroup,
+            AccentGroup   = row.CatalogId,
             WholeWord     = row.WholeWord,
             CaseSensitive = row.CaseSensitive,
             Enabled       = row.Enabled,
@@ -117,7 +117,7 @@ public sealed class PronunciationRuleStore
         if (existing != null)
         {
             existing.PhonemeText  = entry.PhonemeText;
-            existing.AccentGroup  = entry.AccentGroup;
+            existing.CatalogId     = entry.AccentGroup;
             existing.Enabled      = entry.Enabled;
             existing.Priority     = entry.Priority;
             existing.Notes        = entry.Notes;
@@ -168,17 +168,14 @@ public sealed class PronunciationRuleEntry
 
     public PronunciationRule ToRule()
     {
-        AccentGroup? group = null;
-        if (string.Equals(Scope, "AccentGroup", StringComparison.OrdinalIgnoreCase)
-            && Enum.TryParse<AccentGroup>(AccentGroup, out var parsed))
-        {
-            group = parsed;
-        }
+        var scopeKey = string.Equals(Scope, "AccentGroup", StringComparison.OrdinalIgnoreCase)
+            ? RuneReaderVoice.Protocol.VoiceSlot.NormalizeCatalogId(AccentGroup)
+            : null;
 
         return new PronunciationRule(
             MatchText:     MatchText,
             PhonemeText:   PhonemeText,
-            Group:         group,
+            ScopeKey:      scopeKey,
             WholeWord:     WholeWord,
             CaseSensitive: CaseSensitive,
             Priority:      Priority);
@@ -189,8 +186,8 @@ public sealed class PronunciationRuleEntry
         {
             MatchText     = rule.MatchText,
             PhonemeText   = rule.PhonemeText,
-            Scope         = rule.Group.HasValue ? "AccentGroup" : "Global",
-            AccentGroup   = rule.Group?.ToString(),
+            Scope         = !string.IsNullOrWhiteSpace(rule.ScopeKey) ? "AccentGroup" : "Global",
+            AccentGroup   = rule.ScopeKey,
             WholeWord     = rule.WholeWord,
             CaseSensitive = rule.CaseSensitive,
             Enabled       = true,

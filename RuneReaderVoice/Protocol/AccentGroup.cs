@@ -1,105 +1,17 @@
 // SPDX-License-Identifier: GPL-3.0-only
 //
 // This file is part of RuneReaderVoice.
-// Copyright (C) 2026 Michael Sutton
-//
-// RuneReaderVoice is free software: you can redistribute it and/or modify
-// it under the terms of the GNU General Public License as published by
-// the Free Software Foundation, version 3 of the License.
-//
-// RuneReaderVoice is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-// GNU General Public License for more details.
-//
-// You should have received a copy of the GNU General Public License
-// along with RuneReaderVoice. If not, see <https://www.gnu.org/licenses/>.
-
-
 
 using System;
 using System.Collections.Generic;
 
 namespace RuneReaderVoice.Protocol;
 
-// AccentGroup.cs
-// Maps the RACE byte from the QR protocol to an accent group.
-// Each group (except Narrator) has Male + Female voice slots.
-// Every player race has its own group for independent voice and DSP assignment.
-// User headcanon is fully supported — races that share a lore accent still get
-// separate slots so they can diverge if desired. Defaults match lore expectations.
-public enum AccentGroup
-{
-    // ── Core Alliance ──────────────────────────────────────────────────────────
-    Human,              // Human (1)
-    NightElf,           // Night Elf (4)
-    Dwarf,              // Dwarf (3)
-    DarkIronDwarf,      // Dark Iron Dwarf (30)
-    Gnome,              // Gnome (7)
-    Mechagnome,         // Mechagnome (37)
-    Draenei,            // Draenei (11)
-    LightforgedDraenei, // Lightforged Draenei (28)
-    Worgen,             // Worgen (22)
-    KulTiran,           // Kul Tiran (32)
-    BloodElf,           // Blood Elf (10)
-    VoidElf,            // Void Elf (29)
-
-    // ── Core Horde ────────────────────────────────────────────────────────────
-    Orc,                // Orc (2)
-    MagharOrc,          // Mag'har Orc (36)
-    Undead,             // Undead / Forsaken (5)
-    Tauren,             // Tauren (6)
-    HighmountainTauren, // Highmountain Tauren (27)
-    Troll,              // Troll (8)
-    ZandalariTroll,     // Zandalari Troll (31)
-    Goblin,             // Goblin (9)
-    Nightborne,         // Nightborne (24)
-    Vulpera,            // Vulpera (35)
-
-    // ── Neutral / Cross-faction ───────────────────────────────────────────────
-    Pandaren,           // Pandaren (13)
-    Earthen,            // Earthen (TWW allied race — verify raceID in-game)
-    Haranir,            // Haranir (Midnight allied race — verify raceID in-game)
-    Dracthyr,           // Dracthyr (Dragonflight — verify raceID in-game)
-
-    // ── Creature types (non-playable NPC groups) ──────────────────────────────
-    Dragonkin,          // 0x52 — generic dragonkin NPCs
-    Elemental,          // 0x55
-    Giant,              // 0x56
-    Mechanical,         // 0x57 — non-Gnome/Mechagnome mechanical NPCs
-
-    // ── Non-playable NPC races ─────────────────────────────────────────────────
-    Illidari,           // Illidari Demon Hunters — intense British-accented intensity
-    Amani,              // Amani trolls — fierce Caribbean
-    Arathi,             // Arathi humans — measured British
-    Broken,             // Broken draenei — Eastern European (broken)
-    Centaur,            // Centaur — deep rough tribal
-    DarkTroll,          // Dark Trolls — deep earthy Caribbean
-    Dredger,            // Revendreth dredgers — gravelly subservient
-    Dryad,              // Dryads — mystical nature spirit
-    Faerie,             // Ardenweald faeries — light whimsical
-    Fungarian,          // Fungarian mushroom folk — soft bubbly
-    Grummle,            // Pandaria grummles — nasal singsongy
-    Hobgoblin,          // Hobgoblins — crude New York
-    Kyrian,             // Bastion kyrian — ethereal British
-    Nerubian,           // Nerubians — deep raspy ancient
-    Refti,              // Khaz Algar refti — deep aquatic gravelly
-    Revantusk,          // Revantusk trolls — Caribbean
-    Rutaani,            // Arakkoa-adjacent bird people — sharp clicking
-    Shadowpine,         // Shadowpine trolls — Caribbean
-    Titan,              // Titan constructs — deep ancient
-    Tortollan,          // Tortollans — wise slow
-    Tuskarr,            // Tuskarr — deep slow
-    Venthyr,            // Revendreth venthyr — British aristocratic
-    ZulAman,            // Zul'Aman amani — Caribbean ancient
-
-    // ── Fallback ──────────────────────────────────────────────────────────────
-    Narrator,           // RACE=0x00, FLAG_NARRATOR set, unmapped, or unknown gender
-}
+public enum Gender { Unknown = 0, Male = 1, Female = 2 }
 
 /// <summary>
-/// Identifies a specific voice slot: accent group + gender.
-/// Narrator uses male/female variants; unknown defaults to male.
+/// Identifies a specific voice slot. SlotKey is a catalog row id.
+/// Narrator uses the special SlotKey "Narrator".
 /// </summary>
 public readonly record struct VoiceSlot(string SlotKey, Gender Gender)
 {
@@ -107,27 +19,15 @@ public readonly record struct VoiceSlot(string SlotKey, Gender Gender)
     public static readonly VoiceSlot MaleNarrator   = new("Narrator", Gender.Male);
     public static readonly VoiceSlot FemaleNarrator = new("Narrator", Gender.Female);
 
-    // Temporary constructor retained only for code paths that still materialize
-    // a slot from an AccentGroup enum. The authoritative runtime identity is the
-    // catalog/runtime SlotKey, not the enum value.
-    public VoiceSlot(AccentGroup group, Gender gender)
-        : this(CatalogSlotKeyFromAccentGroup(group), gender)
-    {
-    }
-
     public static VoiceSlot CreateCatalog(string catalogId, Gender gender)
-        => new(catalogId, gender);
+        => new(NormalizeCatalogId(catalogId), gender);
 
     public bool IsNarrator => string.Equals(SlotKey, "Narrator", StringComparison.OrdinalIgnoreCase);
-
-    // Compatibility accessor for older rule/default paths that have not yet been
-    // converted. This is derived from SlotKey and is no longer stored as runtime identity.
-    public AccentGroup Group => ResolveAccentGroupBySlotKey(SlotKey) ?? AccentGroup.Narrator;
 
     public override string ToString() =>
         IsNarrator
             ? (Gender == Gender.Female ? "Narrator/Female" : "Narrator/Male")
-            : $"{SlotKey}/{Gender}";
+            : $"{NormalizeCatalogId(SlotKey)}/{Gender}";
 
     public static bool TryParse(string s, out VoiceSlot slot)
     {
@@ -145,7 +45,7 @@ public readonly record struct VoiceSlot(string SlotKey, Gender Gender)
         var idx = s.LastIndexOf('/');
         if (idx > 0)
         {
-            var slotKey = s[..idx];
+            var slotKey = NormalizeCatalogId(s[..idx]);
             var genderText = s[(idx + 1)..];
             if (Enum.TryParse<Gender>(genderText, out var gender))
             {
@@ -158,280 +58,46 @@ public readonly record struct VoiceSlot(string SlotKey, Gender Gender)
         return false;
     }
 
-    private static string CatalogSlotKeyFromAccentGroup(AccentGroup group) => group switch
+    /// <summary>
+    /// Normalizes old enum-style names and UI labels to current DB catalog ids.
+    /// This is a compatibility boundary only; new code should already pass catalog ids.
+    /// </summary>
+    public static string NormalizeCatalogId(string? key)
     {
-        AccentGroup.Narrator => "Narrator",
-        AccentGroup.DarkIronDwarf => "darkirondwarf",
-        AccentGroup.LightforgedDraenei => "lightforgeddraenei",
-        AccentGroup.MagharOrc => "magharorc",
-        AccentGroup.HighmountainTauren => "highmountaintauren",
-        AccentGroup.ZandalariTroll => "zandalaritroll",
-        AccentGroup.NightElf => "nightelf",
-        AccentGroup.BloodElf => "bloodelf",
-        AccentGroup.VoidElf => "voidelf",
-        AccentGroup.KulTiran => "kultiran",
-        AccentGroup.Mechagnome => "mechagnome",
-        AccentGroup.Nightborne => "nightborne",
-        AccentGroup.Dragonkin => "dragonkin",
-        AccentGroup.Amani => "amani",
-        AccentGroup.Arathi => "arathi",
-        AccentGroup.Broken => "broken",
-        AccentGroup.Centaur => "centaur",
-        AccentGroup.DarkTroll => "darktroll",
-        AccentGroup.Dredger => "dredger",
-        AccentGroup.Dryad => "dryad",
-        AccentGroup.Faerie => "faerie",
-        AccentGroup.Fungarian => "fungarian",
-        AccentGroup.Grummle => "grummle",
-        AccentGroup.Hobgoblin => "hobgoblin",
-        AccentGroup.Kyrian => "kyrian",
-        AccentGroup.Nerubian => "nerubian",
-        AccentGroup.Refti => "refti",
-        AccentGroup.Revantusk => "revantusk",
-        AccentGroup.Rutaani => "rutaani",
-        AccentGroup.Shadowpine => "shadowpine",
-        AccentGroup.Titan => "titan",
-        AccentGroup.Tortollan => "tortollan",
-        AccentGroup.Tuskarr => "tuskarr",
-        AccentGroup.Venthyr => "venthyr",
-        AccentGroup.ZulAman => "zulaman",
-        _ => group.ToString().Replace("'", "").Replace(" ", "").ToLowerInvariant()
-    };
+        if (string.IsNullOrWhiteSpace(key))
+            return string.Empty;
 
-    private static AccentGroup? ResolveAccentGroupBySlotKey(string slotKey)
-    {
-        if (string.IsNullOrWhiteSpace(slotKey) || string.Equals(slotKey, "Narrator", StringComparison.OrdinalIgnoreCase))
-            return AccentGroup.Narrator;
+        var normalized = key.Trim()
+            .Replace("'", string.Empty, StringComparison.Ordinal)
+            .Replace("-", string.Empty, StringComparison.Ordinal)
+            .Replace("_", string.Empty, StringComparison.Ordinal)
+            .Replace(" ", string.Empty, StringComparison.Ordinal)
+            .ToLowerInvariant();
 
-        return slotKey.Trim().ToLowerInvariant() switch
+        return normalized switch
         {
-            "human" => AccentGroup.Human,
-            "nightelf" => AccentGroup.NightElf,
-            "dwarf" => AccentGroup.Dwarf,
-            "darkirondwarf" => AccentGroup.DarkIronDwarf,
-            "gnome" => AccentGroup.Gnome,
-            "mechagnome" => AccentGroup.Mechagnome,
-            "draenei" => AccentGroup.Draenei,
-            "lightforged" or "lightforgeddraenei" => AccentGroup.LightforgedDraenei,
-            "worgen" => AccentGroup.Worgen,
-            "kultiran" => AccentGroup.KulTiran,
-            "bloodelf" => AccentGroup.BloodElf,
-            "voidelf" => AccentGroup.VoidElf,
-            "orc" => AccentGroup.Orc,
-            "maghar" or "magharorc" => AccentGroup.MagharOrc,
-            "undead" => AccentGroup.Undead,
-            "tauren" => AccentGroup.Tauren,
-            "highmountain" or "highmountaintauren" => AccentGroup.HighmountainTauren,
-            "troll" => AccentGroup.Troll,
-            "zandalari" or "zandalaritroll" => AccentGroup.ZandalariTroll,
-            "goblin" => AccentGroup.Goblin,
-            "nightborne" => AccentGroup.Nightborne,
-            "vulpera" => AccentGroup.Vulpera,
-            "pandaren" => AccentGroup.Pandaren,
-            "earthen" => AccentGroup.Earthen,
-            "haranir" => AccentGroup.Haranir,
-            "dracthyr" => AccentGroup.Dracthyr,
-            "dragonkin" => AccentGroup.Dragonkin,
-            "elemental" => AccentGroup.Elemental,
-            "giant" => AccentGroup.Giant,
-            "mechanical" => AccentGroup.Mechanical,
-            "amani" => AccentGroup.Amani,
-            "arathi" => AccentGroup.Arathi,
-            "broken" => AccentGroup.Broken,
-            "centaur" => AccentGroup.Centaur,
-            "darktroll" => AccentGroup.DarkTroll,
-            "dredger" => AccentGroup.Dredger,
-            "dryad" => AccentGroup.Dryad,
-            "faerie" => AccentGroup.Faerie,
-            "fungarian" => AccentGroup.Fungarian,
-            "grummle" => AccentGroup.Grummle,
-            "hobgoblin" => AccentGroup.Hobgoblin,
-            "kyrian" => AccentGroup.Kyrian,
-            "nerubian" => AccentGroup.Nerubian,
-            "refti" => AccentGroup.Refti,
-            "revantusk" => AccentGroup.Revantusk,
-            "rutaani" => AccentGroup.Rutaani,
-            "shadowpine" => AccentGroup.Shadowpine,
-            "titan" => AccentGroup.Titan,
-            "tortollan" => AccentGroup.Tortollan,
-            "tuskarr" => AccentGroup.Tuskarr,
-            "venthyr" => AccentGroup.Venthyr,
-            "zulaman" => AccentGroup.ZulAman,
-            _ => null,
+            "narrator" => "Narrator",
+            "darkirondwarf" => "darkirondwarf",
+            "lightforged" or "lightforgeddraenei" => "lightforgeddraenei",
+            "maghar" or "magharorc" => "magharorc",
+            "highmountain" or "highmountaintauren" => "highmountaintauren",
+            "zandalari" or "zandalaritroll" => "zandalaritroll",
+            "nightelf" => "nightelf",
+            "bloodelf" => "bloodelf",
+            "voidelf" => "voidelf",
+            "kultiran" => "kultiran",
+            "mechagnome" => "mechagnome",
+            "nightborne" => "nightborne",
+            "dragonkinnpc" => "dragonkin",
+            "elementalnpc" => "elemental",
+            "giantnpc" => "giant",
+            "mechanicalnpc" => "mechanical",
+            "amanitroll" => "amani",
+            "revantusktroll" => "revantusk",
+            "shadowpinetroll" => "shadowpine",
+            "titanconstruct" => "titan",
+            "zulamantroll" => "zulaman",
+            _ => normalized
         };
-    }
-}
-
-public enum Gender { Unknown = 0, Male = 1, Female = 2 }
-
-/// <summary>
-/// Authoritative RACE byte → AccentGroup mapping.
-/// Run /rrv race in-game to verify all IDs, especially allied races added in TWW and Midnight.
-/// </summary>
-public static class RaceAccentMapping
-{
-    // Player race IDs (from UnitRace() raceID).
-    // NOTE: Allied race IDs must be verified in-game for each expansion.
-    //       Placeholders marked with (?) should be confirmed with /rrv race.
-    private static readonly Dictionary<int, AccentGroup> PlayerRaceMap = new()
-    {
-        { 1,  AccentGroup.Human              },  // Human
-        { 2,  AccentGroup.Orc               },  // Orc
-        { 3,  AccentGroup.Dwarf             },  // Dwarf
-        { 4,  AccentGroup.NightElf          },  // Night Elf
-        { 5,  AccentGroup.Undead            },  // Undead / Forsaken
-        { 6,  AccentGroup.Tauren            },  // Tauren
-        { 7,  AccentGroup.Gnome             },  // Gnome
-        { 8,  AccentGroup.Troll             },  // Troll
-        { 9,  AccentGroup.Goblin            },  // Goblin
-        { 10, AccentGroup.BloodElf          },  // Blood Elf
-        { 11, AccentGroup.Draenei           },  // Draenei
-        { 13, AccentGroup.Pandaren          },  // Pandaren (Alliance/Horde share same raceID)
-        { 22, AccentGroup.Worgen            },  // Worgen
-        { 24, AccentGroup.Nightborne        },  // Nightborne (?) verify
-        { 25, AccentGroup.HighmountainTauren},  // Highmountain Tauren (?) verify
-        { 26, AccentGroup.LightforgedDraenei},  // Lightforged Draenei (?) verify
-        { 27, AccentGroup.HighmountainTauren},  // Highmountain Tauren (verify — may be 25 or 27)
-        { 28, AccentGroup.LightforgedDraenei},  // Lightforged Draenei (verify — may be 26 or 28)
-        { 29, AccentGroup.VoidElf           },  // Void Elf
-        { 30, AccentGroup.DarkIronDwarf     },  // Dark Iron Dwarf
-        { 31, AccentGroup.ZandalariTroll    },  // Zandalari Troll
-        { 32, AccentGroup.KulTiran          },  // Kul Tiran
-        { 34, AccentGroup.Dracthyr          },  // Dracthyr (?) verify
-        { 35, AccentGroup.Vulpera           },  // Vulpera
-        { 36, AccentGroup.MagharOrc         },  // Mag'har Orc
-        { 37, AccentGroup.Mechagnome        },  // Mechagnome
-        { 52, AccentGroup.Earthen           },  // Earthen (TWW — placeholder, verify in-game)
-        { 70, AccentGroup.Haranir           },  // Haranir (Midnight — placeholder, verify in-game)
-    };
-
-    // Creature type IDs (from UnitCreatureType(), mapped to 0x50–0x58 range by the addon).
-    private static readonly Dictionary<int, AccentGroup> CreatureTypeMap = new()
-    {
-        { 0x50, AccentGroup.Narrator    },  // Humanoid (non-playable) — unknown NPC fallback
-        { 0x51, AccentGroup.Narrator    },  // Beast
-        { 0x52, AccentGroup.Dragonkin   },  // Dragonkin
-        { 0x53, AccentGroup.Undead      },  // Undead (non-Forsaken)
-        { 0x54, AccentGroup.Illidari    },  // Demon — Illidari/Demon Hunter NPCs
-        { 0x55, AccentGroup.Elemental   },  // Elemental
-        { 0x56, AccentGroup.Giant       },  // Giant
-        { 0x57, AccentGroup.Mechanical  },  // Mechanical
-        { 0x58, AccentGroup.Narrator    },  // Aberration
-    };
-
-    // ── Inverted maps (AccentGroup → raceId) — used by UI dropdowns ──────────────
-
-    /// <summary>
-    /// Maps each player-race AccentGroup to its canonical raceId.
-    /// When multiple raceIds map to the same group the lowest id is kept.
-    /// </summary>
-    public static IReadOnlyDictionary<AccentGroup, int> PlayerRaceIds { get; } =
-        BuildInverse(PlayerRaceMap);
-
-    /// <summary>
-    /// Maps each creature-type AccentGroup to its creature-type byte (0x50–0x58).
-    /// </summary>
-    public static IReadOnlyDictionary<AccentGroup, int> CreatureTypeIds { get; } =
-        BuildInverse(CreatureTypeMap);
-
-    /// <summary>
-    /// Synthetic race IDs for NPC-only accent groups that have no WoW race byte.
-    /// These are assigned by the user via the NPC override panel (not auto-detected
-    /// from packets). Range: 0x0200 + (int)AccentGroup — safely above all real
-    /// WoW race IDs (max ~0x70) and creature types (0x50–0x58).
-    /// Stored in NpcRaceOverrides.RaceId so overrides round-trip correctly.
-    /// </summary>
-    private static readonly Dictionary<int, AccentGroup> NpcOnlyRaceMap = new()
-    {
-        { 0x021F, AccentGroup.Amani                },  // Amani
-        { 0x0220, AccentGroup.Arathi               },  // Arathi
-        { 0x0221, AccentGroup.Broken               },  // Broken
-        { 0x0222, AccentGroup.Centaur              },  // Centaur
-        { 0x0223, AccentGroup.DarkTroll            },  // DarkTroll
-        { 0x0224, AccentGroup.Dredger              },  // Dredger
-        { 0x0225, AccentGroup.Dryad                },  // Dryad
-        { 0x0226, AccentGroup.Faerie               },  // Faerie
-        { 0x0227, AccentGroup.Fungarian            },  // Fungarian
-        { 0x0228, AccentGroup.Grummle              },  // Grummle
-        { 0x0229, AccentGroup.Hobgoblin            },  // Hobgoblin
-        { 0x022A, AccentGroup.Kyrian               },  // Kyrian
-        { 0x022B, AccentGroup.Nerubian             },  // Nerubian
-        { 0x022C, AccentGroup.Refti                },  // Refti
-        { 0x022D, AccentGroup.Revantusk            },  // Revantusk
-        { 0x022E, AccentGroup.Rutaani              },  // Rutaani
-        { 0x022F, AccentGroup.Shadowpine           },  // Shadowpine
-        { 0x0230, AccentGroup.Titan                },  // Titan
-        { 0x0231, AccentGroup.Tortollan            },  // Tortollan
-        { 0x0232, AccentGroup.Tuskarr              },  // Tuskarr
-        { 0x0233, AccentGroup.Venthyr              },  // Venthyr
-        { 0x0234, AccentGroup.ZulAman              },  // ZulAman
-    };
-
-    public static IReadOnlyDictionary<AccentGroup, int> NpcOnlyRaceIds { get; } =
-        BuildInverse(NpcOnlyRaceMap);
-
-    private static System.Collections.Generic.Dictionary<AccentGroup, int>
-        BuildInverse(Dictionary<int, AccentGroup> map)
-    {
-        var inv = new System.Collections.Generic.Dictionary<AccentGroup, int>();
-        foreach (var (id, group) in map)
-        {
-            if (!inv.TryGetValue(group, out int existing) || id < existing)
-                inv[group] = id;
-        }
-        return inv;
-    }
-
-    /// <summary>
-    /// Maps a RACE byte and FLAGS to a VoiceSlot.
-    /// FLAG_NARRATOR always returns VoiceSlot.Narrator regardless of race or gender.
-    /// </summary>
-    public static VoiceSlot Resolve(int raceByte, int flags, bool isMale, bool isFemale)
-    {
-        var narratorFallback = isFemale ? VoiceSlot.FemaleNarrator : VoiceSlot.MaleNarrator;
-
-        if ((flags & RvFlags.FlagNarrator) != 0)
-            return narratorFallback;
-
-        var group = ResolveGroup(raceByte);
-
-        if (group == AccentGroup.Narrator)
-            return narratorFallback;
-
-        var gender = isFemale ? Gender.Female : isMale ? Gender.Male : Gender.Unknown;
-        if (gender == Gender.Unknown)
-            return VoiceSlot.MaleNarrator;
-
-        return new VoiceSlot(group, gender);
-    }
-
-    /// <summary>
-    /// Returns the AccentGroup for a given race/creature-type byte, or null if the
-    /// byte maps to Narrator (i.e. unknown / non-voiced).
-    /// Used by NpcRaceOverrideDb to build display labels.
-    /// </summary>
-    public static AccentGroup? ResolveAccentGroup(int raceByte)
-    {
-        var group = ResolveGroup(raceByte);
-        return group == AccentGroup.Narrator ? null : group;
-    }
-
-    private static AccentGroup ResolveGroup(int raceByte)
-    {
-        if (raceByte == 0) return AccentGroup.Narrator;
-
-        // Creature type bytes (0x50–0x58) must be checked BEFORE the player race
-        // range because 0x50–0x7F overlaps with the broad player race check below.
-        if (raceByte is >= 0x50 and <= 0x58)
-            return CreatureTypeMap.TryGetValue(raceByte, out var g) ? g : AccentGroup.Narrator;
-
-        // Synthetic NPC-only range: 0x0200 + (int)AccentGroup
-        if (raceByte >= 0x0200)
-            return NpcOnlyRaceMap.TryGetValue(raceByte, out var ng) ? ng : AccentGroup.Narrator;
-
-        if (raceByte is >= 0x01 and <= 0x7F)
-            return PlayerRaceMap.TryGetValue(raceByte, out var g) ? g : AccentGroup.Narrator;
-
-        return AccentGroup.Narrator;
     }
 }

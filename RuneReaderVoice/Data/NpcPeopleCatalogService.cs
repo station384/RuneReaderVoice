@@ -9,6 +9,42 @@ namespace RuneReaderVoice.Data;
 
 public sealed class NpcPeopleCatalogService
 {
+    private static readonly IReadOnlyDictionary<int, string> RaceIdToCatalogId = new Dictionary<int, string>
+    {
+        { 1, "human" }, { 2, "orc" }, { 3, "dwarf" }, { 4, "nightelf" },
+        { 5, "undead" }, { 6, "tauren" }, { 7, "gnome" }, { 8, "troll" },
+        { 9, "goblin" }, { 10, "bloodelf" }, { 11, "draenei" }, { 13, "pandaren" },
+        { 22, "worgen" }, { 24, "nightborne" }, { 25, "highmountaintauren" },
+        { 26, "lightforgeddraenei" }, { 27, "highmountaintauren" }, { 28, "lightforgeddraenei" },
+        { 29, "voidelf" }, { 30, "darkirondwarf" }, { 31, "zandalaritroll" },
+        { 32, "kultiran" }, { 34, "dracthyr" }, { 35, "vulpera" },
+        { 36, "magharorc" }, { 37, "mechagnome" }, { 52, "earthen" }, { 70, "haranir" },
+        { 0x52, "dragonkin" }, { 0x53, "undead" }, { 0x54, "illidari" },
+        { 0x55, "elemental" }, { 0x56, "giant" }, { 0x57, "mechanical" },
+        { 0x021F, "amani" }, { 0x0220, "arathi" }, { 0x0221, "broken" },
+        { 0x0222, "centaur" }, { 0x0223, "darktroll" }, { 0x0224, "dredger" },
+        { 0x0225, "dryad" }, { 0x0226, "faerie" }, { 0x0227, "fungarian" },
+        { 0x0228, "grummle" }, { 0x0229, "hobgoblin" }, { 0x022A, "kyrian" },
+        { 0x022B, "nerubian" }, { 0x022C, "refti" }, { 0x022D, "revantusk" },
+        { 0x022E, "rutaani" }, { 0x022F, "shadowpine" }, { 0x0230, "titan" },
+        { 0x0231, "tortollan" }, { 0x0232, "tuskarr" }, { 0x0233, "venthyr" },
+        { 0x0234, "zulaman" },
+    };
+
+    private static readonly IReadOnlyDictionary<string, int> CatalogIdToRaceId =
+        RaceIdToCatalogId
+            .GroupBy(kv => kv.Value, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(g => g.Key, g => g.Min(kv => kv.Key), StringComparer.OrdinalIgnoreCase);
+
+    public static string CatalogIdFromRaceId(int raceId)
+        => RaceIdToCatalogId.TryGetValue(raceId, out var id) ? id : string.Empty;
+
+    public static int? RaceIdFromCatalogId(string? catalogId)
+    {
+        var key = VoiceSlot.NormalizeCatalogId(catalogId);
+        return CatalogIdToRaceId.TryGetValue(key, out var raceId) ? raceId : null;
+    }
+
     private readonly NpcPeopleCatalogStore _store;
 
     public NpcPeopleCatalogService(NpcPeopleCatalogStore store) => _store = store;

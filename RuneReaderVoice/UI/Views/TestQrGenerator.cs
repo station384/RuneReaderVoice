@@ -46,8 +46,8 @@ internal static class TestQrGenerator
         var result = new List<TestQrRaceOption>();
 
         var source = catalogSlots?.Where(i => !i.Slot.IsNarrator)
-                     ?? NpcVoiceSlotCatalog.All.Select(i =>
-                         new VoiceSlotCatalogRow(i.Slot, i.NpcLabel, i.AccentLabel, i.SortOrder));
+                     ?? AppServices.NpcPeopleCatalog?.GetVoiceSlots().Where(i => !i.Slot.IsNarrator)
+                     ?? Enumerable.Empty<VoiceSlotCatalogRow>();
 
         foreach (var item in source
                      .Where(i => !i.Slot.IsNarrator)
@@ -57,7 +57,7 @@ internal static class TestQrGenerator
             if (item.Slot.Gender is not (Gender.Male or Gender.Female))
                 continue;
 
-            var raceId = TryGetRaceId(item.Slot.Group);
+            var raceId = NpcPeopleCatalogService.RaceIdFromCatalogId(item.Slot.SlotKey);
             if (raceId is null or < 0 or > 0xFF)
                 continue;
 
@@ -156,14 +156,6 @@ internal static class TestQrGenerator
         }
     }
 
-    private static int? TryGetRaceId(AccentGroup group)
-    {
-        if (RaceAccentMapping.PlayerRaceIds.TryGetValue(group, out var playerRace))
-            return playerRace;
-        if (RaceAccentMapping.CreatureTypeIds.TryGetValue(group, out var creatureType))
-            return creatureType;
-        return null;
-    }
 
     private static int NextDialogId()
     {

@@ -59,12 +59,12 @@ public partial class MainWindow
         VoiceSettingsManager.SaveSettings(AppServices.Settings);
     }
 
-    private AccentGroup ResolveWorkbenchGroup()
+    private string ResolveWorkbenchGroup()
     {
-        if (PronAccentGroupSelector.SelectedItem is ComboBoxItem { Tag: AccentGroup group })
-            return group;
+        if (PronAccentGroupSelector.SelectedItem is ComboBoxItem item)
+            return VoiceSlot.NormalizeCatalogId(item.Tag?.ToString());
 
-        return AccentGroup.Narrator;
+        return "Narrator";
     }
 
     private string ResolveWorkbenchGenderTag()
@@ -79,7 +79,7 @@ public partial class MainWindow
         var group = ResolveWorkbenchGroup();
         var tag = ResolveWorkbenchGenderTag();
 
-        if (group == AccentGroup.Narrator ||
+        if (string.Equals(group, "Narrator", StringComparison.OrdinalIgnoreCase) ||
             string.Equals(tag, "Narrator", StringComparison.OrdinalIgnoreCase))
         {
             return VoiceSlot.Narrator;
@@ -89,6 +89,6 @@ public partial class MainWindow
             ? Gender.Female
             : Gender.Male;
 
-        return new VoiceSlot(group, gender);
+        return VoiceSlot.CreateCatalog(group, gender);
     }
 }

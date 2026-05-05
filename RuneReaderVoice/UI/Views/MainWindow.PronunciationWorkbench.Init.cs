@@ -48,24 +48,22 @@ public partial class MainWindow
     {
         PronAccentGroupSelector.Items.Clear();
 
-        foreach (AccentGroup group in Enum.GetValues<AccentGroup>())
+        foreach (var row in AppServices.NpcPeopleCatalog.GetEnabledRows())
         {
             PronAccentGroupSelector.Items.Add(new ComboBoxItem
             {
-                Content = group.ToString(),
-                Tag = group
+                Content = row.DisplayName,
+                Tag = row.Id
             });
         }
 
-        var savedGroup = Enum.TryParse<AccentGroup>(
-            AppServices.Settings.PronunciationWorkbenchAccentGroup,
-            out var parsedGroup)
-            ? parsedGroup
-            : AccentGroup.Troll;
+        var savedGroup = VoiceSlot.NormalizeCatalogId(AppServices.Settings.PronunciationWorkbenchAccentGroup);
+        if (string.IsNullOrWhiteSpace(savedGroup))
+            savedGroup = "troll";
 
         var groupItem = PronAccentGroupSelector.Items
             .OfType<ComboBoxItem>()
-            .FirstOrDefault(i => i.Tag is AccentGroup g && g == savedGroup);
+            .FirstOrDefault(i => string.Equals(i.Tag?.ToString(), savedGroup, StringComparison.OrdinalIgnoreCase));
 
         if (groupItem != null)
             PronAccentGroupSelector.SelectedItem = groupItem;
@@ -101,12 +99,12 @@ public partial class MainWindow
 
         PronRuleAccentGroupSelector.Items.Clear();
 
-        foreach (AccentGroup group in Enum.GetValues<AccentGroup>())
+        foreach (var row in AppServices.NpcPeopleCatalog.GetEnabledRows())
         {
             PronRuleAccentGroupSelector.Items.Add(new ComboBoxItem
             {
-                Content = group.ToString(),
-                Tag = group
+                Content = row.DisplayName,
+                Tag = row.Id
             });
         }
 
@@ -114,7 +112,7 @@ public partial class MainWindow
 
         var defaultRuleGroupItem = PronRuleAccentGroupSelector.Items
             .OfType<ComboBoxItem>()
-            .FirstOrDefault(i => i.Tag is AccentGroup g && g == selectedWorkbenchGroup);
+            .FirstOrDefault(i => string.Equals(i.Tag?.ToString(), selectedWorkbenchGroup, StringComparison.OrdinalIgnoreCase));
 
         PronRuleAccentGroupSelector.SelectedItem =
             defaultRuleGroupItem ??

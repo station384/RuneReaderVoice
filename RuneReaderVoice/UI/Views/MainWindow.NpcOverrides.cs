@@ -664,8 +664,7 @@ public partial class MainWindow
         if (!string.IsNullOrWhiteSpace(catalogId))
             return catalogId;
 
-        var group = RaceAccentMapping.ResolveAccentGroup(entry.RaceId);
-        return group?.ToString() ?? string.Empty;
+        return string.Empty;
     }
 
     private List<CatalogOption> GetNpcOverrideRaceOptions(string? filter = null)
