@@ -209,6 +209,17 @@
       "Enabled": true,
       "Priority": 275,
       "Notes": ""
+    },
+    {
+      "FindText": "Gazlowe",
+      "ReplaceText": "Gazlow",
+      "ReplaceWithCrLf": false,
+      "WholeWord": true,
+      "CaseSensitive": true,
+      "UseRegex": false,
+      "Enabled": true,
+      "Priority": 100,
+      "Notes": ""
     }
   ]
 }
