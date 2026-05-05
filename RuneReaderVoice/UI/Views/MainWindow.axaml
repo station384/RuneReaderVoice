@@ -400,6 +400,53 @@ along with RuneReaderVoice. If not, see <https://www.gnu.org/licenses/>.
                             </Expander>
 
 
+                            <Expander x:Name="ExpanderQrTestGenerator"
+                                      Header="QR Test Generator"
+                                      HorizontalAlignment="Stretch"
+                                      IsExpanded="False">
+                                <StackPanel Margin="0,8,0,0" Spacing="6">
+                                    <TextBlock Text="Generate a real RuneReader Voice QR cycle for end-to-end testing without WoW."
+                                               TextWrapping="Wrap"
+                                               Foreground="#888"
+                                               FontSize="11"/>
+
+                                    <TextBlock Text="Race / voice slot" Foreground="#888" FontSize="11" Margin="0,4,0,0"/>
+                                    <ComboBox x:Name="TestQrRaceSelector"
+                                              HorizontalAlignment="Stretch"
+                                              SelectionChanged="OnTestQrOptionsChanged"/>
+
+                                    <TextBlock Text="Test size" Foreground="#888" FontSize="11" Margin="0,4,0,0"/>
+                                    <ComboBox x:Name="TestQrScenarioSelector"
+                                              HorizontalAlignment="Stretch"
+                                              SelectionChanged="OnTestQrOptionsChanged"/>
+
+                                    <CheckBox x:Name="TestQrIncludeNarratorCheck"
+                                              Content="Include narrator / quest header segments"
+                                              Margin="0,4,0,0"
+                                              Click="OnTestQrOptionsChanged"/>
+
+                                    <CheckBox x:Name="TestQrForceGenerationCheck"
+                                              Content="Force server generation on one line"
+                                              Margin="0,2,0,0"
+                                              ToolTip.Tip="Adds a per-test timestamp nonce to one selected-race segment so that line misses cache. The nonce is generated once when the QR test starts."
+                                              
+                                              Click="OnTestQrOptionsChanged"/>
+
+                                    <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,6,0,0">
+                                        <Button x:Name="TestQrToggleButton"
+                                                Content="Show Test QR"
+                                                Click="OnTestQrToggleClicked"
+                                                ToolTip.Tip="Show or hide an always-on-top QR window. RuneReader scans this QR normally, exercising the real decode and playback pipeline."/>
+                                        <TextBlock x:Name="TestQrStatus"
+                                                   Text="QR test hidden."
+                                                   Foreground="#888"
+                                                   FontSize="11"
+                                                   VerticalAlignment="Center"/>
+                                    </StackPanel>
+                                </StackPanel>
+                            </Expander>
+
+
                         </StackPanel>
 
                     </Grid>

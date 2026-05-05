@@ -59,6 +59,7 @@ public partial class MainWindow : Window
         SetPlatformVisibility();
         PopulatePronunciationWorkbench();
         PopulateTextSwapWorkbench();
+        InitTestQrUi();
 
 
 
@@ -130,6 +131,7 @@ public partial class MainWindow : Window
         };
         Closing += (_, _) =>
         {
+            StopTestQrOverlay();
             AppServices.Settings.AppStartX = Position.X;
             AppServices.Settings.AppStartY = Position.Y;
             VoiceSettingsManager.SaveSettings(AppServices.Settings);
@@ -333,6 +335,7 @@ public partial class MainWindow : Window
         ExpanderProvider.IsExpanded      = s.GetExpanderState(nameof(ExpanderProvider));
         ExpanderPlayback.IsExpanded      = s.GetExpanderState(nameof(ExpanderPlayback));
         ExpanderDialogSources.IsExpanded = s.GetExpanderState(nameof(ExpanderDialogSources));
+        ExpanderQrTestGenerator.IsExpanded = s.GetExpanderState(nameof(ExpanderQrTestGenerator));
         ExpanderCapture.IsExpanded       = s.GetExpanderState(nameof(ExpanderCapture));
         ExpanderAdvPlayback.IsExpanded   = s.GetExpanderState(nameof(ExpanderAdvPlayback));
         ExpanderCache.IsExpanded         = s.GetExpanderState(nameof(ExpanderCache));
@@ -347,6 +350,7 @@ public partial class MainWindow : Window
         WireExpander(ExpanderProvider,      nameof(ExpanderProvider));
         WireExpander(ExpanderPlayback,      nameof(ExpanderPlayback));
         WireExpander(ExpanderDialogSources, nameof(ExpanderDialogSources));
+        WireExpander(ExpanderQrTestGenerator, nameof(ExpanderQrTestGenerator));
         WireExpander(ExpanderCapture,       nameof(ExpanderCapture));
         WireExpander(ExpanderAdvPlayback,   nameof(ExpanderAdvPlayback));
         WireExpander(ExpanderCache,         nameof(ExpanderCache));

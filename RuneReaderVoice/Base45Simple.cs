@@ -37,6 +37,48 @@ public static class Base45Simple
         return map;
     }
 
+
+    public static string Encode(byte[] bytes)
+    {
+        if (bytes == null)
+            throw new ArgumentNullException(nameof(bytes));
+
+        var sb = new StringBuilder();
+        int pos = 0;
+
+        while (pos + 1 < bytes.Length)
+        {
+            int value = bytes[pos] * 256 + bytes[pos + 1];
+            int c = value / (45 * 45);
+            value -= c * 45 * 45;
+            int b = value / 45;
+            int a = value % 45;
+
+            sb.Append(Alphabet[a]);
+            sb.Append(Alphabet[b]);
+            sb.Append(Alphabet[c]);
+            pos += 2;
+        }
+
+        if (pos < bytes.Length)
+        {
+            int value = bytes[pos];
+            int b = value / 45;
+            int a = value % 45;
+            sb.Append(Alphabet[a]);
+            sb.Append(Alphabet[b]);
+        }
+
+        return sb.ToString();
+    }
+
+    public static string EncodeUtf8(string s)
+    {
+        if (s == null)
+            throw new ArgumentNullException(nameof(s));
+        return Encode(Encoding.UTF8.GetBytes(s));
+    }
+
     public static byte[] Decode(string s)
     {
         if (s == null)

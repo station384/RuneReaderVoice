@@ -191,11 +191,10 @@ public sealed class TtsSessionAssembler
             }
 
             // ── Runtime routing baseline ─────────────────────────────────────
-            // DB is source of truth. Feed() only chooses immediate narrator/default
-            // fallback routing. Final NPC override resolution happens when the
-            // segment completes and is read directly from SQLite by NPCID.
-            int effectiveRace = 0;
-            var resolvedSlot = packet.IsFemale ? VoiceSlot.FemaleNarrator : VoiceSlot.MaleNarrator;
+            // Packet race/gender provides the protocol baseline. Local NPC overrides
+            // remain authoritative and are applied when the segment completes.
+            int effectiveRace = packet.Race;
+            var resolvedSlot = RaceAccentMapping.Resolve(effectiveRace, packet.Flags, packet.IsMale, packet.IsFemale);
 
             if (packet.SubIndex == 0)
             {
