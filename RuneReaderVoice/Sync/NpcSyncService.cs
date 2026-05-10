@@ -188,6 +188,7 @@ public sealed class NpcSyncService : IDisposable
         {
             NpcId               = r.NpcId,
             CatalogId           = r.CatalogId ?? string.Empty,
+            NpcName             = r.NpcName,
             RaceId              = r.RaceId,
             Notes               = r.Notes,
             BespokeSampleId     = r.BespokeSampleId,
@@ -499,6 +500,7 @@ public sealed class NpcSyncService : IDisposable
         {
             NpcId               = e.NpcId,
             CatalogId           = e.CatalogId ?? string.Empty,
+            NpcName             = e.NpcName,
             RaceId              = e.RaceId,
             Notes               = e.Notes,
             BespokeSampleId     = e.BespokeSampleId,
@@ -762,6 +764,16 @@ internal sealed class NpcOverrideExportEntry
     public int     NpcId               { get; set; }
     [System.Text.Json.Serialization.JsonPropertyName("CatalogId")]
     public string? CatalogId           { get; set; }
+    [System.Text.Json.Serialization.JsonPropertyName("NpcName")]
+    public string? NpcName             { get; set; }
+
+    // Compatibility with server-style default payloads.
+    [System.Text.Json.Serialization.JsonPropertyName("npc_name")]
+    public string? NpcNameSnake { get => NpcName; set => NpcName = value; }
+
+    [System.Text.Json.Serialization.JsonPropertyName("npcName")]
+    public string? NpcNameCamel { get => NpcName; set => NpcName = value; }
+
     [System.Text.Json.Serialization.JsonPropertyName("RaceId")]
     public int     RaceId              { get; set; }
     [System.Text.Json.Serialization.JsonPropertyName("Notes")]

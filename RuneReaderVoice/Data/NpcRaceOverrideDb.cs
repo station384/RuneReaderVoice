@@ -78,7 +78,8 @@ public sealed class NpcRaceOverrideDb
         if (!string.IsNullOrWhiteSpace(filter))
         {
             var like = $"%{filter.Trim()}%";
-            whereClauses.Add("(CAST(NpcId AS TEXT) LIKE ? OR Notes LIKE ? OR Source LIKE ? OR CatalogId LIKE ? OR GenderOverride LIKE ?)");
+            whereClauses.Add("(CAST(NpcId AS TEXT) LIKE ? OR NpcName LIKE ? OR Notes LIKE ? OR Source LIKE ? OR CatalogId LIKE ? OR GenderOverride LIKE ?)");
+            args.Add(like);
             args.Add(like);
             args.Add(like);
             args.Add(like);
@@ -110,6 +111,7 @@ public sealed class NpcRaceOverrideDb
 
     public Task UpsertAsync(int npcId, string catalogId, string? notes,
         int raceId = 0,
+        string? npcName = null,
         string? bespokeSampleId = null,
         float? bespokeExaggeration = null,
         float? bespokeCfgWeight = null,
@@ -125,6 +127,7 @@ public sealed class NpcRaceOverrideDb
             RaceId              = raceId,
             CatalogId           = catalogId ?? string.Empty,
             Notes               = notes ?? string.Empty,
+            NpcName             = npcName ?? string.Empty,
             BespokeSampleId     = bespokeSampleId,
             BespokeExaggeration = bespokeExaggeration,
             BespokeCfgWeight    = bespokeCfgWeight,
@@ -164,6 +167,7 @@ public sealed class NpcRaceOverrideDb
                 RaceId              = record.RaceId,
                 CatalogId           = record.CatalogId ?? string.Empty,
                 Notes               = record.Notes ?? string.Empty,
+                NpcName             = record.NpcName ?? string.Empty,
                 BespokeSampleId     = record.BespokeSampleId,
                 BespokeExaggeration = record.BespokeExaggeration,
                 BespokeCfgWeight    = record.BespokeCfgWeight,
@@ -197,6 +201,7 @@ public sealed class NpcRaceOverrideDb
             RaceId              = row.RaceId,
             CatalogId           = row.CatalogId ?? string.Empty,
             Notes               = row.Notes,
+            NpcName             = row.NpcName,
             BespokeSampleId     = row.BespokeSampleId,
             BespokeExaggeration = row.BespokeExaggeration,
             BespokeCfgWeight    = row.BespokeCfgWeight,

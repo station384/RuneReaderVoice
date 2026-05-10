@@ -62,6 +62,9 @@ public sealed class NpcRaceOverride
     /// <summary>Optional user-friendly label, e.g. "Rexxar" or "Thrall".</summary>
     public string? Notes { get; set; }
 
+    /// <summary>NPC display name captured from QR/Code39 side-channel. Used for UI and future fallback matching.</summary>
+    public string? NpcName { get; set; }
+
     /// <summary>
     /// When set, overrides the sample used for voice-matching synthesis for this NPC.
     /// The race slot's DSP profile still applies — only the reference sample is replaced.

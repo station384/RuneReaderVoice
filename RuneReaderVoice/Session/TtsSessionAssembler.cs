@@ -71,6 +71,7 @@ public sealed class AssembledSegment
     public int       SegmentIndex      { get; init; }
     public int       DialogSegmentCount { get; init; }
     public int       NpcId             { get; init; }
+    public string?    NpcName           { get; init; } = null;
     public string?    PlayerName        { get; init; } = null;
     public string?    PlayerRealm       { get; init; } = null;
     public string?    PlayerClass       { get; init; } = null;
@@ -154,6 +155,7 @@ public sealed class TtsSessionAssembler
     private string _currentPlayerRealm = string.Empty;
     private string _currentPlayerClass = string.Empty;
     private string _currentPlayerTitle = string.Empty;
+    private string _currentNpcName     = string.Empty;
 
     // ── Construction ──────────────────────────────────────────────────────────
 
@@ -184,6 +186,7 @@ public sealed class TtsSessionAssembler
                 _currentPlayerRealm = AppServices.CurrentPlayerRealm ?? string.Empty;
                 _currentPlayerClass = AppServices.CurrentPlayerClass ?? string.Empty;
                 _currentPlayerTitle = string.Empty;
+                _currentNpcName     = string.Empty;
                 AppServices.CurrentPlayerTitle = string.Empty;
                 OnSessionReset?.Invoke(_currentDialogId);
                 System.Diagnostics.Debug.WriteLine(
@@ -328,6 +331,7 @@ public sealed class TtsSessionAssembler
                     SegmentIndex = audibleIndex,
                     DialogSegmentCount = audibleCount,
                     NpcId = seg.NpcId,
+                    NpcName = seg.NpcName,
                     PlayerName = seg.PlayerName,
                     PlayerRealm = seg.PlayerRealm,
                     PlayerClass = seg.PlayerClass,
@@ -377,7 +381,10 @@ public sealed class TtsSessionAssembler
         text = htmlMode ? HtmlRenderedTextExtractor.ExtractFromMixedText(text) : HtmlTextStripper.Strip(text);
         text = InjectSyntheticParagraphPeriods(text);
 
-        var utteranceKey = MakeUtteranceKey(_currentDialogId, acc.Slot, acc.NpcId, text, acc.SeqIndex);
+        var effectiveNpcId = ResolveEffectiveNpcId(acc.NpcId);
+        var npcName = ResolveCurrentNpcName();
+
+        var utteranceKey = MakeUtteranceKey(_currentDialogId, acc.Slot, effectiveNpcId, text, acc.SeqIndex);
         if (_completedUtteranceKeys.Contains(utteranceKey)) return;
 
         _completedKeys.Add(key);
@@ -389,9 +396,11 @@ public sealed class TtsSessionAssembler
         float? bespokeCfgWeight = null;
         var useNpcIdAsSeed = false;
 
-        if (!acc.IsNarrator || IsSyntheticBookNpcId(acc.NpcId))
+        if (!acc.IsNarrator || IsSyntheticBookNpcId(effectiveNpcId))
         {
-            var entry = Task.Run(() => _overrideDb.GetOverrideAsync(acc.NpcId)).GetAwaiter().GetResult();
+            var entry = effectiveNpcId > 0
+                ? Task.Run(() => _overrideDb.GetOverrideAsync(effectiveNpcId)).GetAwaiter().GetResult()
+                : null;
             if (entry != null)
             {
                 var g = entry.GenderOverride switch
@@ -423,7 +432,8 @@ public sealed class TtsSessionAssembler
             Slot                = slot,
             DialogId            = _currentDialogId,
             SegmentIndex        = acc.SeqIndex,
-            NpcId               = acc.NpcId,
+            NpcId               = effectiveNpcId,
+            NpcName             = string.IsNullOrWhiteSpace(npcName) ? null : npcName,
             PlayerName          = string.IsNullOrWhiteSpace(_currentPlayerName) ? null : _currentPlayerName,
             PlayerRealm         = string.IsNullOrWhiteSpace(_currentPlayerRealm) ? null : _currentPlayerRealm,
             PlayerClass         = string.IsNullOrWhiteSpace(_currentPlayerClass) ? null : _currentPlayerClass,
@@ -465,6 +475,7 @@ public sealed class TtsSessionAssembler
                     SegmentIndex = segment.SegmentIndex,
                     DialogSegmentCount = segment.DialogSegmentCount,
                     NpcId = 0,
+                    NpcName = segment.NpcName,
                     PlayerName = segment.PlayerName,
                     PlayerRealm = segment.PlayerRealm,
                     PlayerClass = segment.PlayerClass,
@@ -490,6 +501,7 @@ public sealed class TtsSessionAssembler
                     SegmentIndex = segment.SegmentIndex,
                     DialogSegmentCount = segment.DialogSegmentCount,
                     NpcId = segment.NpcId,
+                    NpcName = segment.NpcName,
                     PlayerName = segment.PlayerName,
                     PlayerRealm = segment.PlayerRealm,
                     PlayerClass = segment.PlayerClass,
@@ -602,6 +614,39 @@ public sealed class TtsSessionAssembler
         }
 
         return string.Join("\n\n", paragraphs);
+    }
+
+
+    private static int ResolveEffectiveNpcId(int packetNpcId)
+    {
+        if (packetNpcId > 0)
+            return packetNpcId;
+
+        return TryExtractNpcIdFromGuid(AppServices.CurrentCode39Guid) ?? 0;
+    }
+
+    private string ResolveCurrentNpcName()
+    {
+        if (!string.IsNullOrWhiteSpace(_currentNpcName))
+            return _currentNpcName;
+
+        return AppServices.CurrentCode39Name ?? string.Empty;
+    }
+
+    private static int? TryExtractNpcIdFromGuid(string? guid)
+    {
+        if (string.IsNullOrWhiteSpace(guid))
+            return null;
+
+        var parts = guid.Split('-');
+        if (parts.Length < 6)
+            return null;
+
+        if (!string.Equals(parts[0], "Creature", StringComparison.OrdinalIgnoreCase) &&
+            !string.Equals(parts[0], "Vehicle", StringComparison.OrdinalIgnoreCase))
+            return null;
+
+        return int.TryParse(parts[5], out var npcId) && npcId > 0 ? npcId : null;
     }
 
     private static bool IsSyntheticBookNpcId(int npcId)
@@ -718,6 +763,10 @@ public sealed class TtsSessionAssembler
         {
             _currentPlayerClass = value;
             AppServices.CurrentPlayerClass = value;
+        }
+        else if (key == "NPCNAME")
+        {
+            _currentNpcName = value;
         }
     }
 

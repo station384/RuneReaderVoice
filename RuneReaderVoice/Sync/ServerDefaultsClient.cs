@@ -44,6 +44,15 @@ public sealed class ServerNpcOverrideRecord
 {
     [JsonPropertyName("npc_id")]               public int     NpcId               { get; set; }
     [JsonPropertyName("catalog_id")]           public string? CatalogId           { get; set; }
+    [JsonPropertyName("npc_name")]             public string? NpcName             { get; set; }
+
+    // Compatibility with seed/default payloads or older tools that use C# names.
+    [JsonPropertyName("NpcName")]
+    public string? NpcNamePascal { get => NpcName; set => NpcName = value; }
+
+    [JsonPropertyName("npcName")]
+    public string? NpcNameCamel { get => NpcName; set => NpcName = value; }
+
     [JsonPropertyName("race_id")]              public int     RaceId              { get; set; }
     [JsonPropertyName("notes")]                public string? Notes               { get; set; }
     [JsonPropertyName("bespoke_sample_id")]    public string? BespokeSampleId     { get; set; }
@@ -71,6 +80,7 @@ public sealed class ServerNpcOverrideBatchRecord
 {
     [JsonPropertyName("npc_id")] public int NpcId { get; set; }
     [JsonPropertyName("catalog_id")] public string? CatalogId { get; set; }
+    [JsonPropertyName("npc_name")] public string? NpcName { get; set; }
     [JsonPropertyName("race_id")] public int RaceId { get; set; }
     [JsonPropertyName("notes")] public string Notes { get; set; } = string.Empty;
     [JsonPropertyName("bespoke_sample_id")] public string? BespokeSampleId { get; set; }
@@ -208,6 +218,7 @@ public sealed class ServerDefaultsClient
             {
                 npc_id               = entry.NpcId,
                 catalog_id           = string.IsNullOrWhiteSpace(entry.CatalogId) ? null : entry.CatalogId,
+                npc_name             = string.IsNullOrWhiteSpace(entry.NpcName) ? null : entry.NpcName,
                 race_id              = entry.RaceId,
                 notes                = entry.Notes ?? string.Empty,
                 bespoke_sample_id    = entry.BespokeSampleId,
@@ -248,6 +259,7 @@ public sealed class ServerDefaultsClient
                 {
                     NpcId = entry.NpcId,
                     CatalogId = string.IsNullOrWhiteSpace(entry.CatalogId) ? null : entry.CatalogId,
+                    NpcName = string.IsNullOrWhiteSpace(entry.NpcName) ? null : entry.NpcName,
                     RaceId = entry.RaceId,
                     Notes = entry.Notes ?? string.Empty,
                     BespokeSampleId = entry.BespokeSampleId,

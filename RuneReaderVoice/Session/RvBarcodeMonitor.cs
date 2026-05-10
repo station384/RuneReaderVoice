@@ -20,47 +20,57 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Runtime.InteropServices;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using OpenCvSharp;
-using System.Text;
+using RuneReaderVoice.Platform;
+using RuneReaderVoice.Protocol;
 using ZXing;
 using ZXing.Common;
-using RuneReaderVoice.Protocol;
-using RuneReaderVoice.Platform;
-using ZXing.QrCode;
-
-
 
 namespace RuneReaderVoice.Session;
+
 // RvBarcodeMonitor.cs
-// Continuously captures screen frames and scans for RV QR codes.
+// Continuously captures screen frames and scans for RuneReader Voice barcodes.
 //
-// Two QR codes may appear simultaneously on screen:
-//   - RuneReaderVoice TTS QR (identified by "RV" magic prefix)
-//   - RuneReader combat QR (different magic prefix)
-// Uses ZXing DecodeMultiple on all decoded results, filters by "RV" prefix.
-// Single-QR (RV only) is the normal operating path.
+// Channels:
+//   - QR: primary dialog/text channel. Payload is Base45 -> RV protocol packet.
+//   - Code39 GUID: side-channel metadata identified by decoded prefix "RRVG-".
+//   - Code39 Name: side-channel metadata identified by decoded prefix "RRVN-".
 //
-// Region locking:
-//   On first successful RV decode, the bounding box of the QR code is recorded.
-//   Subsequent captures are restricted to that region (with clamping to screen bounds).
-//   A full-screen rescan runs every ReScanIntervalMs when no RV QR is found.
+// Each channel maintains its own locked region. Full-screen rescans locate all
+// regions. Region polling captures known regions independently without
+// treating Code39 channels as a source-gone signal.
 public sealed class RvBarcodeMonitor : IDisposable
 {
-    
-    // Our statics
-    private BarcodeReaderGeneric multiReader = new ZXing.BarcodeReaderGeneric();
-    private BarcodeReaderGeneric singleReader = new ZXing.BarcodeReaderGeneric();
+    private enum RegionKind
+    {
+        None,
+        Qr,
+        Code39Guid,
+        Code39Name,
+    }
+
+    private readonly BarcodeReaderGeneric _qrMultiReader = new();
+    private readonly BarcodeReaderGeneric _qrSingleReader = new();
+    private readonly BarcodeReaderGeneric _code39MultiReader = new();
+    private readonly BarcodeReaderGeneric _code39SingleReader = new();
 
     // ── Events ────────────────────────────────────────────────────────────────
 
-    /// <summary>Fires when a valid (non-preview) RV packet is decoded.</summary>
+    /// <summary>Fires when a valid (non-preview) RV QR packet is decoded.</summary>
     public event Action<RvPacket>? OnPacketDecoded;
+
+    /// <summary>Fires when a valid RRV Code39 GUID side-channel is decoded.</summary>
+    public event Action<string>? OnCode39GuidDecoded;
+
+    /// <summary>Fires when a valid RRV Code39 NPC name side-channel is decoded.</summary>
+    public event Action<string>? OnCode39NameDecoded;
 
     /// <summary>
     /// Fires when no RV QR has been seen for SourceGoneThresholdMs.
-    /// The caller should call TtsSessionAssembler.SignalSourceGone().
+    /// Code39 presence does not keep a dialog alive; QR remains the source clock.
     /// </summary>
     public event Action? OnSourceGone;
 
@@ -68,12 +78,13 @@ public sealed class RvBarcodeMonitor : IDisposable
     public event Action<Mat>? OnFrameCaptured;
     public event Action<Mat>? OnRegionCaptured;
     public event Action<Rect>? OnLockedRegionChanged;
-    
+    public event Action<Rect>? OnLockedCode39GuidRegionChanged;
+    public event Action<Rect>? OnLockedCode39NameRegionChanged;
 
     // ── Configuration ─────────────────────────────────────────────────────────
 
-    public int CaptureIntervalMs   { get; set; } = 5;
-    public int ReScanIntervalMs    { get; set; } = 5000;
+    public int CaptureIntervalMs { get; set; } = 5;
+    public int ReScanIntervalMs { get; set; } = 5000;
     public int SourceGoneThresholdMs { get; set; } = 2000;
 
     // ── Internal state ────────────────────────────────────────────────────────
@@ -86,51 +97,56 @@ public sealed class RvBarcodeMonitor : IDisposable
     private Task? _sourceGoneTask;
 
     private bool _regionHasRvQr;
+    private bool _regionHasCode39Guid;
+    private bool _regionHasCode39Name;
     private Rect? _lockedRegion;
+    private Rect? _lockedCode39GuidRegion;
+    private Rect? _lockedCode39NameRegion;
+    private RegionKind _activeRegionKind = RegionKind.None;
     private DateTime _lastRvDecodeTime = DateTime.MinValue;
+    private DateTime _lastCode39DecodeTime = DateTime.MinValue;
+    private string _lastCode39Guid = string.Empty;
+    private string _lastCode39Name = string.Empty;
     private bool _sourceGoneSignalled;
 
     private readonly object _gate = new();
-    private bool _disposed;
     private readonly object _captureIoGate = new();
-    //private QRCodeDetector  _QRCodeDetector  = new QRCodeDetector();
-    
+    private bool _disposed;
+
+    private const string Code39GuidPrefix = "RRVG-";
+    private const string Code39NamePrefix = "RRVN-";
+
     public RvBarcodeMonitor(IScreenCaptureProvider capture)
     {
         _capture = capture;
-       // Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
-        multiReader.Options.Hints.Add(DecodeHintType.CHARACTER_SET, "ISO-8859-1");
-        
-        multiReader.Options.PossibleFormats = new List<BarcodeFormat> { BarcodeFormat.QR_CODE };
-        multiReader.Options.Hints.Add(DecodeHintType.TRY_HARDER, true);
-        multiReader.Options.Hints.Add(DecodeHintType.PURE_BARCODE, false);
-      //  multiReader.Options.Hints.Add(DecodeHintType.POSSIBLE_FORMATS, new List<BarcodeFormat> { BarcodeFormat.QR_CODE });
 
-        singleReader.Options.Hints.Add(DecodeHintType.CHARACTER_SET, "ISO-8859-1");
-        singleReader.Options.PossibleFormats = new List<BarcodeFormat> { BarcodeFormat.QR_CODE };
-        singleReader.Options.Hints.Add(DecodeHintType.TRY_HARDER, true);
-        singleReader.Options.Hints.Add(DecodeHintType.PURE_BARCODE, true);
-      //  singleReader.Options.Hints.Add(DecodeHintType.POSSIBLE_FORMATS, new List<BarcodeFormat> { BarcodeFormat.QR_CODE });
-       // OpenCvSharp.QRCodeDetector  = new QRCodeDetector();
-  
-        // _reader = new BarcodeReaderGeneric
-        // {
-        //     Options = new DecodingOptions
-        //     {
-        //         PossibleFormats    = new[] { BarcodeFormat.QR_CODE },
-        //         TryHarder          = true,
-        //         TryInverted        = false,
-        //         ReturnCodabarStartEnd = false,
-        //     },
-        //     AutoRotate = false,
-        // };
+        _qrMultiReader.Options.Hints.Add(DecodeHintType.CHARACTER_SET, "ISO-8859-1");
+        _qrMultiReader.Options.PossibleFormats = new List<BarcodeFormat> { BarcodeFormat.QR_CODE };
+        _qrMultiReader.Options.Hints.Add(DecodeHintType.TRY_HARDER, true);
+        _qrMultiReader.Options.Hints.Add(DecodeHintType.PURE_BARCODE, false);
+
+        _qrSingleReader.Options.Hints.Add(DecodeHintType.CHARACTER_SET, "ISO-8859-1");
+        _qrSingleReader.Options.PossibleFormats = new List<BarcodeFormat> { BarcodeFormat.QR_CODE };
+        _qrSingleReader.Options.Hints.Add(DecodeHintType.TRY_HARDER, true);
+        _qrSingleReader.Options.Hints.Add(DecodeHintType.PURE_BARCODE, true);
+
+        _code39MultiReader.Options.PossibleFormats = new List<BarcodeFormat> { BarcodeFormat.CODE_39 };
+        _code39MultiReader.Options.Hints.Remove(DecodeHintType.USE_CODE_39_EXTENDED_MODE);
+        _code39MultiReader.Options.Hints.Add(DecodeHintType.USE_CODE_39_EXTENDED_MODE, false);
+        _code39MultiReader.Options.Hints.Add(DecodeHintType.TRY_HARDER, true);
+
+        _code39MultiReader.Options.Hints.Add(DecodeHintType.PURE_BARCODE, false);
+
+        _code39SingleReader.Options.PossibleFormats = new List<BarcodeFormat> { BarcodeFormat.CODE_39 };
+        _code39SingleReader.Options.Hints.Add(DecodeHintType.TRY_HARDER, true);
+        _code39SingleReader.Options.Hints.Remove(DecodeHintType.USE_CODE_39_EXTENDED_MODE);
+        _code39SingleReader.Options.Hints.Add(DecodeHintType.USE_CODE_39_EXTENDED_MODE, false);
+        _code39SingleReader.Options.Hints.Add(DecodeHintType.PURE_BARCODE, false);
     }
 
     public void TrySetInitialLockedRegion(SavedBarcodeRegion? saved)
     {
-        if (saved == null) return;
-
-        var clamped = ClampRegionToScreen(new Rect(saved.X, saved.Y, saved.Width, saved.Height));
+        var clamped = ToClampedRect(saved);
         if (!clamped.HasValue) return;
 
         lock (_gate)
@@ -138,6 +154,36 @@ public sealed class RvBarcodeMonitor : IDisposable
             if (_captureTask is { IsCompleted: false }) return;
             _lockedRegion = clamped.Value;
         }
+    }
+
+    public void TrySetInitialLockedCode39GuidRegion(SavedBarcodeRegion? saved)
+    {
+        var clamped = ToClampedRect(saved);
+        if (!clamped.HasValue) return;
+
+        lock (_gate)
+        {
+            if (_captureTask is { IsCompleted: false }) return;
+            _lockedCode39GuidRegion = clamped.Value;
+        }
+    }
+
+    public void TrySetInitialLockedCode39NameRegion(SavedBarcodeRegion? saved)
+    {
+        var clamped = ToClampedRect(saved);
+        if (!clamped.HasValue) return;
+
+        lock (_gate)
+        {
+            if (_captureTask is { IsCompleted: false }) return;
+            _lockedCode39NameRegion = clamped.Value;
+        }
+    }
+
+    private Rect? ToClampedRect(SavedBarcodeRegion? saved)
+    {
+        if (saved == null) return null;
+        return ClampRegionToScreen(new Rect(saved.X, saved.Y, saved.Width, saved.Height));
     }
 
     private Rect? ClampRegionToScreen(Rect rect)
@@ -167,16 +213,20 @@ public sealed class RvBarcodeMonitor : IDisposable
         lock (_gate)
         {
             if (_captureTask is { IsCompleted: false }) return;
-            _cts                 = new CancellationTokenSource();
-            _regionHasRvQr       = false;
+            _cts = new CancellationTokenSource();
+            _regionHasRvQr = false;
+            _regionHasCode39Guid = false;
+            _regionHasCode39Name = false;
             _sourceGoneSignalled = false;
+            _activeRegionKind = RegionKind.None;
 
-            var token    = _cts.Token;
-            _captureTask  = CaptureLoopAsync(token);
-            _reScanTask   = ReScanLoopAsync(token);
+            var token = _cts.Token;
+            _captureTask = CaptureLoopAsync(token);
+            _reScanTask = ReScanLoopAsync(token);
             _sourceGoneTask = SourceGoneLoopAsync(token);
         }
     }
+
     private const double HotIntervalFactor = 0.5;
     private const double ColdIntervalFactor = 1.5;
     private const int HotWindowMs = 250;
@@ -233,10 +283,16 @@ public sealed class RvBarcodeMonitor : IDisposable
         GC.Collect();
         _lastForcedGcUtc = now;
     }
+
     public async Task StopAsync()
     {
         CancellationTokenSource? cts;
-        lock (_gate) { cts = _cts; _cts = null; }
+        lock (_gate)
+        {
+            cts = _cts;
+            _cts = null;
+        }
+
         if (cts == null) return;
 
         await cts.CancelAsync().ConfigureAwait(false);
@@ -258,27 +314,54 @@ public sealed class RvBarcodeMonitor : IDisposable
         {
             try
             {
-                Rect? lockedRegion;
+                Rect? qrRegion;
+                Rect? code39GuidRegion;
+                Rect? code39NameRegion;
                 lock (_gate)
-                    lockedRegion = _lockedRegion;
+                {
+                    qrRegion = _lockedRegion;
+                    code39GuidRegion = _lockedCode39GuidRegion;
+                    code39NameRegion = _lockedCode39NameRegion;
+                }
 
                 lock (_captureIoGate)
                 {
                     _capture.EnableFullScreen = false;
-                    _capture.EnableRegion     = lockedRegion.HasValue;
-                    if (lockedRegion.HasValue)
+
+                    if (qrRegion.HasValue)
                     {
-                        _capture.CaptureRegion = lockedRegion.Value;
+                        _activeRegionKind = RegionKind.Qr;
+                        _capture.EnableRegion = true;
+                        _capture.CaptureRegion = qrRegion.Value;
                         _capture.CaptureOnce();
                     }
+
+                    if (code39GuidRegion.HasValue)
+                    {
+                        _activeRegionKind = RegionKind.Code39Guid;
+                        _capture.EnableRegion = true;
+                        _capture.CaptureRegion = code39GuidRegion.Value;
+                        _capture.CaptureOnce();
+                    }
+
+                    if (code39NameRegion.HasValue)
+                    {
+                        _activeRegionKind = RegionKind.Code39Name;
+                        _capture.EnableRegion = true;
+                        _capture.CaptureRegion = code39NameRegion.Value;
+                        _capture.CaptureOnce();
+                    }
+
+                    if (!qrRegion.HasValue && !code39GuidRegion.HasValue && !code39NameRegion.HasValue)
+                    {
+                        _activeRegionKind = RegionKind.None;
+                        _capture.EnableRegion = false;
+                    }
                 }
-
-
-
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"[RvBarcodeMonitor] Capture error: {ex.Message}");
+                Debug.WriteLine($"[RvBarcodeMonitor] Capture error: {ex.Message}");
             }
 
             var nextDelayMs = GetAdaptiveCaptureIntervalMs();
@@ -287,46 +370,57 @@ public sealed class RvBarcodeMonitor : IDisposable
         }
     }
 
-    // ── Frame processing (called by IScreenCaptureProvider.OnFullScreenUpdated) ──
+    // ── Full-screen processing ────────────────────────────────────────────────
 
     public void ProcessFrame(Mat frame)
     {
-        Mat _frame = frame.Clone();
+        Mat fullFrame = frame.Clone();
         try
         {
-            if (_frame.Empty()) return;
+            if (fullFrame.Empty()) return;
 
-             OnFrameCaptured?.Invoke(_frame);
+            OnFrameCaptured?.Invoke(fullFrame);
 
-            // DecodeMultiple: handle 1 or 2 QR codes on screen simultaneously
-            // ZXing.Net BarcodeReaderGeneric can decode one at a time.
-            // For multi-decode, we use the LuminanceSource + HybridBinarizer approach.
-            var results = DecodeMultiple(_frame);
-            if (results == null || results.Length == 0) return;
-            foreach (var result in results)
+            var qrResults = DecodeQrMultiple(fullFrame);
+            if (qrResults is { Length: > 0 })
             {
-               // var raw = GetPacketRaw(result);
-                //if (raw == null) continue;
-                if (string.IsNullOrEmpty(result.Text)) continue;  
-                // Filter by "RV" magic prefix — only process RuneReaderVoice packets
-                var packet = RvPacket.TryParse(Base45Simple.DecodeUtf8(result.Text));
-                if (packet == null) continue;
+                foreach (var result in qrResults)
+                {
+                    if (string.IsNullOrEmpty(result.Text)) continue;
 
-                // Discard preview packets
-                if (packet.IsPreview) continue;
+                    var raw = TryDecodeBase45(result.Text);
+                    if (raw == null) continue;
 
-                // Update region lock from barcode bounding box
-                UpdateRegionLock(result);
+                    var packet = RvPacket.TryParse(raw);
+                    if (packet == null || packet.IsPreview) continue;
 
-                // Full-screen scan only relocates the QR; region processing owns
-                // the live-presence flag and packet dispatch.
-               // This only finds the barcode.  it doesn't process it.
-               // OnPacketDecoded?.Invoke(packet);
+                    UpdateRegionLock(result, RegionKind.Qr);
+                }
+            }
+
+            var code39Results = DecodeCode39Multiple(fullFrame);
+            if (code39Results is { Length: > 0 })
+            {
+                foreach (var result in code39Results)
+                {
+                    if (TryExtractCode39Guid(result.Text) is { } guid)
+                    {
+                        UpdateRegionLock(result, RegionKind.Code39Guid);
+                        RecordCode39Guid(guid);
+                        continue;
+                    }
+
+                    if (TryExtractCode39Name(result.Text) is { } name)
+                    {
+                        UpdateRegionLock(result, RegionKind.Code39Name);
+                        RecordCode39Name(name);
+                    }
+                }
             }
         }
         finally
         {
-            _frame.Dispose();
+            fullFrame.Dispose();
             if (!frame.IsDisposed)
                 frame.Dispose();
             CheckIfWeShouldGC();
@@ -335,117 +429,256 @@ public sealed class RvBarcodeMonitor : IDisposable
 
     public void ProcessFrameRegion(Mat frame)
     {
-        Mat _frame = frame.Clone();
+        RegionKind kind;
+        lock (_gate)
+            kind = _activeRegionKind;
+
+        Mat regionFrame = frame.Clone();
         try
         {
-            if (_frame.Empty()) return;
+            if (regionFrame.Empty()) return;
 
-            OnRegionCaptured?.Invoke(_frame);
+            if (kind == RegionKind.Qr)
+                OnRegionCaptured?.Invoke(regionFrame);
 
-            var decodedText = DecodeSingle(_frame);
-            if (string.IsNullOrEmpty(decodedText))
+            if (kind == RegionKind.Code39Guid)
             {
-                lock (_gate)
-                    _regionHasRvQr = false;
+                ProcessCode39GuidRegion(regionFrame);
                 return;
             }
 
-            var raw = GetPacketRaw(decodedText);
-            if (raw == null)
+            if (kind == RegionKind.Code39Name)
             {
-                lock (_gate)
-                    _regionHasRvQr = false;
+                ProcessCode39NameRegion(regionFrame);
                 return;
             }
 
-            var packet = RvPacket.TryParse(raw);
-            if (packet == null || packet.IsPreview)
-            {
-                lock (_gate)
-                    _regionHasRvQr = false;
-                return;
-            }
-
-            lock (_gate)
-            {
-                _regionHasRvQr = true;
-                _lastRvDecodeTime = DateTime.UtcNow;
-                _sourceGoneSignalled = false;
-            }
-
-            RuneReaderVoice.AppServices.RecordQrPacketDecoded(packet);
-            OnPacketDecoded?.Invoke(packet);
+            ProcessQrRegion(regionFrame);
         }
         finally
         {
-            _frame.Dispose();
+            regionFrame.Dispose();
             if (!frame.IsDisposed)
                 frame.Dispose();
             CheckIfWeShouldGC();
-            
         }
     }
-    
-    private static string? GetPacketRaw(Result? result)
-    {
-        if (result == null)
-            return null;
 
-        if (result.RawBytes is { Length: > 0 })
+    private void ProcessQrRegion(Mat frame)
+    {
+        var decodedText = DecodeQrSingle(frame);
+        if (string.IsNullOrEmpty(decodedText))
         {
-            try
+            lock (_gate)
+                _regionHasRvQr = false;
+            return;
+        }
+
+        var packet = RvPacket.TryParse(decodedText);
+        if (packet == null || packet.IsPreview)
+        {
+            lock (_gate)
+                _regionHasRvQr = false;
+            return;
+        }
+
+        lock (_gate)
+        {
+            _regionHasRvQr = true;
+            _lastRvDecodeTime = DateTime.UtcNow;
+            _sourceGoneSignalled = false;
+        }
+
+        RuneReaderVoice.AppServices.RecordQrPacketDecoded(packet);
+        OnPacketDecoded?.Invoke(packet);
+    }
+
+    private void ProcessCode39GuidRegion(Mat frame)
+    {
+        var decodedText = DecodeCode39Single(frame);
+        var guid = TryExtractCode39Guid(decodedText);
+        if (guid == null)
+        {
+            lock (_gate)
+                _regionHasCode39Guid = false;
+            return;
+        }
+
+        lock (_gate)
+        {
+            _regionHasCode39Guid = true;
+            _lastCode39DecodeTime = DateTime.UtcNow;
+        }
+
+        RecordCode39Guid(guid);
+    }
+
+    private void ProcessCode39NameRegion(Mat frame)
+    {
+        var decodedText = DecodeCode39Single(frame);
+        var name = TryExtractCode39Name(decodedText);
+        if (name == null)
+        {
+            lock (_gate)
+                _regionHasCode39Name = false;
+            return;
+        }
+
+        lock (_gate)
+        {
+            _regionHasCode39Name = true;
+            _lastCode39DecodeTime = DateTime.UtcNow;
+        }
+
+        RecordCode39Name(name);
+    }
+
+    private void RecordCode39Guid(string guid)
+    {
+        var shouldRaise = false;
+        lock (_gate)
+        {
+            _regionHasCode39Guid = true;
+            _lastCode39DecodeTime = DateTime.UtcNow;
+            if (!string.Equals(_lastCode39Guid, guid, StringComparison.OrdinalIgnoreCase))
             {
-                return Encoding.Latin1.GetString(result.RawBytes);
-            }
-            catch
-            {
-                // fall back to ZXing text below
+                _lastCode39Guid = guid;
+                shouldRaise = true;
             }
         }
 
-        return result.Text;
+        if (shouldRaise)
+        {
+            Debug.WriteLine($"[Code39] GUID {guid}");
+            OnCode39GuidDecoded?.Invoke(guid);
+        }
     }
 
-    private static string? GetPacketRaw(string result)
+    private void RecordCode39Name(string name)
     {
-        if (string.IsNullOrEmpty(result))
-            return null;
+        var shouldRaise = false;
+        lock (_gate)
+        {
+            _regionHasCode39Name = true;
+            _lastCode39DecodeTime = DateTime.UtcNow;
+            if (!string.Equals(_lastCode39Name, name, StringComparison.Ordinal))
+            {
+                _lastCode39Name = name;
+                shouldRaise = true;
+            }
+        }
 
-
-        return result;
+        if (shouldRaise)
+        {
+            Debug.WriteLine($"[Code39] Name {name}");
+            OnCode39NameDecoded?.Invoke(name);
+        }
     }
-    
-    
-    private List<string> tempStringHolder = new List<string>();
-    // reuseable mem buffer for capture.   better to update mem then buildup/teardown
-    private byte[] _fullScanBuffer = new byte[1];
-    // May want to use OpenCv's QRDecodeer since its faster than ZXing's
-    private Result[]? DecodeMultiple(Mat frame)
+
+    private static string? TryDecodeBase45(string text)
     {
-        Mat gray = new Mat();
         try
         {
-            // Convert Mat to ZXing LuminanceSource
-            // Using grayscale byte array approach
+            return Base45Simple.DecodeUtf8(text);
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    private static string? TryExtractCode39Guid(string? decodedText)
+    {
+        if (string.IsNullOrWhiteSpace(decodedText)) return null;
+
+        var text = decodedText.Trim();
+        if (text.Length >= 2 && text[0] == '*' && text[^1] == '*')
+            text = text[1..^1];
+
+        if (!text.StartsWith(Code39GuidPrefix, StringComparison.OrdinalIgnoreCase))
+            return null;
+
+        var guid = text[Code39GuidPrefix.Length..].Trim();
+        return string.IsNullOrWhiteSpace(guid) ? null : guid;
+    }
+
+    private static string? TryExtractCode39Name(string? decodedText)
+    {
+        if (string.IsNullOrWhiteSpace(decodedText)) return null;
+
+        var text = decodedText.Trim();
+        if (text.Length >= 2 && text[0] == '*' && text[^1] == '*')
+            text = text[1..^1];
+
+        if (!text.StartsWith(Code39NamePrefix, StringComparison.OrdinalIgnoreCase))
+            return null;
+
+        var name = text[Code39NamePrefix.Length..].Trim();
+
+        // LibreBarcode39 can decode a visible space glyph as '+'. The addon does
+        // not transform secret text; this normalization is client-side only.
+        name = name.Replace('+', ' ');
+
+        return string.IsNullOrWhiteSpace(name) ? null : name;
+    }
+
+    // ── Decode helpers ───────────────────────────────────────────────────────
+
+    private byte[] _fullQrScanBuffer = new byte[1];
+    private byte[] _singleQrScanBuffer = new byte[1];
+    private byte[] _fullCode39ScanBuffer = new byte[1];
+    private byte[] _singleCode39ScanBuffer = new byte[1];
+
+    private Result[]? DecodeQrMultiple(Mat frame)
+        => DecodeMultiple(frame, _qrMultiReader, ref _fullQrScanBuffer, pad: 0);
+
+    private Result[]? DecodeCode39Multiple(Mat frame)
+        => DecodeMultiple(frame, _code39MultiReader, ref _fullCode39ScanBuffer, pad: 0);
+
+    private string? DecodeQrSingle(Mat frame)
+    {
+        var result = DecodeMultiple(frame, _qrSingleReader, ref _singleQrScanBuffer, pad: 50)?.FirstOrDefault();
+        return result == null ? null : TryDecodeBase45(result.Text);
+    }
+
+    private string? DecodeCode39Single(Mat frame)
+    {
+        var result = DecodeMultiple(frame, _code39SingleReader, ref _singleCode39ScanBuffer, pad: 20)?.FirstOrDefault();
+        return result?.Text;
+    }
+
+    private static Result[]? DecodeMultiple(Mat frame, BarcodeReaderGeneric reader, ref byte[] buffer, int pad)
+    {
+        Mat gray = new();
+        try
+        {
             gray = frame.Channels() == 1 ? frame.Clone() : frame.CvtColor(ColorConversionCodes.BGR2GRAY);
             Cv2.Threshold(gray, gray, 20, 255, ThresholdTypes.Binary);
 
-            if (_fullScanBuffer.Length != gray.Rows * gray.Cols)
+            Mat source = gray;
+            Mat? padded = null;
+            if (pad > 0)
             {
-                Array.Clear(_fullScanBuffer);
-                _fullScanBuffer = new byte[gray.Rows * gray.Cols];
-
+                padded = new Mat();
+                Cv2.CopyMakeBorder(gray, padded, pad, pad, pad, pad, BorderTypes.Constant, Scalar.White);
+                source = padded;
             }
 
-            //var bytes  = new byte[gray.Rows * gray.Cols];
-            Marshal.Copy(gray.Data, _fullScanBuffer, 0, _fullScanBuffer.Length);
+            try
+            {
+                var required = source.Rows * source.Cols;
+                if (buffer.Length != required)
+                    buffer = new byte[required];
 
-            var luminance = new ZXing.RGBLuminanceSource(_fullScanBuffer, gray.Cols, gray.Rows,
-                ZXing.RGBLuminanceSource.BitmapFormat.Gray8);
+                Marshal.Copy(source.Data, buffer, 0, buffer.Length);
 
-            var decResult = multiReader.DecodeMultiple(luminance);
-           
-            return decResult;
+                var luminance = new RGBLuminanceSource(buffer, source.Cols, source.Rows, RGBLuminanceSource.BitmapFormat.Gray8);
+                return reader.DecodeMultiple(luminance);
+            }
+            finally
+            {
+                padded?.Dispose();
+            }
         }
         catch
         {
@@ -456,109 +689,10 @@ public sealed class RvBarcodeMonitor : IDisposable
             gray.Dispose();
         }
     }
-    
-    // reuseable mem buffer for capture.   better to update mem then buildup/teardown
-    private byte[] _singleScanBuffer = new byte[1];
-    // this needs to be re done so it doesn't do MultiDecode.  
-    // Maybe even use OpenCV's qr decoder since its faster than ZXing.  will need to try it out.
-    private string? DecodeSingle(Mat frame)
+
+    private void UpdateRegionLock(Result result, RegionKind kind)
     {
-        Mat gray = new Mat();
-        try
-        {
-            // Convert Mat to ZXing LuminanceSource
-            // Using grayscale byte array approach
-             gray = frame.Channels() == 1 ? frame.Clone() : frame.CvtColor(ColorConversionCodes.BGR2GRAY);
-            Cv2.Threshold(gray, gray, 20, 255, ThresholdTypes.Binary);
-            
-            // using var scaled = new Mat();
-            // Cv2.Resize(gray, scaled, new Size(), 2.0, 2.0, InterpolationFlags.Nearest);
-            //
-            //
-            using var padded = new Mat();
-            Cv2.CopyMakeBorder(
-                gray,
-                padded,
-                50, 50, 50, 50,
-                BorderTypes.Constant,
-                Scalar.White);
-
-
-            if (_singleScanBuffer.Length != padded.Rows * padded.Cols)
-            {
-                Array.Clear(_singleScanBuffer);
-                _singleScanBuffer = new byte[padded.Rows * padded.Cols];
-            
-            }
-            
-            
-            Marshal.Copy(padded.Data, _singleScanBuffer, 0, _singleScanBuffer.Length);
-            
-            var luminance = new ZXing.RGBLuminanceSource(_singleScanBuffer, padded.Cols, padded.Rows,
-                ZXing.RGBLuminanceSource.BitmapFormat.Gray8);
-
-            //Cv2.ImShow("bmp", padded);
-
-            var results = singleReader.DecodeMultiple(luminance);
-            //string decodeResult = _QRCodeDetector.DetectAndDecode(padded, out Point2f[] points, null);
-            var result = results != null ?  results.First()  : null;
-            
-            if (result != null && !tempStringHolder.Contains(Base45Simple.DecodeUtf8(result.Text)))
-            {
-                tempStringHolder.Add(Base45Simple.DecodeUtf8(result.Text));
-                Debug.WriteLine($@" {Base45Simple.DecodeUtf8(result.Text)} ");
-            }
-
-            return result != null ? Base45Simple.DecodeUtf8(result.Text) : null;
-        }
-        catch
-        {
-            return null;
-        }
-        finally
-        {
-            gray.Dispose();
-        }
-    }
-    
-    
-    // private void UpdateRegionLock(Result result)
-    // {
-    //     if (result.ResultPoints == null || result.ResultPoints.Length < 3) return;
-    //
-    //     float minX = result.ResultPoints.Min(p => p.X);
-    //     float minY = result.ResultPoints.Min(p => p.Y);
-    //     float maxX = result.ResultPoints.Max(p => p.X);
-    //     float maxY = result.ResultPoints.Max(p => p.Y);
-    //
-    //     const int Margin = 20;
-    //     var candidate = new Rect(
-    //         Math.Max(0, (int)minX - Margin),
-    //         Math.Max(0, (int)minY - Margin),
-    //         (int)(maxX - minX) + Margin * 2,
-    //         (int)(maxY - minY) + Margin * 2);
-    //
-    //     var clamped = ClampRegionToScreen(candidate);
-    //     if (!clamped.HasValue) return;
-    //
-    //     var changed = false;
-    //     lock (_gate)
-    //     {
-    //         if (!_lockedRegion.HasValue || !_lockedRegion.Value.Equals(clamped.Value))
-    //         {
-    //             _lockedRegion = clamped.Value;
-    //             changed = true;
-    //         }
-    //     }
-    //
-    //     if (changed)
-    //         OnLockedRegionChanged?.Invoke(clamped.Value);
-    // }
-
-    
-    private void UpdateRegionLock(Result result)
-    {
-        if (result.ResultPoints == null || result.ResultPoints.Length < 3)
+        if (result.ResultPoints == null || result.ResultPoints.Length < 2)
             return;
 
         float minX = result.ResultPoints.Min(p => p.X);
@@ -566,39 +700,67 @@ public sealed class RvBarcodeMonitor : IDisposable
         float maxX = result.ResultPoints.Max(p => p.X);
         float maxY = result.ResultPoints.Max(p => p.Y);
 
-        const int padding = 30; // 10–20 px is reasonable
+        const int padding = 30;
+        var minHeight = (kind == RegionKind.Code39Guid || kind == RegionKind.Code39Name) ? 80 : 0;
 
-        int screenWidth =   _capture.ScreenWidth; // whatever your actual source is
-        int screenHeight =  _capture.ScreenHeight; // whatever your actual source is
+        int left = Math.Max(0, (int)Math.Floor(minX) - padding);
+        int top = Math.Max(0, (int)Math.Floor(minY) - padding);
+        int right = Math.Min(_capture.ScreenWidth, (int)Math.Ceiling(maxX) + padding);
+        int bottom = Math.Min(_capture.ScreenHeight, (int)Math.Ceiling(maxY) + padding);
 
-        int left   = Math.Max(0, (int)Math.Floor(minX) - padding);
-        int top    = Math.Max(0, (int)Math.Floor(minY) - padding);
-        int right  = Math.Min(screenWidth,  (int)Math.Ceiling(maxX) + padding);
-        int bottom = Math.Min(screenHeight, (int)Math.Ceiling(maxY) + padding);
+        if (minHeight > 0 && bottom - top < minHeight)
+        {
+            var centerY = (top + bottom) / 2;
+            top = Math.Max(0, centerY - minHeight / 2);
+            bottom = Math.Min(_capture.ScreenHeight, top + minHeight);
+        }
 
-        int width = right - left;
-        int height = bottom - top;
-
+        var width = right - left;
+        var height = bottom - top;
         if (width <= 0 || height <= 0)
             return;
 
         var clamped = new Rect(left, top, width, height);
-
         var changed = false;
+
         lock (_gate)
         {
-            if (!_lockedRegion.HasValue || !_lockedRegion.Value.Equals(clamped))
+            if (kind == RegionKind.Code39Guid)
             {
-                _lockedRegion = clamped;
-                changed = true;
+                if (!_lockedCode39GuidRegion.HasValue || !_lockedCode39GuidRegion.Value.Equals(clamped))
+                {
+                    _lockedCode39GuidRegion = clamped;
+                    changed = true;
+                }
+            }
+            else if (kind == RegionKind.Code39Name)
+            {
+                if (!_lockedCode39NameRegion.HasValue || !_lockedCode39NameRegion.Value.Equals(clamped))
+                {
+                    _lockedCode39NameRegion = clamped;
+                    changed = true;
+                }
+            }
+            else
+            {
+                if (!_lockedRegion.HasValue || !_lockedRegion.Value.Equals(clamped))
+                {
+                    _lockedRegion = clamped;
+                    changed = true;
+                }
             }
         }
 
-        if (changed)
+        if (!changed) return;
+
+        if (kind == RegionKind.Code39Guid)
+            OnLockedCode39GuidRegionChanged?.Invoke(clamped);
+        else if (kind == RegionKind.Code39Name)
+            OnLockedCode39NameRegionChanged?.Invoke(clamped);
+        else
             OnLockedRegionChanged?.Invoke(clamped);
     }
-    
-    
+
     // ── Full-screen rescan loop ───────────────────────────────────────────────
 
     private async Task ReScanLoopAsync(CancellationToken ct)
@@ -608,22 +770,20 @@ public sealed class RvBarcodeMonitor : IDisposable
         {
             bool needsScan;
             lock (_gate)
-                needsScan = !_regionHasRvQr;
+                needsScan = !_regionHasRvQr || !_regionHasCode39Guid || !_regionHasCode39Name;
 
             if (needsScan)
             {
-                Rect? lockedRegion;
+                Rect? qrRegion;
                 lock (_gate)
-                    lockedRegion = _lockedRegion;
+                    qrRegion = _lockedRegion;
 
-                // Force a one-shot full-screen capture to search for the QR frame
-                // without ever suppressing region polling. Region scanning remains
-                // continuously owned by the capture loop; full scan only augments it.
                 lock (_captureIoGate)
                 {
-                    _capture.EnableRegion = lockedRegion.HasValue;
-                    if (lockedRegion.HasValue)
-                        _capture.CaptureRegion = lockedRegion.Value;
+                    _activeRegionKind = RegionKind.None;
+                    _capture.EnableRegion = qrRegion.HasValue;
+                    if (qrRegion.HasValue)
+                        _capture.CaptureRegion = qrRegion.Value;
 
                     _capture.EnableFullScreen = true;
                     _capture.CaptureOnce();
@@ -655,7 +815,7 @@ public sealed class RvBarcodeMonitor : IDisposable
                               && elapsed > SourceGoneThresholdMs;
                 if (shouldSignal)
                 {
-                    _regionHasRvQr       = false;
+                    _regionHasRvQr = false;
                     _sourceGoneSignalled = true;
                 }
             }
@@ -664,13 +824,6 @@ public sealed class RvBarcodeMonitor : IDisposable
         }
     }
 
-    // public void Dispose()
-    // {
-    //     if (_disposed) return;
-    //     _disposed = true;
-    //     StopAsync().GetAwaiter().GetResult();
-    // }
-    
     public void Dispose()
     {
         if (_disposed) return;

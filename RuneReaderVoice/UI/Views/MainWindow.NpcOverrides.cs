@@ -43,6 +43,7 @@ public partial class MainWindow
 
     // NpcId of the NPC shown in the Last NPC panel. 0 = no NPC (narrator/book).
     private int _lastNpcId;
+    private string _lastNpcName = string.Empty;
     private bool _suppressLastNpcRaceSearchEvents;
     private int _npcOverridesPageNumber = 1;
     private int _npcOverridesPageSize = 100;
@@ -275,7 +276,10 @@ public partial class MainWindow
             return;
 
         _lastNpcId = seg.NpcId;
-        LastNpcIdLabel.Text = $"NPC ID: {seg.NpcId}";
+        _lastNpcName = seg.NpcName?.Trim() ?? string.Empty;
+        LastNpcIdLabel.Text = string.IsNullOrWhiteSpace(_lastNpcName)
+            ? $"NPC ID: {seg.NpcId}"
+            : $"NPC ID: {seg.NpcId}  •  {_lastNpcName}";
         LastNpcPanel.IsVisible = true;
 
         // Refresh sample dropdown — voice list may have loaded since init
@@ -335,6 +339,7 @@ public partial class MainWindow
             await AppServices.NpcOverrides.UpsertAsync(
                 _lastNpcId, catalogId, notes,
                 raceId: raceId,
+                npcName: _lastNpcName,
                 bespokeSampleId: bespokeSampleId,
                 useNpcIdAsSeed: useNpcIdAsSeed,
                 genderOverride: genderOverride);
@@ -376,6 +381,7 @@ public partial class MainWindow
             {
                 LastNpcRaceDropdown.SelectedIndex = 0;
                 LastNpcNotesBox.Text = string.Empty;
+                _lastNpcName = string.Empty;
                 LastNpcUseNpcIdAsSeedCheckBox.IsChecked = false;
                 SelectLastNpcGenderOverride(NpcGenderOverride.Auto);
                 LastNpcClearButton.IsEnabled = false;
@@ -437,7 +443,7 @@ public partial class MainWindow
                 Margin     = new Avalonia.Thickness(4, 8, 4, 4),
             };
             Grid.SetRow(empty, 1);
-            Grid.SetColumnSpan(empty, 7);
+            Grid.SetColumnSpan(empty, 8);
             NpcOverridesGrid.Children.Add(empty);
             return;
         }
@@ -487,7 +493,7 @@ public partial class MainWindow
 
     private void AddOverrideHeaderRow()
     {
-        var headers = new[] { "NPC ID", "Notes", "Race / Accent", "Gender", "Source", "", "" };
+        var headers = new[] { "NPC ID", "NPC Name", "Notes", "Race / Accent", "Gender", "Source", "", "" };
         for (int col = 0; col < headers.Length; col++)
         {
             var tb = new TextBlock
@@ -508,9 +514,10 @@ public partial class MainWindow
         var isLocal = !entry.IsReadOnly;
 
         AddCell(entry.NpcId.ToString(), rowIndex, 0);
-        AddCell(entry.Notes ?? string.Empty, rowIndex, 1, Brushes.LightGray);
-        AddCell(GetNpcOverrideCatalogLabel(entry), rowIndex, 2, Brushes.LightGray);
-        AddCell(entry.GenderOverride.ToString(), rowIndex, 3,
+        AddCell(entry.NpcName ?? string.Empty, rowIndex, 1, Brushes.LightGray);
+        AddCell(entry.Notes ?? string.Empty, rowIndex, 2, Brushes.LightGray);
+        AddCell(GetNpcOverrideCatalogLabel(entry), rowIndex, 3, Brushes.LightGray);
+        AddCell(entry.GenderOverride.ToString(), rowIndex, 4,
             entry.GenderOverride == NpcGenderOverride.Auto ? Brushes.DimGray : Brushes.LightGray, fontSize: 10);
 
         var sourceBrush = entry.Source switch
@@ -519,7 +526,7 @@ public partial class MainWindow
             NpcOverrideSource.CrowdSourced => Brushes.SkyBlue,
             _                              => Brushes.DimGray,
         };
-        AddCell(entry.Source.ToString(), rowIndex, 4, sourceBrush, fontSize: 10);
+        AddCell(entry.Source.ToString(), rowIndex, 5, sourceBrush, fontSize: 10);
 
         if (isLocal)
         {
@@ -533,7 +540,7 @@ public partial class MainWindow
             };
             editBtn.Click += OnNpcOverrideEditClicked;
             Grid.SetRow(editBtn, rowIndex);
-            Grid.SetColumn(editBtn, 5);
+            Grid.SetColumn(editBtn, 6);
             NpcOverridesGrid.Children.Add(editBtn);
 
             var delBtn = new Button
@@ -547,7 +554,7 @@ public partial class MainWindow
             };
             delBtn.Click += OnNpcOverrideDeleteClicked;
             Grid.SetRow(delBtn, rowIndex);
-            Grid.SetColumn(delBtn, 6);
+            Grid.SetColumn(delBtn, 7);
             NpcOverridesGrid.Children.Add(delBtn);
         }
         else
@@ -562,7 +569,7 @@ public partial class MainWindow
             };
             overrideBtn.Click += OnNpcOverrideLocalOverrideClicked;
             Grid.SetRow(overrideBtn, rowIndex);
-            Grid.SetColumn(overrideBtn, 5);
+            Grid.SetColumn(overrideBtn, 6);
             Grid.SetColumnSpan(overrideBtn, 2);
             NpcOverridesGrid.Children.Add(overrideBtn);
         }
@@ -573,7 +580,10 @@ public partial class MainWindow
         if (sender is not Button btn || btn.Tag is not NpcRaceOverride entry) return;
 
         _lastNpcId = entry.NpcId;
-        LastNpcIdLabel.Text    = $"NPC ID: {entry.NpcId}";
+        _lastNpcName = entry.NpcName?.Trim() ?? string.Empty;
+        LastNpcIdLabel.Text = string.IsNullOrWhiteSpace(_lastNpcName)
+            ? $"NPC ID: {entry.NpcId}"
+            : $"NPC ID: {entry.NpcId}  •  {_lastNpcName}";
         LastNpcNotesBox.Text   = entry.Notes ?? string.Empty;
         LastNpcPanel.IsVisible = true;
         SelectDropdownByCatalogId(LastNpcRaceDropdown, entry.CatalogId);
@@ -610,6 +620,7 @@ public partial class MainWindow
             await AppServices.NpcOverrides.UpsertAsync(
                 entry.NpcId, catalogId, entry.Notes,
                 raceId: entry.RaceId,
+                npcName: entry.NpcName,
                 bespokeSampleId: entry.BespokeSampleId,
                 bespokeExaggeration: entry.BespokeExaggeration,
                 bespokeCfgWeight: entry.BespokeCfgWeight,
@@ -833,6 +844,7 @@ public partial class MainWindow
     {
         public int     NpcId               { get; set; }
         public string? CatalogId           { get; set; }
+        public string? NpcName             { get; set; }
         public int     RaceId              { get; set; }
         public string? Notes               { get; set; }
         public string? BespokeSampleId     { get; set; }
@@ -869,6 +881,7 @@ public partial class MainWindow
                 {
                     NpcId               = x.NpcId,
                     CatalogId           = x.CatalogId,
+                    NpcName             = x.NpcName,
                     RaceId              = x.RaceId,
                     Notes               = x.Notes,
                     BespokeSampleId     = x.BespokeSampleId,
@@ -942,6 +955,7 @@ public partial class MainWindow
                 await AppServices.NpcOverrides.UpsertAsync(
                     entry.NpcId, resolvedCatalogId, entry.Notes,
                     raceId: entry.RaceId,
+                    npcName: entry.NpcName,
                     bespokeSampleId:     entry.BespokeSampleId,
                     bespokeExaggeration: entry.BespokeExaggeration,
                     bespokeCfgWeight:    entry.BespokeCfgWeight,

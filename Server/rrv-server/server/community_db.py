@@ -47,6 +47,7 @@ _CREATE_TABLE = """
 CREATE TABLE IF NOT EXISTS npc_overrides (
     npc_id               INTEGER PRIMARY KEY,
     catalog_id           TEXT    DEFAULT '',
+    npc_name             TEXT    DEFAULT '',
     race_id              INTEGER NOT NULL,
     notes                TEXT    DEFAULT '',
     bespoke_sample_id    TEXT    DEFAULT NULL,
@@ -97,6 +98,8 @@ class CommunityDb:
             cols = {str(row[1]).lower() for row in await cursor.fetchall()}
         if "catalog_id" not in cols:
             await self._conn.execute("ALTER TABLE npc_overrides ADD COLUMN catalog_id TEXT DEFAULT ''")
+        if "npc_name" not in cols:
+            await self._conn.execute("ALTER TABLE npc_overrides ADD COLUMN npc_name TEXT DEFAULT ''")
         if "gender_override" not in cols:
             await self._conn.execute("ALTER TABLE npc_overrides ADD COLUMN gender_override TEXT NOT NULL DEFAULT 'auto'")
 
@@ -126,6 +129,7 @@ class CommunityDb:
         npc_id: int,
         race_id: int,
         catalog_id: str | None = None,
+        npc_name: str | None = None,
         notes: str = "",
         bespoke_sample_id: str | None = None,
         bespoke_exaggeration: float | None = None,
@@ -166,6 +170,7 @@ class CommunityDb:
                 """
                 UPDATE npc_overrides SET
                     catalog_id           = ?,
+                    npc_name             = ?,
                     race_id              = ?,
                     notes                = ?,
                     bespoke_sample_id    = ?,
@@ -179,6 +184,7 @@ class CommunityDb:
                 """,
                 (
                     catalog_id if catalog_id is not None else existing.get("catalog_id", ""),
+                    npc_name if npc_name is not None else existing.get("npc_name", ""),
                     race_id,
                     notes or existing["notes"],
                     bespoke_sample_id,
@@ -195,7 +201,7 @@ class CommunityDb:
             await self._conn.execute(
                 """
                 INSERT INTO npc_overrides
-                    (npc_id, catalog_id, race_id, notes, bespoke_sample_id,
+                    (npc_id, catalog_id, npc_name, race_id, notes, bespoke_sample_id,
                      bespoke_exaggeration, bespoke_cfg_weight, gender_override,
                      source, confidence, created_at, updated_at)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -238,6 +244,7 @@ class CommunityDb:
                 npc_id=int(rec["npc_id"]),
                 race_id=int(rec["race_id"]),
                 catalog_id=rec.get("catalog_id"),
+                npc_name=rec.get("npc_name"),
                 notes=str(rec.get("notes") or ""),
                 bespoke_sample_id=rec.get("bespoke_sample_id"),
                 bespoke_exaggeration=rec.get("bespoke_exaggeration"),

@@ -45,6 +45,7 @@ public sealed class NpcRaceOverrideRow
     public int     RaceId              { get; set; }
     public string  CatalogId           { get; set; } = string.Empty;
     public string  Notes               { get; set; } = string.Empty;
+    public string  NpcName             { get; set; } = string.Empty;
 
     // Bespoke voice override — null means "inherit from race slot"
     public string? BespokeSampleId     { get; set; } = null;
@@ -180,6 +181,8 @@ public sealed class RvrDb : IDisposable
             await Connection.ExecuteAsync("ALTER TABLE NpcRaceOverrides ADD COLUMN CatalogId TEXT NOT NULL DEFAULT ''");
         if (!cols.Any(c => string.Equals(c.name, "GenderOverride", StringComparison.OrdinalIgnoreCase)))
             await Connection.ExecuteAsync("ALTER TABLE NpcRaceOverrides ADD COLUMN GenderOverride TEXT NOT NULL DEFAULT 'Auto'");
+        if (!cols.Any(c => string.Equals(c.name, "NpcName", StringComparison.OrdinalIgnoreCase)))
+            await Connection.ExecuteAsync("ALTER TABLE NpcRaceOverrides ADD COLUMN NpcName TEXT NOT NULL DEFAULT ''");
     }
 
 

@@ -249,12 +249,27 @@ internal static class Program
         assembler.OnSessionReset += id => { pendingExpandedSegments.Clear(); coordinator.OnSessionReset(id); };
 
         var monitor = new RvBarcodeMonitor(platform.ScreenCapture);
+        // Migrate old one-Code39-region setting into GUID side-channel.
+        settings.LastCode39GuidBarcodeRegion ??= settings.LastCode39BarcodeRegion;
+
         monitor.TrySetInitialLockedRegion(settings.LastBarcodeRegion);
+        monitor.TrySetInitialLockedCode39GuidRegion(settings.LastCode39GuidBarcodeRegion);
+        monitor.TrySetInitialLockedCode39NameRegion(settings.LastCode39NameBarcodeRegion);
         monitor.CaptureIntervalMs     = settings.CaptureIntervalMs;
         monitor.ReScanIntervalMs      = settings.ReScanIntervalMs;
         monitor.SourceGoneThresholdMs = settings.SourceGoneThresholdMs;
 
         monitor.OnPacketDecoded += assembler.Feed;
+        monitor.OnCode39GuidDecoded += guid =>
+        {
+            AppServices.CurrentCode39Guid = guid;
+            System.Diagnostics.Debug.WriteLine($"[Code39] Current GUID side-channel = {guid}");
+        };
+        monitor.OnCode39NameDecoded += name =>
+        {
+            AppServices.CurrentCode39Name = name;
+            System.Diagnostics.Debug.WriteLine($"[Code39] Current NPC name side-channel = {name}");
+        };
         monitor.OnSourceGone += () =>
         {
             assembler.SignalSourceGone();
@@ -274,6 +289,35 @@ internal static class Program
             _ = VoiceSettingsManager.SaveSettingsAsync(settings);
            // platform.ScreenCapture.CaptureRegion = new Rect(settings.LastBarcodeRegion.X, settings.LastBarcodeRegion.Y, settings.LastBarcodeRegion.Width, settings.LastBarcodeRegion.Height);
                 
+        };
+
+        monitor.OnLockedCode39GuidRegionChanged += rect =>
+        {
+            settings.LastCode39GuidBarcodeRegion = new SavedBarcodeRegion
+            {
+                X = rect.X,
+                Y = rect.Y,
+                Width = rect.Width,
+                Height = rect.Height,
+                ScreenWidth = platform.ScreenCapture.ScreenWidth,
+                ScreenHeight = platform.ScreenCapture.ScreenHeight,
+            };
+            settings.LastCode39BarcodeRegion = settings.LastCode39GuidBarcodeRegion;
+            _ = VoiceSettingsManager.SaveSettingsAsync(settings);
+        };
+
+        monitor.OnLockedCode39NameRegionChanged += rect =>
+        {
+            settings.LastCode39NameBarcodeRegion = new SavedBarcodeRegion
+            {
+                X = rect.X,
+                Y = rect.Y,
+                Width = rect.Width,
+                Height = rect.Height,
+                ScreenWidth = platform.ScreenCapture.ScreenWidth,
+                ScreenHeight = platform.ScreenCapture.ScreenHeight,
+            };
+            _ = VoiceSettingsManager.SaveSettingsAsync(settings);
         };
 
         platform.ScreenCapture.OnFullScreenUpdated += monitor.ProcessFrame;

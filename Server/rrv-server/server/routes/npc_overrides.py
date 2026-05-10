@@ -31,7 +31,7 @@ import logging
 from typing import Optional
 
 from fastapi import APIRouter, HTTPException, Request, Header
-from pydantic import BaseModel, Field
+from pydantic import AliasChoices, BaseModel, Field
 
 log = logging.getLogger(__name__)
 
@@ -43,6 +43,7 @@ router = APIRouter()
 class NpcOverrideContributeRequest(BaseModel):
     npc_id:               int
     catalog_id:           Optional[str]   = None
+    npc_name:             Optional[str]   = Field(default=None, validation_alias=AliasChoices("npc_name", "NpcName", "npcName"))
     race_id:              int
     notes:                str   = ""
     bespoke_sample_id:    Optional[str]   = None
@@ -53,6 +54,7 @@ class NpcOverrideContributeRequest(BaseModel):
 
 class NpcOverrideAdminRequest(BaseModel):
     catalog_id:           Optional[str]   = None
+    npc_name:             Optional[str]   = Field(default=None, validation_alias=AliasChoices("npc_name", "NpcName", "npcName"))
     race_id:              int
     notes:                str   = ""
     bespoke_sample_id:    Optional[str]   = None
@@ -139,6 +141,7 @@ async def contribute_npc_override(
     record = await db.upsert(
         npc_id               = body.npc_id,
         catalog_id           = body.catalog_id,
+        npc_name             = body.npc_name,
         race_id              = body.race_id,
         notes                = body.notes,
         bespoke_sample_id    = body.bespoke_sample_id,
@@ -149,8 +152,8 @@ async def contribute_npc_override(
         confidence_delta     = 1,
     )
     log.info(
-        "NPC override contributed: npc_id=%d catalog_id=%s race_id=%d confidence=%d",
-        body.npc_id, body.catalog_id, body.race_id, record["confidence"],
+        "NPC override contributed: npc_id=%d catalog_id=%s npc_name=%s race_id=%d confidence=%d",
+        body.npc_id, body.catalog_id, body.npc_name, body.race_id, record["confidence"],
     )
     return {"record": record}
 
@@ -173,6 +176,7 @@ async def contribute_npc_override_batch(
         {
             "npc_id": r.npc_id,
             "catalog_id": r.catalog_id,
+            "npc_name": r.npc_name,
             "race_id": r.race_id,
             "notes": r.notes,
             "bespoke_sample_id": r.bespoke_sample_id,
@@ -210,6 +214,7 @@ async def admin_confirm_npc_override(
     record = await db.upsert(
         npc_id               = npc_id,
         catalog_id           = body.catalog_id,
+        npc_name             = body.npc_name,
         race_id              = body.race_id,
         notes                = body.notes,
         bespoke_sample_id    = body.bespoke_sample_id,
@@ -220,7 +225,7 @@ async def admin_confirm_npc_override(
         confidence_delta     = 0,
     )
     log.info(
-        "NPC override confirmed by admin: npc_id=%d catalog_id=%s race_id=%d source=%s",
-        npc_id, body.catalog_id, body.race_id, body.source,
+        "NPC override confirmed by admin: npc_id=%d catalog_id=%s npc_name=%s race_id=%d source=%s",
+        npc_id, body.catalog_id, body.npc_name, body.race_id, body.source,
     )
     return {"record": record}
