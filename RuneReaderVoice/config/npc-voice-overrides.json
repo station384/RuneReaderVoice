@@ -893,6 +893,17 @@
       "GenderOverride": "Auto"
     },
     {
+      "NpcId": 217169,
+      "CatalogId": "tauren",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": null,
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false,
+      "GenderOverride": "Auto"
+    },
+    {
       "NpcId": 232023,
       "CatalogId": "orc",
       "RaceId": 0,
@@ -2246,6 +2257,28 @@
       "GenderOverride": "Auto"
     },
     {
+      "NpcId": 237234,
+      "CatalogId": "haranir",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": "U_Orweyna_1",
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false,
+      "GenderOverride": "Auto"
+    },
+    {
+      "NpcId": 237236,
+      "CatalogId": "haranir",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": null,
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false,
+      "GenderOverride": "Auto"
+    },
+    {
       "NpcId": 237240,
       "CatalogId": "voidelf",
       "RaceId": 0,
@@ -2317,6 +2350,39 @@
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_Liadrin_4",
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false,
+      "GenderOverride": "Auto"
+    },
+    {
+      "NpcId": 237284,
+      "CatalogId": "haranir",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": null,
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false,
+      "GenderOverride": "Auto"
+    },
+    {
+      "NpcId": 237295,
+      "CatalogId": "rutaani",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": null,
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false,
+      "GenderOverride": "Auto"
+    },
+    {
+      "NpcId": 237325,
+      "CatalogId": "haranir",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": "U_Orweyna_1",
       "BespokeExaggeration": null,
       "BespokeCfgWeight": null,
       "UseNpcIdAsSeed": false,
@@ -2400,11 +2466,44 @@
       "GenderOverride": "Auto"
     },
     {
+      "NpcId": 237356,
+      "CatalogId": "haranir",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": "U_Orweyna_1",
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false,
+      "GenderOverride": "Auto"
+    },
+    {
+      "NpcId": 237361,
+      "CatalogId": "haranir",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": "U_Orweyna_1",
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false,
+      "GenderOverride": "Auto"
+    },
+    {
       "NpcId": 237433,
       "CatalogId": "human",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_Lorthemar_Theron_1",
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false,
+      "GenderOverride": "Auto"
+    },
+    {
+      "NpcId": 237465,
+      "CatalogId": "bloodelf",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": null,
       "BespokeExaggeration": null,
       "BespokeCfgWeight": null,
       "UseNpcIdAsSeed": false,
@@ -2532,6 +2631,61 @@
       "GenderOverride": "Auto"
     },
     {
+      "NpcId": 237607,
+      "CatalogId": "haranir",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": null,
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false,
+      "GenderOverride": "Auto"
+    },
+    {
+      "NpcId": 237624,
+      "CatalogId": "fungarian",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": null,
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false,
+      "GenderOverride": "Auto"
+    },
+    {
+      "NpcId": 237625,
+      "CatalogId": "rutaani",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": null,
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false,
+      "GenderOverride": "Auto"
+    },
+    {
+      "NpcId": 237786,
+      "CatalogId": "haranir",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": "U_Orweyna_1",
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false,
+      "GenderOverride": "Auto"
+    },
+    {
+      "NpcId": 237787,
+      "CatalogId": "bloodelf",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": null,
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false,
+      "GenderOverride": "Auto"
+    },
+    {
       "NpcId": 237793,
       "CatalogId": "haranir",
       "RaceId": 0,
@@ -2548,6 +2702,17 @@
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false,
+      "GenderOverride": "Auto"
+    },
+    {
+      "NpcId": 237860,
+      "CatalogId": "haranir",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": "U_Orweyna_1",
       "BespokeExaggeration": null,
       "BespokeCfgWeight": null,
       "UseNpcIdAsSeed": false,
@@ -2589,6 +2754,17 @@
     {
       "NpcId": 238101,
       "CatalogId": "tauren",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": null,
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false,
+      "GenderOverride": "Auto"
+    },
+    {
+      "NpcId": 238170,
+      "CatalogId": "haranir",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -2741,6 +2917,17 @@
       "GenderOverride": "Auto"
     },
     {
+      "NpcId": 239650,
+      "CatalogId": "haranir",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": null,
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false,
+      "GenderOverride": "Auto"
+    },
+    {
       "NpcId": 239659,
       "CatalogId": "voidelf",
       "RaceId": 0,
@@ -2823,6 +3010,61 @@
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false,
+      "GenderOverride": "Auto"
+    },
+    {
+      "NpcId": 239795,
+      "CatalogId": "haranir",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": null,
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false,
+      "GenderOverride": "Auto"
+    },
+    {
+      "NpcId": 239810,
+      "CatalogId": "human",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": "U_High_Exarch_Turalyon_1",
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false,
+      "GenderOverride": "Auto"
+    },
+    {
+      "NpcId": 239826,
+      "CatalogId": "voidelf",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": "U_Alleria_Windrunner_1",
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false,
+      "GenderOverride": "Auto"
+    },
+    {
+      "NpcId": 239827,
+      "CatalogId": "bloodelf",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": "U_Arator_1",
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false,
+      "GenderOverride": "Auto"
+    },
+    {
+      "NpcId": 239828,
+      "CatalogId": "voidelf",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": "U_Umbric",
       "BespokeExaggeration": null,
       "BespokeCfgWeight": null,
       "UseNpcIdAsSeed": false,
@@ -2928,11 +3170,132 @@
       "GenderOverride": "Auto"
     },
     {
+      "NpcId": 240225,
+      "CatalogId": "rutaani",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": null,
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false,
+      "GenderOverride": "Auto"
+    },
+    {
+      "NpcId": 240238,
+      "CatalogId": "rutaani",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": null,
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false,
+      "GenderOverride": "Auto"
+    },
+    {
+      "NpcId": 240239,
+      "CatalogId": "rutaani",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": null,
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false,
+      "GenderOverride": "Auto"
+    },
+    {
       "NpcId": 240240,
       "CatalogId": "undead",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_Alonsus_Faol",
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false,
+      "GenderOverride": "Auto"
+    },
+    {
+      "NpcId": 240255,
+      "CatalogId": "nightborne",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": "U_Thalyssra",
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false,
+      "GenderOverride": "Auto"
+    },
+    {
+      "NpcId": 240257,
+      "CatalogId": "bloodelf",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": "U_Liadrin_4",
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false,
+      "GenderOverride": "Auto"
+    },
+    {
+      "NpcId": 240259,
+      "CatalogId": "bloodelf",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": null,
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false,
+      "GenderOverride": "Auto"
+    },
+    {
+      "NpcId": 240260,
+      "CatalogId": "voidelf",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": "U_Umbric",
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false,
+      "GenderOverride": "Auto"
+    },
+    {
+      "NpcId": 240261,
+      "CatalogId": "bloodelf",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": null,
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false,
+      "GenderOverride": "Auto"
+    },
+    {
+      "NpcId": 240262,
+      "CatalogId": "bloodelf",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": "U_Vereesa_Windrunner_2",
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false,
+      "GenderOverride": "Auto"
+    },
+    {
+      "NpcId": 240266,
+      "CatalogId": "bloodelf",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": "U_Lorthemar_Theron_1",
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false,
+      "GenderOverride": "Auto"
+    },
+    {
+      "NpcId": 240267,
+      "CatalogId": "bloodelf",
+      "RaceId": 0,
+      "Notes": "Arator",
+      "BespokeSampleId": "U_Arator_1",
       "BespokeExaggeration": null,
       "BespokeCfgWeight": null,
       "UseNpcIdAsSeed": false,
@@ -2952,6 +3315,105 @@
     {
       "NpcId": 240279,
       "CatalogId": "amani",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": null,
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false,
+      "GenderOverride": "Auto"
+    },
+    {
+      "NpcId": 240285,
+      "CatalogId": "bloodelf",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": null,
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false,
+      "GenderOverride": "Auto"
+    },
+    {
+      "NpcId": 240295,
+      "CatalogId": "bloodelf",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": "U_Vereesa_Windrunner_2",
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false,
+      "GenderOverride": "Auto"
+    },
+    {
+      "NpcId": 240296,
+      "CatalogId": "bloodelf",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": "U_Arator_1",
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false,
+      "GenderOverride": "Auto"
+    },
+    {
+      "NpcId": 240297,
+      "CatalogId": "bloodelf",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": null,
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": true,
+      "GenderOverride": "Auto"
+    },
+    {
+      "NpcId": 240302,
+      "CatalogId": "nightborne",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": "U_Thalyssra",
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false,
+      "GenderOverride": "Auto"
+    },
+    {
+      "NpcId": 240334,
+      "CatalogId": "nightelf",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": null,
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false,
+      "GenderOverride": "Auto"
+    },
+    {
+      "NpcId": 240335,
+      "CatalogId": "bloodelf",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": "U_Lorthemar_Theron_1",
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false,
+      "GenderOverride": "Auto"
+    },
+    {
+      "NpcId": 240337,
+      "CatalogId": "nightelf",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": null,
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false,
+      "GenderOverride": "Auto"
+    },
+    {
+      "NpcId": 240404,
+      "CatalogId": "haranir",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -3005,6 +3467,28 @@
       "GenderOverride": "Auto"
     },
     {
+      "NpcId": 240532,
+      "CatalogId": "bloodelf",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": null,
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false,
+      "GenderOverride": "Auto"
+    },
+    {
+      "NpcId": 240533,
+      "CatalogId": "haranir",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": "U_Orweyna_1",
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false,
+      "GenderOverride": "Auto"
+    },
+    {
       "NpcId": 240538,
       "CatalogId": "voidelf",
       "RaceId": 0,
@@ -3021,6 +3505,17 @@
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_Orweyna_1",
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false,
+      "GenderOverride": "Auto"
+    },
+    {
+      "NpcId": 240630,
+      "CatalogId": "bloodelf",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": null,
       "BespokeExaggeration": null,
       "BespokeCfgWeight": null,
       "UseNpcIdAsSeed": false,
@@ -3104,6 +3599,17 @@
       "GenderOverride": "Auto"
     },
     {
+      "NpcId": 240754,
+      "CatalogId": "haranir",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": "U_Hagar",
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false,
+      "GenderOverride": "Auto"
+    },
+    {
       "NpcId": 240837,
       "CatalogId": "bloodelf",
       "RaceId": 0,
@@ -3126,8 +3632,41 @@
       "GenderOverride": "Auto"
     },
     {
+      "NpcId": 240839,
+      "CatalogId": "haranir",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": "U_Hagar",
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false,
+      "GenderOverride": "Auto"
+    },
+    {
       "NpcId": 240936,
       "CatalogId": "bloodelf",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": null,
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false,
+      "GenderOverride": "Auto"
+    },
+    {
+      "NpcId": 241020,
+      "CatalogId": "haranir",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": null,
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false,
+      "GenderOverride": "Auto"
+    },
+    {
+      "NpcId": 241045,
+      "CatalogId": "haranir",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -3142,6 +3681,17 @@
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_Liadrin_4",
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false,
+      "GenderOverride": "Auto"
+    },
+    {
+      "NpcId": 241070,
+      "CatalogId": "haranir",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": "U_Orweyna_1",
       "BespokeExaggeration": null,
       "BespokeCfgWeight": null,
       "UseNpcIdAsSeed": false,
@@ -3164,6 +3714,17 @@
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_Arator_1",
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false,
+      "GenderOverride": "Auto"
+    },
+    {
+      "NpcId": 241130,
+      "CatalogId": "bloodelf",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": null,
       "BespokeExaggeration": null,
       "BespokeCfgWeight": null,
       "UseNpcIdAsSeed": false,
@@ -3302,6 +3863,17 @@
       "GenderOverride": "Auto"
     },
     {
+      "NpcId": 241331,
+      "CatalogId": "haranir",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": "U_Orweyna_1",
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false,
+      "GenderOverride": "Auto"
+    },
+    {
       "NpcId": 241450,
       "CatalogId": "bloodelf",
       "RaceId": 0,
@@ -3401,6 +3973,17 @@
       "GenderOverride": "Auto"
     },
     {
+      "NpcId": 241690,
+      "CatalogId": "haranir",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": null,
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false,
+      "GenderOverride": "Auto"
+    },
+    {
       "NpcId": 241703,
       "CatalogId": "bloodelf",
       "RaceId": 0,
@@ -3412,11 +3995,55 @@
       "GenderOverride": "Auto"
     },
     {
+      "NpcId": 241704,
+      "CatalogId": "haranir",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": "U_Orweyna_1",
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false,
+      "GenderOverride": "Auto"
+    },
+    {
+      "NpcId": 241742,
+      "CatalogId": "haranir",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": "U_Orweyna_1",
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false,
+      "GenderOverride": "Auto"
+    },
+    {
       "NpcId": 241791,
       "CatalogId": "haranir",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false,
+      "GenderOverride": "Auto"
+    },
+    {
+      "NpcId": 241794,
+      "CatalogId": "bloodelf",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": null,
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false,
+      "GenderOverride": "Auto"
+    },
+    {
+      "NpcId": 241795,
+      "CatalogId": "haranir",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": "U_Orweyna_1",
       "BespokeExaggeration": null,
       "BespokeCfgWeight": null,
       "UseNpcIdAsSeed": false,
@@ -3632,8 +4259,30 @@
       "GenderOverride": "Auto"
     },
     {
+      "NpcId": 242592,
+      "CatalogId": "haranir",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": "U_Orweyna_1",
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false,
+      "GenderOverride": "Auto"
+    },
+    {
       "NpcId": 242593,
       "CatalogId": "goblin",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": "U_Gazlowe_1",
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false,
+      "GenderOverride": "Auto"
+    },
+    {
+      "NpcId": 242596,
+      "CatalogId": "haranir",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -3753,6 +4402,28 @@
       "GenderOverride": "Auto"
     },
     {
+      "NpcId": 242684,
+      "CatalogId": "haranir",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": null,
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false,
+      "GenderOverride": "Auto"
+    },
+    {
+      "NpcId": 242689,
+      "CatalogId": "haranir",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": null,
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false,
+      "GenderOverride": "Auto"
+    },
+    {
       "NpcId": 242700,
       "CatalogId": "voidelf",
       "RaceId": 0,
@@ -3780,6 +4451,28 @@
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_Taelia_1",
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false,
+      "GenderOverride": "Auto"
+    },
+    {
+      "NpcId": 242881,
+      "CatalogId": "goblin",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": "U_Gazlowe_1",
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false,
+      "GenderOverride": "Auto"
+    },
+    {
+      "NpcId": 242882,
+      "CatalogId": "haranir",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": "U_Orweyna_1",
       "BespokeExaggeration": null,
       "BespokeCfgWeight": null,
       "UseNpcIdAsSeed": false,
@@ -3852,6 +4545,17 @@
       "GenderOverride": "Auto"
     },
     {
+      "NpcId": 243053,
+      "CatalogId": "haranir",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": null,
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false,
+      "GenderOverride": "Auto"
+    },
+    {
       "NpcId": 243091,
       "CatalogId": "bloodelf",
       "RaceId": 0,
@@ -3876,6 +4580,105 @@
     {
       "NpcId": 243126,
       "CatalogId": "bloodelf",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": null,
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false,
+      "GenderOverride": "Auto"
+    },
+    {
+      "NpcId": 243169,
+      "CatalogId": "fungarian",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": null,
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": true,
+      "GenderOverride": "Auto"
+    },
+    {
+      "NpcId": 243170,
+      "CatalogId": "fungarian",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": null,
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": true,
+      "GenderOverride": "Auto"
+    },
+    {
+      "NpcId": 243172,
+      "CatalogId": "fungarian",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": null,
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": true,
+      "GenderOverride": "Auto"
+    },
+    {
+      "NpcId": 243173,
+      "CatalogId": "fungarian",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": null,
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": true,
+      "GenderOverride": "Auto"
+    },
+    {
+      "NpcId": 243178,
+      "CatalogId": "fungarian",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": null,
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": true,
+      "GenderOverride": "Auto"
+    },
+    {
+      "NpcId": 243179,
+      "CatalogId": "fungarian",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": null,
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": true,
+      "GenderOverride": "Auto"
+    },
+    {
+      "NpcId": 243180,
+      "CatalogId": "fungarian",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": null,
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": true,
+      "GenderOverride": "Auto"
+    },
+    {
+      "NpcId": 243181,
+      "CatalogId": "fungarian",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": null,
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": true,
+      "GenderOverride": "Auto"
+    },
+    {
+      "NpcId": 243226,
+      "CatalogId": "fungarian",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -4028,6 +4831,17 @@
       "GenderOverride": "Auto"
     },
     {
+      "NpcId": 243759,
+      "CatalogId": "haranir",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": null,
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false,
+      "GenderOverride": "Auto"
+    },
+    {
       "NpcId": 243820,
       "CatalogId": "bloodelf",
       "RaceId": 0,
@@ -4050,6 +4864,28 @@
       "GenderOverride": "Auto"
     },
     {
+      "NpcId": 243884,
+      "CatalogId": "haranir",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": null,
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false,
+      "GenderOverride": "Auto"
+    },
+    {
+      "NpcId": 243886,
+      "CatalogId": "human",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": null,
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false,
+      "GenderOverride": "Auto"
+    },
+    {
       "NpcId": 243907,
       "CatalogId": "Domanaar",
       "RaceId": 0,
@@ -4061,11 +4897,88 @@
       "GenderOverride": "Auto"
     },
     {
+      "NpcId": 243930,
+      "CatalogId": "rutaani",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": null,
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false,
+      "GenderOverride": "Auto"
+    },
+    {
       "NpcId": 243984,
       "CatalogId": "bloodelf",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_Arator_1",
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false,
+      "GenderOverride": "Auto"
+    },
+    {
+      "NpcId": 244074,
+      "CatalogId": "bloodelf",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": null,
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false,
+      "GenderOverride": "Auto"
+    },
+    {
+      "NpcId": 244093,
+      "CatalogId": "bloodelf",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": "U_Arator_1",
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false,
+      "GenderOverride": "Auto"
+    },
+    {
+      "NpcId": 244126,
+      "CatalogId": "rutaani",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": null,
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false,
+      "GenderOverride": "Auto"
+    },
+    {
+      "NpcId": 244242,
+      "CatalogId": "haranir",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": null,
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false,
+      "GenderOverride": "Auto"
+    },
+    {
+      "NpcId": 244394,
+      "CatalogId": "haranir",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": null,
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false,
+      "GenderOverride": "Auto"
+    },
+    {
+      "NpcId": 244419,
+      "CatalogId": "haranir",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": null,
       "BespokeExaggeration": null,
       "BespokeCfgWeight": null,
       "UseNpcIdAsSeed": false,
@@ -4116,6 +5029,39 @@
       "GenderOverride": "Auto"
     },
     {
+      "NpcId": 244455,
+      "CatalogId": "haranir",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": null,
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false,
+      "GenderOverride": "Auto"
+    },
+    {
+      "NpcId": 244456,
+      "CatalogId": "haranir",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": null,
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false,
+      "GenderOverride": "Auto"
+    },
+    {
+      "NpcId": 244465,
+      "CatalogId": "haranir",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": null,
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false,
+      "GenderOverride": "Auto"
+    },
+    {
       "NpcId": 244469,
       "CatalogId": "bloodelf",
       "RaceId": 0,
@@ -4140,6 +5086,17 @@
     {
       "NpcId": 244471,
       "CatalogId": "bloodelf",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": null,
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false,
+      "GenderOverride": "Auto"
+    },
+    {
+      "NpcId": 244473,
+      "CatalogId": "haranir",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -4206,6 +5163,28 @@
     {
       "NpcId": 244522,
       "CatalogId": "Kareshi",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": null,
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false,
+      "GenderOverride": "Auto"
+    },
+    {
+      "NpcId": 244538,
+      "CatalogId": "bloodelf",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": null,
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false,
+      "GenderOverride": "Auto"
+    },
+    {
+      "NpcId": 244539,
+      "CatalogId": "bloodelf",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -4303,6 +5282,17 @@
       "GenderOverride": "Auto"
     },
     {
+      "NpcId": 244775,
+      "CatalogId": "bloodelf",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": null,
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false,
+      "GenderOverride": "Auto"
+    },
+    {
       "NpcId": 244867,
       "CatalogId": "human",
       "RaceId": 0,
@@ -4352,6 +5342,17 @@
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_Liadrin_4",
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false,
+      "GenderOverride": "Auto"
+    },
+    {
+      "NpcId": 245166,
+      "CatalogId": "haranir",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": null,
       "BespokeExaggeration": null,
       "BespokeCfgWeight": null,
       "UseNpcIdAsSeed": false,
@@ -4468,8 +5469,30 @@
       "GenderOverride": "Auto"
     },
     {
+      "NpcId": 245703,
+      "CatalogId": "haranir",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": null,
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false,
+      "GenderOverride": "Auto"
+    },
+    {
       "NpcId": 245762,
       "CatalogId": "undead",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": null,
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false,
+      "GenderOverride": "Auto"
+    },
+    {
+      "NpcId": 245808,
+      "CatalogId": "haranir",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -4534,6 +5557,39 @@
       "GenderOverride": "Auto"
     },
     {
+      "NpcId": 246208,
+      "CatalogId": "fungarian",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": null,
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false,
+      "GenderOverride": "Auto"
+    },
+    {
+      "NpcId": 246210,
+      "CatalogId": "fungarian",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": null,
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false,
+      "GenderOverride": "Auto"
+    },
+    {
+      "NpcId": 246211,
+      "CatalogId": "fungarian",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": null,
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false,
+      "GenderOverride": "Auto"
+    },
+    {
       "NpcId": 246231,
       "CatalogId": "bloodelf",
       "RaceId": 0,
@@ -4569,6 +5625,17 @@
     {
       "NpcId": 246537,
       "CatalogId": "amani",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": null,
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false,
+      "GenderOverride": "Auto"
+    },
+    {
+      "NpcId": 246607,
+      "CatalogId": "haranir",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -4699,6 +5766,17 @@
       "GenderOverride": "Auto"
     },
     {
+      "NpcId": 247245,
+      "CatalogId": "fungarian",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": null,
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": true,
+      "GenderOverride": "Auto"
+    },
+    {
       "NpcId": 247251,
       "CatalogId": "amani",
       "RaceId": 0,
@@ -4707,6 +5785,17 @@
       "BespokeExaggeration": null,
       "BespokeCfgWeight": null,
       "UseNpcIdAsSeed": false,
+      "GenderOverride": "Auto"
+    },
+    {
+      "NpcId": 247252,
+      "CatalogId": "fungarian",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": null,
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": true,
       "GenderOverride": "Auto"
     },
     {
@@ -4732,11 +5821,55 @@
       "GenderOverride": "Auto"
     },
     {
+      "NpcId": 247304,
+      "CatalogId": "dwarf",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": null,
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false,
+      "GenderOverride": "Auto"
+    },
+    {
+      "NpcId": 247305,
+      "CatalogId": "bloodelf",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": null,
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false,
+      "GenderOverride": "Auto"
+    },
+    {
+      "NpcId": 247306,
+      "CatalogId": "lightforgeddraenei",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": null,
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false,
+      "GenderOverride": "Auto"
+    },
+    {
       "NpcId": 247375,
       "CatalogId": "Domanaar",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false,
+      "GenderOverride": "Auto"
+    },
+    {
+      "NpcId": 247414,
+      "CatalogId": "bloodelf",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": "U_Liadrin_4",
       "BespokeExaggeration": null,
       "BespokeCfgWeight": null,
       "UseNpcIdAsSeed": false,
@@ -5249,6 +6382,17 @@
       "GenderOverride": "Auto"
     },
     {
+      "NpcId": 248886,
+      "CatalogId": "haranir",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": "U_Hagar",
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false,
+      "GenderOverride": "Auto"
+    },
+    {
       "NpcId": 248894,
       "CatalogId": "voidelf",
       "RaceId": 0,
@@ -5284,6 +6428,28 @@
     {
       "NpcId": 249045,
       "CatalogId": "voidelf",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": null,
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false,
+      "GenderOverride": "Auto"
+    },
+    {
+      "NpcId": 249097,
+      "CatalogId": "bloodelf",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": null,
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false,
+      "GenderOverride": "Auto"
+    },
+    {
+      "NpcId": 249103,
+      "CatalogId": "lightforgeddraenei",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -5331,6 +6497,17 @@
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_ZulJan_2_Frustrated",
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false,
+      "GenderOverride": "Auto"
+    },
+    {
+      "NpcId": 249290,
+      "CatalogId": "human",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": null,
       "BespokeExaggeration": null,
       "BespokeCfgWeight": null,
       "UseNpcIdAsSeed": false,
@@ -5535,6 +6712,17 @@
       "GenderOverride": "Auto"
     },
     {
+      "NpcId": 250363,
+      "CatalogId": "bloodelf",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": null,
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false,
+      "GenderOverride": "Auto"
+    },
+    {
       "NpcId": 250387,
       "CatalogId": "bloodelf",
       "RaceId": 0,
@@ -5623,8 +6811,30 @@
       "GenderOverride": "Auto"
     },
     {
+      "NpcId": 250853,
+      "CatalogId": "nightborne",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": "U_Thalyssra",
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false,
+      "GenderOverride": "Auto"
+    },
+    {
       "NpcId": 250888,
       "CatalogId": "bloodelf",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": null,
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false,
+      "GenderOverride": "Auto"
+    },
+    {
+      "NpcId": 250958,
+      "CatalogId": "nightborne",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -5744,6 +6954,72 @@
       "GenderOverride": "Auto"
     },
     {
+      "NpcId": 251294,
+      "CatalogId": "bloodelf",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": null,
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": true,
+      "GenderOverride": "Auto"
+    },
+    {
+      "NpcId": 251295,
+      "CatalogId": "bloodelf",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": null,
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": true,
+      "GenderOverride": "Auto"
+    },
+    {
+      "NpcId": 251296,
+      "CatalogId": "bloodelf",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": null,
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false,
+      "GenderOverride": "Auto"
+    },
+    {
+      "NpcId": 251297,
+      "CatalogId": "bloodelf",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": null,
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": true,
+      "GenderOverride": "Auto"
+    },
+    {
+      "NpcId": 251298,
+      "CatalogId": "bloodelf",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": null,
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": true,
+      "GenderOverride": "Auto"
+    },
+    {
+      "NpcId": 251299,
+      "CatalogId": "bloodelf",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": null,
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false,
+      "GenderOverride": "Auto"
+    },
+    {
       "NpcId": 251302,
       "CatalogId": "bloodelf",
       "RaceId": 0,
@@ -5766,11 +7042,88 @@
       "GenderOverride": "Auto"
     },
     {
+      "NpcId": 251335,
+      "CatalogId": "bloodelf",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": "U_Arator_1",
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false,
+      "GenderOverride": "Auto"
+    },
+    {
+      "NpcId": 251337,
+      "CatalogId": "nightborne",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": "U_Chief_Telemancer_Oculeth_1",
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false,
+      "GenderOverride": "Auto"
+    },
+    {
+      "NpcId": 251346,
+      "CatalogId": "bloodelf",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": null,
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": true,
+      "GenderOverride": "Auto"
+    },
+    {
+      "NpcId": 251347,
+      "CatalogId": "bloodelf",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": null,
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": true,
+      "GenderOverride": "Auto"
+    },
+    {
+      "NpcId": 251348,
+      "CatalogId": "bloodelf",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": null,
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": true,
+      "GenderOverride": "Auto"
+    },
+    {
+      "NpcId": 251350,
+      "CatalogId": "pandaren",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": null,
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false,
+      "GenderOverride": "Auto"
+    },
+    {
       "NpcId": 251355,
       "CatalogId": "undead",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_Alonsus_Faol",
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false,
+      "GenderOverride": "Auto"
+    },
+    {
+      "NpcId": 251372,
+      "CatalogId": "bloodelf",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": null,
       "BespokeExaggeration": null,
       "BespokeCfgWeight": null,
       "UseNpcIdAsSeed": false,
@@ -5810,6 +7163,94 @@
       "GenderOverride": "Auto"
     },
     {
+      "NpcId": 251427,
+      "CatalogId": "bloodelf",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": null,
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false,
+      "GenderOverride": "Auto"
+    },
+    {
+      "NpcId": 251431,
+      "CatalogId": "bloodelf",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": null,
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false,
+      "GenderOverride": "Auto"
+    },
+    {
+      "NpcId": 251432,
+      "CatalogId": "bloodelf",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": null,
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": true,
+      "GenderOverride": "Auto"
+    },
+    {
+      "NpcId": 251433,
+      "CatalogId": "bloodelf",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": null,
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": true,
+      "GenderOverride": "Auto"
+    },
+    {
+      "NpcId": 251438,
+      "CatalogId": "bloodelf",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": null,
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": true,
+      "GenderOverride": "Auto"
+    },
+    {
+      "NpcId": 251441,
+      "CatalogId": "bloodelf",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": null,
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false,
+      "GenderOverride": "Auto"
+    },
+    {
+      "NpcId": 251443,
+      "CatalogId": "bloodelf",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": null,
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false,
+      "GenderOverride": "Auto"
+    },
+    {
+      "NpcId": 251472,
+      "CatalogId": "bloodelf",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": null,
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false,
+      "GenderOverride": "Auto"
+    },
+    {
       "NpcId": 251522,
       "CatalogId": "amani",
       "RaceId": 0,
@@ -5821,8 +7262,41 @@
       "GenderOverride": "Auto"
     },
     {
+      "NpcId": 251524,
+      "CatalogId": "fungarian",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": null,
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": true,
+      "GenderOverride": "Auto"
+    },
+    {
       "NpcId": 251601,
       "CatalogId": "amani",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": null,
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": true,
+      "GenderOverride": "Auto"
+    },
+    {
+      "NpcId": 251715,
+      "CatalogId": "fungarian",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": null,
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": true,
+      "GenderOverride": "Auto"
+    },
+    {
+      "NpcId": 251723,
+      "CatalogId": "fungarian",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -5881,6 +7355,50 @@
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false,
+      "GenderOverride": "Auto"
+    },
+    {
+      "NpcId": 252494,
+      "CatalogId": "haranir",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": "U_Hagar",
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false,
+      "GenderOverride": "Auto"
+    },
+    {
+      "NpcId": 252495,
+      "CatalogId": "haranir",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": "U_Hagar",
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false,
+      "GenderOverride": "Auto"
+    },
+    {
+      "NpcId": 252496,
+      "CatalogId": "haranir",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": "U_Hagar",
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false,
+      "GenderOverride": "Auto"
+    },
+    {
+      "NpcId": 252497,
+      "CatalogId": "haranir",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": "U_Hagar",
       "BespokeExaggeration": null,
       "BespokeCfgWeight": null,
       "UseNpcIdAsSeed": false,
@@ -5954,6 +7472,17 @@
     },
     {
       "NpcId": 252871,
+      "CatalogId": "haranir",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": null,
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false,
+      "GenderOverride": "Auto"
+    },
+    {
+      "NpcId": 252872,
       "CatalogId": "haranir",
       "RaceId": 0,
       "Notes": "",
@@ -6041,6 +7570,17 @@
       "GenderOverride": "Auto"
     },
     {
+      "NpcId": 253105,
+      "CatalogId": "haranir",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": null,
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false,
+      "GenderOverride": "Auto"
+    },
+    {
       "NpcId": 253125,
       "CatalogId": "dwarf",
       "RaceId": 0,
@@ -6068,6 +7608,17 @@
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false,
+      "GenderOverride": "Auto"
+    },
+    {
+      "NpcId": 253343,
+      "CatalogId": "haranir",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": "U_Orweyna_1",
       "BespokeExaggeration": null,
       "BespokeCfgWeight": null,
       "UseNpcIdAsSeed": false,
@@ -6129,6 +7680,17 @@
       "GenderOverride": "Auto"
     },
     {
+      "NpcId": 253433,
+      "CatalogId": "haranir",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": null,
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false,
+      "GenderOverride": "Auto"
+    },
+    {
       "NpcId": 253440,
       "CatalogId": "voidelf",
       "RaceId": 0,
@@ -6173,11 +7735,33 @@
       "GenderOverride": "Auto"
     },
     {
+      "NpcId": 253567,
+      "CatalogId": "nightelf",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": null,
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false,
+      "GenderOverride": "Auto"
+    },
+    {
       "NpcId": 253594,
       "CatalogId": "bloodelf",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false,
+      "GenderOverride": "Auto"
+    },
+    {
+      "NpcId": 253603,
+      "CatalogId": "bloodelf",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": "U_Arator_1",
       "BespokeExaggeration": null,
       "BespokeCfgWeight": null,
       "UseNpcIdAsSeed": false,
@@ -6192,6 +7776,28 @@
       "BespokeExaggeration": null,
       "BespokeCfgWeight": null,
       "UseNpcIdAsSeed": false,
+      "GenderOverride": "Auto"
+    },
+    {
+      "NpcId": 253613,
+      "CatalogId": "voidelf",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": "U_Umbric",
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false,
+      "GenderOverride": "Auto"
+    },
+    {
+      "NpcId": 253776,
+      "CatalogId": "nightborne",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": null,
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": true,
       "GenderOverride": "Auto"
     },
     {
@@ -6360,6 +7966,28 @@
       "GenderOverride": "Auto"
     },
     {
+      "NpcId": 254630,
+      "CatalogId": "fungarian",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": null,
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false,
+      "GenderOverride": "Auto"
+    },
+    {
+      "NpcId": 254654,
+      "CatalogId": "nightborne",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": "U_Thalyssra",
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false,
+      "GenderOverride": "Auto"
+    },
+    {
       "NpcId": 254665,
       "CatalogId": "amani",
       "RaceId": 0,
@@ -6470,8 +8098,41 @@
       "GenderOverride": "Auto"
     },
     {
+      "NpcId": 254884,
+      "CatalogId": "bloodelf",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": "U_Arator_1",
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false,
+      "GenderOverride": "Auto"
+    },
+    {
       "NpcId": 254903,
       "CatalogId": "fungarian",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": null,
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false,
+      "GenderOverride": "Auto"
+    },
+    {
+      "NpcId": 254936,
+      "CatalogId": "haranir",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": null,
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false,
+      "GenderOverride": "Auto"
+    },
+    {
+      "NpcId": 255056,
+      "CatalogId": "haranir",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -6668,6 +8329,83 @@
       "GenderOverride": "Auto"
     },
     {
+      "NpcId": 255687,
+      "CatalogId": "nightelf",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": null,
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false,
+      "GenderOverride": "Auto"
+    },
+    {
+      "NpcId": 255711,
+      "CatalogId": "nightelf",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": null,
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false,
+      "GenderOverride": "Auto"
+    },
+    {
+      "NpcId": 255792,
+      "CatalogId": "nightelf",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": null,
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false,
+      "GenderOverride": "Auto"
+    },
+    {
+      "NpcId": 255809,
+      "CatalogId": "haranir",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": null,
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false,
+      "GenderOverride": "Auto"
+    },
+    {
+      "NpcId": 255819,
+      "CatalogId": "haranir",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": "U_Hagar",
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false,
+      "GenderOverride": "Auto"
+    },
+    {
+      "NpcId": 255822,
+      "CatalogId": "haranir",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": "U_Orweyna_1",
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false,
+      "GenderOverride": "Auto"
+    },
+    {
+      "NpcId": 255828,
+      "CatalogId": "haranir",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": "U_Orweyna_1",
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false,
+      "GenderOverride": "Auto"
+    },
+    {
       "NpcId": 255852,
       "CatalogId": "amani",
       "RaceId": 0,
@@ -6701,6 +8439,28 @@
       "GenderOverride": "Auto"
     },
     {
+      "NpcId": 256046,
+      "CatalogId": "nightborne",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": "U_Thalyssra",
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false,
+      "GenderOverride": "Auto"
+    },
+    {
+      "NpcId": 256203,
+      "CatalogId": "bloodelf",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": "U_Liadrin_4",
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false,
+      "GenderOverride": "Auto"
+    },
+    {
       "NpcId": 256210,
       "CatalogId": "bloodelf",
       "RaceId": 0,
@@ -6714,6 +8474,17 @@
     {
       "NpcId": 256212,
       "CatalogId": "bloodelf",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": null,
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false,
+      "GenderOverride": "Auto"
+    },
+    {
+      "NpcId": 256245,
+      "CatalogId": "haranir",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -6910,6 +8681,17 @@
       "GenderOverride": "Auto"
     },
     {
+      "NpcId": 257287,
+      "CatalogId": "fungarian",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": null,
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": true,
+      "GenderOverride": "Auto"
+    },
+    {
       "NpcId": 257411,
       "CatalogId": "bloodelf",
       "RaceId": 0,
@@ -6998,6 +8780,39 @@
       "GenderOverride": "Auto"
     },
     {
+      "NpcId": 257870,
+      "CatalogId": "fungarian",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": null,
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false,
+      "GenderOverride": "Auto"
+    },
+    {
+      "NpcId": 258123,
+      "CatalogId": "nightelf",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": null,
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false,
+      "GenderOverride": "Auto"
+    },
+    {
+      "NpcId": 258499,
+      "CatalogId": "haranir",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": null,
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false,
+      "GenderOverride": "Auto"
+    },
+    {
       "NpcId": 258563,
       "CatalogId": "bloodelf",
       "RaceId": 0,
@@ -7021,6 +8836,17 @@
     },
     {
       "NpcId": 258671,
+      "CatalogId": "haranir",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": null,
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false,
+      "GenderOverride": "Auto"
+    },
+    {
+      "NpcId": 258726,
       "CatalogId": "haranir",
       "RaceId": 0,
       "Notes": "",
@@ -7086,11 +8912,55 @@
       "GenderOverride": "Auto"
     },
     {
+      "NpcId": 259048,
+      "CatalogId": "bloodelf",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": null,
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false,
+      "GenderOverride": "Auto"
+    },
+    {
+      "NpcId": 259116,
+      "CatalogId": "fungarian",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": null,
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false,
+      "GenderOverride": "Auto"
+    },
+    {
+      "NpcId": 259117,
+      "CatalogId": "fungarian",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": null,
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false,
+      "GenderOverride": "Auto"
+    },
+    {
       "NpcId": 259153,
       "CatalogId": "bloodelf",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false,
+      "GenderOverride": "Auto"
+    },
+    {
+      "NpcId": 259261,
+      "CatalogId": "bloodelf",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": "U_Arator_1",
       "BespokeExaggeration": null,
       "BespokeCfgWeight": null,
       "UseNpcIdAsSeed": false,
@@ -7121,6 +8991,28 @@
     {
       "NpcId": 259652,
       "CatalogId": "goblin",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": null,
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false,
+      "GenderOverride": "Auto"
+    },
+    {
+      "NpcId": 259688,
+      "CatalogId": "lightforgeddraenei",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": null,
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false,
+      "GenderOverride": "Auto"
+    },
+    {
+      "NpcId": 259689,
+      "CatalogId": "lightforgeddraenei",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -7174,6 +9066,28 @@
       "GenderOverride": "Auto"
     },
     {
+      "NpcId": 260350,
+      "CatalogId": "bloodelf",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": null,
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": true,
+      "GenderOverride": "Auto"
+    },
+    {
+      "NpcId": 260351,
+      "CatalogId": "bloodelf",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": null,
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": true,
+      "GenderOverride": "Auto"
+    },
+    {
       "NpcId": 261198,
       "CatalogId": "amani",
       "RaceId": 0,
@@ -7187,6 +9101,28 @@
     {
       "NpcId": 261304,
       "CatalogId": "human",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": null,
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false,
+      "GenderOverride": "Auto"
+    },
+    {
+      "NpcId": 261472,
+      "CatalogId": "Kareshi",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": null,
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false,
+      "GenderOverride": "Auto"
+    },
+    {
+      "NpcId": 261474,
+      "CatalogId": "Kareshi",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
