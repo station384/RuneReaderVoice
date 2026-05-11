@@ -589,11 +589,8 @@ public sealed class RvBarcodeMonitor : IDisposable
 
     private static string? TryExtractCode39Guid(string? decodedText)
     {
-        if (string.IsNullOrWhiteSpace(decodedText)) return null;
-
-        var text = decodedText.Trim();
-        if (text.Length >= 2 && text[0] == '*' && text[^1] == '*')
-            text = text[1..^1];
+        var text = NormalizeCode39DecodedText(decodedText);
+        if (string.IsNullOrWhiteSpace(text)) return null;
 
         if (!text.StartsWith(Code39GuidPrefix, StringComparison.OrdinalIgnoreCase))
             return null;
@@ -604,22 +601,32 @@ public sealed class RvBarcodeMonitor : IDisposable
 
     private static string? TryExtractCode39Name(string? decodedText)
     {
-        if (string.IsNullOrWhiteSpace(decodedText)) return null;
-
-        var text = decodedText.Trim();
-        if (text.Length >= 2 && text[0] == '*' && text[^1] == '*')
-            text = text[1..^1];
+        var text = NormalizeCode39DecodedText(decodedText);
+        if (string.IsNullOrWhiteSpace(text)) return null;
 
         if (!text.StartsWith(Code39NamePrefix, StringComparison.OrdinalIgnoreCase))
             return null;
 
         var name = text[Code39NamePrefix.Length..].Trim();
-
-        // LibreBarcode39 can decode a visible space glyph as '+'. The addon does
-        // not transform secret text; this normalization is client-side only.
-        name = name.Replace('+', ' ');
-
         return string.IsNullOrWhiteSpace(name) ? null : name;
+    }
+
+    private static string NormalizeCode39DecodedText(string? decodedText)
+    {
+        if (string.IsNullOrWhiteSpace(decodedText)) return string.Empty;
+
+        var text = decodedText.Trim();
+        if (text.Length >= 2 && text[0] == '*' && text[^1] == '*')
+            text = text[1..^1];
+
+        // Mapping belongs to the Code39 decode layer, not just RRVN.
+        // Both RRVG and RRVN use the same custom LibreBarcode39 font.
+        // The addon does not transform secret text; these corrections happen
+        // only after ZXing decodes the rendered barcode.
+        return text
+            .Replace('+', ' ')
+            .Replace('$', '\'')
+            .Replace('.', ',');
     }
 
     // ── Decode helpers ───────────────────────────────────────────────────────
