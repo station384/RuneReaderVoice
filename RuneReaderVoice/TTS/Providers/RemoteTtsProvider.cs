@@ -55,6 +55,8 @@ public sealed class RemoteTtsProvider : ITtsProvider
     public bool   IsAvailable                     => !string.IsNullOrWhiteSpace(_settings.RemoteServerUrl);
     public bool   RequiresFullText                => _descriptor.RequiresFullText;
     public bool   SupportsInlinePronunciationHints => _descriptor.SupportsInlinePronunciationHints;
+    public bool   UsesRemoteSamples                => _descriptor.VoiceSourceKind == RemoteVoiceSourceKind.Samples;
+    public bool   SupportsVoiceMatching            => _descriptor.SupportsVoiceMatching;
 
     // ── Phrase stream ─────────────────────────────────────────────────────────
 

@@ -19,6 +19,8 @@
 
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
+using System.Globalization;
 using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
@@ -27,6 +29,7 @@ using System.Threading.Tasks;
 using RuneReaderVoice.Data;
 using RuneReaderVoice.Protocol;
 using RuneReaderVoice.TTS;
+using RuneReaderVoice.TTS.Providers;
 
 namespace RuneReaderVoice.Session;
 
@@ -424,6 +427,14 @@ public sealed class TtsSessionAssembler
                 bespokeCfgWeight = entry.BespokeCfgWeight;
                 useNpcIdAsSeed = entry.UseNpcIdAsSeed;
             }
+
+            var matchedSampleId = ResolveBespokeSampleFromNpcName(npcName, bespokeSampleId);
+            if (!string.IsNullOrWhiteSpace(matchedSampleId) &&
+                !string.Equals(matchedSampleId, bespokeSampleId, StringComparison.OrdinalIgnoreCase))
+            {
+                Debug.WriteLine($"[Assembler] NPC name matched bespoke sample npc='{npcName}' sample='{matchedSampleId}'");
+                bespokeSampleId = matchedSampleId;
+            }
         }
 
         _completedSegments[acc.SeqIndex] = new AssembledSegment
@@ -631,6 +642,113 @@ public sealed class TtsSessionAssembler
             return _currentNpcName;
 
         return AppServices.CurrentCode39Name ?? string.Empty;
+    }
+
+    private static string? ResolveBespokeSampleFromNpcName(string? npcName, string? configuredSampleId)
+    {
+        if (string.IsNullOrWhiteSpace(npcName))
+            return configuredSampleId;
+
+        var provider = AppServices.Provider;
+        if (provider is not RemoteTtsProvider remoteProvider || !remoteProvider.UsesRemoteSamples)
+            return configuredSampleId;
+
+        var voices = provider.GetAvailableVoices();
+        if (voices.Count == 0)
+            return configuredSampleId;
+
+        // Explicit assignment wins when available. Name matching only fills missing/broken assignments.
+        if (!string.IsNullOrWhiteSpace(configuredSampleId) &&
+            voices.Any(v => string.Equals(v.VoiceId, configuredSampleId, StringComparison.OrdinalIgnoreCase)))
+            return configuredSampleId;
+
+        var npcTokens = NormalizeNameTokens(npcName);
+        if (npcTokens.Count == 0)
+            return configuredSampleId;
+
+        var requiredMatches = npcTokens.Count <= 2 ? npcTokens.Count : npcTokens.Count - 1;
+
+        var best = voices
+            .Select(v =>
+            {
+                var sampleTokens = NormalizeNameTokens(v.VoiceId);
+                var matchedTokens = npcTokens
+                    .Where(t => sampleTokens.Any(st => string.Equals(st, t, StringComparison.OrdinalIgnoreCase)))
+                    .ToArray();
+
+                return new
+                {
+                    Voice = v,
+                    Tokens = sampleTokens,
+                    MatchedTokens = matchedTokens,
+                    Score = ScoreNpcSampleMatch(npcTokens, sampleTokens, matchedTokens, v.VoiceId)
+                };
+            })
+            .Where(x => x.MatchedTokens.Length >= requiredMatches)
+            .OrderByDescending(x => x.Score)
+            .ThenBy(x => x.Voice.VoiceId.Length)
+            .ThenBy(x => x.Voice.VoiceId, StringComparer.OrdinalIgnoreCase)
+            .FirstOrDefault();
+
+        return best?.Voice.VoiceId ?? configuredSampleId;
+    }
+
+    private static int ScoreNpcSampleMatch(
+        IReadOnlyList<string> npcTokens,
+        IReadOnlyList<string> sampleTokens,
+        IReadOnlyList<string> matchedTokens,
+        string sampleId)
+    {
+        var score = matchedTokens.Count * 1000;
+
+        if (sampleId.StartsWith("U_", StringComparison.OrdinalIgnoreCase))
+            score += 100;
+
+        var extraTokenCount = sampleTokens.Count(t =>
+            t.Length > 1 &&
+            !npcTokens.Any(n => string.Equals(n, t, StringComparison.OrdinalIgnoreCase)) &&
+            !int.TryParse(t, out _));
+        score -= extraTokenCount * 10;
+
+        return score;
+    }
+
+    private static IReadOnlyList<string> NormalizeNameTokens(string value)
+    {
+        var normalized = NormalizeSampleName(value);
+        if (string.IsNullOrWhiteSpace(normalized))
+            return Array.Empty<string>();
+
+        return normalized
+            .Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Where(t => t.Length > 1 && !int.TryParse(t, out _))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+    }
+
+    private static string NormalizeSampleName(string value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return string.Empty;
+
+        var decomposed = value.Normalize(NormalizationForm.FormD);
+        var sb = new StringBuilder(decomposed.Length);
+        foreach (var ch in decomposed)
+        {
+            var category = CharUnicodeInfo.GetUnicodeCategory(ch);
+            if (category == UnicodeCategory.NonSpacingMark)
+                continue;
+
+            if (ch == '\'' || ch == '’' || ch == '`')
+                continue;
+
+            if (char.IsLetterOrDigit(ch))
+                sb.Append(char.ToLowerInvariant(ch));
+            else
+                sb.Append(' ');
+        }
+
+        return Regex.Replace(sb.ToString(), @"\s+", " ").Trim();
     }
 
     private static int? TryExtractNpcIdFromGuid(string? guid)
