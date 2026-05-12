@@ -25,6 +25,8 @@ namespace RuneReaderVoice.Session;
 ///   - Treat every gap between adjacent guard bars as a cell.
 ///   - Empty cell between two guards = start/stop marker.
 ///   - Non-empty cells between the first and second marker = payload bytes.
+///   - If a row starts but does not stop, payload carries to the next guard row
+///     in row-major order so wrapped FontStrings decode as one barcode.
 ///   - Bits are read by scanning the upper lane band for ink anywhere in the cell;
 ///     horizontal data-bar length is not assumed.
 /// </summary>
@@ -85,16 +87,7 @@ public static class RrvBarcodeDetector
                 var guardRows = GroupGuardBarsIntoRows(guards);
                 if (guardRows.Count == 0) return null;
 
-                var results = new List<Result>();
-                foreach (var guardRow in guardRows)
-                {
-                    if (guardRow.Count < 2) continue;
-
-                    var rowResults = DecodeGuardCells(gray, guardRow.OrderBy(g => g.XStart).ToList(), rows, cols);
-                    if (rowResults != null)
-                        results.AddRange(rowResults);
-                }
-
+                var results = DecodeGuardRowsRowMajor(gray, guardRows, rows, cols);
                 return results.Count > 0 ? results.ToArray() : null;
             }
             finally
@@ -331,87 +324,92 @@ public static class RrvBarcodeDetector
         return rows;
     }
 
-    private static List<Result>? DecodeGuardCells(Mat gray, List<GuardBar> guards, int rows, int cols)
+    private sealed class DecodeState
     {
-        if (guards.Count < 2) return null;
+        public readonly List<Result> Results = new();
+        public readonly List<byte> Payload = new();
+        public bool InPayload;
+        public int Bx1, By1, Bx2, By2;
+        public int? ExpectedDataW;
+        public int? ExpectedRowHeight;
+
+        public void Reset()
+        {
+            Payload.Clear();
+            InPayload = false;
+            Bx1 = By1 = Bx2 = By2 = 0;
+            ExpectedDataW = null;
+            ExpectedRowHeight = null;
+        }
+
+        public void StartBounds(GuardBar left, GuardBar right, int dataW, int rowHeight)
+        {
+            Bx1 = Math.Min(left.XStart, right.XStart);
+            By1 = Math.Min(left.YStart, right.YStart);
+            Bx2 = Math.Max(left.XEnd, right.XEnd);
+            By2 = Math.Max(left.YEnd, right.YEnd);
+            ExpectedDataW = dataW;
+            ExpectedRowHeight = rowHeight;
+        }
+
+        public void ExpandBounds(GuardBar left, GuardBar right)
+        {
+            Bx1 = Math.Min(Bx1, Math.Min(left.XStart, right.XStart));
+            By1 = Math.Min(By1, Math.Min(left.YStart, right.YStart));
+            Bx2 = Math.Max(Bx2, Math.Max(left.XEnd, right.XEnd));
+            By2 = Math.Max(By2, Math.Max(left.YEnd, right.YEnd));
+        }
+    }
+
+    private static List<Result> DecodeGuardRowsRowMajor(Mat gray, List<List<GuardBar>> guardRows, int rows, int cols)
+    {
+        var state = new DecodeState();
+
+        foreach (var guardRow in guardRows
+                     .Where(r => r.Count >= 2)
+                     .OrderBy(r => Median(r.Select(g => g.YStart)))
+                     .ThenBy(r => r.Min(g => g.XStart)))
+        {
+            DecodeGuardRowIntoState(gray, guardRow.OrderBy(g => g.XStart).ToList(), rows, cols, state);
+        }
+
+        if (state.InPayload)
+        {
+            Trace($"[RRVB] Wrapped decode ended with unterminated payload bytes={state.Payload.Count}; ignored");
+            state.Reset();
+        }
+
+        return state.Results;
+    }
+
+    private static void DecodeGuardRowIntoState(Mat gray, List<GuardBar> guards, int rows, int cols, DecodeState state)
+    {
+        if (guards.Count < 2) return;
 
         int rowTop = Median(guards.Select(g => g.YStart));
         int rowBottom = Median(guards.Select(g => g.YEnd));
         int rowHeight = Math.Max(1, rowBottom - rowTop);
-        if (rowHeight < MinVerticalRunPixels) return null;
+        if (rowHeight < MinVerticalRunPixels) return;
 
         int guardW = Math.Max(1, Median(guards.Select(g => g.Width)));
         int dataW = EstimateDataCellWidth(guards, guardW, rowHeight);
         if (dataW <= 0)
         {
             Trace($"[RRVB] Reject row Y={rowTop} H={rowHeight} guards={guards.Count}: no usable data cell width");
-            return null;
+            return;
+        }
+
+        if (state.InPayload && !GeometryCompatible(state, dataW, rowHeight))
+        {
+            Trace($"[RRVB] Wrapped row geometry mismatch Y={rowTop} H={rowHeight} dataW={dataW}; reset unterminated payloadBytes={state.Payload.Count}");
+            state.Reset();
         }
 
         double minCellW = Math.Max(1, dataW * 0.45);
         double maxCellW = Math.Max(minCellW + 1, dataW * 1.80);
 
         LogRowCellSummary(gray, guards, rowTop, rowHeight, dataW, minCellW, maxCellW, rows, cols);
-        Trace($"[RRVB] Decode row Y={rowTop} H={rowHeight} guards={guards.Count} guardW={guardW} dataW={dataW} cellWRange={minCellW:F1}..{maxCellW:F1}");
-
-        var results = new List<Result>();
-        var payload = new List<byte>();
-        bool inPayload = false;
-        int bx1 = 0, by1 = 0, bx2 = 0, by2 = 0;
-        int activeRowTop = rowTop;
-        int activeRowHeight = rowHeight;
-
-        void StartBounds(GuardBar left, GuardBar right)
-        {
-            bx1 = Math.Min(left.XStart, right.XStart);
-            by1 = Math.Min(left.YStart, right.YStart);
-            bx2 = Math.Max(left.XEnd, right.XEnd);
-            by2 = Math.Max(left.YEnd, right.YEnd);
-        }
-
-        void ExpandBounds(GuardBar left, GuardBar right)
-        {
-            bx1 = Math.Min(bx1, Math.Min(left.XStart, right.XStart));
-            by1 = Math.Min(by1, Math.Min(left.YStart, right.YStart));
-            bx2 = Math.Max(bx2, Math.Max(left.XEnd, right.XEnd));
-            by2 = Math.Max(by2, Math.Max(left.YEnd, right.YEnd));
-        }
-
-        void ResetState()
-        {
-            payload.Clear();
-            inPayload = false;
-            bx1 = by1 = bx2 = by2 = 0;
-            activeRowTop = rowTop;
-            activeRowHeight = rowHeight;
-        }
-
-        static (int Top, int Height) RowFromGuardPair(GuardBar left, GuardBar right)
-        {
-            int top = (left.YStart + right.YStart) / 2;
-            int bottom = (left.YEnd + right.YEnd) / 2;
-            return (top, Math.Max(1, bottom - top));
-        }
-
-        void FinalizePayload()
-        {
-            if (payload.Count == 0) return;
-
-            string text = Encoding.Latin1.GetString(payload.ToArray());
-            if (string.IsNullOrEmpty(text)) return;
-
-            var points = new[]
-            {
-                new ResultPoint(bx1, by1),
-                new ResultPoint(bx2, by1),
-                new ResultPoint(bx2, by2),
-                new ResultPoint(bx1, by2),
-            };
-
-            string preview = text.Length <= MaxDebugPayloadPreviewChars ? text : text[..MaxDebugPayloadPreviewChars] + "...";
-            Trace($"[RRVB] Decoded payload bytes={payload.Count} chars={text.Length} text='{preview}' hex={ToHexPreview(payload)}");
-            results.Add(new Result(text, null, points, BarcodeFormat.MSI));
-        }
+        Trace($"[RRVB] Decode row Y={rowTop} H={rowHeight} guards={guards.Count} guardW={guardW} dataW={dataW} cellWRange={minCellW:F1}..{maxCellW:F1} carrying={state.InPayload} carriedBytes={state.Payload.Count}");
 
         int startMarkers = 0;
         int stopMarkers = 0;
@@ -434,57 +432,96 @@ public static class RrvBarcodeDetector
             bool plausibleCell = cellW >= minCellW && cellW <= maxCellW;
             if (!plausibleCell)
             {
-                if (inPayload)
-                    Trace($"[RRVB] Row Y={rowTop}: reset payload at cell {i} gapW={cellW} outside {minCellW:F1}..{maxCellW:F1} payloadBytes={payload.Count}");
+                if (state.InPayload)
+                    Trace($"[RRVB] Row Y={rowTop}: reset payload at cell {i} gapW={cellW} outside {minCellW:F1}..{maxCellW:F1} payloadBytes={state.Payload.Count}");
                 geometryResets++;
-                ResetState();
+                state.Reset();
                 continue;
             }
 
-            var cellRow = inPayload ? (activeRowTop, activeRowHeight) : RowFromGuardPair(left, right);
-            bool emptyCell = !CellHasAnyLaneInk(gray, cellLeft, cellRight - 1, cellRow.Item1, cellRow.Item2, rows, cols);
+            var (cellRowTop, cellRowHeight) = RowFromGuardPair(left, right);
+            bool emptyCell = !CellHasAnyLaneInk(gray, cellLeft, cellRight - 1, cellRowTop, cellRowHeight, rows, cols);
 
             if (emptyCell)
             {
-                if (!inPayload)
+                if (!state.InPayload)
                 {
-                    ResetState();
-                    inPayload = true;
+                    state.Reset();
+                    state.InPayload = true;
                     startMarkers++;
-                    (activeRowTop, activeRowHeight) = RowFromGuardPair(left, right);
-                    StartBounds(left, right);
-                    Trace($"[RRVB] Row Y={rowTop}: START cell={i} x={cellLeft}..{cellRight - 1} w={cellW} activeY={activeRowTop} activeH={activeRowHeight}");
+                    state.StartBounds(left, right, dataW, rowHeight);
+                    Trace($"[RRVB] Row Y={rowTop}: START cell={i} x={cellLeft}..{cellRight - 1} w={cellW} activeY={cellRowTop} activeH={cellRowHeight}");
                 }
                 else
                 {
                     stopMarkers++;
-                    ExpandBounds(left, right);
-                    Trace($"[RRVB] Row Y={rowTop}: STOP cell={i} x={cellLeft}..{cellRight - 1} w={cellW} payloadBytes={payload.Count}");
-                    FinalizePayload();
-                    ResetState();
+                    state.ExpandBounds(left, right);
+                    Trace($"[RRVB] Row Y={rowTop}: STOP cell={i} x={cellLeft}..{cellRight - 1} w={cellW} payloadBytes={state.Payload.Count}");
+                    FinalizePayload(state);
+                    state.Reset();
                 }
 
                 continue;
             }
 
-            if (!inPayload)
+            if (!state.InPayload)
             {
                 skippedBeforeStart++;
                 continue;
             }
 
-            byte value = DecodeDataCell(gray, cellLeft, cellRight - 1, activeRowTop, activeRowHeight, rows, cols);
-            payload.Add(value);
+            byte value = DecodeDataCell(gray, cellLeft, cellRight - 1, cellRowTop, cellRowHeight, rows, cols);
+            state.Payload.Add(value);
             decodedCells++;
-            ExpandBounds(left, right);
+            state.ExpandBounds(left, right);
 
-            if (payload.Count <= 12)
-                Trace($"[RRVB] Row Y={rowTop}: byte[{payload.Count - 1}] cell={i} x={cellLeft}..{cellRight - 1} w={cellW} activeY={activeRowTop} activeH={activeRowHeight} value=0x{value:X2} '{Printable(value)}'");
+            if (state.Payload.Count <= 12)
+                Trace($"[RRVB] Row Y={rowTop}: byte[{state.Payload.Count - 1}] cell={i} x={cellLeft}..{cellRight - 1} w={cellW} activeY={cellRowTop} activeH={cellRowHeight} value=0x{value:X2} '{Printable(value)}'");
         }
 
-        Trace($"[RRVB] Row Y={rowTop}: summary start={startMarkers} stop={stopMarkers} decodedCells={decodedCells} skippedBeforeStart={skippedBeforeStart} geometryResets={geometryResets} results={results.Count}");
+        Trace($"[RRVB] Row Y={rowTop}: summary start={startMarkers} stop={stopMarkers} decodedCells={decodedCells} skippedBeforeStart={skippedBeforeStart} geometryResets={geometryResets} results={state.Results.Count} carrying={state.InPayload} carriedBytes={state.Payload.Count}");
+    }
 
-        return results.Count > 0 ? results : null;
+    private static bool GeometryCompatible(DecodeState state, int dataW, int rowHeight)
+    {
+        if (!state.ExpectedDataW.HasValue || !state.ExpectedRowHeight.HasValue)
+            return true;
+
+        int expectedDataW = Math.Max(1, state.ExpectedDataW.Value);
+        int expectedRowHeight = Math.Max(1, state.ExpectedRowHeight.Value);
+
+        double dataRatio = dataW / (double)expectedDataW;
+        double heightRatio = rowHeight / (double)expectedRowHeight;
+
+        return dataRatio >= 0.50 && dataRatio <= 2.00 &&
+               heightRatio >= 0.50 && heightRatio <= 2.00;
+    }
+
+    private static (int Top, int Height) RowFromGuardPair(GuardBar left, GuardBar right)
+    {
+        int top = (left.YStart + right.YStart) / 2;
+        int bottom = (left.YEnd + right.YEnd) / 2;
+        return (top, Math.Max(1, bottom - top));
+    }
+
+    private static void FinalizePayload(DecodeState state)
+    {
+        if (state.Payload.Count == 0) return;
+
+        string text = Encoding.Latin1.GetString(state.Payload.ToArray());
+        if (string.IsNullOrEmpty(text)) return;
+
+        var points = new[]
+        {
+            new ResultPoint(state.Bx1, state.By1),
+            new ResultPoint(state.Bx2, state.By1),
+            new ResultPoint(state.Bx2, state.By2),
+            new ResultPoint(state.Bx1, state.By2),
+        };
+
+        string preview = text.Length <= MaxDebugPayloadPreviewChars ? text : text[..MaxDebugPayloadPreviewChars] + "...";
+        Trace($"[RRVB] Decoded payload bytes={state.Payload.Count} chars={text.Length} text='{preview}' hex={ToHexPreview(state.Payload)}");
+        state.Results.Add(new Result(text, null, points, BarcodeFormat.MSI));
     }
 
     private static void LogRowCellSummary(
