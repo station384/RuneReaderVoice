@@ -16,19 +16,17 @@ namespace RuneReaderVoice.Session;
 /// <summary>
 /// CV2-based detector for the RuneReader Barcode font symbology.
 ///
+/// v8 compact bounded model:
+///   - Normal glyph: left full-height guard bar + 8-lane data cell + right full-height guard bar.
+///   - Start/stop glyph: left full-height guard bar + empty data cell + right full-height guard bar.
+///   - Glyphs are decoded as cells between adjacent guard spans; adjacent glyph guards may merge into a wider shared guard span.
+///   - Empty cell = start/stop marker.
+///   - Data cell = one Latin-1 byte, MSB in top lane.
+///
 /// Input is expected to be a pre-thresholded image where barcode ink is black
 /// and the barcode background / quiet zone is white.
 ///
-/// Decoder model:
-///   - Locate vertical guard bars as global black-run components, not by broad row bands.
-///   - Group guard bars into rows by vertical overlap.
-///   - Treat every gap between adjacent guard bars as a cell.
-///   - Empty cell between two guards = start/stop marker.
-///   - Non-empty cells between the first and second marker = payload bytes.
-///   - If a row starts but does not stop, payload carries to the next guard row
-///     in row-major order so wrapped FontStrings decode as one barcode.
-///   - Bits are read by scanning the upper lane band for ink anywhere in the cell;
-///     horizontal data-bar length is not assumed.
+/// Decoder is generic: it does not filter for RRVG-/RRVN-. Caller owns payload filtering.
 /// </summary>
 public static class RrvBarcodeDetector
 {
@@ -39,10 +37,15 @@ public static class RrvBarcodeDetector
     private const double LaneBandStartFraction = 0.15;
     private const double LaneBandEndFraction = 0.40;
     private const int NumLanes = 8;
-    private const int MaxDebugCellsPerRow = 80;
+    private const int MaxWrappedRowGapPixels = 10;
+    private const int MinContinuationDataRunCells = 3;
+
+    // A valid v8 data cell is bounded by guards, but must not contain a
+    // guard-like vertical run inside the data zone. If it does, the cell is
+    // almost certainly a seam/merged-guard artifact from a wrapped row.
+    private const double InternalGuardRunThreshold = 0.70;
     private const int MaxDebugPayloadPreviewChars = 80;
     private const bool DebugTraceEnabled = false;
-
 
     private static void Trace(string message)
     {
@@ -87,7 +90,7 @@ public static class RrvBarcodeDetector
                 var guardRows = GroupGuardBarsIntoRows(guards);
                 if (guardRows.Count == 0) return null;
 
-                var results = DecodeGuardRowsRowMajor(gray, guardRows, rows, cols);
+                var results = DecodeRowsAsBlocks(gray, guardRows, rows, cols);
                 return results.Count > 0 ? results.ToArray() : null;
             }
             finally
@@ -163,6 +166,410 @@ public static class RrvBarcodeDetector
         }
     }
 
+    private sealed class GuardRow
+    {
+        public readonly List<GuardBar> Guards;
+        public readonly int Top;
+        public readonly int Bottom;
+        public readonly int Height;
+        public readonly int GuardW;
+        public readonly int DataW;
+        public readonly double MinCellW;
+        public readonly double MaxCellW;
+
+        public GuardRow(List<GuardBar> guards)
+        {
+            Guards = guards.OrderBy(g => g.XStart).ToList();
+            Top = Median(Guards.Select(g => g.YStart));
+            Bottom = Median(Guards.Select(g => g.YEnd));
+            Height = Math.Max(1, Bottom - Top);
+            GuardW = Math.Max(1, Median(Guards.Select(g => g.Width)));
+            DataW = EstimateDataCellWidth(Guards, GuardW, Height);
+            MinCellW = Math.Max(1, DataW * 0.45);
+            MaxCellW = Math.Max(MinCellW + 1, DataW * 1.80);
+        }
+
+        public bool Usable => Guards.Count >= 2 && Height >= MinVerticalRunPixels && DataW > 0;
+    }
+
+
+
+    private readonly struct BlockBounds
+    {
+        public readonly int Left;
+        public readonly int Top;
+        public readonly int Right;
+        public readonly int Bottom;
+
+        public BlockBounds(int left, int top, int right, int bottom)
+        {
+            Left = left;
+            Top = top;
+            Right = right;
+            Bottom = bottom;
+        }
+
+        public static BlockBounds FromResult(Result result)
+        {
+            var points = result.ResultPoints ?? Array.Empty<ResultPoint>();
+            if (points.Length == 0)
+                return new BlockBounds(0, 0, -1, -1);
+
+            int left = (int)Math.Floor(points.Min(p => p.X));
+            int right = (int)Math.Ceiling(points.Max(p => p.X));
+            int top = (int)Math.Floor(points.Min(p => p.Y));
+            int bottom = (int)Math.Ceiling(points.Max(p => p.Y));
+            return new BlockBounds(left, top, right, bottom);
+        }
+
+        public bool ContainsCell(GuardRow row, int cellIndex)
+        {
+            var leftGuard = row.Guards[cellIndex];
+            var rightGuard = row.Guards[cellIndex + 1];
+            int cx = (leftGuard.XStart + rightGuard.XEnd) / 2;
+            int cy = (row.Top + row.Bottom) / 2;
+
+            // Small expansion handles 1-2 px antialias drift at wrapped row boundaries.
+            return cx >= Left - 2 && cx <= Right + 2 &&
+                   cy >= Top - 2 && cy <= Bottom + 2;
+        }
+    }
+
+    private readonly struct CellBox
+    {
+        public readonly int Left;
+        public readonly int Right;
+        public readonly int Top;
+        public readonly int Height;
+        public readonly int Bottom;
+
+        public CellBox(int left, int right, int top, int bottom)
+        {
+            Left = left;
+            Right = right;
+            Top = top;
+            Bottom = bottom;
+            Height = Math.Max(1, bottom - top);
+        }
+    }
+
+    private static List<Result> DecodeRowsAsBlocks(Mat gray, List<List<GuardBar>> guardRows, int rows, int cols)
+    {
+        var rowInfos = guardRows
+            .Select(r => new GuardRow(r))
+            .Where(r => r.Usable)
+            .OrderBy(r => r.Top)
+            .ThenBy(r => r.Guards.Min(g => g.XStart))
+            .ToList();
+
+        var results = new List<Result>();
+        var consumedBlocks = new List<BlockBounds>();
+
+        for (int rowIndex = 0; rowIndex < rowInfos.Count; rowIndex++)
+        {
+            var row = rowInfos[rowIndex];
+            for (int cellIndex = 0; cellIndex < row.Guards.Count - 1; cellIndex++)
+            {
+                if (!IsMarkerCell(gray, row, cellIndex, rows, cols))
+                    continue;
+
+                if (IsCellInsideConsumedBlock(row, cellIndex, consumedBlocks))
+                {
+                    Trace($"[RRVB] Skip marker inside consumed wrapped block row={rowIndex} cell={cellIndex}");
+                    continue;
+                }
+
+                var result = DecodeBlockFromStart(gray, rowInfos, rowIndex, cellIndex, rows, cols);
+                if (result != null)
+                {
+                    results.Add(result);
+                    consumedBlocks.Add(BlockBounds.FromResult(result));
+                }
+            }
+        }
+
+        return results;
+    }
+
+
+    private static bool IsCellInsideConsumedBlock(GuardRow row, int cellIndex, List<BlockBounds> consumedBlocks)
+    {
+        foreach (var block in consumedBlocks)
+        {
+            if (block.ContainsCell(row, cellIndex))
+                return true;
+        }
+
+        return false;
+    }
+
+    private static Result? DecodeBlockFromStart(Mat gray, List<GuardRow> rowsInfo, int startRowIndex, int startCellIndex, int rows, int cols)
+    {
+        var payload = new List<byte>();
+        var startRow = rowsInfo[startRowIndex];
+
+        int blockLeft = startRow.Guards[startCellIndex].XStart;
+        int blockRight = startRow.Guards[startCellIndex + 1].XEnd;
+        int blockTop = Math.Min(startRow.Guards[startCellIndex].YStart, startRow.Guards[startCellIndex + 1].YStart);
+        int blockBottom = Math.Max(startRow.Guards[startCellIndex].YEnd, startRow.Guards[startCellIndex + 1].YEnd);
+        int lastRowBottom = startRow.Bottom;
+        int refDataW = startRow.DataW;
+        int refHeight = startRow.Height;
+
+        Trace($"[RRVB] START block row={startRowIndex} cell={startCellIndex} Y={startRow.Top} dataW={refDataW}");
+
+        for (int rowIndex = startRowIndex; rowIndex < rowsInfo.Count; rowIndex++)
+        {
+            var row = rowsInfo[rowIndex];
+
+            if (rowIndex > startRowIndex)
+            {
+                int gap = row.Top - lastRowBottom;
+                if (gap < 0 || gap > MaxWrappedRowGapPixels)
+                    break;
+
+                if (!LooksLikeContinuationRow(row, refDataW, refHeight))
+                    break;
+            }
+
+            int firstCell;
+            if (rowIndex == startRowIndex)
+            {
+                firstCell = startCellIndex + 1;
+            }
+            else
+            {
+                // v8 bounded glyphs are self-bounded: [guard][data][guard].
+                // A wrapped continuation row should begin with a normal data cell,
+                // but full-screen detection can see a short preamble of guard-like
+                // noise before the actual wrapped line. Since one font instance has
+                // fixed data-cell width, prefer the first sustained run of data-like
+                // cells and ignore short preambles before it.
+                firstCell = FindContinuationStartCell(gray, row, rows, cols);
+                if (firstCell < 0)
+                    break;
+            }
+
+            bool continueWithNextRow = false;
+
+            for (int cellIndex = firstCell; cellIndex < row.Guards.Count - 1; cellIndex++)
+            {
+                int cellW = CellWidth(row, cellIndex);
+                if (!IsPlausibleCellWidth(row, cellW))
+                    continue;
+
+                var cell = GetCellBox(row, cellIndex);
+
+                if (CellContainsInternalGuardRun(gray, cell.Left, cell.Right, cell.Top, cell.Height, rows, cols))
+                {
+                    Trace($"[RRVB] Skip seam/internal-guard cell row={rowIndex} cell={cellIndex}");
+                    continue;
+                }
+
+                bool empty = !CellHasAnyLaneInk(gray, cell.Left, cell.Right, cell.Top, cell.Height, rows, cols);
+                if (empty)
+                {
+                    if (payload.Count == 0)
+                    {
+                        Trace($"[RRVB] Reject empty block row={rowIndex} cell={cellIndex}");
+                        return null;
+                    }
+
+                    // Wrapped rows can produce a false empty marker at the line seam when
+                    // antialiasing drops a guard/data cell at the row edge. If another
+                    // compatible row is immediately below, prefer continuing the block
+                    // instead of prematurely finalizing at this row.
+                    if (HasCompatibleContinuationRow(rowsInfo, rowIndex, row.Bottom, refDataW, refHeight))
+                    {
+                        Trace($"[RRVB] Ignore seam empty row={rowIndex} cell={cellIndex}; continuing wrapped block");
+                        continueWithNextRow = true;
+                        break;
+                    }
+
+                    // If the first cell of a continuation row looks empty, treat it as a
+                    // row-start seam artifact, not a stop marker. The next cells may still
+                    // carry the continuation payload.
+                    if (rowIndex > startRowIndex && cellIndex == 0)
+                    {
+                        Trace($"[RRVB] Skip continuation row-start empty row={rowIndex} cell={cellIndex}");
+                        continue;
+                    }
+
+                    blockRight = Math.Max(blockRight, row.Guards[cellIndex + 1].XEnd);
+                    blockTop = Math.Min(blockTop, Math.Min(row.Guards[cellIndex].YStart, row.Guards[cellIndex + 1].YStart));
+                    blockBottom = Math.Max(blockBottom, Math.Max(row.Guards[cellIndex].YEnd, row.Guards[cellIndex + 1].YEnd));
+
+                    return MakeResult(payload, blockLeft, blockTop, blockRight, blockBottom);
+                }
+
+                byte value = DecodeDataCell(gray, cell.Left, cell.Right, cell.Top, cell.Height, rows, cols);
+                payload.Add(value);
+
+                blockLeft = Math.Min(blockLeft, row.Guards[cellIndex].XStart);
+                blockRight = Math.Max(blockRight, row.Guards[cellIndex + 1].XEnd);
+                blockTop = Math.Min(blockTop, Math.Min(row.Guards[cellIndex].YStart, row.Guards[cellIndex + 1].YStart));
+                blockBottom = Math.Max(blockBottom, Math.Max(row.Guards[cellIndex].YEnd, row.Guards[cellIndex + 1].YEnd));
+
+                if (payload.Count <= 12)
+                    Trace($"[RRVB] byte[{payload.Count - 1}] row={rowIndex} cell={cellIndex} value=0x{value:X2} '{Printable(value)}'");
+            }
+
+            lastRowBottom = row.Bottom;
+            if (continueWithNextRow)
+                continue;
+        }
+
+        Trace($"[RRVB] Unclosed block startRow={startRowIndex} startCell={startCellIndex} payloadBytes={payload.Count}");
+        return null;
+    }
+
+
+    private static int FindContinuationStartCell(Mat gray, GuardRow row, int rows, int cols)
+    {
+        int firstNonEmpty = -1;
+        int runStart = -1;
+        int runLength = 0;
+
+        for (int cellIndex = 0; cellIndex < row.Guards.Count - 1; cellIndex++)
+        {
+            int cellW = CellWidth(row, cellIndex);
+            if (!IsPlausibleCellWidth(row, cellW))
+            {
+                if (runLength >= MinContinuationDataRunCells)
+                    return runStart;
+                runStart = -1;
+                runLength = 0;
+                continue;
+            }
+
+            var cell = GetCellBox(row, cellIndex);
+            bool hasInk = CellHasAnyLaneInk(gray, cell.Left, cell.Right, cell.Top, cell.Height, rows, cols);
+            if (!hasInk)
+            {
+                if (runLength >= MinContinuationDataRunCells)
+                    return runStart;
+                runStart = -1;
+                runLength = 0;
+                continue;
+            }
+
+            firstNonEmpty = firstNonEmpty < 0 ? cellIndex : firstNonEmpty;
+            if (runStart < 0)
+            {
+                runStart = cellIndex;
+                runLength = 1;
+            }
+            else
+            {
+                runLength++;
+            }
+        }
+
+        if (runLength >= MinContinuationDataRunCells)
+            return runStart;
+
+        return firstNonEmpty;
+    }
+
+
+    private static bool HasCompatibleContinuationRow(List<GuardRow> rowsInfo, int currentRowIndex, int lastRowBottom, int refDataW, int refHeight)
+    {
+        for (int i = currentRowIndex + 1; i < rowsInfo.Count; i++)
+        {
+            var row = rowsInfo[i];
+            int gap = row.Top - lastRowBottom;
+            if (gap < 0)
+                continue;
+            if (gap > MaxWrappedRowGapPixels)
+                return false;
+
+            return LooksLikeContinuationRow(row, refDataW, refHeight);
+        }
+
+        return false;
+    }
+
+    private static bool LooksLikeContinuationRow(GuardRow row, int refDataW, int refHeight)
+    {
+        if (!row.Usable) return false;
+
+        double heightRatio = row.Height / (double)Math.Max(1, refHeight);
+        if (heightRatio < 0.65 || heightRatio > 1.55)
+            return false;
+
+        double dataRatio = row.DataW / (double)Math.Max(1, refDataW);
+        if (dataRatio < 0.60 || dataRatio > 1.70)
+            return false;
+
+        // Wrapped v8 rows are self-bounded. Do not require exact X alignment:
+        // FontString wrapping can shift the continuation line. Row proximity +
+        // similar height/spacing is the reliable block-continuation signal.
+        return true;
+    }
+
+    private static Result MakeResult(List<byte> payload, int x1, int y1, int x2, int y2)
+    {
+        string text = Encoding.Latin1.GetString(payload.ToArray());
+        var points = new[]
+        {
+            new ResultPoint(x1, y1),
+            new ResultPoint(x2, y1),
+            new ResultPoint(x2, y2),
+            new ResultPoint(x1, y2),
+        };
+
+        string preview = text.Length <= MaxDebugPayloadPreviewChars ? text : text[..MaxDebugPayloadPreviewChars] + "...";
+        Trace($"[RRVB] Decoded payload bytes={payload.Count} chars={text.Length} text='{preview}' hex={ToHexPreview(payload)}");
+        return new Result(text, null, points, BarcodeFormat.MSI);
+    }
+
+    private static bool IsMarkerCell(Mat gray, GuardRow row, int cellIndex, int rows, int cols)
+    {
+        int cellW = CellWidth(row, cellIndex);
+        if (!IsPlausibleCellWidth(row, cellW))
+            return false;
+
+        var cell = GetCellBox(row, cellIndex);
+        return !CellHasAnyLaneInk(gray, cell.Left, cell.Right, cell.Top, cell.Height, rows, cols);
+    }
+
+    private static int CellWidth(GuardRow row, int cellIndex)
+    {
+        return row.Guards[cellIndex + 1].XStart - row.Guards[cellIndex].XEnd;
+    }
+
+    private static CellBox GetCellBox(GuardRow row, int cellIndex)
+    {
+        var leftGuard = row.Guards[cellIndex];
+        var rightGuard = row.Guards[cellIndex + 1];
+
+        int left = leftGuard.XEnd;
+        int right = rightGuard.XStart - 1;
+
+        // Decode from the local guard-pair height instead of the row median.
+        // Wrapped rows can have a slightly different antialiasing envelope, and
+        // a single noisy/tall guard must not move the lane sample bands for the
+        // whole row.
+        int top = Math.Min(leftGuard.YStart, rightGuard.YStart);
+        int bottom = Math.Max(leftGuard.YEnd, rightGuard.YEnd);
+
+        // If one side is a merged inter-glyph guard, its Y can be a pixel or two
+        // taller. Clamp extreme local height drift back toward the row median.
+        int localHeight = Math.Max(1, bottom - top);
+        if (localHeight > row.Height * 1.35 || localHeight < row.Height * 0.65)
+        {
+            top = row.Top;
+            bottom = row.Bottom;
+        }
+
+        return new CellBox(left, right, top, bottom);
+    }
+
+    private static bool IsPlausibleCellWidth(GuardRow row, int cellW)
+    {
+        return cellW >= row.MinCellW && cellW <= row.MaxCellW;
+    }
+
     private static List<GuardBar> FindGuardBarsByGlobalRuns(Mat gray, int rows, int cols)
     {
         var active = new List<GuardBuild>();
@@ -232,16 +639,6 @@ public static class RrvBarcodeDetector
             .ToList();
 
         Trace($"[RRVB] Global guard candidates: {guards.Count}");
-        if (guards.Count > 0)
-        {
-            int minH = guards.Min(g => g.Height);
-            int maxH = guards.Max(g => g.Height);
-            int medH = Median(guards.Select(g => g.Height));
-            int minW = guards.Min(g => g.Width);
-            int maxW = guards.Max(g => g.Width);
-            int medW = Median(guards.Select(g => g.Width));
-            Trace($"[RRVB] Guard stats H min/med/max={minH}/{medH}/{maxH} W min/med/max={minW}/{medW}/{maxW}");
-        }
         return guards;
     }
 
@@ -324,281 +721,6 @@ public static class RrvBarcodeDetector
         return rows;
     }
 
-    private sealed class DecodeState
-    {
-        public readonly List<Result> Results = new();
-        public readonly List<byte> Payload = new();
-        public bool InPayload;
-        public int Bx1, By1, Bx2, By2;
-        public int? ExpectedDataW;
-        public int? ExpectedRowHeight;
-
-        public void Reset()
-        {
-            Payload.Clear();
-            InPayload = false;
-            Bx1 = By1 = Bx2 = By2 = 0;
-            ExpectedDataW = null;
-            ExpectedRowHeight = null;
-        }
-
-        public void StartBounds(GuardBar left, GuardBar right, int dataW, int rowHeight)
-        {
-            Bx1 = Math.Min(left.XStart, right.XStart);
-            By1 = Math.Min(left.YStart, right.YStart);
-            Bx2 = Math.Max(left.XEnd, right.XEnd);
-            By2 = Math.Max(left.YEnd, right.YEnd);
-            ExpectedDataW = dataW;
-            ExpectedRowHeight = rowHeight;
-        }
-
-        public void ExpandBounds(GuardBar left, GuardBar right)
-        {
-            Bx1 = Math.Min(Bx1, Math.Min(left.XStart, right.XStart));
-            By1 = Math.Min(By1, Math.Min(left.YStart, right.YStart));
-            Bx2 = Math.Max(Bx2, Math.Max(left.XEnd, right.XEnd));
-            By2 = Math.Max(By2, Math.Max(left.YEnd, right.YEnd));
-        }
-    }
-
-    private static List<Result> DecodeGuardRowsRowMajor(Mat gray, List<List<GuardBar>> guardRows, int rows, int cols)
-    {
-        var state = new DecodeState();
-
-        foreach (var guardRow in guardRows
-                     .Where(r => r.Count >= 2)
-                     .OrderBy(r => Median(r.Select(g => g.YStart)))
-                     .ThenBy(r => r.Min(g => g.XStart)))
-        {
-            DecodeGuardRowIntoState(gray, guardRow.OrderBy(g => g.XStart).ToList(), rows, cols, state);
-        }
-
-        if (state.InPayload)
-        {
-            Trace($"[RRVB] Wrapped decode ended with unterminated payload bytes={state.Payload.Count}; ignored");
-            state.Reset();
-        }
-
-        return state.Results;
-    }
-
-    private static void DecodeGuardRowIntoState(Mat gray, List<GuardBar> guards, int rows, int cols, DecodeState state)
-    {
-        if (guards.Count < 2) return;
-
-        int rowTop = Median(guards.Select(g => g.YStart));
-        int rowBottom = Median(guards.Select(g => g.YEnd));
-        int rowHeight = Math.Max(1, rowBottom - rowTop);
-        if (rowHeight < MinVerticalRunPixels) return;
-
-        int guardW = Math.Max(1, Median(guards.Select(g => g.Width)));
-        int dataW = EstimateDataCellWidth(guards, guardW, rowHeight);
-        if (dataW <= 0)
-        {
-            Trace($"[RRVB] Reject row Y={rowTop} H={rowHeight} guards={guards.Count}: no usable data cell width");
-            return;
-        }
-
-        if (state.InPayload && !GeometryCompatible(state, dataW, rowHeight))
-        {
-            Trace($"[RRVB] Wrapped row geometry mismatch Y={rowTop} H={rowHeight} dataW={dataW}; reset unterminated payloadBytes={state.Payload.Count}");
-            state.Reset();
-        }
-
-        double minCellW = Math.Max(1, dataW * 0.45);
-        double maxCellW = Math.Max(minCellW + 1, dataW * 1.80);
-
-        LogRowCellSummary(gray, guards, rowTop, rowHeight, dataW, minCellW, maxCellW, rows, cols);
-        Trace($"[RRVB] Decode row Y={rowTop} H={rowHeight} guards={guards.Count} guardW={guardW} dataW={dataW} cellWRange={minCellW:F1}..{maxCellW:F1} carrying={state.InPayload} carriedBytes={state.Payload.Count}");
-
-        int startMarkers = 0;
-        int stopMarkers = 0;
-        int decodedCells = 0;
-        int skippedBeforeStart = 0;
-        int geometryResets = 0;
-
-        for (int i = 0; i < guards.Count - 1; i++)
-        {
-            GuardBar left = guards[i];
-            GuardBar right = guards[i + 1];
-
-            int cellLeft = left.XEnd;
-            int cellRight = right.XStart;
-            int cellW = cellRight - cellLeft;
-
-            if (cellW <= 0)
-                continue;
-
-            bool plausibleCell = cellW >= minCellW && cellW <= maxCellW;
-            if (!plausibleCell)
-            {
-                if (state.InPayload)
-                    Trace($"[RRVB] Row Y={rowTop}: reset payload at cell {i} gapW={cellW} outside {minCellW:F1}..{maxCellW:F1} payloadBytes={state.Payload.Count}");
-                geometryResets++;
-                state.Reset();
-                continue;
-            }
-
-            var (cellRowTop, cellRowHeight) = RowFromGuardPair(left, right);
-            bool emptyCell = !CellHasAnyLaneInk(gray, cellLeft, cellRight - 1, cellRowTop, cellRowHeight, rows, cols);
-
-            if (emptyCell)
-            {
-                if (!state.InPayload)
-                {
-                    state.Reset();
-                    state.InPayload = true;
-                    startMarkers++;
-                    state.StartBounds(left, right, dataW, rowHeight);
-                    Trace($"[RRVB] Row Y={rowTop}: START cell={i} x={cellLeft}..{cellRight - 1} w={cellW} activeY={cellRowTop} activeH={cellRowHeight}");
-                }
-                else
-                {
-                    stopMarkers++;
-                    state.ExpandBounds(left, right);
-                    Trace($"[RRVB] Row Y={rowTop}: STOP cell={i} x={cellLeft}..{cellRight - 1} w={cellW} payloadBytes={state.Payload.Count}");
-                    FinalizePayload(state);
-                    state.Reset();
-                }
-
-                continue;
-            }
-
-            if (!state.InPayload)
-            {
-                skippedBeforeStart++;
-                continue;
-            }
-
-            byte value = DecodeDataCell(gray, cellLeft, cellRight - 1, cellRowTop, cellRowHeight, rows, cols);
-            state.Payload.Add(value);
-            decodedCells++;
-            state.ExpandBounds(left, right);
-
-            if (state.Payload.Count <= 12)
-                Trace($"[RRVB] Row Y={rowTop}: byte[{state.Payload.Count - 1}] cell={i} x={cellLeft}..{cellRight - 1} w={cellW} activeY={cellRowTop} activeH={cellRowHeight} value=0x{value:X2} '{Printable(value)}'");
-        }
-
-        Trace($"[RRVB] Row Y={rowTop}: summary start={startMarkers} stop={stopMarkers} decodedCells={decodedCells} skippedBeforeStart={skippedBeforeStart} geometryResets={geometryResets} results={state.Results.Count} carrying={state.InPayload} carriedBytes={state.Payload.Count}");
-    }
-
-    private static bool GeometryCompatible(DecodeState state, int dataW, int rowHeight)
-    {
-        if (!state.ExpectedDataW.HasValue || !state.ExpectedRowHeight.HasValue)
-            return true;
-
-        int expectedDataW = Math.Max(1, state.ExpectedDataW.Value);
-        int expectedRowHeight = Math.Max(1, state.ExpectedRowHeight.Value);
-
-        double dataRatio = dataW / (double)expectedDataW;
-        double heightRatio = rowHeight / (double)expectedRowHeight;
-
-        return dataRatio >= 0.50 && dataRatio <= 2.00 &&
-               heightRatio >= 0.50 && heightRatio <= 2.00;
-    }
-
-    private static (int Top, int Height) RowFromGuardPair(GuardBar left, GuardBar right)
-    {
-        int top = (left.YStart + right.YStart) / 2;
-        int bottom = (left.YEnd + right.YEnd) / 2;
-        return (top, Math.Max(1, bottom - top));
-    }
-
-    private static void FinalizePayload(DecodeState state)
-    {
-        if (state.Payload.Count == 0) return;
-
-        string text = Encoding.Latin1.GetString(state.Payload.ToArray());
-        if (string.IsNullOrEmpty(text)) return;
-
-        var points = new[]
-        {
-            new ResultPoint(state.Bx1, state.By1),
-            new ResultPoint(state.Bx2, state.By1),
-            new ResultPoint(state.Bx2, state.By2),
-            new ResultPoint(state.Bx1, state.By2),
-        };
-
-        string preview = text.Length <= MaxDebugPayloadPreviewChars ? text : text[..MaxDebugPayloadPreviewChars] + "...";
-        Trace($"[RRVB] Decoded payload bytes={state.Payload.Count} chars={text.Length} text='{preview}' hex={ToHexPreview(state.Payload)}");
-        state.Results.Add(new Result(text, null, points, BarcodeFormat.MSI));
-    }
-
-    private static void LogRowCellSummary(
-        Mat gray, List<GuardBar> guards, int rowTop, int rowHeight,
-        int dataW, double minCellW, double maxCellW, int rows, int cols)
-    {
-        var widths = new List<int>();
-        int plausible = 0;
-        int empty = 0;
-        int ink = 0;
-        int tooSmall = 0;
-        int tooLarge = 0;
-
-        int sampleCount = Math.Min(guards.Count - 1, MaxDebugCellsPerRow);
-        var sample = new StringBuilder();
-
-        for (int i = 0; i < guards.Count - 1; i++)
-        {
-            int cellLeft = guards[i].XEnd;
-            int cellRight = guards[i + 1].XStart;
-            int w = cellRight - cellLeft;
-            if (w <= 0) continue;
-
-            widths.Add(w);
-            bool plausibleCell = w >= minCellW && w <= maxCellW;
-            if (w < minCellW) tooSmall++;
-            else if (w > maxCellW) tooLarge++;
-            else plausible++;
-
-            bool isEmpty = false;
-            if (plausibleCell)
-            {
-                isEmpty = !CellHasAnyLaneInk(gray, cellLeft, cellRight - 1, rowTop, rowHeight, rows, cols);
-                if (isEmpty) empty++; else ink++;
-            }
-
-            if (i < sampleCount)
-            {
-                char kind = !plausibleCell ? (w < minCellW ? 's' : 'L') : (isEmpty ? 'E' : 'D');
-                if (sample.Length > 0) sample.Append(' ');
-                sample.Append(i).Append(':').Append(w).Append(kind);
-            }
-        }
-
-        if (widths.Count == 0)
-        {
-            Trace($"[RRVB] Row Y={rowTop}: no guard-to-guard cells");
-            return;
-        }
-
-        widths.Sort();
-        int min = widths[0];
-        int med = widths[widths.Count / 2];
-        int max = widths[^1];
-
-        Trace($"[RRVB] Row Y={rowTop}: cells={widths.Count} width min/med/max={min}/{med}/{max} dataW={dataW} plausible={plausible} emptyMarkers={empty} dataLike={ink} tooSmall={tooSmall} tooLarge={tooLarge}");
-        Trace($"[RRVB] Row Y={rowTop}: cell sample {sample}");
-    }
-
-    private static string ToHexPreview(List<byte> bytes)
-    {
-        int count = Math.Min(bytes.Count, 32);
-        var sb = new StringBuilder();
-        for (int i = 0; i < count; i++)
-        {
-            if (i > 0) sb.Append(' ');
-            sb.Append(bytes[i].ToString("X2"));
-        }
-        if (bytes.Count > count) sb.Append(" ...");
-        return sb.ToString();
-    }
-
-    private static char Printable(byte value)
-    {
-        return value >= 32 && value <= 126 ? (char)value : '.';
-    }
-
     private static int EstimateDataCellWidth(List<GuardBar> guards, int guardW, int rowHeight)
     {
         var gaps = new List<int>();
@@ -616,6 +738,35 @@ public static class RrvBarcodeDetector
         gaps.Sort();
         int index = Math.Clamp(gaps.Count / 4, 0, gaps.Count - 1);
         return gaps[index];
+    }
+
+    private static bool CellContainsInternalGuardRun(Mat gray, int x0, int x1, int rowTop, int rowHeight, int rows, int cols)
+    {
+        int xa = Math.Clamp(Math.Min(x0, x1), 0, cols - 1);
+        int xb = Math.Clamp(Math.Max(x0, x1), 0, cols - 1);
+        int ya = Math.Clamp(rowTop, 0, rows - 1);
+        int yb = Math.Clamp(rowTop + rowHeight - 1, 0, rows - 1);
+        int minRun = Math.Max(2, (int)Math.Round((yb - ya + 1) * InternalGuardRunThreshold));
+
+        for (int x = xa; x <= xb; x++)
+        {
+            int run = 0;
+            for (int y = ya; y <= yb; y++)
+            {
+                if (gray.At<byte>(y, x) < 128)
+                {
+                    run++;
+                    if (run >= minRun)
+                        return true;
+                }
+                else
+                {
+                    run = 0;
+                }
+            }
+        }
+
+        return false;
     }
 
     private static bool CellHasAnyLaneInk(Mat gray, int x0, int x1, int rowTop, int rowHeight, int rows, int cols)
@@ -689,6 +840,24 @@ public static class RrvBarcodeDetector
         }
 
         return false;
+    }
+
+    private static string ToHexPreview(List<byte> bytes)
+    {
+        int count = Math.Min(bytes.Count, 32);
+        var sb = new StringBuilder();
+        for (int i = 0; i < count; i++)
+        {
+            if (i > 0) sb.Append(' ');
+            sb.Append(bytes[i].ToString("X2"));
+        }
+        if (bytes.Count > count) sb.Append(" ...");
+        return sb.ToString();
+    }
+
+    private static char Printable(byte value)
+    {
+        return value >= 32 && value <= 126 ? (char)value : '.';
     }
 
     private static double OverlapRatio(int a0, int a1, int b0, int b1)

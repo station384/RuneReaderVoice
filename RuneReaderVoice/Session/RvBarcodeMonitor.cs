@@ -36,8 +36,8 @@ namespace RuneReaderVoice.Session;
 //
 // Channels:
 //   - QR: primary dialog/text channel. Payload is Base45 -> RV protocol packet.
-//   - RRVB GUID: side-channel metadata identified by decoded prefix "RRVG-".
-//   - RRVB Name: side-channel metadata identified by decoded prefix "RRVN-".
+//   - RRVB identity: combined side-channel metadata identified by decoded prefix "RRVX-".
+//     Payload format: RRVX-G=<guid>;N=<name>.
 //
 // Each channel maintains its own locked region. Full-screen rescans locate all
 // regions. Region polling captures known regions independently without
@@ -49,7 +49,6 @@ public sealed class RvBarcodeMonitor : IDisposable
         None,
         Qr,
         RrvbGuid,
-        RrvbName,
     }
 
     private readonly BarcodeReaderGeneric _qrMultiReader = new();
@@ -113,8 +112,9 @@ public sealed class RvBarcodeMonitor : IDisposable
     private readonly object _captureIoGate = new();
     private bool _disposed;
 
-    private const string RrvbGuidPrefix = "RRVG-";
-    private const string RrvbNamePrefix = "RRVN-";
+    private const string RrvbIdentityPrefix = "RRVX-";
+    private const string RrvbGuidFieldPrefix = "G=";
+    private const string RrvbNameFieldMarker = ";N=";
 
     // Full-screen scans are only needed to acquire or recover lost regions.
     // Once region polling is actively decoding all channels, keep full-screen
@@ -171,14 +171,7 @@ public sealed class RvBarcodeMonitor : IDisposable
 
     public void TrySetInitialLockedRrvbNameRegion(SavedBarcodeRegion? saved)
     {
-        var clamped = ToClampedRect(saved);
-        if (!clamped.HasValue) return;
-
-        lock (_gate)
-        {
-            if (_captureTask is { IsCompleted: false }) return;
-            _lockedRrvbNameRegion = clamped.Value;
-        }
+        // RRVX uses one combined identity barcode. Legacy name-region state is ignored.
     }
 
     private Rect? ToClampedRect(SavedBarcodeRegion? saved)
@@ -319,12 +312,10 @@ public sealed class RvBarcodeMonitor : IDisposable
             {
                 Rect? qrRegion;
                 Rect? rrvbGuidRegion;
-                Rect? rrvbNameRegion;
                 lock (_gate)
                 {
                     qrRegion = _lockedRegion;
                     rrvbGuidRegion = _lockedRrvbGuidRegion;
-                    rrvbNameRegion = _lockedRrvbNameRegion;
                 }
 
                 lock (_captureIoGate)
@@ -347,15 +338,8 @@ public sealed class RvBarcodeMonitor : IDisposable
                         _capture.CaptureOnce();
                     }
 
-                    if (rrvbNameRegion.HasValue)
-                    {
-                        _activeRegionKind = RegionKind.RrvbName;
-                        _capture.EnableRegion = true;
-                        _capture.CaptureRegion = rrvbNameRegion.Value;
-                        _capture.CaptureOnce();
-                    }
 
-                    if (!qrRegion.HasValue && !rrvbGuidRegion.HasValue && !rrvbNameRegion.HasValue)
+                    if (!qrRegion.HasValue && !rrvbGuidRegion.HasValue)
                     {
                         _activeRegionKind = RegionKind.None;
                         _capture.EnableRegion = false;
@@ -402,23 +386,11 @@ public sealed class RvBarcodeMonitor : IDisposable
             }
 
             var rrvbResults = DecodeRrvbMultiple(fullFrame);
-            if (rrvbResults is { Length: > 0 })
+            var identity = SelectBestRrvbIdentity(rrvbResults);
+            if (identity != null)
             {
-                foreach (var result in rrvbResults)
-                {
-                    if (TryExtractRrvbGuid(result.Text) is { } guid)
-                    {
-                        UpdateRegionLock(result, RegionKind.RrvbGuid);
-                        RecordRrvbGuid(guid);
-                        continue;
-                    }
-
-                    if (TryExtractRrvbName(result.Text) is { } name)
-                    {
-                        UpdateRegionLock(result, RegionKind.RrvbName);
-                        RecordRrvbName(name);
-                    }
-                }
+                UpdateRegionLock(identity.Result, RegionKind.RrvbGuid);
+                RecordRrvbIdentity(identity.Guid, identity.Name);
             }
         }
         finally
@@ -446,13 +418,7 @@ public sealed class RvBarcodeMonitor : IDisposable
 
             if (kind == RegionKind.RrvbGuid)
             {
-                ProcessRrvbGuidRegion(regionFrame);
-                return;
-            }
-
-            if (kind == RegionKind.RrvbName)
-            {
-                ProcessRrvbNameRegion(regionFrame);
+                ProcessRrvbIdentityRegion(regionFrame);
                 return;
             }
 
@@ -496,45 +462,25 @@ public sealed class RvBarcodeMonitor : IDisposable
         OnPacketDecoded?.Invoke(packet);
     }
 
-    private void ProcessRrvbGuidRegion(Mat frame)
+    private void ProcessRrvbIdentityRegion(Mat frame)
     {
-        var decodedText = DecodeRrvbSingle(frame);
-        var guid = TryExtractRrvbGuid(decodedText);
-        if (guid == null)
+        var identity = SelectBestRrvbIdentity(DecodeMultipleRrvb(frame, ref _singleRrvbScanBuffer, pad: 20));
+        if (identity == null)
         {
             lock (_gate)
+            {
                 _regionHasRrvbGuid = false;
+                _regionHasRrvbName = false;
+            }
             return;
         }
 
-        lock (_gate)
-        {
-            _regionHasRrvbGuid = true;
-            _lastRrvbDecodeTime = DateTime.UtcNow;
-            _lastRrvbGuidDecodeTime = _lastRrvbDecodeTime;
-        }
-
-        RecordRrvbGuid(guid);
+        RecordRrvbIdentity(identity.Guid, identity.Name);
     }
 
-    private void ProcessRrvbNameRegion(Mat frame)
+    private void RecordRrvbIdentity(string guid, string name)
     {
-        var decodedText = DecodeRrvbSingle(frame);
-        var name = TryExtractRrvbName(decodedText);
-        if (name == null)
-        {
-            lock (_gate)
-                _regionHasRrvbName = false;
-            return;
-        }
-
-        lock (_gate)
-        {
-            _regionHasRrvbName = true;
-            _lastRrvbDecodeTime = DateTime.UtcNow;
-            _lastRrvbNameDecodeTime = _lastRrvbDecodeTime;
-        }
-
+        RecordRrvbGuid(guid);
         RecordRrvbName(name);
     }
 
@@ -594,20 +540,44 @@ public sealed class RvBarcodeMonitor : IDisposable
         }
     }
 
-    private static string? TryExtractRrvbGuid(string? text)
+    private sealed record RrvbIdentity(Result Result, string Guid, string Name);
+
+    private static RrvbIdentity? SelectBestRrvbIdentity(Result[]? results)
     {
-        if (string.IsNullOrWhiteSpace(text)) return null;
-        if (!text.StartsWith(RrvbGuidPrefix, StringComparison.OrdinalIgnoreCase)) return null;
-        var guid = text[RrvbGuidPrefix.Length..].Trim();
-        return string.IsNullOrWhiteSpace(guid) ? null : guid;
+        if (results is not { Length: > 0 }) return null;
+
+        RrvbIdentity? best = null;
+        foreach (var result in results)
+        {
+            var parsed = TryExtractRrvbIdentity(result);
+            if (parsed == null) continue;
+
+            if (best == null || parsed.Result.Text.Length > best.Result.Text.Length)
+                best = parsed;
+        }
+
+        return best;
     }
 
-    private static string? TryExtractRrvbName(string? text)
+    private static RrvbIdentity? TryExtractRrvbIdentity(Result result)
     {
+        var text = result.Text;
         if (string.IsNullOrWhiteSpace(text)) return null;
-        if (!text.StartsWith(RrvbNamePrefix, StringComparison.OrdinalIgnoreCase)) return null;
-        var name = text[RrvbNamePrefix.Length..].Trim();
-        return string.IsNullOrWhiteSpace(name) ? null : name;
+        if (!text.StartsWith(RrvbIdentityPrefix, StringComparison.Ordinal)) return null;
+
+        var body = text[RrvbIdentityPrefix.Length..];
+        if (!body.StartsWith(RrvbGuidFieldPrefix, StringComparison.Ordinal)) return null;
+
+        var nameMarkerIndex = body.IndexOf(RrvbNameFieldMarker, StringComparison.Ordinal);
+        if (nameMarkerIndex < RrvbGuidFieldPrefix.Length) return null;
+
+        var guid = body[RrvbGuidFieldPrefix.Length..nameMarkerIndex].Trim();
+        var name = body[(nameMarkerIndex + RrvbNameFieldMarker.Length)..].Trim();
+
+        if (string.IsNullOrWhiteSpace(guid)) return null;
+        if (string.IsNullOrWhiteSpace(name)) return null;
+
+        return new RrvbIdentity(result, guid, name);
     }
 
     // ── Decode helpers ───────────────────────────────────────────────────────
@@ -721,7 +691,7 @@ public sealed class RvBarcodeMonitor : IDisposable
         float maxY = result.ResultPoints.Max(p => p.Y);
 
         const int padding = 30;
-        var minHeight = (kind == RegionKind.RrvbGuid || kind == RegionKind.RrvbName) ? 80 : 0;
+        var minHeight = (kind == RegionKind.RrvbGuid) ? 80 : 0;
 
         int left = Math.Max(0, (int)Math.Floor(minX) - padding);
         int top = Math.Max(0, (int)Math.Floor(minY) - padding);
@@ -753,14 +723,6 @@ public sealed class RvBarcodeMonitor : IDisposable
                     changed = true;
                 }
             }
-            else if (kind == RegionKind.RrvbName)
-            {
-                if (!_lockedRrvbNameRegion.HasValue || !_lockedRrvbNameRegion.Value.Equals(clamped))
-                {
-                    _lockedRrvbNameRegion = clamped;
-                    changed = true;
-                }
-            }
             else
             {
                 if (!_lockedRegion.HasValue || !_lockedRegion.Value.Equals(clamped))
@@ -774,11 +736,14 @@ public sealed class RvBarcodeMonitor : IDisposable
         if (!changed) return;
 
         if (kind == RegionKind.RrvbGuid)
+        {
             OnLockedRrvbGuidRegionChanged?.Invoke(clamped);
-        else if (kind == RegionKind.RrvbName)
             OnLockedRrvbNameRegionChanged?.Invoke(clamped);
+        }
         else
+        {
             OnLockedRegionChanged?.Invoke(clamped);
+        }
     }
 
     // ── Full-screen rescan loop ───────────────────────────────────────────────
@@ -802,19 +767,15 @@ public sealed class RvBarcodeMonitor : IDisposable
                             && _lastRvDecodeTime != DateTime.MinValue
                             && (now - _lastRvDecodeTime).TotalMilliseconds <= stableGraceMs;
 
-                var guidStable = _lockedRrvbGuidRegion.HasValue
-                              && _regionHasRrvbGuid
-                              && _lastRrvbGuidDecodeTime != DateTime.MinValue
-                              && (now - _lastRrvbGuidDecodeTime).TotalMilliseconds <= stableGraceMs;
+                var identityStable = _lockedRrvbGuidRegion.HasValue
+                                  && _regionHasRrvbGuid
+                                  && _regionHasRrvbName
+                                  && _lastRrvbDecodeTime != DateTime.MinValue
+                                  && (now - _lastRrvbDecodeTime).TotalMilliseconds <= stableGraceMs;
 
-                var nameStable = _lockedRrvbNameRegion.HasValue
-                              && _regionHasRrvbName
-                              && _lastRrvbNameDecodeTime != DateTime.MinValue
-                              && (now - _lastRrvbNameDecodeTime).TotalMilliseconds <= stableGraceMs;
-
-                needsScan = !(qrStable && guidStable && nameStable);
+                needsScan = !(qrStable && identityStable);
                 reason = needsScan
-                    ? $"qr={qrStable} guid={guidStable} name={nameStable}"
+                    ? $"qr={qrStable} rrvx={identityStable}"
                     : "all regions stable";
                 qrRegion = _lockedRegion;
             }
