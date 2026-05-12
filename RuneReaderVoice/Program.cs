@@ -250,25 +250,25 @@ internal static class Program
 
         var monitor = new RvBarcodeMonitor(platform.ScreenCapture);
         // Migrate old one-Code39-region setting into GUID side-channel.
-        settings.LastCode39GuidBarcodeRegion ??= settings.LastCode39BarcodeRegion;
+        settings.LastRrvbGuidBarcodeRegion ??= settings.LastCode39BarcodeRegion;
 
         monitor.TrySetInitialLockedRegion(settings.LastBarcodeRegion);
-        monitor.TrySetInitialLockedCode39GuidRegion(settings.LastCode39GuidBarcodeRegion);
-        monitor.TrySetInitialLockedCode39NameRegion(settings.LastCode39NameBarcodeRegion);
+        monitor.TrySetInitialLockedRrvbGuidRegion(settings.LastRrvbGuidBarcodeRegion);
+        monitor.TrySetInitialLockedRrvbNameRegion(settings.LastRrvbNameBarcodeRegion);
         monitor.CaptureIntervalMs     = settings.CaptureIntervalMs;
         monitor.ReScanIntervalMs      = settings.ReScanIntervalMs;
         monitor.SourceGoneThresholdMs = settings.SourceGoneThresholdMs;
 
         monitor.OnPacketDecoded += assembler.Feed;
-        monitor.OnCode39GuidDecoded += guid =>
+        monitor.OnRrvbGuidDecoded += guid =>
         {
-            AppServices.CurrentCode39Guid = guid;
-            System.Diagnostics.Debug.WriteLine($"[Code39] Current GUID side-channel = {guid}");
+            AppServices.CurrentRrvbGuid = guid;
+            System.Diagnostics.Debug.WriteLine($"[RRVB] Current GUID side-channel = {guid}");
         };
-        monitor.OnCode39NameDecoded += name =>
+        monitor.OnRrvbNameDecoded += name =>
         {
-            AppServices.CurrentCode39Name = name;
-            System.Diagnostics.Debug.WriteLine($"[Code39] Current NPC name side-channel = {name}");
+            AppServices.CurrentRrvbName = name;
+            System.Diagnostics.Debug.WriteLine($"[RRVB] Current NPC name side-channel = {name}");
         };
         monitor.OnSourceGone += () =>
         {
@@ -291,9 +291,9 @@ internal static class Program
                 
         };
 
-        monitor.OnLockedCode39GuidRegionChanged += rect =>
+        monitor.OnLockedRrvbGuidRegionChanged += rect =>
         {
-            settings.LastCode39GuidBarcodeRegion = new SavedBarcodeRegion
+            settings.LastRrvbGuidBarcodeRegion = new SavedBarcodeRegion
             {
                 X = rect.X,
                 Y = rect.Y,
@@ -302,13 +302,13 @@ internal static class Program
                 ScreenWidth = platform.ScreenCapture.ScreenWidth,
                 ScreenHeight = platform.ScreenCapture.ScreenHeight,
             };
-            settings.LastCode39BarcodeRegion = settings.LastCode39GuidBarcodeRegion;
+            settings.LastCode39BarcodeRegion = settings.LastRrvbGuidBarcodeRegion;
             _ = VoiceSettingsManager.SaveSettingsAsync(settings);
         };
 
-        monitor.OnLockedCode39NameRegionChanged += rect =>
+        monitor.OnLockedRrvbNameRegionChanged += rect =>
         {
-            settings.LastCode39NameBarcodeRegion = new SavedBarcodeRegion
+            settings.LastRrvbNameBarcodeRegion = new SavedBarcodeRegion
             {
                 X = rect.X,
                 Y = rect.Y,

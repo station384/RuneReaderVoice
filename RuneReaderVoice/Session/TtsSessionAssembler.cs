@@ -633,7 +633,7 @@ public sealed class TtsSessionAssembler
         if (packetNpcId > 0)
             return packetNpcId;
 
-        return TryExtractNpcIdFromGuid(AppServices.CurrentCode39Guid) ?? 0;
+        return TryExtractNpcIdFromGuid(AppServices.CurrentRrvbGuid) ?? 0;
     }
 
     private string ResolveCurrentNpcName()
@@ -641,7 +641,7 @@ public sealed class TtsSessionAssembler
         if (!string.IsNullOrWhiteSpace(_currentNpcName))
             return _currentNpcName;
 
-        return AppServices.CurrentCode39Name ?? string.Empty;
+        return AppServices.CurrentRrvbName ?? string.Empty;
     }
 
     private static string? ResolveBespokeSampleFromNpcName(string? npcName, string? configuredSampleId)

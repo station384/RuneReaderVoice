@@ -123,8 +123,8 @@ public sealed class VoiceUserSettings
     public int ReScanIntervalMs { get; set; } = 5000;
     public int SourceGoneThresholdMs { get; set; } = 2000;
     public SavedBarcodeRegion? LastBarcodeRegion { get; set; } = null;
-    public SavedBarcodeRegion? LastCode39GuidBarcodeRegion { get; set; } = null;
-    public SavedBarcodeRegion? LastCode39NameBarcodeRegion { get; set; } = null;
+    public SavedBarcodeRegion? LastRrvbGuidBarcodeRegion { get; set; } = null;
+    public SavedBarcodeRegion? LastRrvbNameBarcodeRegion { get; set; } = null;
 
     // Legacy v33 experimental setting. Migrated at startup into LastCode39GuidBarcodeRegion.
     public SavedBarcodeRegion? LastCode39BarcodeRegion { get; set; } = null;

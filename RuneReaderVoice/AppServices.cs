@@ -101,8 +101,8 @@ public static class AppServices
     public static string CurrentPlayerRealm { get; set; } = string.Empty;
     public static string CurrentPlayerClass { get; set; } = string.Empty;
     public static string CurrentPlayerTitle { get; set; } = string.Empty;
-    public static string CurrentCode39Guid { get; set; } = string.Empty;
-    public static string CurrentCode39Name { get; set; } = string.Empty;
+    public static string CurrentRrvbGuid { get; set; } = string.Empty;
+    public static string CurrentRrvbName { get; set; } = string.Empty;
 
     public static string OperationStatus { get; private set; } = string.Empty;
     public static event Action<string>? OperationStatusChanged;
