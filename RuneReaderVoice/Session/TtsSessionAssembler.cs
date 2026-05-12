@@ -93,6 +93,10 @@ public sealed class AssembledSegment
     public float?    BespokeCfgWeight   { get; init; } = null;
     public bool      UseNpcIdAsSeed    { get; init; } = false;
     public bool      SkipNarratorMarkerExpansion { get; init; } = false;
+
+    // True only for protocol/forced narrator text. A slot may still be Narrator as
+    // a race/unknown fallback; that must not block NPC bespoke sample matching.
+    public bool      IsNarratorSegment { get; init; } = false;
 }
 
 public sealed class BatchSegmentPlan
@@ -348,6 +352,7 @@ public sealed class TtsSessionAssembler
                     BespokeCfgWeight = seg.BespokeCfgWeight,
                     UseNpcIdAsSeed = seg.UseNpcIdAsSeed,
                     SkipNarratorMarkerExpansion = seg.SkipNarratorMarkerExpansion,
+                    IsNarratorSegment = seg.IsNarratorSegment,
                 };
                 System.Diagnostics.Debug.WriteLine(
                     $"[Assembler] Firing seg={emitted.SegmentIndex} slot={emitted.Slot} npc={emitted.NpcId}" +
@@ -432,8 +437,12 @@ public sealed class TtsSessionAssembler
             if (!string.IsNullOrWhiteSpace(matchedSampleId) &&
                 !string.Equals(matchedSampleId, bespokeSampleId, StringComparison.OrdinalIgnoreCase))
             {
-                Debug.WriteLine($"[Assembler] NPC name matched bespoke sample npc='{npcName}' sample='{matchedSampleId}'");
+                Debug.WriteLine($"[Assembler] NPC name matched bespoke sample npc='{npcName}' sample='{matchedSampleId}' slot={slot} isNarratorFlag={acc.IsNarrator}");
                 bespokeSampleId = matchedSampleId;
+            }
+            else if (!string.IsNullOrWhiteSpace(npcName) && string.IsNullOrWhiteSpace(bespokeSampleId))
+            {
+                Debug.WriteLine($"[Assembler] NPC name had no bespoke sample match npc='{npcName}' slot={slot} isNarratorFlag={acc.IsNarrator}");
             }
         }
 
@@ -453,6 +462,7 @@ public sealed class TtsSessionAssembler
             BespokeExaggeration = bespokeExaggeration,
             BespokeCfgWeight    = bespokeCfgWeight,
             UseNpcIdAsSeed      = useNpcIdAsSeed,
+            IsNarratorSegment   = acc.IsNarrator,
         };
     }
 
@@ -500,6 +510,7 @@ public sealed class TtsSessionAssembler
                     BespokeCfgWeight = null,
                     UseNpcIdAsSeed = false,
                     SkipNarratorMarkerExpansion = false,
+                    IsNarratorSegment = true,
                 });
             }
             else
@@ -526,6 +537,7 @@ public sealed class TtsSessionAssembler
                     BespokeCfgWeight = segment.BespokeCfgWeight,
                     UseNpcIdAsSeed = segment.UseNpcIdAsSeed,
                     SkipNarratorMarkerExpansion = segment.SkipNarratorMarkerExpansion,
+                    IsNarratorSegment = false,
                 });
             }
         }

@@ -339,7 +339,7 @@ public sealed class PlaybackCoordinator : IDisposable
             if (_remoteBatchTasks.TryGetValue(segment.BatchId, out var existing))
                 return existing;
 
-            bool suppressStoredSeed = !segment.Slot.IsNarrator && segment.NpcId > 0 && !segment.UseNpcIdAsSeed;
+            bool suppressStoredSeed = !segment.IsNarratorSegment && segment.NpcId > 0 && !segment.UseNpcIdAsSeed;
             var created = remoteProvider.SubmitSplitBatchAsync(
                 segment.BatchSegments,
                 segment.Slot,
@@ -371,7 +371,7 @@ public sealed class PlaybackCoordinator : IDisposable
         var audio = await RemoteTtsProvider.DecodeOggAsync(oggBytes, ct);
 
         bool applyBespoke = !string.IsNullOrWhiteSpace(segment.BespokeSampleId)
-                            && !segment.Slot.IsNarrator;
+                            && !segment.IsNarratorSegment;
         var playbackProfile = applyBespoke
             ? remoteProvider.ResolveSampleProfile(segment.BespokeSampleId!, segment.Slot)
             : _provider.ResolveProfile(segment.Slot);
@@ -409,9 +409,9 @@ public sealed class PlaybackCoordinator : IDisposable
         // Narrator segments share the same NpcId as the NPC dialog but should
         // always use the narrator voice profile, not the NPC's bespoke sample.
         bool applyBespoke = !string.IsNullOrWhiteSpace(segment.BespokeSampleId)
-                            && !segment.Slot.IsNarrator;
+                            && !segment.IsNarratorSegment;
         int? forcedNpcSeed = segment.UseNpcIdAsSeed && segment.NpcId > 0 ? segment.NpcId : null;
-        bool suppressStoredSeed = !segment.Slot.IsNarrator && segment.NpcId > 0 && !segment.UseNpcIdAsSeed;
+        bool suppressStoredSeed = !segment.IsNarratorSegment && segment.NpcId > 0 && !segment.UseNpcIdAsSeed;
 
         if (_provider is RemoteTtsProvider remoteProvider &&
             !string.IsNullOrWhiteSpace(segment.BatchId) &&
@@ -424,10 +424,10 @@ public sealed class PlaybackCoordinator : IDisposable
 
         if (!string.IsNullOrWhiteSpace(segment.BespokeSampleId) && !applyBespoke)
             System.Diagnostics.Debug.WriteLine(
-                $"[PC] Bespoke ignored for narrator seg={segment.SegmentIndex}");
+                $"[PC] Bespoke ignored for narrator seg={segment.SegmentIndex} slot={segment.Slot} sample={segment.BespokeSampleId}");
         else if (applyBespoke)
             System.Diagnostics.Debug.WriteLine(
-                $"[PC] Bespoke applied seg={segment.SegmentIndex} sample={segment.BespokeSampleId}");
+                $"[PC] Bespoke applied seg={segment.SegmentIndex} sample={segment.BespokeSampleId} slot={segment.Slot} narratorFlag={segment.IsNarratorSegment}");
 
         var profile = _provider is RemoteTtsProvider remoteProfileProvider
             ? remoteProfileProvider.ResolveEffectiveSynthesisProfile(

@@ -203,6 +203,7 @@ internal static class Program
                 SegmentIndex        = seg.SegmentIndex,
                 DialogSegmentCount  = seg.DialogSegmentCount,
                 NpcId               = seg.NpcId,
+                NpcName             = seg.NpcName,
                 PlayerName          = seg.PlayerName,
                 PlayerRealm         = seg.PlayerRealm,
                 PlayerClass         = seg.PlayerClass,
@@ -211,6 +212,8 @@ internal static class Program
                 BespokeExaggeration = seg.BespokeExaggeration,
                 BespokeCfgWeight    = seg.BespokeCfgWeight,
                 UseNpcIdAsSeed      = seg.UseNpcIdAsSeed,
+                SkipNarratorMarkerExpansion = seg.SkipNarratorMarkerExpansion,
+                IsNarratorSegment   = seg.IsNarratorSegment,
             };
             var processed = activeProvider.SupportsInlinePronunciationHints
                 ? AppServices.PronunciationProcessor.Process(shapedSegment)

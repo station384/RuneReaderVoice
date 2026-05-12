@@ -61,13 +61,18 @@ public sealed class DialoguePronunciationProcessor
             DialogId = segment.DialogId,
             SegmentIndex = segment.SegmentIndex,
             NpcId = segment.NpcId,
+            NpcName = segment.NpcName,
+            DialogSegmentCount = segment.DialogSegmentCount,
             PlayerName = segment.PlayerName,
             PlayerRealm = segment.PlayerRealm,
             PlayerClass = segment.PlayerClass,
             PlayerTitle = segment.PlayerTitle,
             BespokeSampleId = segment.BespokeSampleId,
             BespokeExaggeration = segment.BespokeExaggeration,
-            BespokeCfgWeight = segment.BespokeCfgWeight
+            BespokeCfgWeight = segment.BespokeCfgWeight,
+            UseNpcIdAsSeed = segment.UseNpcIdAsSeed,
+            SkipNarratorMarkerExpansion = segment.SkipNarratorMarkerExpansion,
+            IsNarratorSegment = segment.IsNarratorSegment
         };
     }
 
