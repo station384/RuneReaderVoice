@@ -204,10 +204,10 @@ class CommunityDb:
                     (npc_id, catalog_id, npc_name, race_id, notes, bespoke_sample_id,
                      bespoke_exaggeration, bespoke_cfg_weight, gender_override,
                      source, confidence, created_at, updated_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
-                    npc_id, catalog_id or "", race_id, notes or "",
+                    npc_id, catalog_id or "", npc_name or "", race_id, notes or "",
                     bespoke_sample_id, bespoke_exaggeration, bespoke_cfg_weight,
                     gender_override, source, confidence_delta, now, now,
                 ),
