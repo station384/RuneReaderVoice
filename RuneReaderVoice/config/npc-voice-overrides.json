@@ -4,6 +4,7 @@
     {
       "NpcId": 342,
       "CatalogId": "human",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -15,6 +16,7 @@
     {
       "NpcId": 344,
       "CatalogId": "human",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -26,6 +28,7 @@
     {
       "NpcId": 464,
       "CatalogId": "human",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -37,6 +40,7 @@
     {
       "NpcId": 812,
       "CatalogId": "human",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -48,6 +52,7 @@
     {
       "NpcId": 900,
       "CatalogId": "human",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -59,6 +64,7 @@
     {
       "NpcId": 3087,
       "CatalogId": "human",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -70,6 +76,7 @@
     {
       "NpcId": 6727,
       "CatalogId": "human",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -81,6 +88,7 @@
     {
       "NpcId": 9982,
       "CatalogId": "human",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -92,6 +100,7 @@
     {
       "NpcId": 11033,
       "CatalogId": "dwarf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -103,6 +112,7 @@
     {
       "NpcId": 11039,
       "CatalogId": "human",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -114,6 +124,7 @@
     {
       "NpcId": 12617,
       "CatalogId": "dwarf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -125,6 +136,7 @@
     {
       "NpcId": 12636,
       "CatalogId": "undead",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -136,6 +148,7 @@
     {
       "NpcId": 93534,
       "CatalogId": "human",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -147,6 +160,7 @@
     {
       "NpcId": 94197,
       "CatalogId": "human",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -158,6 +172,7 @@
     {
       "NpcId": 95844,
       "CatalogId": "human",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -169,6 +184,7 @@
     {
       "NpcId": 96444,
       "CatalogId": "human",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -180,6 +196,7 @@
     {
       "NpcId": 96786,
       "CatalogId": "human",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -191,6 +208,7 @@
     {
       "NpcId": 96790,
       "CatalogId": "bloodelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -202,6 +220,7 @@
     {
       "NpcId": 96810,
       "CatalogId": "human",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -213,6 +232,7 @@
     {
       "NpcId": 96811,
       "CatalogId": "human",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -224,6 +244,7 @@
     {
       "NpcId": 96812,
       "CatalogId": "bloodelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -235,6 +256,7 @@
     {
       "NpcId": 96813,
       "CatalogId": "bloodelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -246,6 +268,7 @@
     {
       "NpcId": 96829,
       "CatalogId": "gnome",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -257,6 +280,7 @@
     {
       "NpcId": 96830,
       "CatalogId": "human",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -268,6 +292,7 @@
     {
       "NpcId": 96832,
       "CatalogId": "human",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -279,6 +304,7 @@
     {
       "NpcId": 96833,
       "CatalogId": "human",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -290,6 +316,7 @@
     {
       "NpcId": 96836,
       "CatalogId": "human",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -301,6 +328,7 @@
     {
       "NpcId": 96837,
       "CatalogId": "gnome",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -312,6 +340,7 @@
     {
       "NpcId": 96838,
       "CatalogId": "bloodelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -323,6 +352,7 @@
     {
       "NpcId": 96839,
       "CatalogId": "human",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -334,6 +364,7 @@
     {
       "NpcId": 96944,
       "CatalogId": "nightelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -345,6 +376,7 @@
     {
       "NpcId": 96945,
       "CatalogId": "dwarf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -356,6 +388,7 @@
     {
       "NpcId": 96946,
       "CatalogId": "draenei",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -367,6 +400,7 @@
     {
       "NpcId": 96947,
       "CatalogId": "human",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -378,6 +412,7 @@
     {
       "NpcId": 96948,
       "CatalogId": "gnome",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -389,6 +424,7 @@
     {
       "NpcId": 96949,
       "CatalogId": "draenei",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -400,6 +436,7 @@
     {
       "NpcId": 96950,
       "CatalogId": "human",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -411,6 +448,7 @@
     {
       "NpcId": 96951,
       "CatalogId": "bloodelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -422,6 +460,7 @@
     {
       "NpcId": 96979,
       "CatalogId": "dwarf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -433,6 +472,7 @@
     {
       "NpcId": 97002,
       "CatalogId": "nightelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -444,6 +484,7 @@
     {
       "NpcId": 97004,
       "CatalogId": "human",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -455,6 +496,7 @@
     {
       "NpcId": 97005,
       "CatalogId": "human",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -466,6 +508,7 @@
     {
       "NpcId": 97213,
       "CatalogId": "gnome",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -477,6 +520,7 @@
     {
       "NpcId": 97331,
       "CatalogId": "undead",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -488,6 +532,7 @@
     {
       "NpcId": 100395,
       "CatalogId": "human",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_Genn_Greymane_1",
@@ -499,6 +544,7 @@
     {
       "NpcId": 100429,
       "CatalogId": "human",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_Anduin_Wrynn",
@@ -510,6 +556,7 @@
     {
       "NpcId": 100454,
       "CatalogId": "dwarf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -521,6 +568,7 @@
     {
       "NpcId": 100455,
       "CatalogId": "dwarf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -532,6 +580,7 @@
     {
       "NpcId": 100456,
       "CatalogId": "dwarf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -543,6 +592,7 @@
     {
       "NpcId": 100457,
       "CatalogId": "nightelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_Malfurion_Stormrage_1",
@@ -554,6 +604,7 @@
     {
       "NpcId": 100458,
       "CatalogId": "nightelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_Tyrande_Whisperwind_1",
@@ -565,6 +616,7 @@
     {
       "NpcId": 100460,
       "CatalogId": "draenei",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_Velen_1",
@@ -576,6 +628,7 @@
     {
       "NpcId": 100471,
       "CatalogId": "gnome",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -587,6 +640,7 @@
     {
       "NpcId": 100472,
       "CatalogId": "pandaren",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -598,6 +652,7 @@
     {
       "NpcId": 100675,
       "CatalogId": "illidari",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -609,6 +664,7 @@
     {
       "NpcId": 100973,
       "CatalogId": "human",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_Anduin_Wrynn",
@@ -620,6 +676,7 @@
     {
       "NpcId": 103092,
       "CatalogId": "goblin",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_The_Great_Akazamzarak_1",
@@ -631,6 +688,7 @@
     {
       "NpcId": 104091,
       "CatalogId": "human",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -642,6 +700,7 @@
     {
       "NpcId": 107934,
       "CatalogId": "human",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -653,6 +712,7 @@
     {
       "NpcId": 108628,
       "CatalogId": "human",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -664,6 +724,7 @@
     {
       "NpcId": 109412,
       "CatalogId": "dwarf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -675,6 +736,7 @@
     {
       "NpcId": 111109,
       "CatalogId": "human",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -686,6 +748,7 @@
     {
       "NpcId": 111243,
       "CatalogId": "bloodelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -697,6 +760,7 @@
     {
       "NpcId": 111246,
       "CatalogId": "human",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -708,6 +772,7 @@
     {
       "NpcId": 113779,
       "CatalogId": "tauren",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -719,6 +784,7 @@
     {
       "NpcId": 113782,
       "CatalogId": "dwarf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -730,6 +796,7 @@
     {
       "NpcId": 113785,
       "CatalogId": "human",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -741,6 +808,7 @@
     {
       "NpcId": 113813,
       "CatalogId": "human",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -752,6 +820,7 @@
     {
       "NpcId": 113986,
       "CatalogId": "human",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_Khadgar",
@@ -763,6 +832,7 @@
     {
       "NpcId": 114663,
       "CatalogId": "orc",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -774,6 +844,7 @@
     {
       "NpcId": 119226,
       "CatalogId": "human",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -785,6 +856,7 @@
     {
       "NpcId": 121239,
       "CatalogId": "kyrian",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_Flynn_Fairwind_1",
@@ -796,6 +868,7 @@
     {
       "NpcId": 133550,
       "CatalogId": "kultiran",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -807,6 +880,7 @@
     {
       "NpcId": 133551,
       "CatalogId": "dwarf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -818,6 +892,7 @@
     {
       "NpcId": 133552,
       "CatalogId": "kultiran",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -829,6 +904,7 @@
     {
       "NpcId": 136576,
       "CatalogId": "kultiran",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -840,6 +916,7 @@
     {
       "NpcId": 143463,
       "CatalogId": "kultiran",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -851,6 +928,7 @@
     {
       "NpcId": 144119,
       "CatalogId": "darkirondwarf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -862,6 +940,7 @@
     {
       "NpcId": 144154,
       "CatalogId": "darkirondwarf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -873,6 +952,7 @@
     {
       "NpcId": 149616,
       "CatalogId": "human",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_Khadgar",
@@ -884,6 +964,55 @@
     {
       "NpcId": 197711,
       "CatalogId": "pandaren",
+      "NpcName": "",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": null,
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false,
+      "GenderOverride": "Auto"
+    },
+    {
+      "NpcId": 206017,
+      "CatalogId": "dwarf",
+      "NpcName": "",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": "U_Brann_Bronzebeard_1",
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false,
+      "GenderOverride": "Auto"
+    },
+    {
+      "NpcId": 212369,
+      "CatalogId": "earthen",
+      "NpcName": "",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": null,
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false,
+      "GenderOverride": "Auto"
+    },
+    {
+      "NpcId": 212370,
+      "CatalogId": "earthen",
+      "NpcName": "",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": null,
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false,
+      "GenderOverride": "Auto"
+    },
+    {
+      "NpcId": 215520,
+      "CatalogId": "earthen",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -895,6 +1024,7 @@
     {
       "NpcId": 217169,
       "CatalogId": "tauren",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -904,8 +1034,129 @@
       "GenderOverride": "Auto"
     },
     {
+      "NpcId": 222631,
+      "CatalogId": "human",
+      "NpcName": "",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": null,
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false,
+      "GenderOverride": "Auto"
+    },
+    {
+      "NpcId": 223728,
+      "CatalogId": "earthen",
+      "NpcName": "",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": null,
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false,
+      "GenderOverride": "Auto"
+    },
+    {
+      "NpcId": 223875,
+      "CatalogId": "arathi",
+      "NpcName": "",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": "U_Faerin_Lothar_1",
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false,
+      "GenderOverride": "Auto"
+    },
+    {
+      "NpcId": 224544,
+      "CatalogId": "earthen",
+      "NpcName": "",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": null,
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false,
+      "GenderOverride": "Auto"
+    },
+    {
+      "NpcId": 226362,
+      "CatalogId": "earthen",
+      "NpcName": "",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": null,
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false,
+      "GenderOverride": "Auto"
+    },
+    {
+      "NpcId": 227436,
+      "CatalogId": "human",
+      "NpcName": "",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": "U_Khadgar",
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false,
+      "GenderOverride": "Auto"
+    },
+    {
+      "NpcId": 227500,
+      "CatalogId": "goblin",
+      "NpcName": "",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": "U_Gazlowe_1",
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false,
+      "GenderOverride": "Auto"
+    },
+    {
+      "NpcId": 227758,
+      "CatalogId": "voidelf",
+      "NpcName": "",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": "U_Alleria_Windrunner_1",
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false,
+      "GenderOverride": "Auto"
+    },
+    {
+      "NpcId": 228605,
+      "CatalogId": "nightelf",
+      "NpcName": "",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": null,
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false,
+      "GenderOverride": "Auto"
+    },
+    {
+      "NpcId": 230246,
+      "CatalogId": "pandaren",
+      "NpcName": "",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": "U_Lorewalker_Cho_1",
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false,
+      "GenderOverride": "Auto"
+    },
+    {
       "NpcId": 232023,
       "CatalogId": "orc",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -917,6 +1168,7 @@
     {
       "NpcId": 232027,
       "CatalogId": "tauren",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -928,6 +1180,7 @@
     {
       "NpcId": 232030,
       "CatalogId": "orc",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -939,6 +1192,7 @@
     {
       "NpcId": 232031,
       "CatalogId": "orc",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -950,6 +1204,7 @@
     {
       "NpcId": 232033,
       "CatalogId": "orc",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -961,6 +1216,7 @@
     {
       "NpcId": 232035,
       "CatalogId": "orc",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -972,6 +1228,7 @@
     {
       "NpcId": 232036,
       "CatalogId": "orc",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -983,6 +1240,7 @@
     {
       "NpcId": 232037,
       "CatalogId": "orc",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -994,6 +1252,7 @@
     {
       "NpcId": 233063,
       "CatalogId": "nightelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -1005,6 +1264,7 @@
     {
       "NpcId": 235386,
       "CatalogId": "voidelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_Umbric",
@@ -1016,6 +1276,7 @@
     {
       "NpcId": 235389,
       "CatalogId": "voidelf",
+      "NpcName": "Alleria Windrunner",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_Alleria_Windrunner_1",
@@ -1027,6 +1288,7 @@
     {
       "NpcId": 235392,
       "CatalogId": "Domanaar",
+      "NpcName": "Decimus",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_Decimus",
@@ -1038,6 +1300,7 @@
     {
       "NpcId": 235393,
       "CatalogId": "bloodelf",
+      "NpcName": "Arator",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_Arator_1",
@@ -1047,19 +1310,33 @@
       "GenderOverride": "Auto"
     },
     {
-      "NpcId": 235395,
-      "CatalogId": "voidelf",
+      "NpcId": 235394,
+      "CatalogId": "Domanaar",
+      "NpcName": "Lothraxion",
       "RaceId": 0,
       "Notes": "",
-      "BespokeSampleId": "U_Umbric",
+      "BespokeSampleId": null,
       "BespokeExaggeration": null,
       "BespokeCfgWeight": null,
       "UseNpcIdAsSeed": false,
       "GenderOverride": "Auto"
     },
     {
+      "NpcId": 235395,
+      "CatalogId": "voidelf",
+      "NpcName": "",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": "U_Umbric",
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": true,
+      "GenderOverride": "Auto"
+    },
+    {
       "NpcId": 235405,
       "CatalogId": "voidelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_Umbric",
@@ -1071,6 +1348,7 @@
     {
       "NpcId": 235411,
       "CatalogId": "voidelf",
+      "NpcName": "Magister Umbric",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_Umbric",
@@ -1082,6 +1360,7 @@
     {
       "NpcId": 235469,
       "CatalogId": "bloodelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_Arator_1",
@@ -1093,6 +1372,7 @@
     {
       "NpcId": 235471,
       "CatalogId": "bloodelf",
+      "NpcName": "Alleria Windrunner",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_Alleria_Windrunner_1",
@@ -1104,9 +1384,10 @@
     {
       "NpcId": 235479,
       "CatalogId": "bloodelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
-      "BespokeSampleId": "U_Arator_3",
+      "BespokeSampleId": "U_Arator_2",
       "BespokeExaggeration": null,
       "BespokeCfgWeight": null,
       "UseNpcIdAsSeed": false,
@@ -1115,6 +1396,7 @@
     {
       "NpcId": 235481,
       "CatalogId": "bloodelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_Lorthemar_Theron_1",
@@ -1126,6 +1408,7 @@
     {
       "NpcId": 235486,
       "CatalogId": "faerie",
+      "NpcName": "Lothraxion",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -1137,6 +1420,7 @@
     {
       "NpcId": 235502,
       "CatalogId": "bloodelf",
+      "NpcName": "Alleria Windrunner",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_Alleria_Windrunner_1",
@@ -1148,6 +1432,7 @@
     {
       "NpcId": 235503,
       "CatalogId": "bloodelf",
+      "NpcName": "Arator",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_Arator_1",
@@ -1157,8 +1442,21 @@
       "GenderOverride": "Auto"
     },
     {
+      "NpcId": 235504,
+      "CatalogId": "elemental",
+      "NpcName": "Lothraxion",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": null,
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false,
+      "GenderOverride": "Auto"
+    },
+    {
       "NpcId": 235521,
       "CatalogId": "voidelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_Alleria_Windrunner_1",
@@ -1168,8 +1466,21 @@
       "GenderOverride": "Auto"
     },
     {
-      "NpcId": 235523,
+      "NpcId": 235522,
       "CatalogId": "voidelf",
+      "NpcName": "Lothraxion",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": "U_Lothraxion",
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false,
+      "GenderOverride": "Auto"
+    },
+    {
+      "NpcId": 235523,
+      "CatalogId": "bloodelf",
+      "NpcName": "Arator",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_Arator_1",
@@ -1181,6 +1492,7 @@
     {
       "NpcId": 235532,
       "CatalogId": "voidelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_Alleria_Windrunner_1",
@@ -1190,8 +1502,21 @@
       "GenderOverride": "Auto"
     },
     {
+      "NpcId": 235533,
+      "CatalogId": "bloodelf",
+      "NpcName": "Arator",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": "U_Arator_1",
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false,
+      "GenderOverride": "Auto"
+    },
+    {
       "NpcId": 235537,
       "CatalogId": "bloodelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_Arator_1",
@@ -1203,6 +1528,7 @@
     {
       "NpcId": 235602,
       "CatalogId": "bloodelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_Arator_1",
@@ -1214,6 +1540,7 @@
     {
       "NpcId": 235607,
       "CatalogId": "Domanaar",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_Decimus",
@@ -1225,6 +1552,7 @@
     {
       "NpcId": 235608,
       "CatalogId": "bloodelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_Arator_1",
@@ -1236,6 +1564,7 @@
     {
       "NpcId": 235609,
       "CatalogId": "voidelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_Alleria_Windrunner_1",
@@ -1247,6 +1576,7 @@
     {
       "NpcId": 235633,
       "CatalogId": "Domanaar",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_Decimus",
@@ -1256,8 +1586,33 @@
       "GenderOverride": "Auto"
     },
     {
+      "NpcId": 235648,
+      "CatalogId": "bloodelf",
+      "NpcName": "Lothraxion",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": null,
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false,
+      "GenderOverride": "Auto"
+    },
+    {
+      "NpcId": 235649,
+      "CatalogId": "elemental",
+      "NpcName": "Lothraxion",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": null,
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false,
+      "GenderOverride": "Auto"
+    },
+    {
       "NpcId": 235650,
       "CatalogId": "Domanaar",
+      "NpcName": "Decimus",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_Decimus",
@@ -1269,6 +1624,7 @@
     {
       "NpcId": 235652,
       "CatalogId": "Domanaar",
+      "NpcName": "Decimus",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_Decimus",
@@ -1280,6 +1636,7 @@
     {
       "NpcId": 235653,
       "CatalogId": "Domanaar",
+      "NpcName": "Decimus",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_Decimus",
@@ -1291,6 +1648,7 @@
     {
       "NpcId": 235660,
       "CatalogId": "bloodelf",
+      "NpcName": "Alleria Windrunner",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_Alleria_Windrunner_1",
@@ -1302,6 +1660,7 @@
     {
       "NpcId": 235662,
       "CatalogId": "bloodelf",
+      "NpcName": "Alleria Windrunner",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_Alleria_Windrunner_1",
@@ -1313,6 +1672,7 @@
     {
       "NpcId": 235664,
       "CatalogId": "bloodelf",
+      "NpcName": "Alleria Windrunner",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_Alleria_Windrunner_1",
@@ -1324,6 +1684,7 @@
     {
       "NpcId": 235697,
       "CatalogId": "Domanaar",
+      "NpcName": "Decimus",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_Decimus",
@@ -1335,6 +1696,7 @@
     {
       "NpcId": 235698,
       "CatalogId": "voidelf",
+      "NpcName": "Magister Umbric",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_Umbric",
@@ -1344,8 +1706,33 @@
       "GenderOverride": "Auto"
     },
     {
+      "NpcId": 235703,
+      "CatalogId": "voidelf",
+      "NpcName": "Riftwalker Malloril",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": null,
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false,
+      "GenderOverride": "Auto"
+    },
+    {
+      "NpcId": 235713,
+      "CatalogId": "elemental",
+      "NpcName": "Lothraxion",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": null,
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false,
+      "GenderOverride": "Auto"
+    },
+    {
       "NpcId": 235714,
       "CatalogId": "bloodelf",
+      "NpcName": "Arator",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_Arator_1",
@@ -1357,6 +1744,7 @@
     {
       "NpcId": 235715,
       "CatalogId": "voidelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_Alleria_Windrunner_1",
@@ -1368,6 +1756,7 @@
     {
       "NpcId": 235717,
       "CatalogId": "bloodelf",
+      "NpcName": "Alleria Windrunner",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_Alleria_Windrunner_1",
@@ -1379,6 +1768,7 @@
     {
       "NpcId": 235718,
       "CatalogId": "Domanaar",
+      "NpcName": "Decimus",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_Decimus",
@@ -1390,6 +1780,7 @@
     {
       "NpcId": 235721,
       "CatalogId": "bloodelf",
+      "NpcName": "Arator",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_Arator_1",
@@ -1401,6 +1792,7 @@
     {
       "NpcId": 235724,
       "CatalogId": "bloodelf",
+      "NpcName": "Arator",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_Arator_1",
@@ -1410,8 +1802,21 @@
       "GenderOverride": "Auto"
     },
     {
+      "NpcId": 235725,
+      "CatalogId": "elemental",
+      "NpcName": "Lothraxion",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": null,
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false,
+      "GenderOverride": "Auto"
+    },
+    {
       "NpcId": 235726,
       "CatalogId": "bloodelf",
+      "NpcName": "Alleria Windrunner",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_Alleria_Windrunner_1",
@@ -1423,6 +1828,7 @@
     {
       "NpcId": 235763,
       "CatalogId": "voidelf",
+      "NpcName": "Alleria Windrunner",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_Alleria_Windrunner_1",
@@ -1434,6 +1840,7 @@
     {
       "NpcId": 235765,
       "CatalogId": "voidelf",
+      "NpcName": "Alleria Windrunner",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_Alleria_Windrunner_1",
@@ -1443,8 +1850,21 @@
       "GenderOverride": "Auto"
     },
     {
+      "NpcId": 235787,
+      "CatalogId": "bloodelf",
+      "NpcName": "Lor\u0027themar Theron",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": "U_Lorthemar_Theron_1",
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false,
+      "GenderOverride": "Auto"
+    },
+    {
       "NpcId": 235792,
       "CatalogId": "bloodelf",
+      "NpcName": "Arator",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_Arator_1",
@@ -1456,9 +1876,10 @@
     {
       "NpcId": 236087,
       "CatalogId": "voidelf",
+      "NpcName": "Magister Umbric",
       "RaceId": 0,
       "Notes": "",
-      "BespokeSampleId": "U_Umbric",
+      "BespokeSampleId": "U_Magister_Umbric_1",
       "BespokeExaggeration": null,
       "BespokeCfgWeight": null,
       "UseNpcIdAsSeed": false,
@@ -1467,6 +1888,7 @@
     {
       "NpcId": 236099,
       "CatalogId": "bloodelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_Liadrin_4",
@@ -1478,6 +1900,7 @@
     {
       "NpcId": 236100,
       "CatalogId": "bloodelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_Arator_1",
@@ -1489,6 +1912,7 @@
     {
       "NpcId": 236126,
       "CatalogId": "amani",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_Zuljarra_1_Normal",
@@ -1500,6 +1924,7 @@
     {
       "NpcId": 236132,
       "CatalogId": "bloodelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_Arator_1",
@@ -1511,6 +1936,7 @@
     {
       "NpcId": 236140,
       "CatalogId": "amani",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_Zuljarra_1_Normal",
@@ -1522,6 +1948,7 @@
     {
       "NpcId": 236141,
       "CatalogId": "amani",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_Zuljarra_1_Normal",
@@ -1533,6 +1960,7 @@
     {
       "NpcId": 236143,
       "CatalogId": "amani",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_Liadrin_4",
@@ -1544,6 +1972,7 @@
     {
       "NpcId": 236146,
       "CatalogId": "amani",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_Liadrin_4",
@@ -1555,6 +1984,7 @@
     {
       "NpcId": 236147,
       "CatalogId": "amani",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_Zuljarra_1_Normal",
@@ -1566,6 +1996,7 @@
     {
       "NpcId": 236155,
       "CatalogId": "amani",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_Zuljarra_1_Normal",
@@ -1577,6 +2008,7 @@
     {
       "NpcId": 236162,
       "CatalogId": "amani",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_Zuljarra_2_Threat",
@@ -1588,6 +2020,7 @@
     {
       "NpcId": 236163,
       "CatalogId": "amani",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_Liadrin_4",
@@ -1599,6 +2032,7 @@
     {
       "NpcId": 236363,
       "CatalogId": "voidelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "Umbric",
       "BespokeSampleId": "U_Umbric",
@@ -1610,6 +2044,7 @@
     {
       "NpcId": 236391,
       "CatalogId": "bloodelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "Arator",
       "BespokeSampleId": "U_Arator_1",
@@ -1621,6 +2056,7 @@
     {
       "NpcId": 236436,
       "CatalogId": "bloodelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_Liadrin_4",
@@ -1632,6 +2068,7 @@
     {
       "NpcId": 236461,
       "CatalogId": "amani",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_Zuljarra_2_Threat",
@@ -1643,6 +2080,7 @@
     {
       "NpcId": 236468,
       "CatalogId": "amani",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_Zuljarra_2_Threat",
@@ -1654,6 +2092,7 @@
     {
       "NpcId": 236484,
       "CatalogId": "amani",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_ZulJan_2_Frustrated",
@@ -1665,6 +2104,7 @@
     {
       "NpcId": 236485,
       "CatalogId": "amani",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_Liadrin_4",
@@ -1676,6 +2116,7 @@
     {
       "NpcId": 236493,
       "CatalogId": "amani",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_ZulJan_1_Normal",
@@ -1687,6 +2128,7 @@
     {
       "NpcId": 236522,
       "CatalogId": "amani",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_ZulJan_2_Frustrated",
@@ -1698,6 +2140,7 @@
     {
       "NpcId": 236540,
       "CatalogId": "amani",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_ZulJan_2_Frustrated",
@@ -1709,6 +2152,7 @@
     {
       "NpcId": 236541,
       "CatalogId": "amani",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_Zuljarra_1_Normal",
@@ -1720,6 +2164,7 @@
     {
       "NpcId": 236542,
       "CatalogId": "bloodelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_Liadrin_4",
@@ -1731,6 +2176,7 @@
     {
       "NpcId": 236558,
       "CatalogId": "amani",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_ZulJan_1_Normal",
@@ -1742,6 +2188,7 @@
     {
       "NpcId": 236559,
       "CatalogId": "amani",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_Zuljarra_1_Normal",
@@ -1753,6 +2200,7 @@
     {
       "NpcId": 236567,
       "CatalogId": "bloodelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_Arator_1",
@@ -1764,6 +2212,7 @@
     {
       "NpcId": 236568,
       "CatalogId": "bloodelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_Arator_1",
@@ -1775,6 +2224,7 @@
     {
       "NpcId": 236570,
       "CatalogId": "bloodelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_Liadrin_4",
@@ -1786,6 +2236,7 @@
     {
       "NpcId": 236572,
       "CatalogId": "bloodelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_Lorthemar_Theron_1",
@@ -1795,8 +2246,21 @@
       "GenderOverride": "Auto"
     },
     {
+      "NpcId": 236583,
+      "CatalogId": "bloodelf",
+      "NpcName": "",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": "U_Magister_Rommath_1",
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false,
+      "GenderOverride": "Auto"
+    },
+    {
       "NpcId": 236586,
       "CatalogId": "bloodelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_Liadrin_4",
@@ -1808,6 +2272,7 @@
     {
       "NpcId": 236587,
       "CatalogId": "amani",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_Zuljarra_1_Normal",
@@ -1819,6 +2284,7 @@
     {
       "NpcId": 236588,
       "CatalogId": "amani",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_ZulJan_1_Normal",
@@ -1830,6 +2296,7 @@
     {
       "NpcId": 236590,
       "CatalogId": "amani",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -1841,6 +2308,7 @@
     {
       "NpcId": 236593,
       "CatalogId": "bloodelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_Liadrin_4",
@@ -1852,6 +2320,7 @@
     {
       "NpcId": 236594,
       "CatalogId": "amani",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_ZulJan_1_Normal",
@@ -1863,6 +2332,7 @@
     {
       "NpcId": 236601,
       "CatalogId": "amani",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_Zuljarra_1_Normal",
@@ -1874,6 +2344,7 @@
     {
       "NpcId": 236602,
       "CatalogId": "amani",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_Zuljarra_1_Normal",
@@ -1885,6 +2356,7 @@
     {
       "NpcId": 236604,
       "CatalogId": "bloodelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_Liadrin_4",
@@ -1896,6 +2368,7 @@
     {
       "NpcId": 236610,
       "CatalogId": "bloodelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_Arator_1",
@@ -1907,6 +2380,7 @@
     {
       "NpcId": 236611,
       "CatalogId": "bloodelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_Arator_1",
@@ -1918,6 +2392,7 @@
     {
       "NpcId": 236612,
       "CatalogId": "bloodelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_Lorthemar_Theron_1",
@@ -1929,6 +2404,7 @@
     {
       "NpcId": 236659,
       "CatalogId": "amani",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_Zuljarra_1_Normal",
@@ -1940,28 +2416,31 @@
     {
       "NpcId": 236686,
       "CatalogId": "bloodelf",
+      "NpcName": "Arator",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_Arator_1",
       "BespokeExaggeration": null,
       "BespokeCfgWeight": null,
-      "UseNpcIdAsSeed": false,
+      "UseNpcIdAsSeed": true,
       "GenderOverride": "Auto"
     },
     {
       "NpcId": 236687,
       "CatalogId": "human",
+      "NpcName": "Magister Umbric",
       "RaceId": 0,
       "Notes": "",
-      "BespokeSampleId": "U_Umbric",
+      "BespokeSampleId": "U_Magister_Umbric_1",
       "BespokeExaggeration": null,
       "BespokeCfgWeight": null,
-      "UseNpcIdAsSeed": false,
+      "UseNpcIdAsSeed": true,
       "GenderOverride": "Auto"
     },
     {
       "NpcId": 236693,
       "CatalogId": "human",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_Liadrin_4",
@@ -1973,6 +2452,7 @@
     {
       "NpcId": 236704,
       "CatalogId": "haranir",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_Orweyna_1",
@@ -1984,6 +2464,7 @@
     {
       "NpcId": 236716,
       "CatalogId": "bloodelf",
+      "NpcName": "Arator",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_Arator_1",
@@ -1995,6 +2476,7 @@
     {
       "NpcId": 236730,
       "CatalogId": "voidelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_Umbric",
@@ -2006,6 +2488,7 @@
     {
       "NpcId": 236736,
       "CatalogId": "bloodelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_Arator_1",
@@ -2017,6 +2500,7 @@
     {
       "NpcId": 236737,
       "CatalogId": "bloodelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_Arator_1",
@@ -2026,8 +2510,21 @@
       "GenderOverride": "Auto"
     },
     {
+      "NpcId": 236739,
+      "CatalogId": "bloodelf",
+      "NpcName": "Magistrix Landra Dawnstrider",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": null,
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false,
+      "GenderOverride": "Auto"
+    },
+    {
       "NpcId": 236743,
       "CatalogId": "haranir",
+      "NpcName": "Orweyna",
       "RaceId": 0,
       "Notes": "Orweyna",
       "BespokeSampleId": "U_Orweyna_1",
@@ -2039,6 +2536,7 @@
     {
       "NpcId": 236779,
       "CatalogId": "bloodelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_Lorthemar_Theron_1",
@@ -2050,6 +2548,7 @@
     {
       "NpcId": 236789,
       "CatalogId": "undead",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_Alonsus_Faol",
@@ -2061,6 +2560,7 @@
     {
       "NpcId": 236896,
       "CatalogId": "bloodelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_Lorthemar_Theron_1",
@@ -2072,6 +2572,7 @@
     {
       "NpcId": 236903,
       "CatalogId": "haranir",
+      "NpcName": "Orweyna",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_Orweyna_1",
@@ -2083,6 +2584,7 @@
     {
       "NpcId": 236906,
       "CatalogId": "human",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_High_Exarch_Turalyon_1",
@@ -2094,6 +2596,7 @@
     {
       "NpcId": 236908,
       "CatalogId": "voidelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -2105,6 +2608,7 @@
     {
       "NpcId": 236930,
       "CatalogId": "voidelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -2116,6 +2620,7 @@
     {
       "NpcId": 236944,
       "CatalogId": "bloodelf",
+      "NpcName": "Arator",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_Arator_1",
@@ -2127,6 +2632,7 @@
     {
       "NpcId": 236945,
       "CatalogId": "bloodelf",
+      "NpcName": "Alleria Windrunner",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_Alleria_Windrunner_1",
@@ -2138,6 +2644,7 @@
     {
       "NpcId": 236954,
       "CatalogId": "human",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_High_Exarch_Turalyon_1",
@@ -2149,6 +2656,7 @@
     {
       "NpcId": 236959,
       "CatalogId": "bloodelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_Arator_1",
@@ -2160,6 +2668,7 @@
     {
       "NpcId": 236961,
       "CatalogId": "bloodelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_Lorthemar_Theron_1",
@@ -2171,6 +2680,7 @@
     {
       "NpcId": 236964,
       "CatalogId": "bloodelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_Arator_1",
@@ -2182,6 +2692,7 @@
     {
       "NpcId": 236974,
       "CatalogId": "human",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_High_Exarch_Turalyon_1",
@@ -2193,6 +2704,7 @@
     {
       "NpcId": 236978,
       "CatalogId": "human",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_High_Exarch_Turalyon_1",
@@ -2204,6 +2716,7 @@
     {
       "NpcId": 237209,
       "CatalogId": "haranir",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -2215,6 +2728,7 @@
     {
       "NpcId": 237210,
       "CatalogId": "haranir",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_Orweyna_1",
@@ -2226,6 +2740,7 @@
     {
       "NpcId": 237211,
       "CatalogId": "bloodelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_Faerin_Lothar_1",
@@ -2237,6 +2752,7 @@
     {
       "NpcId": 237222,
       "CatalogId": "bloodelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_Arator_1",
@@ -2248,6 +2764,7 @@
     {
       "NpcId": 237224,
       "CatalogId": "orc",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -2259,6 +2776,7 @@
     {
       "NpcId": 237234,
       "CatalogId": "haranir",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_Orweyna_1",
@@ -2270,6 +2788,7 @@
     {
       "NpcId": 237236,
       "CatalogId": "haranir",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -2281,6 +2800,7 @@
     {
       "NpcId": 237240,
       "CatalogId": "voidelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_Umbric",
@@ -2292,6 +2812,7 @@
     {
       "NpcId": 237253,
       "CatalogId": "bloodelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_Liadrin_4",
@@ -2303,6 +2824,7 @@
     {
       "NpcId": 237255,
       "CatalogId": "human",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_High_Exarch_Turalyon_1",
@@ -2314,6 +2836,7 @@
     {
       "NpcId": 237268,
       "CatalogId": "dwarf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -2325,6 +2848,7 @@
     {
       "NpcId": 237273,
       "CatalogId": "bloodelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_Arator_1",
@@ -2336,6 +2860,7 @@
     {
       "NpcId": 237277,
       "CatalogId": "bloodelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_Liadrin_4",
@@ -2347,6 +2872,7 @@
     {
       "NpcId": 237278,
       "CatalogId": "bloodelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_Liadrin_4",
@@ -2358,6 +2884,7 @@
     {
       "NpcId": 237284,
       "CatalogId": "haranir",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -2369,6 +2896,7 @@
     {
       "NpcId": 237295,
       "CatalogId": "rutaani",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -2380,6 +2908,7 @@
     {
       "NpcId": 237325,
       "CatalogId": "haranir",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_Orweyna_1",
@@ -2391,6 +2920,7 @@
     {
       "NpcId": 237331,
       "CatalogId": "haranir",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -2402,6 +2932,7 @@
     {
       "NpcId": 237332,
       "CatalogId": "haranir",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_Hagar",
@@ -2413,9 +2944,10 @@
     {
       "NpcId": 237341,
       "CatalogId": "bloodelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
-      "BespokeSampleId": null,
+      "BespokeSampleId": "U_Halduron_Brightwing_1",
       "BespokeExaggeration": null,
       "BespokeCfgWeight": null,
       "UseNpcIdAsSeed": false,
@@ -2424,9 +2956,10 @@
     {
       "NpcId": 237343,
       "CatalogId": "bloodelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
-      "BespokeSampleId": null,
+      "BespokeSampleId": "U_Halduron_Brightwing_1",
       "BespokeExaggeration": null,
       "BespokeCfgWeight": null,
       "UseNpcIdAsSeed": false,
@@ -2435,9 +2968,10 @@
     {
       "NpcId": 237345,
       "CatalogId": "bloodelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
-      "BespokeSampleId": null,
+      "BespokeSampleId": "U_Halduron_Brightwing_1",
       "BespokeExaggeration": null,
       "BespokeCfgWeight": null,
       "UseNpcIdAsSeed": false,
@@ -2446,6 +2980,7 @@
     {
       "NpcId": 237346,
       "CatalogId": "haranir",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_Orweyna_1",
@@ -2457,6 +2992,7 @@
     {
       "NpcId": 237347,
       "CatalogId": "bloodelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -2468,6 +3004,7 @@
     {
       "NpcId": 237356,
       "CatalogId": "haranir",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_Orweyna_1",
@@ -2479,6 +3016,7 @@
     {
       "NpcId": 237361,
       "CatalogId": "haranir",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_Orweyna_1",
@@ -2490,6 +3028,7 @@
     {
       "NpcId": 237433,
       "CatalogId": "human",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_Lorthemar_Theron_1",
@@ -2501,9 +3040,10 @@
     {
       "NpcId": 237465,
       "CatalogId": "bloodelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
-      "BespokeSampleId": null,
+      "BespokeSampleId": "U_Halduron_Brightwing_1",
       "BespokeExaggeration": null,
       "BespokeCfgWeight": null,
       "UseNpcIdAsSeed": false,
@@ -2512,6 +3052,7 @@
     {
       "NpcId": 237480,
       "CatalogId": "haranir",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_Orweyna_1",
@@ -2523,6 +3064,7 @@
     {
       "NpcId": 237483,
       "CatalogId": "haranir",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_Orweyna_1",
@@ -2534,6 +3076,7 @@
     {
       "NpcId": 237502,
       "CatalogId": "bloodelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_Arator_1",
@@ -2545,6 +3088,7 @@
     {
       "NpcId": 237508,
       "CatalogId": "bloodelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_Arator_1",
@@ -2556,6 +3100,7 @@
     {
       "NpcId": 237510,
       "CatalogId": "bloodelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_Arator_1",
@@ -2567,6 +3112,7 @@
     {
       "NpcId": 237511,
       "CatalogId": "undead",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_Alonsus_Faol",
@@ -2578,6 +3124,7 @@
     {
       "NpcId": 237565,
       "CatalogId": "undead",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_Alonsus_Faol",
@@ -2589,6 +3136,7 @@
     {
       "NpcId": 237567,
       "CatalogId": "haranir",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_Hagar",
@@ -2600,6 +3148,7 @@
     {
       "NpcId": 237572,
       "CatalogId": "haranir",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_Hagar",
@@ -2611,6 +3160,7 @@
     {
       "NpcId": 237601,
       "CatalogId": "undead",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_Alonsus_Faol",
@@ -2622,6 +3172,7 @@
     {
       "NpcId": 237602,
       "CatalogId": "undead",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_Alonsus_Faol",
@@ -2633,6 +3184,7 @@
     {
       "NpcId": 237607,
       "CatalogId": "haranir",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -2644,6 +3196,7 @@
     {
       "NpcId": 237624,
       "CatalogId": "fungarian",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -2655,6 +3208,7 @@
     {
       "NpcId": 237625,
       "CatalogId": "rutaani",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -2666,6 +3220,7 @@
     {
       "NpcId": 237786,
       "CatalogId": "haranir",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_Orweyna_1",
@@ -2677,9 +3232,10 @@
     {
       "NpcId": 237787,
       "CatalogId": "bloodelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
-      "BespokeSampleId": null,
+      "BespokeSampleId": "U_Halduron_Brightwing_1",
       "BespokeExaggeration": null,
       "BespokeCfgWeight": null,
       "UseNpcIdAsSeed": false,
@@ -2688,6 +3244,7 @@
     {
       "NpcId": 237793,
       "CatalogId": "haranir",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -2699,6 +3256,7 @@
     {
       "NpcId": 237837,
       "CatalogId": "haranir",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -2710,6 +3268,7 @@
     {
       "NpcId": 237860,
       "CatalogId": "haranir",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_Orweyna_1",
@@ -2721,6 +3280,7 @@
     {
       "NpcId": 237953,
       "CatalogId": "amani",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -2732,6 +3292,7 @@
     {
       "NpcId": 238063,
       "CatalogId": "amani",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -2743,6 +3304,7 @@
     {
       "NpcId": 238081,
       "CatalogId": "tauren",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -2754,6 +3316,7 @@
     {
       "NpcId": 238101,
       "CatalogId": "tauren",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -2765,6 +3328,7 @@
     {
       "NpcId": 238170,
       "CatalogId": "haranir",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -2776,6 +3340,7 @@
     {
       "NpcId": 238296,
       "CatalogId": "bloodelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_Alleria_Windrunner_1",
@@ -2785,8 +3350,33 @@
       "GenderOverride": "Auto"
     },
     {
+      "NpcId": 238490,
+      "CatalogId": "bloodelf",
+      "NpcName": "Lyssara Duskmourne",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": null,
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false,
+      "GenderOverride": "Auto"
+    },
+    {
+      "NpcId": 238505,
+      "CatalogId": "bloodelf",
+      "NpcName": "Lyssara Duskmourne",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": null,
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false,
+      "GenderOverride": "Auto"
+    },
+    {
       "NpcId": 238530,
       "CatalogId": "voidelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -2798,6 +3388,7 @@
     {
       "NpcId": 238531,
       "CatalogId": "voidelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -2809,6 +3400,19 @@
     {
       "NpcId": 239349,
       "CatalogId": "voidelf",
+      "NpcName": "",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": null,
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false,
+      "GenderOverride": "Auto"
+    },
+    {
+      "NpcId": 239406,
+      "CatalogId": "bloodelf",
+      "NpcName": "Ranger Belonis",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -2820,6 +3424,7 @@
     {
       "NpcId": 239418,
       "CatalogId": "voidelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -2831,6 +3436,7 @@
     {
       "NpcId": 239421,
       "CatalogId": "voidelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -2842,6 +3448,7 @@
     {
       "NpcId": 239423,
       "CatalogId": "voidelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -2853,6 +3460,7 @@
     {
       "NpcId": 239424,
       "CatalogId": "voidelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -2864,6 +3472,7 @@
     {
       "NpcId": 239425,
       "CatalogId": "voidelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -2875,6 +3484,7 @@
     {
       "NpcId": 239426,
       "CatalogId": "voidelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_Lady_Darkglen",
@@ -2884,8 +3494,21 @@
       "GenderOverride": "Auto"
     },
     {
+      "NpcId": 239457,
+      "CatalogId": "bloodelf",
+      "NpcName": "Guard Captain Leonic",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": null,
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false,
+      "GenderOverride": "Auto"
+    },
+    {
       "NpcId": 239525,
       "CatalogId": "haranir",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -2897,6 +3520,7 @@
     {
       "NpcId": 239574,
       "CatalogId": "voidelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_Alleria_Windrunner_1",
@@ -2908,6 +3532,7 @@
     {
       "NpcId": 239623,
       "CatalogId": "draenei",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_Velen_1",
@@ -2919,6 +3544,7 @@
     {
       "NpcId": 239650,
       "CatalogId": "haranir",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -2930,6 +3556,7 @@
     {
       "NpcId": 239659,
       "CatalogId": "voidelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -2941,6 +3568,19 @@
     {
       "NpcId": 239660,
       "CatalogId": "voidelf",
+      "NpcName": "",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": null,
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false,
+      "GenderOverride": "Auto"
+    },
+    {
+      "NpcId": 239670,
+      "CatalogId": "bloodelf",
+      "NpcName": "Vaultkeeper Elysa",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -2952,6 +3592,7 @@
     {
       "NpcId": 239673,
       "CatalogId": "bloodelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -2963,6 +3604,7 @@
     {
       "NpcId": 239676,
       "CatalogId": "dracthyr",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -2974,17 +3616,19 @@
     {
       "NpcId": 239720,
       "CatalogId": "voidelf",
+      "NpcName": "Lucia Nightbreaker",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
       "BespokeExaggeration": null,
       "BespokeCfgWeight": null,
       "UseNpcIdAsSeed": false,
-      "GenderOverride": "Auto"
+      "GenderOverride": "Female"
     },
     {
       "NpcId": 239722,
       "CatalogId": "voidelf",
+      "NpcName": "Lady Darkglen",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_Lady_Darkglen",
@@ -2996,6 +3640,7 @@
     {
       "NpcId": 239723,
       "CatalogId": "voidelf",
+      "NpcName": "Riftblade Astre",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -3007,6 +3652,7 @@
     {
       "NpcId": 239724,
       "CatalogId": "voidelf",
+      "NpcName": "Riftwalker Hieron",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -3018,6 +3664,7 @@
     {
       "NpcId": 239795,
       "CatalogId": "haranir",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -3029,6 +3676,7 @@
     {
       "NpcId": 239810,
       "CatalogId": "human",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_High_Exarch_Turalyon_1",
@@ -3040,6 +3688,7 @@
     {
       "NpcId": 239826,
       "CatalogId": "voidelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_Alleria_Windrunner_1",
@@ -3051,6 +3700,7 @@
     {
       "NpcId": 239827,
       "CatalogId": "bloodelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_Arator_1",
@@ -3062,6 +3712,7 @@
     {
       "NpcId": 239828,
       "CatalogId": "voidelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_Umbric",
@@ -3073,6 +3724,7 @@
     {
       "NpcId": 240033,
       "CatalogId": "amani",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_Zuljarra_2_Threat",
@@ -3084,6 +3736,7 @@
     {
       "NpcId": 240034,
       "CatalogId": "bloodelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_Zuljarra_2_Threat",
@@ -3095,6 +3748,7 @@
     {
       "NpcId": 240037,
       "CatalogId": "amani",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_Zuljarra_1_Normal",
@@ -3106,6 +3760,7 @@
     {
       "NpcId": 240039,
       "CatalogId": "bloodelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_Liadrin_4",
@@ -3115,8 +3770,93 @@
       "GenderOverride": "Auto"
     },
     {
+      "NpcId": 240068,
+      "CatalogId": "bloodelf",
+      "NpcName": "",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": null,
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false,
+      "GenderOverride": "Auto"
+    },
+    {
+      "NpcId": 240073,
+      "CatalogId": "bloodelf",
+      "NpcName": "",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": null,
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false,
+      "GenderOverride": "Auto"
+    },
+    {
+      "NpcId": 240074,
+      "CatalogId": "bloodelf",
+      "NpcName": "",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": null,
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false,
+      "GenderOverride": "Auto"
+    },
+    {
+      "NpcId": 240075,
+      "CatalogId": "bloodelf",
+      "NpcName": "",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": null,
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false,
+      "GenderOverride": "Auto"
+    },
+    {
+      "NpcId": 240125,
+      "CatalogId": "bloodelf",
+      "NpcName": "",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": null,
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false,
+      "GenderOverride": "Auto"
+    },
+    {
+      "NpcId": 240152,
+      "CatalogId": "bloodelf",
+      "NpcName": "",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": null,
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false,
+      "GenderOverride": "Auto"
+    },
+    {
+      "NpcId": 240156,
+      "CatalogId": "bloodelf",
+      "NpcName": "",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": null,
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false,
+      "GenderOverride": "Auto"
+    },
+    {
       "NpcId": 240186,
       "CatalogId": "amani",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_Zuljarra_2_Threat",
@@ -3128,6 +3868,7 @@
     {
       "NpcId": 240195,
       "CatalogId": "amani",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -3139,6 +3880,7 @@
     {
       "NpcId": 240214,
       "CatalogId": "bloodelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -3150,6 +3892,7 @@
     {
       "NpcId": 240215,
       "CatalogId": "amani",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_Zuljarra_1_Normal",
@@ -3161,6 +3904,7 @@
     {
       "NpcId": 240216,
       "CatalogId": "amani",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_Zuljarra_2_Threat",
@@ -3172,6 +3916,7 @@
     {
       "NpcId": 240225,
       "CatalogId": "rutaani",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -3183,6 +3928,7 @@
     {
       "NpcId": 240238,
       "CatalogId": "rutaani",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -3194,6 +3940,7 @@
     {
       "NpcId": 240239,
       "CatalogId": "rutaani",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -3205,6 +3952,7 @@
     {
       "NpcId": 240240,
       "CatalogId": "undead",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_Alonsus_Faol",
@@ -3216,6 +3964,7 @@
     {
       "NpcId": 240255,
       "CatalogId": "nightborne",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_Thalyssra",
@@ -3227,6 +3976,7 @@
     {
       "NpcId": 240257,
       "CatalogId": "bloodelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_Liadrin_4",
@@ -3238,6 +3988,7 @@
     {
       "NpcId": 240259,
       "CatalogId": "bloodelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -3249,6 +4000,7 @@
     {
       "NpcId": 240260,
       "CatalogId": "voidelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_Umbric",
@@ -3260,6 +4012,7 @@
     {
       "NpcId": 240261,
       "CatalogId": "bloodelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -3271,6 +4024,7 @@
     {
       "NpcId": 240262,
       "CatalogId": "bloodelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_Vereesa_Windrunner_2",
@@ -3282,6 +4036,7 @@
     {
       "NpcId": 240266,
       "CatalogId": "bloodelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_Lorthemar_Theron_1",
@@ -3293,6 +4048,7 @@
     {
       "NpcId": 240267,
       "CatalogId": "bloodelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "Arator",
       "BespokeSampleId": "U_Arator_1",
@@ -3304,6 +4060,7 @@
     {
       "NpcId": 240274,
       "CatalogId": "amani",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -3315,6 +4072,7 @@
     {
       "NpcId": 240279,
       "CatalogId": "amani",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -3326,6 +4084,7 @@
     {
       "NpcId": 240285,
       "CatalogId": "bloodelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -3337,6 +4096,7 @@
     {
       "NpcId": 240295,
       "CatalogId": "bloodelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_Vereesa_Windrunner_2",
@@ -3348,6 +4108,7 @@
     {
       "NpcId": 240296,
       "CatalogId": "bloodelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_Arator_1",
@@ -3359,6 +4120,7 @@
     {
       "NpcId": 240297,
       "CatalogId": "bloodelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -3370,6 +4132,7 @@
     {
       "NpcId": 240302,
       "CatalogId": "nightborne",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_Thalyssra",
@@ -3381,6 +4144,7 @@
     {
       "NpcId": 240334,
       "CatalogId": "nightelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -3392,6 +4156,7 @@
     {
       "NpcId": 240335,
       "CatalogId": "bloodelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_Lorthemar_Theron_1",
@@ -3403,6 +4168,7 @@
     {
       "NpcId": 240337,
       "CatalogId": "nightelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -3414,6 +4180,7 @@
     {
       "NpcId": 240404,
       "CatalogId": "haranir",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -3425,6 +4192,43 @@
     {
       "NpcId": 240407,
       "CatalogId": "haranir",
+      "NpcName": "",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": null,
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false,
+      "GenderOverride": "Auto"
+    },
+    {
+      "NpcId": 240408,
+      "CatalogId": "bloodelf",
+      "NpcName": "Ranger Vardis",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": null,
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false,
+      "GenderOverride": "Auto"
+    },
+    {
+      "NpcId": 240420,
+      "CatalogId": "bloodelf",
+      "NpcName": "Magister Meledor",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": null,
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false,
+      "GenderOverride": "Auto"
+    },
+    {
+      "NpcId": 240422,
+      "CatalogId": "bloodelf",
+      "NpcName": "Magister Meledor",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -3436,6 +4240,7 @@
     {
       "NpcId": 240474,
       "CatalogId": "bloodelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -3447,6 +4252,7 @@
     {
       "NpcId": 240521,
       "CatalogId": "amani",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -3458,6 +4264,7 @@
     {
       "NpcId": 240522,
       "CatalogId": "bloodelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -3469,9 +4276,10 @@
     {
       "NpcId": 240532,
       "CatalogId": "bloodelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
-      "BespokeSampleId": null,
+      "BespokeSampleId": "U_Magister_Rommath_1",
       "BespokeExaggeration": null,
       "BespokeCfgWeight": null,
       "UseNpcIdAsSeed": false,
@@ -3480,6 +4288,7 @@
     {
       "NpcId": 240533,
       "CatalogId": "haranir",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_Orweyna_1",
@@ -3491,6 +4300,7 @@
     {
       "NpcId": 240538,
       "CatalogId": "voidelf",
+      "NpcName": "Riftblade Maella",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -3502,6 +4312,7 @@
     {
       "NpcId": 240539,
       "CatalogId": "haranir",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_Orweyna_1",
@@ -3513,9 +4324,10 @@
     {
       "NpcId": 240630,
       "CatalogId": "bloodelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
-      "BespokeSampleId": null,
+      "BespokeSampleId": "U_Halduron_Brightwing_1",
       "BespokeExaggeration": null,
       "BespokeCfgWeight": null,
       "UseNpcIdAsSeed": false,
@@ -3524,6 +4336,7 @@
     {
       "NpcId": 240662,
       "CatalogId": "bloodelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_Arator_1",
@@ -3535,6 +4348,7 @@
     {
       "NpcId": 240663,
       "CatalogId": "haranir",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_Orweyna_1",
@@ -3544,8 +4358,21 @@
       "GenderOverride": "Auto"
     },
     {
+      "NpcId": 240673,
+      "CatalogId": "elemental",
+      "NpcName": "Lothraxion",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": null,
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false,
+      "GenderOverride": "Auto"
+    },
+    {
       "NpcId": 240683,
       "CatalogId": "voidelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -3557,6 +4384,7 @@
     {
       "NpcId": 240691,
       "CatalogId": "Domanaar",
+      "NpcName": "Decimus",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_Decimus",
@@ -3568,6 +4396,7 @@
     {
       "NpcId": 240714,
       "CatalogId": "undead",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_Alonsus_Faol",
@@ -3579,9 +4408,10 @@
     {
       "NpcId": 240715,
       "CatalogId": "bloodelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
-      "BespokeSampleId": null,
+      "BespokeSampleId": "U_Halduron_Brightwing_1",
       "BespokeExaggeration": null,
       "BespokeCfgWeight": null,
       "UseNpcIdAsSeed": false,
@@ -3590,6 +4420,7 @@
     {
       "NpcId": 240747,
       "CatalogId": "undead",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_Alonsus_Faol",
@@ -3601,6 +4432,7 @@
     {
       "NpcId": 240754,
       "CatalogId": "haranir",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_Hagar",
@@ -3610,8 +4442,21 @@
       "GenderOverride": "Auto"
     },
     {
+      "NpcId": 240832,
+      "CatalogId": "bloodelf",
+      "NpcName": "Lord Saltheril",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": "U_Lord_Saltheril",
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false,
+      "GenderOverride": "Auto"
+    },
+    {
       "NpcId": 240837,
       "CatalogId": "bloodelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -3623,6 +4468,7 @@
     {
       "NpcId": 240838,
       "CatalogId": "bloodelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -3634,6 +4480,7 @@
     {
       "NpcId": 240839,
       "CatalogId": "haranir",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_Hagar",
@@ -3645,6 +4492,7 @@
     {
       "NpcId": 240936,
       "CatalogId": "bloodelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -3656,6 +4504,7 @@
     {
       "NpcId": 241020,
       "CatalogId": "haranir",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -3667,6 +4516,7 @@
     {
       "NpcId": 241045,
       "CatalogId": "haranir",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -3678,6 +4528,7 @@
     {
       "NpcId": 241068,
       "CatalogId": "bloodelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_Liadrin_4",
@@ -3689,6 +4540,7 @@
     {
       "NpcId": 241070,
       "CatalogId": "haranir",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_Orweyna_1",
@@ -3700,6 +4552,7 @@
     {
       "NpcId": 241082,
       "CatalogId": "amani",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -3711,6 +4564,7 @@
     {
       "NpcId": 241109,
       "CatalogId": "bloodelf",
+      "NpcName": "Arator",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_Arator_1",
@@ -3722,6 +4576,19 @@
     {
       "NpcId": 241130,
       "CatalogId": "bloodelf",
+      "NpcName": "",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": "U_Halduron_Brightwing_1",
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false,
+      "GenderOverride": "Auto"
+    },
+    {
+      "NpcId": 241148,
+      "CatalogId": "bloodelf",
+      "NpcName": "Arator",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -3733,6 +4600,7 @@
     {
       "NpcId": 241163,
       "CatalogId": "bloodelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -3744,6 +4612,7 @@
     {
       "NpcId": 241170,
       "CatalogId": "voidelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_Lady_Darkglen",
@@ -3755,6 +4624,7 @@
     {
       "NpcId": 241171,
       "CatalogId": "voidelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_Lady_Darkglen",
@@ -3766,6 +4636,7 @@
     {
       "NpcId": 241205,
       "CatalogId": "bloodelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_Arator_1",
@@ -3777,6 +4648,7 @@
     {
       "NpcId": 241206,
       "CatalogId": "bloodelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_Lorthemar_Theron_1",
@@ -3788,6 +4660,7 @@
     {
       "NpcId": 241219,
       "CatalogId": "amani",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -3799,6 +4672,7 @@
     {
       "NpcId": 241222,
       "CatalogId": "bloodelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -3810,6 +4684,7 @@
     {
       "NpcId": 241272,
       "CatalogId": "bloodelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_Lorthemar_Theron_1",
@@ -3821,6 +4696,7 @@
     {
       "NpcId": 241303,
       "CatalogId": "amani",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -3832,6 +4708,7 @@
     {
       "NpcId": 241306,
       "CatalogId": "amani",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_Zuljarra_2_Threat",
@@ -3843,6 +4720,7 @@
     {
       "NpcId": 241308,
       "CatalogId": "bloodelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_Liadrin_4",
@@ -3854,6 +4732,7 @@
     {
       "NpcId": 241311,
       "CatalogId": "undead",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_Arator_1",
@@ -3865,6 +4744,7 @@
     {
       "NpcId": 241331,
       "CatalogId": "haranir",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_Orweyna_1",
@@ -3876,6 +4756,7 @@
     {
       "NpcId": 241450,
       "CatalogId": "bloodelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -3887,6 +4768,7 @@
     {
       "NpcId": 241452,
       "CatalogId": "bloodelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -3898,6 +4780,7 @@
     {
       "NpcId": 241455,
       "CatalogId": "bloodelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -3909,6 +4792,7 @@
     {
       "NpcId": 241458,
       "CatalogId": "bloodelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -3920,6 +4804,7 @@
     {
       "NpcId": 241482,
       "CatalogId": "bloodelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -3931,6 +4816,7 @@
     {
       "NpcId": 241620,
       "CatalogId": "draenei",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -3942,6 +4828,7 @@
     {
       "NpcId": 241629,
       "CatalogId": "haranir",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -3953,6 +4840,7 @@
     {
       "NpcId": 241651,
       "CatalogId": "human",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_Liadrin_4",
@@ -3964,6 +4852,7 @@
     {
       "NpcId": 241654,
       "CatalogId": "human",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_High_Exarch_Turalyon_1",
@@ -3975,6 +4864,7 @@
     {
       "NpcId": 241690,
       "CatalogId": "haranir",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -3986,6 +4876,7 @@
     {
       "NpcId": 241703,
       "CatalogId": "bloodelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -3997,6 +4888,7 @@
     {
       "NpcId": 241704,
       "CatalogId": "haranir",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_Orweyna_1",
@@ -4008,6 +4900,7 @@
     {
       "NpcId": 241742,
       "CatalogId": "haranir",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_Orweyna_1",
@@ -4019,6 +4912,7 @@
     {
       "NpcId": 241791,
       "CatalogId": "haranir",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -4030,6 +4924,7 @@
     {
       "NpcId": 241794,
       "CatalogId": "bloodelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -4041,6 +4936,7 @@
     {
       "NpcId": 241795,
       "CatalogId": "haranir",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_Orweyna_1",
@@ -4052,6 +4948,7 @@
     {
       "NpcId": 241928,
       "CatalogId": "amani",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -4063,6 +4960,7 @@
     {
       "NpcId": 241970,
       "CatalogId": "amani",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -4074,6 +4972,7 @@
     {
       "NpcId": 241973,
       "CatalogId": "amani",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -4085,6 +4984,7 @@
     {
       "NpcId": 241980,
       "CatalogId": "amani",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -4096,6 +4996,7 @@
     {
       "NpcId": 242099,
       "CatalogId": "bloodelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_Valeera_Sanguinar_4",
@@ -4107,6 +5008,7 @@
     {
       "NpcId": 242120,
       "CatalogId": "human",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -4118,17 +5020,7 @@
     {
       "NpcId": 242143,
       "CatalogId": "human",
-      "RaceId": 0,
-      "Notes": "",
-      "BespokeSampleId": "U_Umbric",
-      "BespokeExaggeration": null,
-      "BespokeCfgWeight": null,
-      "UseNpcIdAsSeed": false,
-      "GenderOverride": "Auto"
-    },
-    {
-      "NpcId": 242233,
-      "CatalogId": "draenei",
+      "NpcName": "Magister Umbric",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -4138,8 +5030,33 @@
       "GenderOverride": "Auto"
     },
     {
+      "NpcId": 242233,
+      "CatalogId": "draenei",
+      "NpcName": "",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": null,
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false,
+      "GenderOverride": "Auto"
+    },
+    {
+      "NpcId": 242381,
+      "CatalogId": "bloodelf",
+      "NpcName": "Valeera Sanguinar",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": "U_Valeera_Sanguinar_2",
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false,
+      "GenderOverride": "Auto"
+    },
+    {
       "NpcId": 242383,
       "CatalogId": "tortollan",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -4151,6 +5068,7 @@
     {
       "NpcId": 242388,
       "CatalogId": "amani",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -4162,6 +5080,7 @@
     {
       "NpcId": 242390,
       "CatalogId": "tortollan",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -4173,6 +5092,7 @@
     {
       "NpcId": 242391,
       "CatalogId": "tortollan",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -4184,6 +5104,7 @@
     {
       "NpcId": 242392,
       "CatalogId": "amani",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -4195,6 +5116,7 @@
     {
       "NpcId": 242394,
       "CatalogId": "amani",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -4206,6 +5128,7 @@
     {
       "NpcId": 242398,
       "CatalogId": "bloodelf",
+      "NpcName": "Naleidea Rivergleam",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -4217,6 +5140,7 @@
     {
       "NpcId": 242433,
       "CatalogId": "bloodelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_Arator_1",
@@ -4228,6 +5152,7 @@
     {
       "NpcId": 242464,
       "CatalogId": "amani",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -4239,9 +5164,10 @@
     {
       "NpcId": 242467,
       "CatalogId": "bloodelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
-      "BespokeSampleId": "U_High_Exarch_Turalyon_1",
+      "BespokeSampleId": null,
       "BespokeExaggeration": null,
       "BespokeCfgWeight": null,
       "UseNpcIdAsSeed": false,
@@ -4250,6 +5176,7 @@
     {
       "NpcId": 242487,
       "CatalogId": "bloodelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -4261,6 +5188,7 @@
     {
       "NpcId": 242592,
       "CatalogId": "haranir",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_Orweyna_1",
@@ -4272,6 +5200,7 @@
     {
       "NpcId": 242593,
       "CatalogId": "goblin",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_Gazlowe_1",
@@ -4283,6 +5212,7 @@
     {
       "NpcId": 242596,
       "CatalogId": "haranir",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -4294,6 +5224,7 @@
     {
       "NpcId": 242606,
       "CatalogId": "draenei",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -4305,6 +5236,7 @@
     {
       "NpcId": 242607,
       "CatalogId": "troll",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -4316,6 +5248,7 @@
     {
       "NpcId": 242608,
       "CatalogId": "undead",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_Taelia_1",
@@ -4327,6 +5260,7 @@
     {
       "NpcId": 242609,
       "CatalogId": "troll",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_Faerin_Lothar_1",
@@ -4338,6 +5272,7 @@
     {
       "NpcId": 242610,
       "CatalogId": "bloodelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -4349,6 +5284,7 @@
     {
       "NpcId": 242611,
       "CatalogId": "bloodelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -4360,6 +5296,7 @@
     {
       "NpcId": 242613,
       "CatalogId": "tauren",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -4371,6 +5308,7 @@
     {
       "NpcId": 242614,
       "CatalogId": "draenei",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -4382,6 +5320,7 @@
     {
       "NpcId": 242615,
       "CatalogId": "human",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -4393,6 +5332,19 @@
     {
       "NpcId": 242650,
       "CatalogId": "haranir",
+      "NpcName": "",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": null,
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false,
+      "GenderOverride": "Auto"
+    },
+    {
+      "NpcId": 242658,
+      "CatalogId": "voidelf",
+      "NpcName": "Callen Everfall",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -4404,6 +5356,7 @@
     {
       "NpcId": 242684,
       "CatalogId": "haranir",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -4415,6 +5368,7 @@
     {
       "NpcId": 242689,
       "CatalogId": "haranir",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -4426,6 +5380,7 @@
     {
       "NpcId": 242700,
       "CatalogId": "voidelf",
+      "NpcName": "Kelia Everglow",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -4437,6 +5392,7 @@
     {
       "NpcId": 242802,
       "CatalogId": "bloodelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -4448,6 +5404,7 @@
     {
       "NpcId": 242803,
       "CatalogId": "human",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_Taelia_1",
@@ -4459,6 +5416,7 @@
     {
       "NpcId": 242881,
       "CatalogId": "goblin",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_Gazlowe_1",
@@ -4470,6 +5428,7 @@
     {
       "NpcId": 242882,
       "CatalogId": "haranir",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_Orweyna_1",
@@ -4481,6 +5440,7 @@
     {
       "NpcId": 242889,
       "CatalogId": "bloodelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_Taelia_1",
@@ -4492,6 +5452,7 @@
     {
       "NpcId": 242890,
       "CatalogId": "bloodelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -4503,6 +5464,7 @@
     {
       "NpcId": 242893,
       "CatalogId": "bloodelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -4514,6 +5476,7 @@
     {
       "NpcId": 242894,
       "CatalogId": "human",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_Taelia_1",
@@ -4525,6 +5488,7 @@
     {
       "NpcId": 242897,
       "CatalogId": "bloodelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -4536,6 +5500,7 @@
     {
       "NpcId": 242898,
       "CatalogId": "human",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_Taelia_1",
@@ -4545,8 +5510,45 @@
       "GenderOverride": "Auto"
     },
     {
+      "NpcId": 242913,
+      "CatalogId": "bloodelf",
+      "NpcName": "Vael\u0027thas Dawnsoar",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": null,
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false,
+      "GenderOverride": "Auto"
+    },
+    {
+      "NpcId": 242914,
+      "CatalogId": "bloodelf",
+      "NpcName": "Lucen Swiftmane",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": null,
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false,
+      "GenderOverride": "Auto"
+    },
+    {
+      "NpcId": 242993,
+      "CatalogId": "bloodelf",
+      "NpcName": "Rhys Duskfrost",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": null,
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false,
+      "GenderOverride": "Auto"
+    },
+    {
       "NpcId": 243053,
       "CatalogId": "haranir",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -4558,6 +5560,7 @@
     {
       "NpcId": 243091,
       "CatalogId": "bloodelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_Arator_1",
@@ -4569,6 +5572,7 @@
     {
       "NpcId": 243123,
       "CatalogId": "bloodelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -4580,6 +5584,7 @@
     {
       "NpcId": 243126,
       "CatalogId": "bloodelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -4591,6 +5596,7 @@
     {
       "NpcId": 243169,
       "CatalogId": "fungarian",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -4602,6 +5608,7 @@
     {
       "NpcId": 243170,
       "CatalogId": "fungarian",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -4613,6 +5620,7 @@
     {
       "NpcId": 243172,
       "CatalogId": "fungarian",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -4624,6 +5632,7 @@
     {
       "NpcId": 243173,
       "CatalogId": "fungarian",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -4635,6 +5644,7 @@
     {
       "NpcId": 243178,
       "CatalogId": "fungarian",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -4646,6 +5656,7 @@
     {
       "NpcId": 243179,
       "CatalogId": "fungarian",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -4657,6 +5668,7 @@
     {
       "NpcId": 243180,
       "CatalogId": "fungarian",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -4668,6 +5680,7 @@
     {
       "NpcId": 243181,
       "CatalogId": "fungarian",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -4679,6 +5692,7 @@
     {
       "NpcId": 243226,
       "CatalogId": "fungarian",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -4690,6 +5704,7 @@
     {
       "NpcId": 243229,
       "CatalogId": "bloodelf",
+      "NpcName": "Eldara Dawnrunner",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -4701,6 +5716,7 @@
     {
       "NpcId": 243276,
       "CatalogId": "Domanaar",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_Decimus",
@@ -4712,6 +5728,7 @@
     {
       "NpcId": 243279,
       "CatalogId": "bloodelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -4723,6 +5740,7 @@
     {
       "NpcId": 243283,
       "CatalogId": "bloodelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -4734,6 +5752,7 @@
     {
       "NpcId": 243290,
       "CatalogId": "bloodelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -4745,6 +5764,7 @@
     {
       "NpcId": 243345,
       "CatalogId": "bloodelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -4756,6 +5776,7 @@
     {
       "NpcId": 243349,
       "CatalogId": "bloodelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -4767,6 +5788,7 @@
     {
       "NpcId": 243352,
       "CatalogId": "bloodelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -4778,6 +5800,7 @@
     {
       "NpcId": 243355,
       "CatalogId": "bloodelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -4789,6 +5812,7 @@
     {
       "NpcId": 243357,
       "CatalogId": "bloodelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -4800,6 +5824,7 @@
     {
       "NpcId": 243500,
       "CatalogId": "bloodelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -4811,6 +5836,7 @@
     {
       "NpcId": 243527,
       "CatalogId": "bloodelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -4822,6 +5848,7 @@
     {
       "NpcId": 243553,
       "CatalogId": "bloodelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -4833,6 +5860,7 @@
     {
       "NpcId": 243759,
       "CatalogId": "haranir",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -4844,6 +5872,7 @@
     {
       "NpcId": 243820,
       "CatalogId": "bloodelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -4855,6 +5884,7 @@
     {
       "NpcId": 243857,
       "CatalogId": "Domanaar",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_Decimus",
@@ -4866,6 +5896,7 @@
     {
       "NpcId": 243884,
       "CatalogId": "haranir",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -4877,6 +5908,7 @@
     {
       "NpcId": 243886,
       "CatalogId": "human",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -4888,6 +5920,7 @@
     {
       "NpcId": 243907,
       "CatalogId": "Domanaar",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "Decimus",
       "BespokeSampleId": "U_Decimus",
@@ -4899,6 +5932,7 @@
     {
       "NpcId": 243930,
       "CatalogId": "rutaani",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -4910,17 +5944,19 @@
     {
       "NpcId": 243984,
       "CatalogId": "bloodelf",
+      "NpcName": "Arator",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_Arator_1",
       "BespokeExaggeration": null,
       "BespokeCfgWeight": null,
-      "UseNpcIdAsSeed": false,
+      "UseNpcIdAsSeed": true,
       "GenderOverride": "Auto"
     },
     {
       "NpcId": 244074,
       "CatalogId": "bloodelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -4932,6 +5968,7 @@
     {
       "NpcId": 244093,
       "CatalogId": "bloodelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_Arator_1",
@@ -4943,6 +5980,7 @@
     {
       "NpcId": 244126,
       "CatalogId": "rutaani",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -4954,6 +5992,7 @@
     {
       "NpcId": 244242,
       "CatalogId": "haranir",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -4965,6 +6004,7 @@
     {
       "NpcId": 244394,
       "CatalogId": "haranir",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -4976,6 +6016,7 @@
     {
       "NpcId": 244419,
       "CatalogId": "haranir",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -4987,6 +6028,7 @@
     {
       "NpcId": 244422,
       "CatalogId": "amani",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_Zuljarra_1_Normal",
@@ -4998,6 +6040,7 @@
     {
       "NpcId": 244438,
       "CatalogId": "amani",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_Zuljarra_1_Normal",
@@ -5009,6 +6052,7 @@
     {
       "NpcId": 244440,
       "CatalogId": "bloodelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -5020,6 +6064,7 @@
     {
       "NpcId": 244443,
       "CatalogId": "bloodelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -5031,6 +6076,7 @@
     {
       "NpcId": 244455,
       "CatalogId": "haranir",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -5042,6 +6088,7 @@
     {
       "NpcId": 244456,
       "CatalogId": "haranir",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -5053,6 +6100,7 @@
     {
       "NpcId": 244465,
       "CatalogId": "haranir",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -5064,6 +6112,7 @@
     {
       "NpcId": 244469,
       "CatalogId": "bloodelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -5075,6 +6124,7 @@
     {
       "NpcId": 244470,
       "CatalogId": "bloodelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -5086,6 +6136,7 @@
     {
       "NpcId": 244471,
       "CatalogId": "bloodelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -5097,6 +6148,7 @@
     {
       "NpcId": 244473,
       "CatalogId": "haranir",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -5108,6 +6160,7 @@
     {
       "NpcId": 244479,
       "CatalogId": "amani",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -5119,6 +6172,7 @@
     {
       "NpcId": 244493,
       "CatalogId": "bloodelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -5130,6 +6184,7 @@
     {
       "NpcId": 244499,
       "CatalogId": "Kareshi",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -5141,6 +6196,7 @@
     {
       "NpcId": 244516,
       "CatalogId": "Kareshi",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -5152,6 +6208,7 @@
     {
       "NpcId": 244521,
       "CatalogId": "amani",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -5163,6 +6220,7 @@
     {
       "NpcId": 244522,
       "CatalogId": "Kareshi",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -5174,6 +6232,7 @@
     {
       "NpcId": 244538,
       "CatalogId": "bloodelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -5185,6 +6244,7 @@
     {
       "NpcId": 244539,
       "CatalogId": "bloodelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -5194,8 +6254,33 @@
       "GenderOverride": "Auto"
     },
     {
+      "NpcId": 244546,
+      "CatalogId": "voidelf",
+      "NpcName": "Riftwalker Sideras",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": null,
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false,
+      "GenderOverride": "Auto"
+    },
+    {
+      "NpcId": 244557,
+      "CatalogId": "bloodelf",
+      "NpcName": "",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": "U_Arator_1",
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false,
+      "GenderOverride": "Auto"
+    },
+    {
       "NpcId": 244558,
       "CatalogId": "draenei",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -5207,6 +6292,115 @@
     {
       "NpcId": 244562,
       "CatalogId": "shadowpine",
+      "NpcName": "",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": null,
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false,
+      "GenderOverride": "Auto"
+    },
+    {
+      "NpcId": 244574,
+      "CatalogId": "bloodelf",
+      "NpcName": "",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": "U_Lorthemar_Theron_1",
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false,
+      "GenderOverride": "Auto"
+    },
+    {
+      "NpcId": 244576,
+      "CatalogId": "bloodelf",
+      "NpcName": "",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": "U_Liadrin_4",
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false,
+      "GenderOverride": "Auto"
+    },
+    {
+      "NpcId": 244578,
+      "CatalogId": "bloodelf",
+      "NpcName": "",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": null,
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false,
+      "GenderOverride": "Auto"
+    },
+    {
+      "NpcId": 244579,
+      "CatalogId": "bloodelf",
+      "NpcName": "",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": "U_Umbric",
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false,
+      "GenderOverride": "Auto"
+    },
+    {
+      "NpcId": 244580,
+      "CatalogId": "bloodelf",
+      "NpcName": "",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": null,
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false,
+      "GenderOverride": "Auto"
+    },
+    {
+      "NpcId": 244582,
+      "CatalogId": "bloodelf",
+      "NpcName": "",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": "U_Thalyssra",
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false,
+      "GenderOverride": "Auto"
+    },
+    {
+      "NpcId": 244583,
+      "CatalogId": "nightelf",
+      "NpcName": "",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": null,
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false,
+      "GenderOverride": "Auto"
+    },
+    {
+      "NpcId": 244585,
+      "CatalogId": "bloodelf",
+      "NpcName": "",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": "U_Vereesa_Windrunner_2",
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false,
+      "GenderOverride": "Auto"
+    },
+    {
+      "NpcId": 244586,
+      "CatalogId": "bloodelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -5218,6 +6412,7 @@
     {
       "NpcId": 244588,
       "CatalogId": "amani",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_Zuljarra_1_Normal",
@@ -5229,6 +6424,7 @@
     {
       "NpcId": 244591,
       "CatalogId": "amani",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -5240,6 +6436,7 @@
     {
       "NpcId": 244636,
       "CatalogId": "voidelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -5251,6 +6448,7 @@
     {
       "NpcId": 244644,
       "CatalogId": "bloodelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_Arator_1",
@@ -5262,6 +6460,43 @@
     {
       "NpcId": 244673,
       "CatalogId": "Kareshi",
+      "NpcName": "",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": null,
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false,
+      "GenderOverride": "Auto"
+    },
+    {
+      "NpcId": 244698,
+      "CatalogId": "bloodelf",
+      "NpcName": "",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": null,
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false,
+      "GenderOverride": "Auto"
+    },
+    {
+      "NpcId": 244699,
+      "CatalogId": "bloodelf",
+      "NpcName": "",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": "U_Vereesa_Windrunner_2",
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false,
+      "GenderOverride": "Auto"
+    },
+    {
+      "NpcId": 244701,
+      "CatalogId": "bloodelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -5273,6 +6508,7 @@
     {
       "NpcId": 244749,
       "CatalogId": "Kareshi",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -5284,6 +6520,7 @@
     {
       "NpcId": 244775,
       "CatalogId": "bloodelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -5295,6 +6532,7 @@
     {
       "NpcId": 244867,
       "CatalogId": "human",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_Anduin_Wrynn",
@@ -5306,6 +6544,7 @@
     {
       "NpcId": 244912,
       "CatalogId": "voidelf",
+      "NpcName": "Darkhearth Kein",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -5317,6 +6556,7 @@
     {
       "NpcId": 244929,
       "CatalogId": "Domanaar",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_Decimus",
@@ -5328,6 +6568,7 @@
     {
       "NpcId": 244948,
       "CatalogId": "Domanaar",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_Decimus",
@@ -5339,6 +6580,7 @@
     {
       "NpcId": 244992,
       "CatalogId": "amani",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_Liadrin_4",
@@ -5350,6 +6592,7 @@
     {
       "NpcId": 245166,
       "CatalogId": "haranir",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -5361,6 +6604,7 @@
     {
       "NpcId": 245186,
       "CatalogId": "tauren",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -5372,6 +6616,7 @@
     {
       "NpcId": 245270,
       "CatalogId": "bloodelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_Zuljarra_1_Normal",
@@ -5383,6 +6628,7 @@
     {
       "NpcId": 245271,
       "CatalogId": "bloodelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_Liadrin_4",
@@ -5394,6 +6640,7 @@
     {
       "NpcId": 245285,
       "CatalogId": "bloodelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -5405,6 +6652,7 @@
     {
       "NpcId": 245418,
       "CatalogId": "bloodelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -5416,6 +6664,7 @@
     {
       "NpcId": 245419,
       "CatalogId": "bloodelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_Arator_1",
@@ -5427,6 +6676,7 @@
     {
       "NpcId": 245420,
       "CatalogId": "bloodelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_Arator_1",
@@ -5438,6 +6688,7 @@
     {
       "NpcId": 245422,
       "CatalogId": "bloodelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_Arator_1",
@@ -5447,8 +6698,21 @@
       "GenderOverride": "Auto"
     },
     {
+      "NpcId": 245469,
+      "CatalogId": "undead",
+      "NpcName": "",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": "U_Liadrin_4",
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false,
+      "GenderOverride": "Auto"
+    },
+    {
       "NpcId": 245646,
       "CatalogId": "amani",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_ZulJan_1_Normal",
@@ -5460,6 +6724,7 @@
     {
       "NpcId": 245669,
       "CatalogId": "amani",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -5471,6 +6736,7 @@
     {
       "NpcId": 245703,
       "CatalogId": "haranir",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -5482,6 +6748,7 @@
     {
       "NpcId": 245762,
       "CatalogId": "undead",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -5493,6 +6760,7 @@
     {
       "NpcId": 245808,
       "CatalogId": "haranir",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -5504,6 +6772,7 @@
     {
       "NpcId": 245878,
       "CatalogId": "bloodelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -5515,6 +6784,7 @@
     {
       "NpcId": 245944,
       "CatalogId": "bloodelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -5526,6 +6796,7 @@
     {
       "NpcId": 245976,
       "CatalogId": "voidelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -5537,6 +6808,7 @@
     {
       "NpcId": 245979,
       "CatalogId": "revantusk",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -5548,6 +6820,7 @@
     {
       "NpcId": 246035,
       "CatalogId": "bloodelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -5559,6 +6832,7 @@
     {
       "NpcId": 246208,
       "CatalogId": "fungarian",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -5570,6 +6844,7 @@
     {
       "NpcId": 246210,
       "CatalogId": "fungarian",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -5581,6 +6856,7 @@
     {
       "NpcId": 246211,
       "CatalogId": "fungarian",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -5592,6 +6868,7 @@
     {
       "NpcId": 246231,
       "CatalogId": "bloodelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "Astalor Broodsworn",
       "BespokeSampleId": "U_Astalor_Bloodsworn_1",
@@ -5603,6 +6880,7 @@
     {
       "NpcId": 246475,
       "CatalogId": "human",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -5614,6 +6892,7 @@
     {
       "NpcId": 246525,
       "CatalogId": "amani",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -5625,6 +6904,7 @@
     {
       "NpcId": 246537,
       "CatalogId": "amani",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -5636,6 +6916,7 @@
     {
       "NpcId": 246607,
       "CatalogId": "haranir",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -5647,6 +6928,7 @@
     {
       "NpcId": 246727,
       "CatalogId": "Domanaar",
+      "NpcName": "Ravenia",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -5658,6 +6940,7 @@
     {
       "NpcId": 246777,
       "CatalogId": "haranir",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -5667,8 +6950,21 @@
       "GenderOverride": "Auto"
     },
     {
+      "NpcId": 246789,
+      "CatalogId": "bloodelf",
+      "NpcName": "",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": "U_Arator_1",
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false,
+      "GenderOverride": "Auto"
+    },
+    {
       "NpcId": 246863,
       "CatalogId": "undead",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_Alonsus_Faol",
@@ -5680,6 +6976,7 @@
     {
       "NpcId": 246877,
       "CatalogId": "amani",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -5691,6 +6988,7 @@
     {
       "NpcId": 246878,
       "CatalogId": "amani",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -5702,6 +7000,7 @@
     {
       "NpcId": 246879,
       "CatalogId": "amani",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -5713,6 +7012,7 @@
     {
       "NpcId": 246880,
       "CatalogId": "amani",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -5724,6 +7024,7 @@
     {
       "NpcId": 246881,
       "CatalogId": "amani",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -5735,6 +7036,7 @@
     {
       "NpcId": 247014,
       "CatalogId": "amani",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -5746,6 +7048,7 @@
     {
       "NpcId": 247201,
       "CatalogId": "amani",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -5757,6 +7060,7 @@
     {
       "NpcId": 247232,
       "CatalogId": "amani",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -5768,6 +7072,7 @@
     {
       "NpcId": 247245,
       "CatalogId": "fungarian",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -5779,6 +7084,7 @@
     {
       "NpcId": 247251,
       "CatalogId": "amani",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -5790,6 +7096,7 @@
     {
       "NpcId": 247252,
       "CatalogId": "fungarian",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -5801,6 +7108,7 @@
     {
       "NpcId": 247254,
       "CatalogId": "amani",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -5810,8 +7118,21 @@
       "GenderOverride": "Auto"
     },
     {
+      "NpcId": 247262,
+      "CatalogId": "bloodelf",
+      "NpcName": "",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": "U_Umbric",
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false,
+      "GenderOverride": "Auto"
+    },
+    {
       "NpcId": 247299,
       "CatalogId": "tauren",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -5823,6 +7144,7 @@
     {
       "NpcId": 247304,
       "CatalogId": "dwarf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -5834,6 +7156,7 @@
     {
       "NpcId": 247305,
       "CatalogId": "bloodelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -5845,6 +7168,7 @@
     {
       "NpcId": 247306,
       "CatalogId": "lightforgeddraenei",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -5856,6 +7180,7 @@
     {
       "NpcId": 247375,
       "CatalogId": "Domanaar",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -5867,6 +7192,7 @@
     {
       "NpcId": 247414,
       "CatalogId": "bloodelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_Liadrin_4",
@@ -5876,8 +7202,21 @@
       "GenderOverride": "Auto"
     },
     {
+      "NpcId": 247452,
+      "CatalogId": "bloodelf",
+      "NpcName": "",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": "U_Vereesa_Windrunner_2",
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false,
+      "GenderOverride": "Auto"
+    },
+    {
       "NpcId": 247503,
       "CatalogId": "bloodelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -5889,6 +7228,7 @@
     {
       "NpcId": 247594,
       "CatalogId": "voidelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -5900,6 +7240,7 @@
     {
       "NpcId": 247595,
       "CatalogId": "voidelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -5911,6 +7252,7 @@
     {
       "NpcId": 247645,
       "CatalogId": "bloodelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -5922,6 +7264,7 @@
     {
       "NpcId": 247647,
       "CatalogId": "draenei",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -5933,6 +7276,7 @@
     {
       "NpcId": 247664,
       "CatalogId": "voidelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_Lady_Darkglen",
@@ -5944,6 +7288,7 @@
     {
       "NpcId": 247668,
       "CatalogId": "voidelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_Umbric",
@@ -5955,6 +7300,7 @@
     {
       "NpcId": 247674,
       "CatalogId": "voidelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_Lady_Darkglen",
@@ -5966,6 +7312,7 @@
     {
       "NpcId": 247800,
       "CatalogId": "bloodelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -5977,6 +7324,7 @@
     {
       "NpcId": 247936,
       "CatalogId": "haranir",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -5988,6 +7336,7 @@
     {
       "NpcId": 248015,
       "CatalogId": "Domanaar",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -5999,6 +7348,7 @@
     {
       "NpcId": 248036,
       "CatalogId": "haranir",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -6010,6 +7360,7 @@
     {
       "NpcId": 248040,
       "CatalogId": "voidelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -6021,6 +7372,7 @@
     {
       "NpcId": 248059,
       "CatalogId": "bloodelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -6032,6 +7384,7 @@
     {
       "NpcId": 248072,
       "CatalogId": "voidelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -6043,6 +7396,7 @@
     {
       "NpcId": 248114,
       "CatalogId": "voidelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -6054,6 +7408,7 @@
     {
       "NpcId": 248194,
       "CatalogId": "bloodelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -6065,6 +7420,7 @@
     {
       "NpcId": 248250,
       "CatalogId": "dwarf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -6076,6 +7432,7 @@
     {
       "NpcId": 248263,
       "CatalogId": "undead",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_Alonsus_Faol",
@@ -6087,6 +7444,7 @@
     {
       "NpcId": 248316,
       "CatalogId": "human",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_Faerin_Lothar_1",
@@ -6098,6 +7456,7 @@
     {
       "NpcId": 248317,
       "CatalogId": "troll",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -6109,6 +7468,7 @@
     {
       "NpcId": 248318,
       "CatalogId": "draenei",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -6120,6 +7480,7 @@
     {
       "NpcId": 248321,
       "CatalogId": "bloodelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -6131,6 +7492,7 @@
     {
       "NpcId": 248322,
       "CatalogId": "bloodelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -6142,6 +7504,7 @@
     {
       "NpcId": 248323,
       "CatalogId": "human",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_Taelia_1",
@@ -6153,6 +7516,7 @@
     {
       "NpcId": 248324,
       "CatalogId": "tauren",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -6164,6 +7528,7 @@
     {
       "NpcId": 248325,
       "CatalogId": "human",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -6175,6 +7540,7 @@
     {
       "NpcId": 248326,
       "CatalogId": "lightforgeddraenei",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -6186,6 +7552,19 @@
     {
       "NpcId": 248328,
       "CatalogId": "voidelf",
+      "NpcName": "Void Researcher Anomander",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": null,
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false,
+      "GenderOverride": "Auto"
+    },
+    {
+      "NpcId": 248351,
+      "CatalogId": "goblin",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -6197,6 +7576,7 @@
     {
       "NpcId": 248408,
       "CatalogId": "human",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -6208,6 +7588,7 @@
     {
       "NpcId": 248416,
       "CatalogId": "human",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_Calia_Menethil",
@@ -6219,6 +7600,7 @@
     {
       "NpcId": 248417,
       "CatalogId": "human",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_Anduin_Wrynn",
@@ -6230,6 +7612,7 @@
     {
       "NpcId": 248583,
       "CatalogId": "Domanaar",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_Decimus",
@@ -6241,6 +7624,7 @@
     {
       "NpcId": 248616,
       "CatalogId": "voidelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -6252,6 +7636,7 @@
     {
       "NpcId": 248629,
       "CatalogId": "kultiran",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -6263,6 +7648,7 @@
     {
       "NpcId": 248630,
       "CatalogId": "bloodelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -6274,6 +7660,7 @@
     {
       "NpcId": 248631,
       "CatalogId": "dwarf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -6285,6 +7672,7 @@
     {
       "NpcId": 248657,
       "CatalogId": "amani",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -6296,6 +7684,7 @@
     {
       "NpcId": 248658,
       "CatalogId": "amani",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -6307,6 +7696,7 @@
     {
       "NpcId": 248750,
       "CatalogId": "bloodelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_Valeera_Sanguinar_2",
@@ -6318,6 +7708,7 @@
     {
       "NpcId": 248787,
       "CatalogId": "amani",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -6329,6 +7720,7 @@
     {
       "NpcId": 248826,
       "CatalogId": "bloodelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -6340,6 +7732,7 @@
     {
       "NpcId": 248838,
       "CatalogId": "amani",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -6351,6 +7744,7 @@
     {
       "NpcId": 248874,
       "CatalogId": "bloodelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_Valeera_Sanguinar_2",
@@ -6362,6 +7756,7 @@
     {
       "NpcId": 248880,
       "CatalogId": "Domanaar",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -6373,6 +7768,7 @@
     {
       "NpcId": 248881,
       "CatalogId": "voidelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -6384,6 +7780,7 @@
     {
       "NpcId": 248886,
       "CatalogId": "haranir",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_Hagar",
@@ -6395,6 +7792,7 @@
     {
       "NpcId": 248894,
       "CatalogId": "voidelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -6406,6 +7804,7 @@
     {
       "NpcId": 248982,
       "CatalogId": "voidelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_Valeera_Sanguinar_4",
@@ -6417,6 +7816,7 @@
     {
       "NpcId": 249034,
       "CatalogId": "voidelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -6428,6 +7828,19 @@
     {
       "NpcId": 249045,
       "CatalogId": "voidelf",
+      "NpcName": "",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": null,
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false,
+      "GenderOverride": "Auto"
+    },
+    {
+      "NpcId": 249049,
+      "CatalogId": "bloodelf",
+      "NpcName": "Rosalyn Brightdawn",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -6439,6 +7852,7 @@
     {
       "NpcId": 249097,
       "CatalogId": "bloodelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -6450,6 +7864,7 @@
     {
       "NpcId": 249103,
       "CatalogId": "lightforgeddraenei",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -6461,6 +7876,7 @@
     {
       "NpcId": 249106,
       "CatalogId": "amani",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -6472,6 +7888,7 @@
     {
       "NpcId": 249130,
       "CatalogId": "voidelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -6483,6 +7900,7 @@
     {
       "NpcId": 249174,
       "CatalogId": "bloodelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -6494,6 +7912,7 @@
     {
       "NpcId": 249211,
       "CatalogId": "amani",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_ZulJan_2_Frustrated",
@@ -6505,6 +7924,7 @@
     {
       "NpcId": 249290,
       "CatalogId": "human",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -6516,6 +7936,7 @@
     {
       "NpcId": 249361,
       "CatalogId": "amani",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -6527,6 +7948,7 @@
     {
       "NpcId": 249388,
       "CatalogId": "amani",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -6538,6 +7960,7 @@
     {
       "NpcId": 249426,
       "CatalogId": "bloodelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -6549,6 +7972,7 @@
     {
       "NpcId": 249436,
       "CatalogId": "bloodelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -6560,6 +7984,7 @@
     {
       "NpcId": 249437,
       "CatalogId": "bloodelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -6571,6 +7996,7 @@
     {
       "NpcId": 249459,
       "CatalogId": "voidelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -6582,6 +8008,7 @@
     {
       "NpcId": 249467,
       "CatalogId": "undead",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -6593,6 +8020,7 @@
     {
       "NpcId": 249468,
       "CatalogId": "bloodelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -6604,6 +8032,7 @@
     {
       "NpcId": 249499,
       "CatalogId": "bloodelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -6615,6 +8044,7 @@
     {
       "NpcId": 249653,
       "CatalogId": "amani",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_Zuljarra_2_Threat",
@@ -6626,6 +8056,7 @@
     {
       "NpcId": 249780,
       "CatalogId": "amani",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -6637,6 +8068,7 @@
     {
       "NpcId": 249870,
       "CatalogId": "bloodelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -6648,6 +8080,7 @@
     {
       "NpcId": 249935,
       "CatalogId": "voidelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -6659,6 +8092,7 @@
     {
       "NpcId": 250181,
       "CatalogId": "bloodelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_Lorthemar_Theron_1",
@@ -6670,6 +8104,7 @@
     {
       "NpcId": 250186,
       "CatalogId": "bloodelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_Valeera_Sanguinar_2",
@@ -6681,6 +8116,7 @@
     {
       "NpcId": 250189,
       "CatalogId": "bloodelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -6692,6 +8128,7 @@
     {
       "NpcId": 250190,
       "CatalogId": "bloodelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -6703,6 +8140,7 @@
     {
       "NpcId": 250295,
       "CatalogId": "voidelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_Valeera_Sanguinar_4",
@@ -6714,9 +8152,10 @@
     {
       "NpcId": 250363,
       "CatalogId": "bloodelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
-      "BespokeSampleId": null,
+      "BespokeSampleId": "U_Halduron_Brightwing_1",
       "BespokeExaggeration": null,
       "BespokeCfgWeight": null,
       "UseNpcIdAsSeed": false,
@@ -6725,6 +8164,7 @@
     {
       "NpcId": 250387,
       "CatalogId": "bloodelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -6736,6 +8176,7 @@
     {
       "NpcId": 250388,
       "CatalogId": "bloodelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -6747,6 +8188,7 @@
     {
       "NpcId": 250389,
       "CatalogId": "bloodelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -6758,6 +8200,7 @@
     {
       "NpcId": 250413,
       "CatalogId": "worgen",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -6769,6 +8212,7 @@
     {
       "NpcId": 250495,
       "CatalogId": "human",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -6780,6 +8224,7 @@
     {
       "NpcId": 250677,
       "CatalogId": "voidelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -6791,6 +8236,7 @@
     {
       "NpcId": 250791,
       "CatalogId": "bloodelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -6802,6 +8248,7 @@
     {
       "NpcId": 250798,
       "CatalogId": "bloodelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -6813,6 +8260,7 @@
     {
       "NpcId": 250853,
       "CatalogId": "nightborne",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_Thalyssra",
@@ -6824,6 +8272,7 @@
     {
       "NpcId": 250888,
       "CatalogId": "bloodelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -6835,6 +8284,7 @@
     {
       "NpcId": 250958,
       "CatalogId": "nightborne",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -6846,6 +8296,7 @@
     {
       "NpcId": 251081,
       "CatalogId": "amani",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -6857,6 +8308,7 @@
     {
       "NpcId": 251089,
       "CatalogId": "voidelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -6868,6 +8320,7 @@
     {
       "NpcId": 251114,
       "CatalogId": "bloodelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -6879,6 +8332,7 @@
     {
       "NpcId": 251116,
       "CatalogId": "voidelf",
+      "NpcName": "Tracker Aelix",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -6890,6 +8344,7 @@
     {
       "NpcId": 251122,
       "CatalogId": "bloodelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -6901,6 +8356,7 @@
     {
       "NpcId": 251137,
       "CatalogId": "bloodelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -6912,6 +8368,7 @@
     {
       "NpcId": 251148,
       "CatalogId": "voidelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -6923,6 +8380,7 @@
     {
       "NpcId": 251172,
       "CatalogId": "haranir",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -6934,6 +8392,7 @@
     {
       "NpcId": 251244,
       "CatalogId": "bloodelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -6943,8 +8402,21 @@
       "GenderOverride": "Auto"
     },
     {
+      "NpcId": 251259,
+      "CatalogId": "haranir",
+      "NpcName": "",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": null,
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false,
+      "GenderOverride": "Auto"
+    },
+    {
       "NpcId": 251286,
       "CatalogId": "voidelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -6956,6 +8428,7 @@
     {
       "NpcId": 251294,
       "CatalogId": "bloodelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -6967,6 +8440,7 @@
     {
       "NpcId": 251295,
       "CatalogId": "bloodelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -6978,6 +8452,7 @@
     {
       "NpcId": 251296,
       "CatalogId": "bloodelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -6989,6 +8464,7 @@
     {
       "NpcId": 251297,
       "CatalogId": "bloodelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -7000,6 +8476,7 @@
     {
       "NpcId": 251298,
       "CatalogId": "bloodelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -7011,6 +8488,7 @@
     {
       "NpcId": 251299,
       "CatalogId": "bloodelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -7022,6 +8500,7 @@
     {
       "NpcId": 251302,
       "CatalogId": "bloodelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -7033,6 +8512,7 @@
     {
       "NpcId": 251304,
       "CatalogId": "bloodelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -7044,6 +8524,7 @@
     {
       "NpcId": 251335,
       "CatalogId": "bloodelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_Arator_1",
@@ -7055,6 +8536,7 @@
     {
       "NpcId": 251337,
       "CatalogId": "nightborne",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_Chief_Telemancer_Oculeth_1",
@@ -7066,6 +8548,7 @@
     {
       "NpcId": 251346,
       "CatalogId": "bloodelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -7077,6 +8560,7 @@
     {
       "NpcId": 251347,
       "CatalogId": "bloodelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -7088,6 +8572,7 @@
     {
       "NpcId": 251348,
       "CatalogId": "bloodelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -7099,6 +8584,7 @@
     {
       "NpcId": 251350,
       "CatalogId": "pandaren",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -7110,6 +8596,7 @@
     {
       "NpcId": 251355,
       "CatalogId": "undead",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_Alonsus_Faol",
@@ -7121,6 +8608,7 @@
     {
       "NpcId": 251372,
       "CatalogId": "bloodelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -7132,6 +8620,7 @@
     {
       "NpcId": 251405,
       "CatalogId": "bloodelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -7143,6 +8632,7 @@
     {
       "NpcId": 251408,
       "CatalogId": "bloodelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -7154,6 +8644,7 @@
     {
       "NpcId": 251409,
       "CatalogId": "bloodelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -7165,6 +8656,7 @@
     {
       "NpcId": 251427,
       "CatalogId": "bloodelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -7176,6 +8668,7 @@
     {
       "NpcId": 251431,
       "CatalogId": "bloodelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -7187,6 +8680,7 @@
     {
       "NpcId": 251432,
       "CatalogId": "bloodelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -7198,6 +8692,7 @@
     {
       "NpcId": 251433,
       "CatalogId": "bloodelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -7209,6 +8704,7 @@
     {
       "NpcId": 251438,
       "CatalogId": "bloodelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -7220,6 +8716,7 @@
     {
       "NpcId": 251441,
       "CatalogId": "bloodelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -7231,6 +8728,7 @@
     {
       "NpcId": 251443,
       "CatalogId": "bloodelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -7242,6 +8740,7 @@
     {
       "NpcId": 251472,
       "CatalogId": "bloodelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -7253,6 +8752,7 @@
     {
       "NpcId": 251522,
       "CatalogId": "amani",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -7264,6 +8764,7 @@
     {
       "NpcId": 251524,
       "CatalogId": "fungarian",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -7275,6 +8776,7 @@
     {
       "NpcId": 251601,
       "CatalogId": "amani",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -7286,6 +8788,7 @@
     {
       "NpcId": 251715,
       "CatalogId": "fungarian",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -7297,6 +8800,7 @@
     {
       "NpcId": 251723,
       "CatalogId": "fungarian",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -7306,8 +8810,21 @@
       "GenderOverride": "Auto"
     },
     {
+      "NpcId": 251985,
+      "CatalogId": "bloodelf",
+      "NpcName": "CeloenusBlackflame",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": null,
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false,
+      "GenderOverride": "Auto"
+    },
+    {
       "NpcId": 251988,
       "CatalogId": "haranir",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -7319,6 +8836,7 @@
     {
       "NpcId": 252098,
       "CatalogId": "grummle",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -7330,6 +8848,7 @@
     {
       "NpcId": 252110,
       "CatalogId": "voidelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -7341,6 +8860,7 @@
     {
       "NpcId": 252285,
       "CatalogId": "draenei",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -7352,6 +8872,7 @@
     {
       "NpcId": 252327,
       "CatalogId": "haranir",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -7363,6 +8884,7 @@
     {
       "NpcId": 252494,
       "CatalogId": "haranir",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_Hagar",
@@ -7374,6 +8896,7 @@
     {
       "NpcId": 252495,
       "CatalogId": "haranir",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_Hagar",
@@ -7385,6 +8908,7 @@
     {
       "NpcId": 252496,
       "CatalogId": "haranir",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_Hagar",
@@ -7396,6 +8920,7 @@
     {
       "NpcId": 252497,
       "CatalogId": "haranir",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_Hagar",
@@ -7407,6 +8932,7 @@
     {
       "NpcId": 252500,
       "CatalogId": "bloodelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -7418,6 +8944,7 @@
     {
       "NpcId": 252510,
       "CatalogId": "voidelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -7429,6 +8956,7 @@
     {
       "NpcId": 252595,
       "CatalogId": "nightborne",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -7440,6 +8968,19 @@
     {
       "NpcId": 252599,
       "CatalogId": "bloodelf",
+      "NpcName": "",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": null,
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false,
+      "GenderOverride": "Auto"
+    },
+    {
+      "NpcId": 252679,
+      "CatalogId": "haranir",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -7451,6 +8992,7 @@
     {
       "NpcId": 252807,
       "CatalogId": "bloodelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -7462,9 +9004,10 @@
     {
       "NpcId": 252822,
       "CatalogId": "bloodelf",
+      "NpcName": "Lady Liadrin",
       "RaceId": 0,
       "Notes": "",
-      "BespokeSampleId": "U_Liadrin_4",
+      "BespokeSampleId": "U_Lady_Liadrin_1",
       "BespokeExaggeration": null,
       "BespokeCfgWeight": null,
       "UseNpcIdAsSeed": false,
@@ -7473,6 +9016,7 @@
     {
       "NpcId": 252871,
       "CatalogId": "haranir",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -7484,6 +9028,7 @@
     {
       "NpcId": 252872,
       "CatalogId": "haranir",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -7495,6 +9040,7 @@
     {
       "NpcId": 252947,
       "CatalogId": "voidelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -7506,6 +9052,7 @@
     {
       "NpcId": 252949,
       "CatalogId": "voidelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -7517,6 +9064,7 @@
     {
       "NpcId": 253037,
       "CatalogId": "amani",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -7528,6 +9076,7 @@
     {
       "NpcId": 253038,
       "CatalogId": "voidelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -7539,6 +9088,7 @@
     {
       "NpcId": 253039,
       "CatalogId": "amani",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -7550,6 +9100,7 @@
     {
       "NpcId": 253042,
       "CatalogId": "amani",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -7561,6 +9112,7 @@
     {
       "NpcId": 253043,
       "CatalogId": "amani",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -7572,6 +9124,7 @@
     {
       "NpcId": 253105,
       "CatalogId": "haranir",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -7583,6 +9136,7 @@
     {
       "NpcId": 253125,
       "CatalogId": "dwarf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -7592,8 +9146,45 @@
       "GenderOverride": "Auto"
     },
     {
+      "NpcId": 253144,
+      "CatalogId": "arathi",
+      "NpcName": "",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": "U_Faerin_Lothar_1",
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false,
+      "GenderOverride": "Auto"
+    },
+    {
+      "NpcId": 253191,
+      "CatalogId": "tauren",
+      "NpcName": "",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": null,
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false,
+      "GenderOverride": "Auto"
+    },
+    {
+      "NpcId": 253197,
+      "CatalogId": "undead",
+      "NpcName": "",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": "U_Alonsus_Faol",
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false,
+      "GenderOverride": "Auto"
+    },
+    {
       "NpcId": 253312,
       "CatalogId": "haranir",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -7605,6 +9196,7 @@
     {
       "NpcId": 253326,
       "CatalogId": "amani",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -7616,6 +9208,7 @@
     {
       "NpcId": 253343,
       "CatalogId": "haranir",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_Orweyna_1",
@@ -7625,8 +9218,21 @@
       "GenderOverride": "Auto"
     },
     {
+      "NpcId": 253344,
+      "CatalogId": "lightforgeddraenei",
+      "NpcName": "VindicatorXayann",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": null,
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false,
+      "GenderOverride": "Auto"
+    },
+    {
       "NpcId": 253362,
       "CatalogId": "voidelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -7638,6 +9244,7 @@
     {
       "NpcId": 253390,
       "CatalogId": "haranir",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -7649,6 +9256,7 @@
     {
       "NpcId": 253392,
       "CatalogId": "haranir",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -7660,6 +9268,7 @@
     {
       "NpcId": 253428,
       "CatalogId": "amani",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -7671,6 +9280,7 @@
     {
       "NpcId": 253430,
       "CatalogId": "illidari",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -7682,6 +9292,7 @@
     {
       "NpcId": 253433,
       "CatalogId": "haranir",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -7693,6 +9304,7 @@
     {
       "NpcId": 253440,
       "CatalogId": "voidelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -7704,6 +9316,7 @@
     {
       "NpcId": 253453,
       "CatalogId": "draenei",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -7715,6 +9328,7 @@
     {
       "NpcId": 253513,
       "CatalogId": "bloodelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "Astalor",
       "BespokeSampleId": "U_Astalor_Bloodsworn_2",
@@ -7726,6 +9340,7 @@
     {
       "NpcId": 253523,
       "CatalogId": "bloodelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -7737,6 +9352,7 @@
     {
       "NpcId": 253567,
       "CatalogId": "nightelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -7748,6 +9364,7 @@
     {
       "NpcId": 253594,
       "CatalogId": "bloodelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -7759,6 +9376,7 @@
     {
       "NpcId": 253603,
       "CatalogId": "bloodelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_Arator_1",
@@ -7770,6 +9388,7 @@
     {
       "NpcId": 253604,
       "CatalogId": "amani",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -7781,6 +9400,7 @@
     {
       "NpcId": 253613,
       "CatalogId": "voidelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_Umbric",
@@ -7792,6 +9412,7 @@
     {
       "NpcId": 253776,
       "CatalogId": "nightborne",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -7803,6 +9424,7 @@
     {
       "NpcId": 253948,
       "CatalogId": "voidelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -7814,6 +9436,7 @@
     {
       "NpcId": 253980,
       "CatalogId": "amani",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_Zuljarra_2_Threat",
@@ -7825,6 +9448,7 @@
     {
       "NpcId": 253997,
       "CatalogId": "amani",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -7836,6 +9460,7 @@
     {
       "NpcId": 254012,
       "CatalogId": "voidelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -7847,6 +9472,7 @@
     {
       "NpcId": 254014,
       "CatalogId": "voidelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -7858,6 +9484,7 @@
     {
       "NpcId": 254105,
       "CatalogId": "voidelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -7869,6 +9496,19 @@
     {
       "NpcId": 254114,
       "CatalogId": "voidelf",
+      "NpcName": "",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": null,
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false,
+      "GenderOverride": "Auto"
+    },
+    {
+      "NpcId": 254300,
+      "CatalogId": "goblin",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -7880,6 +9520,7 @@
     {
       "NpcId": 254315,
       "CatalogId": "bloodelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -7891,6 +9532,7 @@
     {
       "NpcId": 254316,
       "CatalogId": "voidelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -7902,6 +9544,7 @@
     {
       "NpcId": 254402,
       "CatalogId": "voidelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -7913,6 +9556,7 @@
     {
       "NpcId": 254491,
       "CatalogId": "amani",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -7924,6 +9568,7 @@
     {
       "NpcId": 254509,
       "CatalogId": "voidelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -7935,6 +9580,7 @@
     {
       "NpcId": 254510,
       "CatalogId": "voidelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -7946,6 +9592,7 @@
     {
       "NpcId": 254513,
       "CatalogId": "voidelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -7957,6 +9604,7 @@
     {
       "NpcId": 254515,
       "CatalogId": "voidelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -7968,6 +9616,7 @@
     {
       "NpcId": 254630,
       "CatalogId": "fungarian",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -7979,6 +9628,7 @@
     {
       "NpcId": 254654,
       "CatalogId": "nightborne",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_Thalyssra",
@@ -7990,6 +9640,7 @@
     {
       "NpcId": 254665,
       "CatalogId": "amani",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -8001,6 +9652,7 @@
     {
       "NpcId": 254716,
       "CatalogId": "amani",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -8012,6 +9664,7 @@
     {
       "NpcId": 254765,
       "CatalogId": "Domanaar",
+      "NpcName": "Perodius",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -8023,6 +9676,7 @@
     {
       "NpcId": 254783,
       "CatalogId": "amani",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -8034,6 +9688,7 @@
     {
       "NpcId": 254800,
       "CatalogId": "bloodelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -8045,6 +9700,7 @@
     {
       "NpcId": 254827,
       "CatalogId": "amani",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -8056,6 +9712,7 @@
     {
       "NpcId": 254828,
       "CatalogId": "amani",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -8067,6 +9724,7 @@
     {
       "NpcId": 254830,
       "CatalogId": "amani",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -8078,6 +9736,7 @@
     {
       "NpcId": 254834,
       "CatalogId": "amani",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -8089,6 +9748,7 @@
     {
       "NpcId": 254842,
       "CatalogId": "amani",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -8100,6 +9760,7 @@
     {
       "NpcId": 254884,
       "CatalogId": "bloodelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_Arator_1",
@@ -8111,6 +9772,7 @@
     {
       "NpcId": 254903,
       "CatalogId": "fungarian",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -8122,6 +9784,7 @@
     {
       "NpcId": 254936,
       "CatalogId": "haranir",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -8133,6 +9796,7 @@
     {
       "NpcId": 255056,
       "CatalogId": "haranir",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -8144,6 +9808,7 @@
     {
       "NpcId": 255098,
       "CatalogId": "amani",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -8155,6 +9820,7 @@
     {
       "NpcId": 255103,
       "CatalogId": "human",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -8166,6 +9832,7 @@
     {
       "NpcId": 255104,
       "CatalogId": "human",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -8177,6 +9844,7 @@
     {
       "NpcId": 255184,
       "CatalogId": "tortollan",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -8188,6 +9856,7 @@
     {
       "NpcId": 255185,
       "CatalogId": "tortollan",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -8199,6 +9868,7 @@
     {
       "NpcId": 255187,
       "CatalogId": "tortollan",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -8210,6 +9880,7 @@
     {
       "NpcId": 255365,
       "CatalogId": "bloodelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -8221,6 +9892,7 @@
     {
       "NpcId": 255368,
       "CatalogId": "voidelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -8232,6 +9904,7 @@
     {
       "NpcId": 255370,
       "CatalogId": "bloodelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -8243,6 +9916,7 @@
     {
       "NpcId": 255473,
       "CatalogId": "bloodelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -8254,6 +9928,7 @@
     {
       "NpcId": 255474,
       "CatalogId": "bloodelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -8265,6 +9940,7 @@
     {
       "NpcId": 255476,
       "CatalogId": "bloodelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -8276,6 +9952,7 @@
     {
       "NpcId": 255479,
       "CatalogId": "bloodelf",
+      "NpcName": "Examiner Andoren Dawnrise",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -8287,6 +9964,7 @@
     {
       "NpcId": 255495,
       "CatalogId": "nightborne",
+      "NpcName": "Rae\u0027ana",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -8298,6 +9976,7 @@
     {
       "NpcId": 255503,
       "CatalogId": "bloodelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -8309,6 +9988,7 @@
     {
       "NpcId": 255507,
       "CatalogId": "amani",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -8320,6 +10000,7 @@
     {
       "NpcId": 255519,
       "CatalogId": "dwarf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -8331,6 +10012,7 @@
     {
       "NpcId": 255687,
       "CatalogId": "nightelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -8342,6 +10024,7 @@
     {
       "NpcId": 255711,
       "CatalogId": "nightelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -8353,6 +10036,7 @@
     {
       "NpcId": 255792,
       "CatalogId": "nightelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -8364,6 +10048,7 @@
     {
       "NpcId": 255809,
       "CatalogId": "haranir",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -8375,6 +10060,7 @@
     {
       "NpcId": 255819,
       "CatalogId": "haranir",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_Hagar",
@@ -8386,6 +10072,7 @@
     {
       "NpcId": 255822,
       "CatalogId": "haranir",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_Orweyna_1",
@@ -8397,6 +10084,7 @@
     {
       "NpcId": 255828,
       "CatalogId": "haranir",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_Orweyna_1",
@@ -8408,6 +10096,7 @@
     {
       "NpcId": 255852,
       "CatalogId": "amani",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -8419,6 +10108,7 @@
     {
       "NpcId": 255907,
       "CatalogId": "amani",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -8430,6 +10120,7 @@
     {
       "NpcId": 256032,
       "CatalogId": "voidelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -8441,6 +10132,7 @@
     {
       "NpcId": 256046,
       "CatalogId": "nightborne",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_Thalyssra",
@@ -8452,6 +10144,7 @@
     {
       "NpcId": 256203,
       "CatalogId": "bloodelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_Liadrin_4",
@@ -8463,9 +10156,10 @@
     {
       "NpcId": 256210,
       "CatalogId": "bloodelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
-      "BespokeSampleId": null,
+      "BespokeSampleId": "U_Halduron_Brightwing_1",
       "BespokeExaggeration": null,
       "BespokeCfgWeight": null,
       "UseNpcIdAsSeed": false,
@@ -8474,6 +10168,7 @@
     {
       "NpcId": 256212,
       "CatalogId": "bloodelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -8485,6 +10180,7 @@
     {
       "NpcId": 256245,
       "CatalogId": "haranir",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -8496,6 +10192,7 @@
     {
       "NpcId": 256285,
       "CatalogId": "bloodelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -8507,6 +10204,7 @@
     {
       "NpcId": 256287,
       "CatalogId": "voidelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -8518,6 +10216,7 @@
     {
       "NpcId": 256307,
       "CatalogId": "bloodelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -8529,6 +10228,19 @@
     {
       "NpcId": 256313,
       "CatalogId": "haranir",
+      "NpcName": "",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": null,
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false,
+      "GenderOverride": "Auto"
+    },
+    {
+      "NpcId": 256322,
+      "CatalogId": "haranir",
+      "NpcName": "Kamari",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -8540,6 +10252,7 @@
     {
       "NpcId": 256510,
       "CatalogId": "amani",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -8551,6 +10264,7 @@
     {
       "NpcId": 256557,
       "CatalogId": "voidelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -8562,6 +10276,7 @@
     {
       "NpcId": 256697,
       "CatalogId": "bloodelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -8573,6 +10288,7 @@
     {
       "NpcId": 256782,
       "CatalogId": "Domanaar",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -8584,6 +10300,7 @@
     {
       "NpcId": 256813,
       "CatalogId": "Domanaar",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -8595,6 +10312,7 @@
     {
       "NpcId": 256815,
       "CatalogId": "Domanaar",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -8606,6 +10324,7 @@
     {
       "NpcId": 256885,
       "CatalogId": "Domanaar",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -8617,6 +10336,7 @@
     {
       "NpcId": 256901,
       "CatalogId": "Domanaar",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -8628,6 +10348,7 @@
     {
       "NpcId": 257002,
       "CatalogId": "haranir",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -8639,6 +10360,7 @@
     {
       "NpcId": 257039,
       "CatalogId": "bloodelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -8650,6 +10372,7 @@
     {
       "NpcId": 257092,
       "CatalogId": "amani",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -8661,6 +10384,7 @@
     {
       "NpcId": 257125,
       "CatalogId": "bloodelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -8672,6 +10396,7 @@
     {
       "NpcId": 257130,
       "CatalogId": "Domanaar",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -8683,6 +10408,7 @@
     {
       "NpcId": 257287,
       "CatalogId": "fungarian",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -8692,8 +10418,21 @@
       "GenderOverride": "Auto"
     },
     {
+      "NpcId": 257384,
+      "CatalogId": "bloodelf",
+      "NpcName": "Despondent Magistrix",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": null,
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false,
+      "GenderOverride": "Auto"
+    },
+    {
       "NpcId": 257411,
       "CatalogId": "bloodelf",
+      "NpcName": "Ranger Captain Lilatha",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -8705,6 +10444,7 @@
     {
       "NpcId": 257415,
       "CatalogId": "troll",
+      "NpcName": "Kul\u0027amara the Fierce",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -8716,6 +10456,7 @@
     {
       "NpcId": 257416,
       "CatalogId": "voidelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_Lady_Darkglen",
@@ -8725,8 +10466,21 @@
       "GenderOverride": "Auto"
     },
     {
+      "NpcId": 257426,
+      "CatalogId": "bloodelf",
+      "NpcName": "Instructor Antheol",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": null,
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false,
+      "GenderOverride": "Auto"
+    },
+    {
       "NpcId": 257459,
       "CatalogId": "bloodelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -8738,6 +10492,7 @@
     {
       "NpcId": 257479,
       "CatalogId": "kultiran",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -8749,6 +10504,7 @@
     {
       "NpcId": 257501,
       "CatalogId": "Domanaar",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -8760,6 +10516,7 @@
     {
       "NpcId": 257633,
       "CatalogId": "amani",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -8771,6 +10528,7 @@
     {
       "NpcId": 257797,
       "CatalogId": "amani",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -8782,6 +10540,7 @@
     {
       "NpcId": 257870,
       "CatalogId": "fungarian",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -8793,6 +10552,19 @@
     {
       "NpcId": 258123,
       "CatalogId": "nightelf",
+      "NpcName": "",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": null,
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false,
+      "GenderOverride": "Auto"
+    },
+    {
+      "NpcId": 258354,
+      "CatalogId": "haranir",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -8804,6 +10576,7 @@
     {
       "NpcId": 258499,
       "CatalogId": "haranir",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -8815,6 +10588,7 @@
     {
       "NpcId": 258563,
       "CatalogId": "bloodelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -8826,6 +10600,19 @@
     {
       "NpcId": 258569,
       "CatalogId": "amani",
+      "NpcName": "",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": null,
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false,
+      "GenderOverride": "Auto"
+    },
+    {
+      "NpcId": 258659,
+      "CatalogId": "bloodelf",
+      "NpcName": "Dathri Skyblaze",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -8837,6 +10624,7 @@
     {
       "NpcId": 258671,
       "CatalogId": "haranir",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -8848,6 +10636,7 @@
     {
       "NpcId": 258726,
       "CatalogId": "haranir",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -8859,6 +10648,7 @@
     {
       "NpcId": 258728,
       "CatalogId": "human",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -8870,6 +10660,7 @@
     {
       "NpcId": 258777,
       "CatalogId": "bloodelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -8881,6 +10672,7 @@
     {
       "NpcId": 258884,
       "CatalogId": "amani",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -8892,6 +10684,7 @@
     {
       "NpcId": 258885,
       "CatalogId": "amani",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -8903,6 +10696,7 @@
     {
       "NpcId": 258950,
       "CatalogId": "amani",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -8914,6 +10708,7 @@
     {
       "NpcId": 259048,
       "CatalogId": "bloodelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -8925,6 +10720,7 @@
     {
       "NpcId": 259116,
       "CatalogId": "fungarian",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -8936,6 +10732,7 @@
     {
       "NpcId": 259117,
       "CatalogId": "fungarian",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -8947,6 +10744,7 @@
     {
       "NpcId": 259153,
       "CatalogId": "bloodelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -8958,6 +10756,7 @@
     {
       "NpcId": 259261,
       "CatalogId": "bloodelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_Arator_1",
@@ -8969,6 +10768,7 @@
     {
       "NpcId": 259342,
       "CatalogId": "pandaren",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -8980,6 +10780,7 @@
     {
       "NpcId": 259345,
       "CatalogId": "Niffin",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -8991,6 +10792,7 @@
     {
       "NpcId": 259652,
       "CatalogId": "goblin",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -9002,6 +10804,7 @@
     {
       "NpcId": 259688,
       "CatalogId": "lightforgeddraenei",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -9013,6 +10816,7 @@
     {
       "NpcId": 259689,
       "CatalogId": "lightforgeddraenei",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -9024,6 +10828,7 @@
     {
       "NpcId": 259865,
       "CatalogId": "bloodelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_Astalor_Bloodsworn_1",
@@ -9035,6 +10840,7 @@
     {
       "NpcId": 259922,
       "CatalogId": "voidelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -9046,6 +10852,7 @@
     {
       "NpcId": 260084,
       "CatalogId": "bloodelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -9057,6 +10864,7 @@
     {
       "NpcId": 260180,
       "CatalogId": "amani",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -9068,6 +10876,7 @@
     {
       "NpcId": 260350,
       "CatalogId": "bloodelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -9079,6 +10888,7 @@
     {
       "NpcId": 260351,
       "CatalogId": "bloodelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -9088,8 +10898,21 @@
       "GenderOverride": "Auto"
     },
     {
+      "NpcId": 260957,
+      "CatalogId": "dracthyr",
+      "NpcName": "Vaeli",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": null,
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false,
+      "GenderOverride": "Auto"
+    },
+    {
       "NpcId": 261198,
       "CatalogId": "amani",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -9101,6 +10924,7 @@
     {
       "NpcId": 261304,
       "CatalogId": "human",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -9112,6 +10936,7 @@
     {
       "NpcId": 261472,
       "CatalogId": "Kareshi",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -9123,6 +10948,7 @@
     {
       "NpcId": 261474,
       "CatalogId": "Kareshi",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -9134,6 +10960,7 @@
     {
       "NpcId": 262823,
       "CatalogId": "bloodelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -9145,6 +10972,7 @@
     {
       "NpcId": 263121,
       "CatalogId": "bloodelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -9156,6 +10984,7 @@
     {
       "NpcId": 264071,
       "CatalogId": "goblin",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": null,
@@ -9167,6 +10996,7 @@
     {
       "NpcId": 15907392,
       "CatalogId": "bloodelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_Alleria_Windrunner_1",
@@ -9176,8 +11006,21 @@
       "GenderOverride": "Auto"
     },
     {
+      "NpcId": 16092600,
+      "CatalogId": "voidelf",
+      "NpcName": "Maella\u0027s Report",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": null,
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false,
+      "GenderOverride": "Auto"
+    },
+    {
       "NpcId": 16128680,
       "CatalogId": "bloodelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_Vereesa_Windrunner_1",
@@ -9189,9 +11032,22 @@
     {
       "NpcId": 16192384,
       "CatalogId": "bloodelf",
+      "NpcName": "",
       "RaceId": 0,
       "Notes": "",
       "BespokeSampleId": "U_Sylvanas_Windrunner_1",
+      "BespokeExaggeration": null,
+      "BespokeCfgWeight": null,
+      "UseNpcIdAsSeed": false,
+      "GenderOverride": "Auto"
+    },
+    {
+      "NpcId": 16743032,
+      "CatalogId": "Domanaar",
+      "NpcName": "Void Armor",
+      "RaceId": 0,
+      "Notes": "",
+      "BespokeSampleId": null,
       "BespokeExaggeration": null,
       "BespokeCfgWeight": null,
       "UseNpcIdAsSeed": false,
