@@ -193,11 +193,12 @@ internal static class Program
             AppServices.LastDecodedText = rawText;
             AppServices.LastRuntimeSlot = seg.Slot;
             var activeProvider = AppServices.Provider;
-            var shapedText = AppServices.TextSwapProcessor.Process(rawText);
-            var normalizedText = AppServices.TextNormalizer.Normalize(shapedText, AppServices.Settings);
+            var normalizedText = AppServices.TextNormalizer.Normalize(rawText, AppServices.Settings);
+            var shapedText = AppServices.TextSwapProcessor.Process(normalizedText);
+
             var shapedSegment = new AssembledSegment
             {
-                Text                = normalizedText,
+                Text                = shapedText,
                 Slot                = seg.Slot,
                 DialogId            = seg.DialogId,
                 SegmentIndex        = seg.SegmentIndex,

@@ -26,7 +26,7 @@ namespace RuneReaderVoice.TTS;
 
 /// <summary>
 /// Deterministic TTS text normalization for WoW dialogue.
-/// Runs after user text shaping and before pronunciation/cache/provider calls.
+/// Runs before user text shaping and before pronunciation/cache/provider calls.
 /// The server is intentionally treated as a dumb renderer; client text is authoritative.
 /// </summary>
 public sealed class TextNormalizer
