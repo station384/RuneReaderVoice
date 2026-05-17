@@ -26,7 +26,7 @@ namespace RuneReaderVoice.TTS;
 
 /// <summary>
 /// Deterministic TTS text normalization for WoW dialogue.
-/// Runs before user text shaping and before pronunciation/cache/provider calls.
+/// Runs after user text shaping and before pronunciation/cache/provider calls.
 /// The server is intentionally treated as a dumb renderer; client text is authoritative.
 /// </summary>
 public sealed class TextNormalizer
@@ -60,7 +60,9 @@ public sealed class TextNormalizer
         RegexOptions.Compiled | RegexOptions.CultureInvariant | RegexOptions.IgnoreCase);
 
     private static readonly Regex CommaNumberRegex = new(
-        @"(?<![\p{L}\p{N}.])(?<num>\d{1,3}(?:,\d{3})+)(?![\p{L}\p{N}.])",
+        // TextSwap may expand punctuation before normalization, turning "10,000" into "10, 000".
+        // Accept optional whitespace after numeric group separators so comma numbers still humanize.
+        @"(?<![\p{L}\p{N}.])(?<num>\d{1,3}(?:,\s*\d{3})+)(?![\p{L}\p{N}.])",
         RegexOptions.Compiled | RegexOptions.CultureInvariant);
 
     private static readonly Regex PlainNumberRegex = new(
@@ -294,7 +296,8 @@ public sealed class TextNormalizer
 
     private static bool TryParseInt(string value, out int number)
     {
-        var clean = value.Replace(",", string.Empty, StringComparison.Ordinal);
+        var clean = value.Replace(",", string.Empty, StringComparison.Ordinal)
+                         .Replace(" ", string.Empty, StringComparison.Ordinal);
         return int.TryParse(clean, NumberStyles.None, CultureInfo.InvariantCulture, out number);
     }
 

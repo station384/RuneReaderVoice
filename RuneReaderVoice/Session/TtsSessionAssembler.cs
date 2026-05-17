@@ -89,6 +89,8 @@ public sealed class AssembledSegment
     // Bespoke voice override resolved at assembly time from NpcRaceOverride.
     // Null means use the race slot defaults.
     public string?   BespokeSampleId    { get; init; } = null;
+    public bool      BespokeMatchedByNpcName { get; init; } = false;
+    public string?   MissingBespokeSampleId { get; init; } = null;
     public float?    BespokeExaggeration { get; init; } = null;
     public float?    BespokeCfgWeight   { get; init; } = null;
     public bool      UseNpcIdAsSeed    { get; init; } = false;
@@ -348,6 +350,8 @@ public sealed class TtsSessionAssembler
                     PrimeFromBatchSegmentId = seg.PrimeFromBatchSegmentId,
                     BatchSegments = seg.BatchSegments,
                     BespokeSampleId = seg.BespokeSampleId,
+                    BespokeMatchedByNpcName = seg.BespokeMatchedByNpcName,
+                    MissingBespokeSampleId = seg.MissingBespokeSampleId,
                     BespokeExaggeration = seg.BespokeExaggeration,
                     BespokeCfgWeight = seg.BespokeCfgWeight,
                     UseNpcIdAsSeed = seg.UseNpcIdAsSeed,
@@ -400,6 +404,8 @@ public sealed class TtsSessionAssembler
 
         var slot = acc.Slot;
         string? bespokeSampleId = null;
+        string? missingBespokeSampleId = null;
+        var bespokeMatchedByNpcName = false;
         float? bespokeExaggeration = null;
         float? bespokeCfgWeight = null;
         var useNpcIdAsSeed = false;
@@ -433,9 +439,13 @@ public sealed class TtsSessionAssembler
                 useNpcIdAsSeed = entry.UseNpcIdAsSeed;
             }
 
-            var matchedSampleId = ResolveBespokeSampleFromNpcName(npcName, bespokeSampleId);
-            if (!string.IsNullOrWhiteSpace(matchedSampleId) &&
-                !string.Equals(matchedSampleId, bespokeSampleId, StringComparison.OrdinalIgnoreCase))
+            bespokeMatchedByNpcName = TryResolveBespokeSampleFromNpcName(
+                npcName,
+                bespokeSampleId,
+                out var matchedSampleId,
+                out missingBespokeSampleId);
+
+            if (bespokeMatchedByNpcName && !string.IsNullOrWhiteSpace(matchedSampleId))
             {
                 Debug.WriteLine($"[Assembler] NPC name matched bespoke sample npc='{npcName}' sample='{matchedSampleId}' slot={slot} isNarratorFlag={acc.IsNarrator}");
                 bespokeSampleId = matchedSampleId;
@@ -459,6 +469,8 @@ public sealed class TtsSessionAssembler
             PlayerClass         = string.IsNullOrWhiteSpace(_currentPlayerClass) ? null : _currentPlayerClass,
             PlayerTitle         = string.IsNullOrWhiteSpace(_currentPlayerTitle) ? null : _currentPlayerTitle,
             BespokeSampleId     = bespokeSampleId,
+            BespokeMatchedByNpcName = bespokeMatchedByNpcName,
+            MissingBespokeSampleId = missingBespokeSampleId,
             BespokeExaggeration = bespokeExaggeration,
             BespokeCfgWeight    = bespokeCfgWeight,
             UseNpcIdAsSeed      = useNpcIdAsSeed,
@@ -533,6 +545,8 @@ public sealed class TtsSessionAssembler
                     PrimeFromBatchSegmentId = segment.PrimeFromBatchSegmentId,
                     BatchSegments = segment.BatchSegments,
                     BespokeSampleId = segment.BespokeSampleId,
+                    BespokeMatchedByNpcName = segment.BespokeMatchedByNpcName,
+                    MissingBespokeSampleId = segment.MissingBespokeSampleId,
                     BespokeExaggeration = segment.BespokeExaggeration,
                     BespokeCfgWeight = segment.BespokeCfgWeight,
                     UseNpcIdAsSeed = segment.UseNpcIdAsSeed,
@@ -656,27 +670,38 @@ public sealed class TtsSessionAssembler
         return AppServices.CurrentRrvbName ?? string.Empty;
     }
 
-    private static string? ResolveBespokeSampleFromNpcName(string? npcName, string? configuredSampleId)
+    private static bool TryResolveBespokeSampleFromNpcName(
+        string? npcName,
+        string? configuredSampleId,
+        out string? matchedSampleId,
+        out string? missingConfiguredSampleId)
     {
+        matchedSampleId = configuredSampleId;
+        missingConfiguredSampleId = null;
+
         if (string.IsNullOrWhiteSpace(npcName))
-            return configuredSampleId;
+            return false;
 
         var provider = AppServices.Provider;
         if (provider is not RemoteTtsProvider remoteProvider || !remoteProvider.UsesRemoteSamples)
-            return configuredSampleId;
+            return false;
 
         var voices = provider.GetAvailableVoices();
         if (voices.Count == 0)
-            return configuredSampleId;
+            return false;
 
         // Explicit assignment wins when available. Name matching only fills missing/broken assignments.
-        if (!string.IsNullOrWhiteSpace(configuredSampleId) &&
-            voices.Any(v => string.Equals(v.VoiceId, configuredSampleId, StringComparison.OrdinalIgnoreCase)))
-            return configuredSampleId;
+        if (!string.IsNullOrWhiteSpace(configuredSampleId))
+        {
+            if (voices.Any(v => string.Equals(v.VoiceId, configuredSampleId, StringComparison.OrdinalIgnoreCase)))
+                return false;
+
+            missingConfiguredSampleId = configuredSampleId;
+        }
 
         var npcTokens = NormalizeNameTokens(npcName);
         if (npcTokens.Count == 0)
-            return configuredSampleId;
+            return false;
 
         var requiredMatches = npcTokens.Count <= 2 ? npcTokens.Count : npcTokens.Count - 1;
 
@@ -702,7 +727,11 @@ public sealed class TtsSessionAssembler
             .ThenBy(x => x.Voice.VoiceId, StringComparer.OrdinalIgnoreCase)
             .FirstOrDefault();
 
-        return best?.Voice.VoiceId ?? configuredSampleId;
+        if (best == null)
+            return false;
+
+        matchedSampleId = best.Voice.VoiceId;
+        return true;
     }
 
     private static int ScoreNpcSampleMatch(

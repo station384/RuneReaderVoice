@@ -149,7 +149,7 @@ along with RuneReaderVoice. If not, see <https://www.gnu.org/licenses/>.
                 Background="#1A2E1A" Margin="8,8,8,0"
                 CornerRadius="6" Padding="10,8">
             <Grid ColumnDefinitions="Auto,*,Auto,Auto"
-                  RowDefinitions="Auto,Auto,Auto"
+                  RowDefinitions="Auto,Auto,Auto,Auto"
                   ColumnSpacing="8" RowSpacing="6">
 
                 <!-- Row 0: NPC id label + notes box + Save + Clear -->
@@ -217,6 +217,12 @@ along with RuneReaderVoice. If not, see <https://www.gnu.org/licenses/>.
                               VerticalAlignment="Center"
                               ToolTip.Tip="When enabled, this NPC's numeric ID is sent to the remote TTS server as the synthesis seed. This gives stable per-NPC variation without changing the base voice profile."/>
                 </StackPanel>
+
+                <TextBlock x:Name="LastNpcSampleStatusLabel"
+                           Grid.Row="3" Grid.Column="0" Grid.ColumnSpan="4"
+                           Text="" IsVisible="False"
+                           FontSize="10" TextWrapping="Wrap"
+                           Foreground="#AEEA00"/>
 
             </Grid>
         </Border>

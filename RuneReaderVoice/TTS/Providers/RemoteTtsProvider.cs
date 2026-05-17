@@ -820,7 +820,7 @@ public sealed class RemoteTtsProvider : ITtsProvider
         return clone;
     }
 
-    private const int RemoteCacheVersion = 1;
+    private const int RemoteCacheVersion = 2;
 
     private static string NormalizeCacheId(string? value)
         => string.IsNullOrWhiteSpace(value) ? "-" : value.Trim().ToLowerInvariant().Replace("|", "/");
@@ -845,11 +845,15 @@ public sealed class RemoteTtsProvider : ITtsProvider
     {
         var pid = providerId.Trim().ToLowerInvariant();
 
+        // Seed affects synthesis identity whenever a provider supports/uses it.
+        // Keep it global instead of provider-specific so client-provided server cache
+        // keys cannot collide when only seed changes.
+        sb.Append("|seed:").Append(NormalizeCacheInt(profile.SynthesisSeed));
+
         if (pid.Contains("chatterbox", StringComparison.Ordinal))
         {
             sb.Append("|cfg:").Append(NormalizeCacheFloat(profile.CfgWeight, "0.00"));
             sb.Append("|ex:").Append(NormalizeCacheFloat(profile.Exaggeration, "0.00"));
-            sb.Append("|seed:").Append(NormalizeCacheInt(profile.SynthesisSeed));
             sb.Append("|cbt:").Append(NormalizeCacheFloat(profile.ChatterboxTemperature, "0.00"));
             sb.Append("|cbp:").Append(NormalizeCacheFloat(profile.ChatterboxTopP, "0.00"));
             sb.Append("|cbr:").Append(NormalizeCacheFloat(profile.ChatterboxRepetitionPenalty, "0.00"));

@@ -91,7 +91,7 @@ public sealed class VoiceUserSettings
     }
 
     public string PlaybackMode { get; set; } = "WaitForFullText";
-    public bool EnablePhraseChunking { get; set; } = false;
+    public bool EnablePhraseChunking { get; set; } = true;
     public bool EnableTextNormalization { get; set; } = true;
 
     public float Volume { get; set; } = 0.8f;
@@ -102,7 +102,7 @@ public sealed class VoiceUserSettings
     public bool EnableQuestDetail { get; set; } = true;
     public bool EnableQuestProgress { get; set; } = true;
     public bool EnableQuestReward { get; set; } = true;
-    public bool EnableBooks { get; set; } = true;
+    public bool EnableBooks { get; set; } = false;
 
     // Player-name replacement for cache-friendly synthesis.
     // generic = replace with a cache-friendly preset title

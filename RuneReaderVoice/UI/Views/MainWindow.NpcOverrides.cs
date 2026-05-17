@@ -44,6 +44,9 @@ public partial class MainWindow
     // NpcId of the NPC shown in the Last NPC panel. 0 = no NPC (narrator/book).
     private int _lastNpcId;
     private string _lastNpcName = string.Empty;
+    private string? _lastMatchedBespokeSampleId;
+    private bool _lastBespokeMatchedByNpcName;
+    private string? _lastMissingBespokeSampleId;
     private bool _suppressLastNpcRaceSearchEvents;
     private int _npcOverridesPageNumber = 1;
     private int _npcOverridesPageSize = 100;
@@ -118,6 +121,32 @@ public partial class MainWindow
         var remoteId = descriptor.RemoteProviderId ?? string.Empty;
         return remoteId.Contains("chatterbox", StringComparison.OrdinalIgnoreCase)
             || remoteId.Contains("f5", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool CurrentProviderUsesRemoteSamples()
+        => AppServices.Provider is TTS.Providers.RemoteTtsProvider remoteProvider
+           && remoteProvider.UsesRemoteSamples;
+
+    private static bool IsCurrentProviderSampleAvailable(string? sampleId)
+    {
+        if (string.IsNullOrWhiteSpace(sampleId))
+            return true;
+
+        if (!CurrentProviderUsesRemoteSamples())
+            return false;
+
+        var voices = AppServices.Provider.GetAvailableVoices();
+        return voices.Any(v => string.Equals(v.VoiceId, sampleId, StringComparison.OrdinalIgnoreCase));
+    }
+
+    private void UpdateLastNpcSampleStatus(string? message, IBrush? foreground = null)
+    {
+        if (LastNpcSampleStatusLabel == null)
+            return;
+
+        LastNpcSampleStatusLabel.Text = message ?? string.Empty;
+        LastNpcSampleStatusLabel.Foreground = foreground ?? Brushes.LightGray;
+        LastNpcSampleStatusLabel.IsVisible = !string.IsNullOrWhiteSpace(message);
     }
 
     /// <summary>
@@ -277,6 +306,9 @@ public partial class MainWindow
 
         _lastNpcId = seg.NpcId;
         _lastNpcName = seg.NpcName?.Trim() ?? string.Empty;
+        _lastMatchedBespokeSampleId = seg.BespokeMatchedByNpcName ? seg.BespokeSampleId : null;
+        _lastBespokeMatchedByNpcName = seg.BespokeMatchedByNpcName;
+        _lastMissingBespokeSampleId = seg.MissingBespokeSampleId;
         LastNpcIdLabel.Text = string.IsNullOrWhiteSpace(_lastNpcName)
             ? $"NPC ID: {seg.NpcId}"
             : $"NPC ID: {seg.NpcId}  •  {_lastNpcName}";
@@ -308,8 +340,40 @@ public partial class MainWindow
                 }
                 SyncLastNpcRaceSearchTextFromSelection();
 
-                // Bespoke sample — select existing or reset to "(no bespoke sample)"
-                SelectLastNpcSampleDropdown(existing?.BespokeSampleId);
+                // Bespoke sample — explicit override wins when valid. Missing explicit sample warns and
+                // preselects the NPC-name match when one exists so Save can promote it.
+                var explicitSampleId = existing?.BespokeSampleId;
+                var explicitMissing = CurrentProviderUsesRemoteSamples()
+                                      && !string.IsNullOrWhiteSpace(explicitSampleId)
+                                      && !IsCurrentProviderSampleAvailable(explicitSampleId);
+                var sampleToSelect = explicitMissing && !string.IsNullOrWhiteSpace(_lastMatchedBespokeSampleId)
+                    ? _lastMatchedBespokeSampleId
+                    : !string.IsNullOrWhiteSpace(explicitSampleId)
+                        ? explicitSampleId
+                        : _lastMatchedBespokeSampleId;
+
+                SelectLastNpcSampleDropdown(sampleToSelect);
+
+                if (explicitMissing)
+                {
+                    var suffix = !string.IsNullOrWhiteSpace(_lastMatchedBespokeSampleId)
+                        ? $" Fallback matched by NPC name: {_lastMatchedBespokeSampleId}. Save to replace explicit value."
+                        : " No NPC-name fallback found.";
+                    UpdateLastNpcSampleStatus($"Assigned voice sample missing: {explicitSampleId}.{suffix}", Brushes.Orange);
+                }
+                else if (existing == null && _lastBespokeMatchedByNpcName && !string.IsNullOrWhiteSpace(_lastMatchedBespokeSampleId))
+                {
+                    UpdateLastNpcSampleStatus($"Suggested voice sample: {_lastMatchedBespokeSampleId} (matched by NPC name). Save to make explicit.", Brushes.LightGreen);
+                }
+                else if (existing != null && !string.IsNullOrWhiteSpace(_lastMatchedBespokeSampleId) && string.IsNullOrWhiteSpace(explicitSampleId))
+                {
+                    UpdateLastNpcSampleStatus($"Suggested voice sample: {_lastMatchedBespokeSampleId} (matched by NPC name). Save to make explicit.", Brushes.LightGreen);
+                }
+                else
+                {
+                    UpdateLastNpcSampleStatus(null);
+                }
+
                 LastNpcUseNpcIdAsSeedCheckBox.IsChecked = existing?.UseNpcIdAsSeed ?? false;
                 SelectLastNpcGenderOverride(existing?.GenderOverride ?? NpcGenderOverride.Auto);
 
@@ -360,6 +424,10 @@ public partial class MainWindow
 
                 PopulateLastNpcSampleDropdown();
                 SelectLastNpcSampleDropdown(bespokeSampleId);
+                UpdateLastNpcSampleStatus(null);
+                _lastMatchedBespokeSampleId = null;
+                _lastBespokeMatchedByNpcName = false;
+                _lastMissingBespokeSampleId = null;
                 LastNpcUseNpcIdAsSeedCheckBox.IsChecked = useNpcIdAsSeed;
                 SelectLastNpcGenderOverride(genderOverride);
 
@@ -382,6 +450,10 @@ public partial class MainWindow
                 LastNpcRaceDropdown.SelectedIndex = 0;
                 LastNpcNotesBox.Text = string.Empty;
                 _lastNpcName = string.Empty;
+                _lastMatchedBespokeSampleId = null;
+                _lastBespokeMatchedByNpcName = false;
+                _lastMissingBespokeSampleId = null;
+                UpdateLastNpcSampleStatus(null);
                 LastNpcUseNpcIdAsSeedCheckBox.IsChecked = false;
                 SelectLastNpcGenderOverride(NpcGenderOverride.Auto);
                 LastNpcClearButton.IsEnabled = false;
@@ -767,6 +839,16 @@ public partial class MainWindow
         }
 
         var baseId = GetBaseSampleId(sampleId);
+
+        if (!LastNpcSampleDropdown.Items.OfType<ComboBoxItem>()
+                .Any(i => string.Equals(i.Tag as string, baseId, StringComparison.OrdinalIgnoreCase)))
+        {
+            LastNpcSampleDropdown.Items.Add(new ComboBoxItem
+            {
+                Content = baseId,
+                Tag     = baseId,
+            });
+        }
 
         // Select base
         foreach (var item in LastNpcSampleDropdown.Items.OfType<ComboBoxItem>())

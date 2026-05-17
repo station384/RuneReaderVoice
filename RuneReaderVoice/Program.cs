@@ -193,6 +193,11 @@ internal static class Program
             AppServices.LastDecodedText = rawText;
             AppServices.LastRuntimeSlot = seg.Slot;
             var activeProvider = AppServices.Provider;
+
+            // Normalize before text shaping. Text shaping may intentionally add
+            // punctuation/spacing for TTS pacing (for example comma pauses), and
+            // that can damage machine-readable numeric tokens such as "10,000"
+            // before Humanizer gets a chance to convert them to words.
             var normalizedText = AppServices.TextNormalizer.Normalize(rawText, AppServices.Settings);
             var shapedText = AppServices.TextSwapProcessor.Process(normalizedText);
 

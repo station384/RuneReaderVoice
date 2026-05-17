@@ -339,7 +339,12 @@ public sealed class PlaybackCoordinator : IDisposable
             if (_remoteBatchTasks.TryGetValue(segment.BatchId, out var existing))
                 return existing;
 
-            bool suppressStoredSeed = !segment.IsNarratorSegment && segment.NpcId > 0 && !segment.UseNpcIdAsSeed;
+            bool applyBespoke = !string.IsNullOrWhiteSpace(segment.BespokeSampleId)
+                                && !segment.IsNarratorSegment;
+            bool suppressStoredSeed = !segment.IsNarratorSegment
+                                      && segment.NpcId > 0
+                                      && !segment.UseNpcIdAsSeed
+                                      && !applyBespoke;
             var created = remoteProvider.SubmitSplitBatchAsync(
                 segment.BatchSegments,
                 segment.Slot,
@@ -411,7 +416,15 @@ public sealed class PlaybackCoordinator : IDisposable
         bool applyBespoke = !string.IsNullOrWhiteSpace(segment.BespokeSampleId)
                             && !segment.IsNarratorSegment;
         int? forcedNpcSeed = segment.UseNpcIdAsSeed && segment.NpcId > 0 ? segment.NpcId : null;
-        bool suppressStoredSeed = !segment.IsNarratorSegment && segment.NpcId > 0 && !segment.UseNpcIdAsSeed;
+
+        // Race/default slot seeds are suppressed for normal NPC playback unless
+        // explicitly using NPC ID as seed. Bespoke sample profiles are different:
+        // their stored seed is part of the sample-specific voice identity and must
+        // be honored so Default Voice preview and in-game playback match.
+        bool suppressStoredSeed = !segment.IsNarratorSegment
+                                  && segment.NpcId > 0
+                                  && !segment.UseNpcIdAsSeed
+                                  && !applyBespoke;
 
         if (_provider is RemoteTtsProvider remoteProvider &&
             !string.IsNullOrWhiteSpace(segment.BatchId) &&
