@@ -21,8 +21,8 @@
 # Reference sample directory scanner.
 #
 # Scans RRV_SAMPLES_DIR for audio files to use as voice matching references.
-# Results are returned on GET /api/v1/providers/{id}/samples.
-# The directory is re-scanned on each request — no restart needed to pick up new files.
+# GET /api/v1/providers/{id}/samples now reads the DB-backed sample_index;
+# this module is used by the background indexer and direct sample resolution.
 #
 # Naming convention (enforced):
 #   - Underscores and hyphens only. No spaces. No other special characters.
@@ -219,7 +219,8 @@ def scan(samples_dir: Path) -> list[SampleInfo]:
     Each subdirectory is treated as one sample group — the directory name
     is the base sample_id. Files directly in samples_dir are also scanned
     for backward compatibility during transition.
-    Called on each GET /samples request — always reflects current directory state.
+    Used by background/indexing paths. Request handlers should not call this
+    directly because it walks the full sample tree.
     """
     if not samples_dir.exists():
         log.debug("Samples directory does not exist: %s", samples_dir)

@@ -60,6 +60,7 @@ from .asr import load_asr_provider, AsrRegistry
 from .manager import create_manager
 from .community_db import CommunityDb
 from .sync_db import SyncDb
+from .sample_index import SampleIndex
 
 log = logging.getLogger(__name__)
 
@@ -87,6 +88,13 @@ async def lifespan(app: FastAPI):
     sync_db = SyncDb(settings.community_db_path, settings.defaults_dir)
     await sync_db.initialize()
     app.state.sync_db = sync_db
+
+    # Sample index. Initialized early and reconciled in the background so startup
+    # does not block on a full duration/sidecar scan.
+    sample_index = SampleIndex(settings.db_path, settings.samples_dir)
+    await sample_index.initialize()
+    sample_index.schedule_reconcile()
+    app.state.sample_index = sample_index
 
     # Audio cache
     cache = AudioCache(
@@ -151,12 +159,11 @@ async def lifespan(app: FastAPI):
                 manager.register(_asr)
                 _asr._manager = manager
 
-        # Initial scan at startup — convert + transcribe any pending files
-        await transcriber.scan_and_transcribe()
-
-        # Background polling loop — always start if voice-matching backends loaded
+        # Background polling loop — always start if voice-matching backends loaded.
+        # It runs once immediately so startup does not block on sample conversion,
+        # transcription, or sample-index reconciliation.
         poll_task = asyncio.create_task(
-            _sample_poll_loop(transcriber, settings.sample_scan_interval)
+            _sample_poll_loop(transcriber, settings.sample_scan_interval, sample_index, run_immediately=True)
         )
         log.info(
             "Sample watcher started — polling every %ds",
@@ -196,6 +203,7 @@ async def lifespan(app: FastAPI):
                 log.warning("Error shutting down worker '%s': %s", _backend.provider_id, _exc)
 
     await cache.close()
+    await sample_index.close()
     await community_db.close()
     await sync_db.close()
     log.info("Server shut down cleanly")
@@ -203,16 +211,23 @@ async def lifespan(app: FastAPI):
 
 # ── Background polling loop ───────────────────────────────────────────────────
 
-async def _sample_poll_loop(transcriber: TranscriptionService, interval: int) -> None:
+async def _sample_poll_loop(transcriber: TranscriptionService, interval: int, sample_index: SampleIndex | None = None, run_immediately: bool = False) -> None:
     """
     Polls the samples directory every `interval` seconds.
     Transcribes any audio files that have appeared since the last scan.
     Runs as a background asyncio task for the lifetime of the server.
     """
+    first = True
     while True:
         try:
-            await asyncio.sleep(interval)
+            if not (first and run_immediately):
+                await asyncio.sleep(interval)
+            first = False
             count = await transcriber.scan_and_transcribe()
+            if sample_index is not None:
+                changed = await sample_index.reconcile_changed()
+                if changed:
+                    log.info("Sample index: reconciled %d changed sample dir(s)", changed)
             if count:
                 log.info("Sample watcher: transcribed %d new file(s)", count)
         except asyncio.CancelledError:
