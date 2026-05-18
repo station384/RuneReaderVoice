@@ -325,8 +325,14 @@ along with RuneReaderVoice. If not, see <https://www.gnu.org/licenses/>.
                                     <CheckBox x:Name="TextNormalization"
                                               Content="Text normalization — expand numbers, times, currency"
                                               Margin="0,2,0,0"
-                                              ToolTip.Tip="Runs after Text Shaping and before Pronunciation/cache/TTS."
+                                              ToolTip.Tip="Runs before Text Shaping and before Pronunciation/cache/TTS."
                                               Click="OnTextNormalizationChanged"/>
+
+                                    <CheckBox x:Name="LowercaseTextForTts"
+                                              Content="Lowercase text for TTS — reversible safety switch"
+                                              Margin="18,0,0,0"
+                                              ToolTip.Tip="Lowercases dialogue before normalization. Turn off if it causes pronunciation problems."
+                                              Click="OnLowercaseTextForTtsChanged"/>
 
                                     <TextBlock Text="Audio Output Device" Foreground="#888" FontSize="11" Margin="0,6,0,0"/>
                                     <ComboBox x:Name="AudioDeviceSelector"

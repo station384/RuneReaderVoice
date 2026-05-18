@@ -23,15 +23,17 @@ namespace RuneReaderVoice.Data;
 // Model for a user-defined (or crowd-sourced) NPC → race mapping.
 //
 // Source hierarchy (highest wins):
-//   Local > CrowdSourced > Confirmed (server-verified, read-only from client)
+//   Local/Submitted > CrowdSourced > Confirmed (server-verified, read-only from client)
+// Submitted means user-authored and successfully pushed to server. Next edit returns it to Local.
 //
 // Confidence is unused locally (always null). Reserved for server-side
 // vote aggregation in the crowd-source path.
 public enum NpcOverrideSource
 {
-    Local       = 0,   // User-entered on this machine. Full CRUD.
-    CrowdSourced = 1,  // Received from server aggregation. Read-only; shadowed by Local.
-    Confirmed   = 2,   // Hand-verified by server admin. Read-only; shadowed by Local.
+    Local       = 0,   // User-entered on this machine. Full CRUD. Eligible for contribution.
+    CrowdSourced = 1,  // Received from server aggregation. Read-only; shadowed by Local/Submitted.
+    Confirmed   = 2,   // Hand-verified by server admin. Read-only; shadowed by Local/Submitted.
+    Submitted   = 3,   // User-entered here and already pushed to server. Full CRUD; not pushed again unless edited.
 }
 
 public enum NpcGenderOverride
@@ -111,5 +113,5 @@ public sealed class NpcRaceOverride
     public DateTime UpdatedAtUtc { get; set; }
 
     /// <summary>True if this entry was received from the server and must not be client-deleted.</summary>
-    public bool IsReadOnly => Source != NpcOverrideSource.Local;
+    public bool IsReadOnly => Source is NpcOverrideSource.CrowdSourced or NpcOverrideSource.Confirmed;
 }

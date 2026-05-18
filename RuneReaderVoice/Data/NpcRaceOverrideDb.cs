@@ -142,6 +142,19 @@ public sealed class NpcRaceOverrideDb
     public Task DeleteAsync(int npcId)
         => _db.Connection.DeleteAsync<NpcRaceOverrideRow>(npcId);
 
+    public async Task MarkSubmittedAsync(int npcId)
+    {
+        var row = await _db.Connection.Table<NpcRaceOverrideRow>()
+            .Where(r => r.NpcId == npcId)
+            .FirstOrDefaultAsync();
+        if (row == null || row.Source != NpcOverrideSource.Local.ToString())
+            return;
+
+        row.Source = NpcOverrideSource.Submitted.ToString();
+        row.UpdatedAt = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() / 1000.0;
+        await _db.Connection.UpdateAsync(row);
+    }
+
     /// <summary>
     /// Merges a batch of server records into the local DB.
     /// Local entries always win — server records only fill gaps or update
@@ -157,8 +170,10 @@ public sealed class NpcRaceOverrideDb
                 .Where(r => r.NpcId == record.NpcId)
                 .FirstOrDefaultAsync();
 
-            // Local always wins — skip if a local entry exists
-            if (existing != null && existing.Source == "Local")
+            // User-authored rows always win — skip if a local/submitted entry exists.
+            if (existing != null &&
+                (existing.Source == NpcOverrideSource.Local.ToString() ||
+                 existing.Source == NpcOverrideSource.Submitted.ToString()))
                 continue;
 
             await _db.Connection.InsertOrReplaceAsync(new NpcRaceOverrideRow

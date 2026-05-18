@@ -26,7 +26,7 @@ namespace RuneReaderVoice.TTS;
 
 /// <summary>
 /// Deterministic TTS text normalization for WoW dialogue.
-/// Runs after user text shaping and before pronunciation/cache/provider calls.
+/// Runs before user text shaping and before pronunciation/cache/provider calls.
 /// The server is intentionally treated as a dumb renderer; client text is authoritative.
 /// </summary>
 public sealed class TextNormalizer
@@ -69,6 +69,10 @@ public sealed class TextNormalizer
         @"(?<![\p{L}\p{N}])(?<num>\d+)(?![\p{L}\p{N}])",
         RegexOptions.Compiled | RegexOptions.CultureInvariant);
 
+    private static readonly Regex CommonUppercaseWordRegex = new(
+        @"(?<![\p{L}\p{N}])(?<word>OF)(?![\p{L}\p{N}])",
+        RegexOptions.Compiled | RegexOptions.CultureInvariant);
+
     private static readonly Regex AllCapsRegex = new(
         @"(?<![\p{L}\p{N}])(?<word>[A-Z][A-Z']{2,})(?![\p{L}\p{N}])",
         RegexOptions.Compiled | RegexOptions.CultureInvariant);
@@ -101,6 +105,9 @@ public sealed class TextNormalizer
 
         var text = input;
 
+        if (settings.LowercaseTextForTts)
+            text = LowercaseForTts(text);
+
         text = NormalizeVersions(text);
         text = NormalizeCurrency(text);
         text = NormalizeKSuffix(text);
@@ -110,10 +117,14 @@ public sealed class TextNormalizer
         text = NormalizeOrdinals(text);
         text = NormalizeCommaNumbers(text);
         text = NormalizePlainNumbersAndYears(text);
+        text = NormalizeCommonUppercaseWords(text);
         text = NormalizeAllCaps(text);
 
         return text;
     }
+
+    private static string LowercaseForTts(string text)
+        => text.ToLowerInvariant();
 
     private static string NormalizeVersions(string text)
         => VersionRegex.Replace(text, m => string.Join(" point ",
@@ -237,6 +248,9 @@ public sealed class TextNormalizer
 
             return NumberToWords(n);
         });
+
+    private static string NormalizeCommonUppercaseWords(string text)
+        => CommonUppercaseWordRegex.Replace(text, m => m.Groups["word"].Value.ToLowerInvariant());
 
     private static string NormalizeAllCaps(string text)
         => AllCapsRegex.Replace(text, m =>

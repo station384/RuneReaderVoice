@@ -270,6 +270,14 @@ public partial class MainWindow
         VoiceSettingsManager.SaveSettings(AppServices.Settings);
     }
 
+    private void OnLowercaseTextForTtsChanged(object? sender, RoutedEventArgs e)
+    {
+        if (_uiInitializing) return;
+        var enabled = LowercaseTextForTts.IsChecked == true;
+        AppServices.Settings.LowercaseTextForTts = enabled;
+        VoiceSettingsManager.SaveSettings(AppServices.Settings);
+    }
+
     private void OnAudioDeviceChanged(object? sender, SelectionChangedEventArgs e)
     {
         if (AudioDeviceSelector.SelectedItem is not ComboBoxItem item)

@@ -223,14 +223,20 @@ public sealed class NpcSyncService : IDisposable
     // ── Contribution ──────────────────────────────────────────────────────────
 
     /// <summary>
-    /// Contributes a single entry to the server regardless of ContributeByDefault.
-    /// Used by the manual Push to Server button. Returns true on success.
+    /// Contributes one locally-authored NPC override to the server.
+    /// Server/crowdsourced/confirmed rows are never echoed back as contributions.
     /// </summary>
     public async Task<bool> ContributeOneAsync(NpcRaceOverride entry)
     {
+        if (!ShouldContributeEntry(entry))
+            return false;
+
         try
         {
-            return await _client.ContributeNpcOverrideAsync(entry).ConfigureAwait(false);
+            var ok = await _client.ContributeNpcOverrideAsync(entry).ConfigureAwait(false);
+            if (ok)
+                await MarkSubmittedAsync(entry.NpcId).ConfigureAwait(false);
+            return ok;
         }
         catch
         {
@@ -244,14 +250,16 @@ public sealed class NpcSyncService : IDisposable
     /// </summary>
     public void ContributeIfEnabled(NpcRaceOverride entry)
     {
-        if (!_settings.ContributeByDefault || entry.Source != NpcOverrideSource.Local || !ShouldUseRemoteSync())
+        if (!_settings.ContributeByDefault || !ShouldUseRemoteSync() || !ShouldContributeEntry(entry))
             return;
 
         _ = Task.Run(async () =>
         {
             var ok = await _client.ContributeNpcOverrideAsync(entry).ConfigureAwait(false);
+            if (ok)
+                await MarkSubmittedAsync(entry.NpcId).ConfigureAwait(false);
             System.Diagnostics.Debug.WriteLine(
-                ok ? $"[NpcSyncService] Contributed NPC {entry.NpcId}"
+                ok ? $"[NpcSyncService] Contributed NPC {entry.NpcId}; marked Submitted"
                    : $"[NpcSyncService] Contribute failed for NPC {entry.NpcId}");
         });
     }
@@ -262,17 +270,38 @@ public sealed class NpcSyncService : IDisposable
         if (entries == null || entries.Count == 0)
             return (0, 0);
 
+        var localEntries = entries
+            .Where(ShouldContributeEntry)
+            .ToList();
+
+        if (localEntries.Count == 0)
+            return (0, 0);
+
         int upserted = 0;
         int batches = 0;
-        for (int i = 0; i < entries.Count; i += batchSize)
+        for (int i = 0; i < localEntries.Count; i += batchSize)
         {
-            var batch = entries.Skip(i).Take(batchSize).ToList();
+            var batch = localEntries.Skip(i).Take(batchSize).ToList();
             int wrote = await _client.ContributeNpcOverridesBatchAsync(batch).ConfigureAwait(false);
+            if (wrote == batch.Count)
+            {
+                foreach (var entry in batch)
+                    await MarkSubmittedAsync(entry.NpcId).ConfigureAwait(false);
+            }
             upserted += wrote;
             batches++;
         }
         return (upserted, batches);
     }
+
+    private async Task MarkSubmittedAsync(int npcId)
+    {
+        await _npcDb.MarkSubmittedAsync(npcId).ConfigureAwait(false);
+        NpcRecordsMerged?.Invoke(1);
+    }
+
+    private static bool ShouldContributeEntry(NpcRaceOverride? entry)
+        => entry != null && entry.Source == NpcOverrideSource.Local;
 
     // ── Defaults push/pull ────────────────────────────────────────────────────
 

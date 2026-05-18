@@ -304,6 +304,7 @@ public partial class MainWindow : Window
         EnableBooks.IsChecked    = s.EnableBooks;
         PhraseChunking.IsChecked = s.EnablePhraseChunking;
         TextNormalization.IsChecked = s.EnableTextNormalization;
+        LowercaseTextForTts.IsChecked = s.LowercaseTextForTts;
         PiperBinaryPath.Text     = s.PiperBinaryPath;
         PiperModelDir.Text       = s.PiperModelDirectory;
         RemoteServerUrl.Text     = s.RemoteServerUrl;

@@ -21,6 +21,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Text.Json;
@@ -47,12 +48,21 @@ public partial class MainWindow
     private string? _lastMatchedBespokeSampleId;
     private bool _lastBespokeMatchedByNpcName;
     private string? _lastMissingBespokeSampleId;
+    private int _lastNpcPanelRevision;
     private bool _suppressLastNpcRaceSearchEvents;
     private int _npcOverridesPageNumber = 1;
     private int _npcOverridesPageSize = 100;
     private int _npcOverridesTotalCount;
     private string _npcOverridesFilter = string.Empty;
     private IReadOnlyList<NpcRaceOverride> _npcOverridesPageItems = Array.Empty<NpcRaceOverride>();
+
+    private static void QuickSetTrace(string message)
+    {
+        Debug.WriteLine($"[NpcQuickSet] {DateTime.Now:HH:mm:ss.fff} {message}");
+    }
+
+    private static string SampleLabel(string? sampleId)
+        => string.IsNullOrWhiteSpace(sampleId) ? "(race default)" : sampleId!;
 
     // ── Initialization ────────────────────────────────────────────────────────
 
@@ -157,6 +167,12 @@ public partial class MainWindow
     /// </summary>
     private void PopulateLastNpcSampleDropdown()
     {
+        // Preserve the current Quick Set sample selection across provider voice-cache refreshes.
+        // The background voice warmup and provider refresh paths call this method after the
+        // Last NPC panel may already have selected an NPC-name matched sample. Blindly
+        // resetting to index 0 loses the suggestion even though the renderer used it.
+        var selectedBeforeRefresh = GetSelectedLastNpcSampleId();
+
         LastNpcSampleDropdown.SelectionChanged -= OnBaseSampleSelectionChanged;
         LastNpcSampleDropdown.Items.Clear();
         LastNpcVariantDropdown.Items.Clear();
@@ -172,8 +188,7 @@ public partial class MainWindow
         if (AppServices.Provider is TTS.Providers.RemoteTtsProvider remoteProvider)
         {
             var voices = remoteProvider.GetAvailableVoices();
-            System.Diagnostics.Debug.WriteLine(
-                $"[NpcPanel] PopulateSampleDropdown: provider={AppServices.Provider.ProviderId} voiceCount={voices.Count} showPanel={showPanel}");
+            QuickSetTrace($"populate: provider={AppServices.Provider.ProviderId} voices={voices.Count} showPanel={showPanel} keep={SampleLabel(selectedBeforeRefresh)}");
 
             // Quick bespoke picker: only show unique character samples (U_*),
             // and only the base entries here. Variants stay in the second dropdown.
@@ -198,19 +213,27 @@ public partial class MainWindow
             }
 
             LastNpcSamplePanel.IsVisible = showPanel;
-            System.Diagnostics.Debug.WriteLine(
-                $"[NpcPanel] SamplePanel.IsVisible={LastNpcSamplePanel.IsVisible}");
+            QuickSetTrace($"populate: panelVisible={LastNpcSamplePanel.IsVisible} items={LastNpcSampleDropdown.Items.Count}");
         }
         else
         {
-            System.Diagnostics.Debug.WriteLine(
-                $"[NpcPanel] PopulateSampleDropdown: provider={AppServices.Provider?.ProviderId} is NOT RemoteTtsProvider — hiding panel");
+            QuickSetTrace($"populate: provider={AppServices.Provider?.ProviderId ?? "(null)"} not remote; hide sample panel");
             LastNpcSamplePanel.IsVisible = false;
         }
 
-        LastNpcSampleDropdown.SelectedIndex = 0;
         LastNpcSampleDropdown.SelectionChanged += OnBaseSampleSelectionChanged;
-        PopulateVariantDropdown(null);
+
+        if (!string.IsNullOrWhiteSpace(selectedBeforeRefresh))
+        {
+            QuickSetTrace($"populate: restore selection {selectedBeforeRefresh}");
+            SelectLastNpcSampleDropdown(selectedBeforeRefresh);
+        }
+        else
+        {
+            QuickSetTrace("populate: no prior selection; default race voice");
+            LastNpcSampleDropdown.SelectedIndex = 0;
+            PopulateVariantDropdown(null);
+        }
     }
 
     /// <summary>
@@ -264,6 +287,7 @@ public partial class MainWindow
     private void OnBaseSampleSelectionChanged(object? sender, SelectionChangedEventArgs e)
     {
         var baseSampleId = (LastNpcSampleDropdown.SelectedItem as ComboBoxItem)?.Tag as string;
+        QuickSetTrace($"base changed: {SampleLabel(baseSampleId)}");
         PopulateVariantDropdown(baseSampleId);
     }
 
@@ -304,30 +328,57 @@ public partial class MainWindow
         if (seg.NpcId == 0)
             return;
 
+        var sameNpc = _lastNpcId == seg.NpcId;
+        var hasSelectionSignal = seg.BespokeMatchedByNpcName || !string.IsNullOrWhiteSpace(seg.MissingBespokeSampleId);
+
         _lastNpcId = seg.NpcId;
         _lastNpcName = seg.NpcName?.Trim() ?? string.Empty;
-        _lastMatchedBespokeSampleId = seg.BespokeMatchedByNpcName ? seg.BespokeSampleId : null;
-        _lastBespokeMatchedByNpcName = seg.BespokeMatchedByNpcName;
-        _lastMissingBespokeSampleId = seg.MissingBespokeSampleId;
+
+        if (!sameNpc || hasSelectionSignal)
+        {
+            _lastMatchedBespokeSampleId = seg.BespokeMatchedByNpcName ? seg.BespokeSampleId : null;
+            _lastBespokeMatchedByNpcName = seg.BespokeMatchedByNpcName;
+            _lastMissingBespokeSampleId = seg.MissingBespokeSampleId;
+        }
+
         LastNpcIdLabel.Text = string.IsNullOrWhiteSpace(_lastNpcName)
             ? $"NPC ID: {seg.NpcId}"
             : $"NPC ID: {seg.NpcId}  •  {_lastNpcName}";
         LastNpcPanel.IsVisible = true;
 
+        QuickSetTrace($"segment: npc={seg.NpcId} name='{_lastNpcName}' renderedSample={SampleLabel(seg.BespokeSampleId)} matched={seg.BespokeMatchedByNpcName} missing={SampleLabel(seg.MissingBespokeSampleId)} sameNpc={sameNpc} signal={hasSelectionSignal}");
+
+        if (sameNpc && !hasSelectionSignal && !string.IsNullOrWhiteSpace(_lastMatchedBespokeSampleId))
+        {
+            QuickSetTrace($"segment ignored for sample selection: keeping matched={SampleLabel(_lastMatchedBespokeSampleId)}");
+            return;
+        }
+
+        var revisionSnapshot = ++_lastNpcPanelRevision;
+        var matchedSnapshot = _lastMatchedBespokeSampleId;
+        var matchedByNameSnapshot = _lastBespokeMatchedByNpcName;
+        var missingSnapshot = _lastMissingBespokeSampleId;
+
         // Refresh sample dropdown — voice list may have loaded since init
         PopulateLastNpcSampleDropdown();
 
         // Pre-fill existing override if one exists, otherwise clear.
-        LoadExistingOverrideIntoPanel(seg.NpcId);
+        LoadExistingOverrideIntoPanel(seg.NpcId, revisionSnapshot, matchedSnapshot, matchedByNameSnapshot, missingSnapshot);
     }
 
-    private void LoadExistingOverrideIntoPanel(int npcId)
+    private void LoadExistingOverrideIntoPanel(int npcId, int revision, string? matchedSampleId, bool matchedByName, string? missingSampleId)
     {
         _ = Task.Run(async () =>
         {
             var existing = await AppServices.NpcOverrides.GetOverrideAsync(npcId);
             Dispatcher.UIThread.Post(() =>
             {
+                if (_lastNpcId != npcId || revision != _lastNpcPanelRevision)
+                {
+                    QuickSetTrace($"load override ignored: stale npc={npcId} current={_lastNpcId} rev={revision} currentRev={_lastNpcPanelRevision}");
+                    return;
+                }
+
                 LastNpcNotesBox.Text = existing?.Notes ?? string.Empty;
 
                 if (existing != null)
@@ -346,28 +397,29 @@ public partial class MainWindow
                 var explicitMissing = CurrentProviderUsesRemoteSamples()
                                       && !string.IsNullOrWhiteSpace(explicitSampleId)
                                       && !IsCurrentProviderSampleAvailable(explicitSampleId);
-                var sampleToSelect = explicitMissing && !string.IsNullOrWhiteSpace(_lastMatchedBespokeSampleId)
-                    ? _lastMatchedBespokeSampleId
+                var sampleToSelect = explicitMissing && !string.IsNullOrWhiteSpace(matchedSampleId)
+                    ? matchedSampleId
                     : !string.IsNullOrWhiteSpace(explicitSampleId)
                         ? explicitSampleId
-                        : _lastMatchedBespokeSampleId;
+                        : matchedSampleId;
 
+                QuickSetTrace($"load override: npc={npcId} existing={(existing != null)} explicit={SampleLabel(explicitSampleId)} explicitMissing={explicitMissing} matched={SampleLabel(matchedSampleId)} selecting={SampleLabel(sampleToSelect)}");
                 SelectLastNpcSampleDropdown(sampleToSelect);
 
                 if (explicitMissing)
                 {
-                    var suffix = !string.IsNullOrWhiteSpace(_lastMatchedBespokeSampleId)
-                        ? $" Fallback matched by NPC name: {_lastMatchedBespokeSampleId}. Save to replace explicit value."
+                    var suffix = !string.IsNullOrWhiteSpace(matchedSampleId)
+                        ? $" Fallback matched by NPC name: {matchedSampleId}. Save to replace explicit value."
                         : " No NPC-name fallback found.";
                     UpdateLastNpcSampleStatus($"Assigned voice sample missing: {explicitSampleId}.{suffix}", Brushes.Orange);
                 }
-                else if (existing == null && _lastBespokeMatchedByNpcName && !string.IsNullOrWhiteSpace(_lastMatchedBespokeSampleId))
+                else if (existing == null && matchedByName && !string.IsNullOrWhiteSpace(matchedSampleId))
                 {
-                    UpdateLastNpcSampleStatus($"Suggested voice sample: {_lastMatchedBespokeSampleId} (matched by NPC name). Save to make explicit.", Brushes.LightGreen);
+                    UpdateLastNpcSampleStatus($"Suggested voice sample: {matchedSampleId} (matched by NPC name). Save to make explicit.", Brushes.LightGreen);
                 }
-                else if (existing != null && !string.IsNullOrWhiteSpace(_lastMatchedBespokeSampleId) && string.IsNullOrWhiteSpace(explicitSampleId))
+                else if (existing != null && !string.IsNullOrWhiteSpace(matchedSampleId) && string.IsNullOrWhiteSpace(explicitSampleId))
                 {
-                    UpdateLastNpcSampleStatus($"Suggested voice sample: {_lastMatchedBespokeSampleId} (matched by NPC name). Save to make explicit.", Brushes.LightGreen);
+                    UpdateLastNpcSampleStatus($"Suggested voice sample: {matchedSampleId} (matched by NPC name). Save to make explicit.", Brushes.LightGreen);
                 }
                 else
                 {
@@ -428,6 +480,7 @@ public partial class MainWindow
                 _lastMatchedBespokeSampleId = null;
                 _lastBespokeMatchedByNpcName = false;
                 _lastMissingBespokeSampleId = null;
+                _lastNpcPanelRevision++;
                 LastNpcUseNpcIdAsSeedCheckBox.IsChecked = useNpcIdAsSeed;
                 SelectLastNpcGenderOverride(genderOverride);
 
@@ -453,6 +506,7 @@ public partial class MainWindow
                 _lastMatchedBespokeSampleId = null;
                 _lastBespokeMatchedByNpcName = false;
                 _lastMissingBespokeSampleId = null;
+                _lastNpcPanelRevision++;
                 UpdateLastNpcSampleStatus(null);
                 LastNpcUseNpcIdAsSeedCheckBox.IsChecked = false;
                 SelectLastNpcGenderOverride(NpcGenderOverride.Auto);
@@ -596,6 +650,7 @@ public partial class MainWindow
         {
             NpcOverrideSource.Confirmed    => Brushes.Gold,
             NpcOverrideSource.CrowdSourced => Brushes.SkyBlue,
+            NpcOverrideSource.Submitted    => Brushes.LightGreen,
             _                              => Brushes.DimGray,
         };
         AddCell(entry.Source.ToString(), rowIndex, 5, sourceBrush, fontSize: 10);
@@ -831,10 +886,13 @@ public partial class MainWindow
     /// </summary>
     private void SelectLastNpcSampleDropdown(string? sampleId)
     {
+        QuickSetTrace($"select request: {SampleLabel(sampleId)}");
+
         if (string.IsNullOrWhiteSpace(sampleId))
         {
             LastNpcSampleDropdown.SelectedIndex = 0;
             PopulateVariantDropdown(null);
+            QuickSetTrace("select result: race default");
             return;
         }
 
@@ -843,6 +901,7 @@ public partial class MainWindow
         if (!LastNpcSampleDropdown.Items.OfType<ComboBoxItem>()
                 .Any(i => string.Equals(i.Tag as string, baseId, StringComparison.OrdinalIgnoreCase)))
         {
+            QuickSetTrace($"select: adding missing base item {baseId}");
             LastNpcSampleDropdown.Items.Add(new ComboBoxItem
             {
                 Content = baseId,
@@ -871,12 +930,14 @@ public partial class MainWindow
                 if (string.Equals(item.Tag as string, sampleId, StringComparison.OrdinalIgnoreCase))
                 {
                     LastNpcVariantDropdown.SelectedItem = item;
+                    QuickSetTrace($"select result: base={baseId} variant={sampleId}");
                     return;
                 }
             }
         }
 
         LastNpcVariantDropdown.SelectedIndex = 0;
+        QuickSetTrace($"select result: base={baseId} variant=(default) effective={SampleLabel(GetSelectedLastNpcSampleId())}");
     }
 
     /// <summary>
@@ -955,7 +1016,7 @@ public partial class MainWindow
         try
         {
             var entries = await AppServices.NpcOverrides.GetAllAsync();
-            var localEntries = entries.Where(x => x.Source == NpcOverrideSource.Local).ToList();
+            var localEntries = entries.Where(x => x.Source is NpcOverrideSource.Local or NpcOverrideSource.Submitted).ToList();
 
             var file = new NpcOverrideExportFile
             {
@@ -1099,7 +1160,7 @@ public partial class MainWindow
             var local   = entries.Where(x => x.Source == NpcOverrideSource.Local).ToList();
 
             var result = await AppServices.NpcSync.ContributeManyAsync(local, batchSize: 100);
-            NpcOverridesStatus.Text = $"Pushed {result.Upserted}/{local.Count} override(s) to server in {result.Batches} batch(es).";
+            NpcOverridesStatus.Text = $"Pushed {result.Upserted}/{local.Count} local override(s) to server in {result.Batches} batch(es). Submitted rows skipped.";
         }
         catch (Exception ex)
         {
