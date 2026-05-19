@@ -1817,6 +1817,7 @@ So go quickly, keep your wits about you, and return by the main road if you valu
                 {
                     var effectiveSample = remote.ResolveSampleProfile(_sampleProfileKey, _slot);
                     voiceId = $"sample:{effectiveSample.BuildIdentityKey()}";
+                    System.Diagnostics.Debug.WriteLine($"[BespokeDebug] PreviewResolve provider={remote.ProviderId} slot={_slot} sample={_sampleProfileKey} voiceId={voiceId} profileId={effectiveSample.BuildIdentityKey()} seed={DebugValue(effectiveSample.SynthesisSeed)} exag={DebugValue(effectiveSample.Exaggeration)} cfg={DebugValue(effectiveSample.CfgWeight)} temp={DebugValue(effectiveSample.ChatterboxTemperature)} topP={DebugValue(effectiveSample.ChatterboxTopP)} rep={DebugValue(effectiveSample.ChatterboxRepetitionPenalty)} rate={DebugValue(effectiveSample.SpeechRate)}");
                 }
                 else
                 {
@@ -2055,6 +2056,16 @@ So go quickly, keep your wits about you, and return by the main road if you valu
 
     private static void AddToGrid(Grid g, Control c, int row, int col)
     { Grid.SetRow(c, row); Grid.SetColumn(c, col); g.Children.Add(c); }
+
+    private static string DebugValue(object? value)
+    {
+        return value switch
+        {
+            null => "<null>",
+            IFormattable f => f.ToString(null, Inv) ?? string.Empty,
+            _ => value.ToString() ?? string.Empty,
+        };
+    }
 
     // ─────────────────────────────────────────────────────────────────────────
     // Parse helpers

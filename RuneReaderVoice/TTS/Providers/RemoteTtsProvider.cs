@@ -212,6 +212,31 @@ public sealed class RemoteTtsProvider : ITtsProvider
     }
 
 
+    private static string ProfileDebug(VoiceProfile? p)
+    {
+        if (p == null) return "<null>";
+        return string.Format(
+            CultureInfo.InvariantCulture,
+            "voiceId={0} lang={1} seed={2} exag={3:0.###} cfg={4:0.###} temp={5:0.###} topP={6:0.###} rep={7:0.###} rate={8:0.###} cfgStrength={9:0.###} nfe={10} crossFade={11:0.###} sway={12:0.###} dsp={13} cosyInstr={14} voiceInstr={15} id={16}",
+            string.IsNullOrWhiteSpace(p.VoiceId) ? "<empty>" : p.VoiceId,
+            string.IsNullOrWhiteSpace(p.LangCode) ? "<empty>" : p.LangCode,
+            p.SynthesisSeed?.ToString(CultureInfo.InvariantCulture) ?? "<null>",
+            p.Exaggeration,
+            p.CfgWeight,
+            p.ChatterboxTemperature,
+            p.ChatterboxTopP,
+            p.ChatterboxRepetitionPenalty,
+            p.SpeechRate,
+            p.CfgStrength,
+            p.NfeStep?.ToString(CultureInfo.InvariantCulture) ?? "<null>",
+            p.CrossFadeDuration,
+            p.SwaysamplingCoef,
+            p.Dsp == null ? "<null>" : (p.Dsp.IsNeutral ? "neutral" : "set"),
+            string.IsNullOrWhiteSpace(p.CosyInstruct) ? "no" : "yes",
+            string.IsNullOrWhiteSpace(p.VoiceInstruct) ? "no" : "yes",
+            p.BuildIdentityKey());
+    }
+
     public VoiceProfile ResolveEffectiveSynthesisProfile(
         VoiceSlot slot,
         string? bespokeSampleId = null,
@@ -240,7 +265,18 @@ public sealed class RemoteTtsProvider : ITtsProvider
         if (forcedSynthesisSeed.HasValue)
             profile.SynthesisSeed = forcedSynthesisSeed;
 
-        return ApplyProviderMinimums(profile);
+        var finalProfile = ApplyProviderMinimums(profile);
+        if (!string.IsNullOrWhiteSpace(bespokeSampleId))
+        {
+            Debug.WriteLine(
+                $"[BespokeDebug] ResolveEffective provider={ProviderId} slot={slot} sample={bespokeSampleId} " +
+                $"overrideExag={bespokeExaggeration?.ToString(CultureInfo.InvariantCulture) ?? "<null>"} " +
+                $"overrideCfg={bespokeCfgWeight?.ToString(CultureInfo.InvariantCulture) ?? "<null>"} " +
+                $"forcedSeed={forcedSynthesisSeed?.ToString(CultureInfo.InvariantCulture) ?? "<null>"} suppressStoredSeed={suppressStoredSeed} " +
+                $"final=({ProfileDebug(finalProfile)})");
+        }
+
+        return finalProfile;
     }
 
     public async Task<RemoteBatchResolution> SubmitSplitBatchAsync(
@@ -263,6 +299,8 @@ public sealed class RemoteTtsProvider : ITtsProvider
 
         if (profile != null)
         {
+            if (!string.IsNullOrWhiteSpace(bespokeSampleId))
+                Debug.WriteLine($"[BespokeDebug] BatchSubmit provider={ProviderId} slot={slot} sample={bespokeSampleId} segments={batchSegments.Count} profile=({ProfileDebug(profile)})");
 
             var voiceSpec = BuildVoiceSpec(profile);
             var speechRate = profile.SpeechRate <= 0f ? 1.0f : Math.Clamp(profile.SpeechRate, 0.5f, 2.0f);
@@ -406,6 +444,14 @@ public sealed class RemoteTtsProvider : ITtsProvider
             VoiceContext          = slot.ToString(),   // discriminates narrator vs NPC slots sharing same sample
             CacheKey              = BuildRemoteCacheKey(_descriptor.RemoteProviderId!, cacheKeyText, slot.ToString(), profile, voiceSpec, speechRate),
         };
+
+        if (!string.IsNullOrWhiteSpace(bespokeSampleId))
+        {
+            Debug.WriteLine(
+                $"[BespokeDebug] SingleSubmit provider={ProviderId} slot={slot} sample={bespokeSampleId} " +
+                $"cacheKey={v2Request.CacheKey} speechRate={speechRate.ToString(CultureInfo.InvariantCulture)} voiceSpec={BuildVoiceSpecIdentity(voiceSpec)} " +
+                $"profile=({ProfileDebug(profile)})");
+        }
 
         var submitted = await _client.SynthesizeV2Async(v2Request, ct);
         System.Diagnostics.Debug.WriteLine(
@@ -560,9 +606,11 @@ public sealed class RemoteTtsProvider : ITtsProvider
             var cloned = stored.Clone();
             if (string.IsNullOrWhiteSpace(cloned.VoiceId))
                 cloned.VoiceId = sampleId;
+            Debug.WriteLine($"[BespokeDebug] ResolveSampleProfile provider={ProviderId} sample={sampleId} source=stored profile=({ProfileDebug(cloned)})");
             return cloned;
         }
 
+        Debug.WriteLine($"[BespokeDebug] ResolveSampleProfile provider={ProviderId} sample={sampleId} source=fallback slot={fallbackSlot?.ToString() ?? "<none>"}");
         var fallback = fallbackSlot.HasValue ? ResolveProfile(fallbackSlot.Value)?.Clone() : null;
         fallback ??= VoiceProfileDefaults.Create(sampleId);
 
@@ -575,6 +623,7 @@ public sealed class RemoteTtsProvider : ITtsProvider
         fallback.VoiceId = sampleId;
         if (string.IsNullOrWhiteSpace(fallback.LangCode))
             fallback.LangCode = VoiceProfileDefaults.GetDefaultLangCodeForVoice(sampleId);
+        Debug.WriteLine($"[BespokeDebug] ResolveSampleProfile provider={ProviderId} sample={sampleId} source=fallback-result profile=({ProfileDebug(fallback)})");
         return fallback;
     }
 

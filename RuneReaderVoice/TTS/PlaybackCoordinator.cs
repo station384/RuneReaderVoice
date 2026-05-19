@@ -458,6 +458,15 @@ public sealed class PlaybackCoordinator : IDisposable
                 ? profile.BuildIdentityKey()
                 : _provider.ResolveVoiceId(segment.Slot));
 
+        if (applyBespoke)
+        {
+            System.Diagnostics.Debug.WriteLine(
+                $"[BespokeDebug] LiveResolve seg={segment.SegmentIndex} provider={_provider.ProviderId} slot={segment.Slot} npc={segment.NpcId} " +
+                $"sample={segment.BespokeSampleId} matchedByName={segment.BespokeMatchedByNpcName} forcedNpcSeed={forcedNpcSeed?.ToString() ?? "<null>"} " +
+                $"suppressStoredSeed={suppressStoredSeed} overrideExag={segment.BespokeExaggeration?.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? "<null>"} " +
+                $"overrideCfg={segment.BespokeCfgWeight?.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? "<null>"} voiceId={voiceId} profile=({ProfileDebug(profile)})");
+        }
+
         // Cache key includes slot string as namespace prefix so two different slots
         // that happen to share the same sample (e.g. Narrator and Tortollan both
         // defaulting to am_adam) never share cache entries and play the wrong voice.
@@ -519,7 +528,8 @@ public sealed class PlaybackCoordinator : IDisposable
                 applyBespoke ? segment.BespokeCfgWeight   : null,
                 null,
                 null,
-                forcedNpcSeed);
+                forcedNpcSeed,
+                suppressStoredSeed);
 
             System.Diagnostics.Debug.WriteLine(
                 $"[PC] Remote synth complete seg={segment.SegmentIndex} bytes={oggBytes.Length}");
@@ -555,6 +565,24 @@ public sealed class PlaybackCoordinator : IDisposable
         }
 
         return ConcatenatePcm(chunks);
+    }
+
+    private static string ProfileDebug(VoiceProfile? p)
+    {
+        if (p == null) return "<null>";
+        return string.Format(
+            System.Globalization.CultureInfo.InvariantCulture,
+            "voiceId={0} seed={1} exag={2:0.###} cfg={3:0.###} temp={4:0.###} topP={5:0.###} rep={6:0.###} rate={7:0.###} dsp={8} id={9}",
+            string.IsNullOrWhiteSpace(p.VoiceId) ? "<empty>" : p.VoiceId,
+            p.SynthesisSeed?.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? "<null>",
+            p.Exaggeration,
+            p.CfgWeight,
+            p.ChatterboxTemperature,
+            p.ChatterboxTopP,
+            p.ChatterboxRepetitionPenalty,
+            p.SpeechRate,
+            p.Dsp == null ? "<null>" : (p.Dsp.IsNeutral ? "neutral" : "set"),
+            p.BuildIdentityKey());
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────

@@ -91,9 +91,9 @@ public sealed class VoiceUserSettings
     }
 
     public string PlaybackMode { get; set; } = "WaitForFullText";
-    public bool EnablePhraseChunking { get; set; } = false;
+    public bool EnablePhraseChunking { get; set; } = true;
     public bool EnableTextNormalization { get; set; } = true;
-    public bool LowercaseTextForTts { get; set; } = false;
+    public bool LowercaseTextForTts { get; set; } = true;
 
     public float Volume { get; set; } = 0.8f;
     public float PlaybackSpeed { get; set; } = 1.0f;
