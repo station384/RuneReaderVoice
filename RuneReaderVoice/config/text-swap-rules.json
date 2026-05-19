@@ -3,12 +3,12 @@
   "Rules": [
     {
       "FindText": "...",
-      "ReplaceText": ". ",
+      "ReplaceText": "..",
       "ReplaceWithCrLf": false,
       "WholeWord": false,
       "CaseSensitive": true,
       "UseRegex": false,
-      "Enabled": true,
+      "Enabled": false,
       "Priority": 300,
       "Notes": "Built-in default"
     },
@@ -134,39 +134,6 @@
       "Notes": ""
     },
     {
-      "FindText": " - Eslene",
-      "ReplaceText": ",aez lean",
-      "ReplaceWithCrLf": false,
-      "WholeWord": true,
-      "CaseSensitive": false,
-      "UseRegex": false,
-      "Enabled": true,
-      "Priority": 100,
-      "Notes": ""
-    },
-    {
-      "FindText": " - Valtrois",
-      "ReplaceText": ",VAL TWAH",
-      "ReplaceWithCrLf": false,
-      "WholeWord": true,
-      "CaseSensitive": false,
-      "UseRegex": false,
-      "Enabled": true,
-      "Priority": 100,
-      "Notes": ""
-    },
-    {
-      "FindText": "Illidan",
-      "ReplaceText": "Illa\u0027dan",
-      "ReplaceWithCrLf": false,
-      "WholeWord": true,
-      "CaseSensitive": false,
-      "UseRegex": false,
-      "Enabled": true,
-      "Priority": 0,
-      "Notes": ""
-    },
-    {
       "FindText": "(?:\\r\\n|\\r|\\n)",
       "ReplaceText": "\\t",
       "ReplaceWithCrLf": false,
@@ -211,11 +178,110 @@
       "Notes": ""
     },
     {
-      "FindText": "Gazlowe",
-      "ReplaceText": "Gazlow",
+      "FindText": " - valtrois",
+      "ReplaceText": ",val twah",
+      "ReplaceWithCrLf": false,
+      "WholeWord": true,
+      "CaseSensitive": false,
+      "UseRegex": false,
+      "Enabled": true,
+      "Priority": 100,
+      "Notes": ""
+    },
+    {
+      "FindText": "eslene",
+      "ReplaceText": "ess\u0027lean",
       "ReplaceWithCrLf": false,
       "WholeWord": true,
       "CaseSensitive": true,
+      "UseRegex": false,
+      "Enabled": true,
+      "Priority": 100,
+      "Notes": ""
+    },
+    {
+      "FindText": "gazlowe",
+      "ReplaceText": "gazlow",
+      "ReplaceWithCrLf": false,
+      "WholeWord": true,
+      "CaseSensitive": true,
+      "UseRegex": false,
+      "Enabled": true,
+      "Priority": 100,
+      "Notes": ""
+    },
+    {
+      "FindText": "elune",
+      "ReplaceText": "e\u0027lune",
+      "ReplaceWithCrLf": false,
+      "WholeWord": true,
+      "CaseSensitive": true,
+      "UseRegex": false,
+      "Enabled": true,
+      "Priority": 0,
+      "Notes": ""
+    },
+    {
+      "FindText": "greathoof",
+      "ReplaceText": "great-hoof",
+      "ReplaceWithCrLf": false,
+      "WholeWord": true,
+      "CaseSensitive": true,
+      "UseRegex": false,
+      "Enabled": true,
+      "Priority": 0,
+      "Notes": ""
+    },
+    {
+      "FindText": "hyjal",
+      "ReplaceText": "high-jal",
+      "ReplaceWithCrLf": false,
+      "WholeWord": true,
+      "CaseSensitive": true,
+      "UseRegex": false,
+      "Enabled": true,
+      "Priority": 0,
+      "Notes": ""
+    },
+    {
+      "FindText": "illidan",
+      "ReplaceText": "illa\u0027dan",
+      "ReplaceWithCrLf": false,
+      "WholeWord": true,
+      "CaseSensitive": false,
+      "UseRegex": false,
+      "Enabled": true,
+      "Priority": 0,
+      "Notes": ""
+    },
+    {
+      "FindText": "illidari",
+      "ReplaceText": "illidar\u0027e",
+      "ReplaceWithCrLf": false,
+      "WholeWord": true,
+      "CaseSensitive": true,
+      "UseRegex": false,
+      "Enabled": true,
+      "Priority": 0,
+      "Notes": ""
+    },
+    {
+      "FindText": "runetotem",
+      "ReplaceText": "rune-totem",
+      "ReplaceWithCrLf": false,
+      "WholeWord": true,
+      "CaseSensitive": true,
+      "UseRegex": false,
+      "Enabled": true,
+      "Priority": 0,
+      "Notes": ""
+    },
+    {
+      "FindText": "si:7",
+      "ReplaceText": "s i 7",
+      "ReplaceWithCrLf": false,
+      "WholeWord": true,
+      "CaseSensitive": false,
       "UseRegex": false,
       "Enabled": true,
       "Priority": 100,

@@ -1,6 +1,30 @@
 {
   "Rows": [
     {
+      "Id": "BlackDragon",
+      "DisplayName": "Black Dragon",
+      "AccentLabel": "Dragon",
+      "HasMale": true,
+      "HasFemale": true,
+      "HasNeutral": false,
+      "Enabled": true,
+      "SortOrder": 0,
+      "Source": "Local",
+      "UpdatedUtc": 1779001554
+    },
+    {
+      "Id": "BlueDragon",
+      "DisplayName": "Blue Dragon",
+      "AccentLabel": "Dragon",
+      "HasMale": true,
+      "HasFemale": true,
+      "HasNeutral": false,
+      "Enabled": true,
+      "SortOrder": 0,
+      "Source": "Local",
+      "UpdatedUtc": 1779001490
+    },
+    {
       "Id": "Domanaar",
       "DisplayName": "Domanaar",
       "AccentLabel": "Void",
@@ -13,6 +37,42 @@
       "UpdatedUtc": 1777580957
     },
     {
+      "Id": "GoldDragon",
+      "DisplayName": "Gold Dragon",
+      "AccentLabel": "Dragon",
+      "HasMale": true,
+      "HasFemale": true,
+      "HasNeutral": false,
+      "Enabled": true,
+      "SortOrder": 0,
+      "Source": "Local",
+      "UpdatedUtc": 1779001536
+    },
+    {
+      "Id": "GreenDragon",
+      "DisplayName": "Green Dragon",
+      "AccentLabel": "Dragon",
+      "HasMale": true,
+      "HasFemale": true,
+      "HasNeutral": false,
+      "Enabled": true,
+      "SortOrder": 0,
+      "Source": "Local",
+      "UpdatedUtc": 1779001512
+    },
+    {
+      "Id": "Hozen",
+      "DisplayName": "Hozen",
+      "AccentLabel": "Hozen",
+      "HasMale": true,
+      "HasFemale": true,
+      "HasNeutral": false,
+      "Enabled": true,
+      "SortOrder": 0,
+      "Source": "Local",
+      "UpdatedUtc": 1779077814
+    },
+    {
       "Id": "Niffin",
       "DisplayName": "Niffin",
       "AccentLabel": "Niffin",
@@ -23,6 +83,30 @@
       "SortOrder": 0,
       "Source": "Local",
       "UpdatedUtc": 1776716427
+    },
+    {
+      "Id": "RedDragon",
+      "DisplayName": "Red Dragon",
+      "AccentLabel": "Dragon",
+      "HasMale": true,
+      "HasFemale": true,
+      "HasNeutral": false,
+      "Enabled": true,
+      "SortOrder": 0,
+      "Source": "Local",
+      "UpdatedUtc": 1779001470
+    },
+    {
+      "Id": "Tuskaar",
+      "DisplayName": "Tuskarr",
+      "AccentLabel": "Tuskarr",
+      "HasMale": true,
+      "HasFemale": true,
+      "HasNeutral": false,
+      "Enabled": false,
+      "SortOrder": 0,
+      "Source": "Local",
+      "UpdatedUtc": 1779079637
     },
     {
       "Id": "human",
@@ -107,6 +191,18 @@
       "SortOrder": 50,
       "Source": "Local",
       "UpdatedUtc": 1777828799
+    },
+    {
+      "Id": "Rutaani",
+      "DisplayName": "Rutanni",
+      "AccentLabel": "Rutanni",
+      "HasMale": true,
+      "HasFemale": true,
+      "HasNeutral": false,
+      "Enabled": false,
+      "SortOrder": 50,
+      "Source": "Local",
+      "UpdatedUtc": 1777942415
     },
     {
       "Id": "mechagnome",
@@ -603,14 +699,14 @@
     {
       "Id": "rutaani",
       "DisplayName": "Rutaani",
-      "AccentLabel": "Sharp Avian",
+      "AccentLabel": "Plants",
       "HasMale": true,
       "HasFemale": true,
       "HasNeutral": false,
       "Enabled": true,
       "SortOrder": 650,
-      "Source": "Seeded",
-      "UpdatedUtc": 1776402877
+      "Source": "Local",
+      "UpdatedUtc": 1777942557
     },
     {
       "Id": "shadowpine",
