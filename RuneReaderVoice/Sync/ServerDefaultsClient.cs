@@ -71,12 +71,6 @@ public sealed class ServerNpcOverrideSinceResponse
 }
 
 
-public sealed class ServerNpcOverrideContributeResponse
-{
-    [JsonPropertyName("record")] public ServerNpcOverrideRecord? Record { get; set; }
-}
-
-
 public sealed class ServerNpcOverrideBatchRequest
 {
     [JsonPropertyName("records")] public List<ServerNpcOverrideBatchRecord> Records { get; set; } = new();
@@ -242,22 +236,8 @@ public sealed class ServerDefaultsClient
                 request.Headers.Authorization =
                     new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", _contributeKey);
 
-            using var response = await _http.SendAsync(request, ct).ConfigureAwait(false);
-            if (!response.IsSuccessStatusCode)
-                return false;
-
-            var body = await response.Content.ReadFromJsonAsync<ServerNpcOverrideContributeResponse>(
-                _jsonOptions,
-                ct).ConfigureAwait(false);
-
-            var accepted = body?.Record?.NpcId == entry.NpcId;
-            if (!accepted)
-            {
-                System.Diagnostics.Debug.WriteLine(
-                    $"[ServerDefaultsClient] ContributeNpcOverride returned success without matching record for NPC {entry.NpcId}");
-            }
-
-            return accepted;
+            var response = await _http.SendAsync(request, ct).ConfigureAwait(false);
+            return response.IsSuccessStatusCode;
         }
         catch (Exception ex)
         {

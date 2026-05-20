@@ -261,6 +261,14 @@ public partial class MainWindow
         VoiceSettingsManager.SaveSettings(AppServices.Settings);
     }
 
+    private void OnForceBookPhraseChunkingChanged(object? sender, RoutedEventArgs e)
+    {
+        if (_uiInitializing) return;
+        var enabled = ForceBookPhraseChunking.IsChecked == true;
+        AppServices.Settings.ForceBookPhraseChunking = enabled;
+        VoiceSettingsManager.SaveSettings(AppServices.Settings);
+    }
+
 
     private void OnTextNormalizationChanged(object? sender, RoutedEventArgs e)
     {

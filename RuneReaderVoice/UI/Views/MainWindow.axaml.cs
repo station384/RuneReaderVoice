@@ -303,6 +303,7 @@ public partial class MainWindow : Window
         EnableReward.IsChecked   = s.EnableQuestReward;
         EnableBooks.IsChecked    = s.EnableBooks;
         PhraseChunking.IsChecked = s.EnablePhraseChunking;
+        ForceBookPhraseChunking.IsChecked = s.ForceBookPhraseChunking;
         TextNormalization.IsChecked = s.EnableTextNormalization;
         LowercaseTextForTts.IsChecked = s.LowercaseTextForTts;
         PiperBinaryPath.Text     = s.PiperBinaryPath;

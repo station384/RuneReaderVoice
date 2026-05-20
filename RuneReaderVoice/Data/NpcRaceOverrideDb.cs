@@ -157,8 +157,8 @@ public sealed class NpcRaceOverrideDb
 
     /// <summary>
     /// Merges a batch of server records into the local DB.
-    /// Dirty Local entries always win — server records only fill gaps or update
-    /// existing server/submitted entries. Submitted means already pushed; server may replace it.
+    /// Local entries always win — server records only fill gaps or update
+    /// existing server-sourced entries. Never overwrites a Local entry.
     /// Returns the count of records actually written.
     /// </summary>
     public async Task<int> MergeFromServerAsync(IEnumerable<NpcRaceOverride> serverRecords)
@@ -170,10 +170,10 @@ public sealed class NpcRaceOverrideDb
                 .Where(r => r.NpcId == record.NpcId)
                 .FirstOrDefaultAsync();
 
-            // Dirty local rows always win.
-            // Submitted rows were already pushed successfully; allow server pull to replace them
-            // so another client/admin update can flow back down and Submitted does not become a stale tombstone.
-            if (existing != null && existing.Source == NpcOverrideSource.Local.ToString())
+            // User-authored rows always win — skip if a local/submitted entry exists.
+            if (existing != null &&
+                (existing.Source == NpcOverrideSource.Local.ToString() ||
+                 existing.Source == NpcOverrideSource.Submitted.ToString()))
                 continue;
 
             await _db.Connection.InsertOrReplaceAsync(new NpcRaceOverrideRow

@@ -458,15 +458,6 @@ public sealed class PlaybackCoordinator : IDisposable
                 ? profile.BuildIdentityKey()
                 : _provider.ResolveVoiceId(segment.Slot));
 
-        if (applyBespoke)
-        {
-            System.Diagnostics.Debug.WriteLine(
-                $"[BespokeDebug] LiveResolve seg={segment.SegmentIndex} provider={_provider.ProviderId} slot={segment.Slot} npc={segment.NpcId} " +
-                $"sample={segment.BespokeSampleId} matchedByName={segment.BespokeMatchedByNpcName} forcedNpcSeed={forcedNpcSeed?.ToString() ?? "<null>"} " +
-                $"suppressStoredSeed={suppressStoredSeed} overrideExag={segment.BespokeExaggeration?.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? "<null>"} " +
-                $"overrideCfg={segment.BespokeCfgWeight?.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? "<null>"} voiceId={voiceId} profile=({ProfileDebug(profile)})");
-        }
-
         // Cache key includes slot string as namespace prefix so two different slots
         // that happen to share the same sample (e.g. Narrator and Tortollan both
         // defaulting to am_adam) never share cache entries and play the wrong voice.
@@ -474,6 +465,21 @@ public sealed class PlaybackCoordinator : IDisposable
         var effectiveVoiceId = applyBespoke
             ? $"{cacheSlotKey}:{voiceId}+bespoke:{segment.BespokeSampleId}"
             : $"{cacheSlotKey}:{voiceId}";
+
+        if (ShouldForceBookPhraseChunking(segment))
+        {
+            var forcedBookAudio = await TrySynthesizeForcedBookPhraseChunksAsync(
+                segment,
+                profile,
+                effectiveVoiceId,
+                applyBespoke,
+                forcedNpcSeed,
+                suppressStoredSeed,
+                ct);
+
+            if (forcedBookAudio != null)
+                return forcedBookAudio;
+        }
 
         var cacheText = _provider is RemoteTtsProvider remoteCacheProvider
             ? remoteCacheProvider.NormalizeSubmittedTextForCache(segment.Text)
@@ -567,23 +573,83 @@ public sealed class PlaybackCoordinator : IDisposable
         return ConcatenatePcm(chunks);
     }
 
-    private static string ProfileDebug(VoiceProfile? p)
+    private bool ShouldForceBookPhraseChunking(AssembledSegment segment)
+        => AppServices.Settings.ForceBookPhraseChunking && IsSyntheticBookNpcId(segment.NpcId);
+
+    private async Task<PcmAudio?> TrySynthesizeForcedBookPhraseChunksAsync(
+        AssembledSegment segment,
+        VoiceProfile? profile,
+        string effectiveVoiceId,
+        bool applyBespoke,
+        int? forcedNpcSeed,
+        bool suppressStoredSeed,
+        CancellationToken ct)
     {
-        if (p == null) return "<null>";
-        return string.Format(
-            System.Globalization.CultureInfo.InvariantCulture,
-            "voiceId={0} seed={1} exag={2:0.###} cfg={3:0.###} temp={4:0.###} topP={5:0.###} rep={6:0.###} rate={7:0.###} dsp={8} id={9}",
-            string.IsNullOrWhiteSpace(p.VoiceId) ? "<empty>" : p.VoiceId,
-            p.SynthesisSeed?.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? "<null>",
-            p.Exaggeration,
-            p.CfgWeight,
-            p.ChatterboxTemperature,
-            p.ChatterboxTopP,
-            p.ChatterboxRepetitionPenalty,
-            p.SpeechRate,
-            p.Dsp == null ? "<null>" : (p.Dsp.IsNeutral ? "neutral" : "set"),
-            p.BuildIdentityKey());
+        var text = segment.Text ?? string.Empty;
+        var phrases = TextChunkingPolicy.GetChunkTexts(text, _provider.ProviderId, profile, enabled: true);
+        if (phrases.Count <= 1)
+            return null;
+
+        System.Diagnostics.Debug.WriteLine(
+            $"[PC] Force book phrase chunking seg={segment.SegmentIndex} npc={segment.NpcId} chunks={phrases.Count} provider={_provider.ProviderId}");
+
+        var sw = System.Diagnostics.Stopwatch.StartNew();
+        var chunks = new List<PcmAudio>(phrases.Count);
+        for (int i = 0; i < phrases.Count; i++)
+        {
+            ct.ThrowIfCancellationRequested();
+            var phrase = phrases[i];
+            var phraseCacheText = _provider is RemoteTtsProvider remoteCacheProvider
+                ? remoteCacheProvider.NormalizeSubmittedTextForCache(phrase)
+                : phrase;
+
+            var cached = await _cache.TryGetDecodedAsync(phraseCacheText, effectiveVoiceId, _provider.ProviderId, "", ct);
+            if (cached != null)
+            {
+                chunks.Add(DspFilterChain.Apply(cached, profile?.Dsp));
+                continue;
+            }
+
+            PcmAudio decoded;
+            if (_provider is RemoteTtsProvider remoteProvider)
+            {
+                var oggBytes = await remoteProvider.SynthesizeOggAsync(
+                    phrase,
+                    segment.Slot,
+                    ct,
+                    applyBespoke ? segment.BespokeSampleId    : null,
+                    applyBespoke ? segment.BespokeExaggeration : null,
+                    applyBespoke ? segment.BespokeCfgWeight    : null,
+                    null,
+                    null,
+                    forcedNpcSeed,
+                    suppressStoredSeed);
+
+                await _cache.StoreOggAsync(oggBytes, phraseCacheText, effectiveVoiceId, _provider.ProviderId, string.Empty, ct);
+                decoded = await _cache.TryGetDecodedAsync(phraseCacheText, effectiveVoiceId, _provider.ProviderId, "", ct)
+                          ?? throw new InvalidOperationException("Forced book chunk cached but could not be decoded.");
+            }
+            else
+            {
+                decoded = await _provider.SynthesizeAsync(phrase, segment.Slot, ct);
+                await _cache.StoreAsync(decoded, phraseCacheText, effectiveVoiceId, _provider.ProviderId, "", ct);
+            }
+
+            if (i == 0)
+            {
+                sw.Stop();
+                LastSynthesisLatency = sw.Elapsed;
+            }
+
+            chunks.Add(DspFilterChain.Apply(decoded, profile?.Dsp));
+        }
+
+        return ConcatenatePcm(chunks);
     }
+
+    private static bool IsSyntheticBookNpcId(int npcId)
+        => npcId >= 0xF00000 && npcId <= 0xFFFFFF;
+
 
     // ── Helpers ───────────────────────────────────────────────────────────────
 

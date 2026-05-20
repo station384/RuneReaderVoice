@@ -328,25 +328,13 @@ public sealed class TtsSessionAssembler
             foreach (var seg in toFire)
                 expandedSegments.AddRange(ExpandNarratorForcedSegments(seg));
 
-            // Add synthetic paragraph punctuation after narrator-marker expansion, not before.
-            // The angle/bracket markers are control delimiters and must not participate in
-            // punctuation decisions, otherwise "<narrator>" becomes "<narrator>." and
-            // the trailing dot turns into its own fake spoken segment.
-            var spokenSegments = new List<(AssembledSegment Segment, string Text)>(expandedSegments.Count);
-            foreach (var seg in expandedSegments)
+            var audibleCount = expandedSegments.Count;
+            for (var audibleIndex = 0; audibleIndex < expandedSegments.Count; audibleIndex++)
             {
-                var spokenText = PrepareSpokenSegmentText(seg.Text);
-                if (!string.IsNullOrWhiteSpace(spokenText))
-                    spokenSegments.Add((seg, spokenText));
-            }
-
-            var audibleCount = spokenSegments.Count;
-            for (var audibleIndex = 0; audibleIndex < spokenSegments.Count; audibleIndex++)
-            {
-                var seg = spokenSegments[audibleIndex].Segment;
+                var seg = expandedSegments[audibleIndex];
                 var emitted = new AssembledSegment
                 {
-                    Text = spokenSegments[audibleIndex].Text,
+                    Text = seg.Text,
                     Slot = seg.Slot,
                     DialogId = seg.DialogId,
                     SegmentIndex = audibleIndex,
@@ -403,6 +391,7 @@ public sealed class TtsSessionAssembler
         text = ExtractAndApplyDialogMetadata(text);
         var htmlMode = HtmlRenderedTextExtractor.LooksLikeHtml(text);
         text = htmlMode ? HtmlRenderedTextExtractor.ExtractFromMixedText(text) : HtmlTextStripper.Strip(text);
+        text = InjectSyntheticParagraphPeriods(text);
 
         var effectiveNpcId = ResolveEffectiveNpcId(acc.NpcId);
         var npcName = ResolveCurrentNpcName();
@@ -614,21 +603,6 @@ public sealed class TtsSessionAssembler
 
         return runs;
     }
-
-    private static string PrepareSpokenSegmentText(string text)
-    {
-        if (string.IsNullOrWhiteSpace(text))
-            return string.Empty;
-
-        var withParagraphPauses = InjectSyntheticParagraphPeriods(text).Trim();
-
-        // Punctuation-only text can only be delimiter residue or OCR/UI noise here.
-        // Do not send it to TTS, but do not filter before assembly either.
-        return HasSpokenContent(withParagraphPauses) ? withParagraphPauses : string.Empty;
-    }
-
-    private static bool HasSpokenContent(string text)
-        => !string.IsNullOrWhiteSpace(text) && text.Any(char.IsLetterOrDigit);
 
     private static string InjectSyntheticParagraphPeriods(string text)
     {
