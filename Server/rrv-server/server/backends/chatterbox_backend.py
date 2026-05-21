@@ -173,7 +173,6 @@ class ChatterboxBackend(AbstractTtsBackend):
         self._cond_tmp_wav: str   = ""
 
         # Two-level voice conditioning cache (memory + disk)
-        from collections import OrderedDict
         self._cond_mem_cache: OrderedDict = OrderedDict()
         self._cond_cache_dir: Path = (
             Path(cond_cache_dir) if cond_cache_dir is not None
@@ -181,9 +180,12 @@ class ChatterboxBackend(AbstractTtsBackend):
         )
 
         # Prior speech token context for short-text priming.
-        # Stores {voice_key: (tokens, voice_context)} so tokens
+        # Keep tokens on CPU and bound the LRU cache; storing CUDA tensors here
+        # retains VRAM forever as new voices/samples are used.
+        # Stores {voice_key: (cpu_tokens, voice_context)} so tokens
         # from one NPC slot cannot prime a different NPC slot.
-        self._prior_speech_tokens: dict = {}
+        self._prior_token_cache_size = int(os.environ.get("RRV_CB_PRIOR_TOKEN_CACHE_SIZE", "128"))
+        self._prior_speech_tokens: OrderedDict[str, tuple[object, str]] = OrderedDict()
 
     def _voice_group_key(self, request: SynthesisRequest) -> str:
         sample_key = str(request.sample_path.resolve()) if request.sample_path is not None else ""
@@ -1331,6 +1333,7 @@ class ChatterboxBackend(AbstractTtsBackend):
                 _prior_ctx = ""
 
                 if _prior_entry is not None:
+                    self._prior_speech_tokens.move_to_end(_voice_key)
                     prior_tokens, _prior_ctx = _prior_entry
                     if _prior_ctx != _cur_ctx and not explicit_continue:
                         prior_tokens = None
@@ -1365,11 +1368,15 @@ class ChatterboxBackend(AbstractTtsBackend):
 
                 wav_np, clean_tokens = _run_inference(chunk_text, active_t3)
 
-                # Update in-memory prior context
-                tail = clean_tokens[-_PRIOR_TOKEN_LEN:].unsqueeze(0).detach()
+                # Update in-memory prior context. Store tail tokens on CPU and
+                # bound this cache, otherwise each new voice/sample retains CUDA VRAM.
+                tail = clean_tokens[-_PRIOR_TOKEN_LEN:].unsqueeze(0).detach().cpu()
                 # Store with voice_context tag to prevent cross-slot contamination
                 _ctx_tag = request.voice_context or ""
                 self._prior_speech_tokens[_voice_key] = (tail, _ctx_tag)
+                self._prior_speech_tokens.move_to_end(_voice_key)
+                while len(self._prior_speech_tokens) > self._prior_token_cache_size:
+                    self._prior_speech_tokens.popitem(last=False)
 
                 # Write tail token sidecar alongside the OGG cache entry.
                 # Written for all requests using the last chunk's tail tokens.

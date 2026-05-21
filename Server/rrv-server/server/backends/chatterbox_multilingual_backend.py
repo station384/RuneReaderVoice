@@ -165,7 +165,10 @@ class ChatterboxMultilingualBackend(AbstractTtsBackend):
         )
 
         # Prior speech token context — keyed by voice identity string.
-        self._prior_speech_tokens: dict = {}
+        # Store tokens on CPU and bound the LRU cache; storing CUDA tensors here
+        # retains VRAM forever as new voices/samples are used.
+        self._prior_token_cache_size = int(os.environ.get("RRV_CB_PRIOR_TOKEN_CACHE_SIZE", "128"))
+        self._prior_speech_tokens: OrderedDict[str, tuple[object, str]] = OrderedDict()
 
     def _voice_group_key(self, request: SynthesisRequest) -> str:
         sample_key = str(request.sample_path.resolve()) if request.sample_path is not None else ""
@@ -1308,6 +1311,7 @@ class ChatterboxMultilingualBackend(AbstractTtsBackend):
                 _prior_ctx = ""
 
                 if _prior_entry is not None:
+                    self._prior_speech_tokens.move_to_end(_voice_key)
                     prior_tokens, _prior_ctx = _prior_entry
                     if _prior_ctx != _cur_ctx and not explicit_continue:
                         prior_tokens = None
@@ -1343,9 +1347,14 @@ class ChatterboxMultilingualBackend(AbstractTtsBackend):
 
                 wav_np, clean_tokens = _run_inference(chunk_text, active_t3)
 
-                tail = clean_tokens[-_PRIOR_TOKEN_LEN:].unsqueeze(0).detach()
+                # Update in-memory prior context. Store tail tokens on CPU and
+                # bound this cache, otherwise each new voice/sample retains CUDA VRAM.
+                tail = clean_tokens[-_PRIOR_TOKEN_LEN:].unsqueeze(0).detach().cpu()
                 _ctx_tag = request.voice_context or ""
                 self._prior_speech_tokens[_voice_key] = (tail, _ctx_tag)
+                self._prior_speech_tokens.move_to_end(_voice_key)
+                while len(self._prior_speech_tokens) > self._prior_token_cache_size:
+                    self._prior_speech_tokens.popitem(last=False)
 
                 if request.cache_key and request.cache_dir:
                     try:
