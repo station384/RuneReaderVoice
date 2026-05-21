@@ -184,7 +184,7 @@ class ChatterboxBackend(AbstractTtsBackend):
         # retains VRAM forever as new voices/samples are used.
         # Stores {voice_key: (cpu_tokens, voice_context)} so tokens
         # from one NPC slot cannot prime a different NPC slot.
-        self._prior_token_cache_size = int(os.environ.get("RRV_CB_PRIOR_TOKEN_CACHE_SIZE", "128"))
+        self._prior_token_cache_size = max(0, int(os.environ.get("RRV_CB_PRIOR_TOKEN_CACHE_SIZE", "16")))
         self._prior_speech_tokens: OrderedDict[str, tuple[object, str]] = OrderedDict()
 
     def _voice_group_key(self, request: SynthesisRequest) -> str:
@@ -1373,10 +1373,17 @@ class ChatterboxBackend(AbstractTtsBackend):
                 tail = clean_tokens[-_PRIOR_TOKEN_LEN:].unsqueeze(0).detach().cpu()
                 # Store with voice_context tag to prevent cross-slot contamination
                 _ctx_tag = request.voice_context or ""
-                self._prior_speech_tokens[_voice_key] = (tail, _ctx_tag)
-                self._prior_speech_tokens.move_to_end(_voice_key)
-                while len(self._prior_speech_tokens) > self._prior_token_cache_size:
-                    self._prior_speech_tokens.popitem(last=False)
+                if self._prior_token_cache_size > 0:
+                    self._prior_speech_tokens[_voice_key] = (tail, _ctx_tag)
+                    self._prior_speech_tokens.move_to_end(_voice_key)
+
+                    # LRU eviction. popitem() removes the only cache reference to
+                    # the evicted CPU tensor, allowing Python to reclaim RAM.
+                    while len(self._prior_speech_tokens) > self._prior_token_cache_size:
+                        _old_key, _old_entry = self._prior_speech_tokens.popitem(last=False)
+                        del _old_entry
+                else:
+                    self._prior_speech_tokens.clear()
 
                 # Write tail token sidecar alongside the OGG cache entry.
                 # Written for all requests using the last chunk's tail tokens.
