@@ -328,13 +328,24 @@ public sealed class TtsSessionAssembler
             foreach (var seg in toFire)
                 expandedSegments.AddRange(ExpandNarratorForcedSegments(seg));
 
-            var audibleCount = expandedSegments.Count;
-            for (var audibleIndex = 0; audibleIndex < expandedSegments.Count; audibleIndex++)
+            var processedSegments = new List<(AssembledSegment Segment, string Text)>(expandedSegments.Count);
+            foreach (var seg in expandedSegments)
             {
-                var seg = expandedSegments[audibleIndex];
+                var emittedText = InjectSyntheticParagraphPeriods(seg.Text);
+                if (!seg.IsNarratorSegment && AppServices.Settings.QuoteDialogueParagraphsForTts)
+                    emittedText = QuoteDialogueParagraphs(emittedText);
+
+                if (!IsPunctuationOnlySegment(emittedText))
+                    processedSegments.Add((seg, emittedText));
+            }
+
+            var audibleCount = processedSegments.Count;
+            for (var audibleIndex = 0; audibleIndex < processedSegments.Count; audibleIndex++)
+            {
+                var (seg, emittedText) = processedSegments[audibleIndex];
                 var emitted = new AssembledSegment
                 {
-                    Text = seg.Text,
+                    Text = emittedText,
                     Slot = seg.Slot,
                     DialogId = seg.DialogId,
                     SegmentIndex = audibleIndex,
@@ -391,7 +402,6 @@ public sealed class TtsSessionAssembler
         text = ExtractAndApplyDialogMetadata(text);
         var htmlMode = HtmlRenderedTextExtractor.LooksLikeHtml(text);
         text = htmlMode ? HtmlRenderedTextExtractor.ExtractFromMixedText(text) : HtmlTextStripper.Strip(text);
-        text = InjectSyntheticParagraphPeriods(text);
 
         var effectiveNpcId = ResolveEffectiveNpcId(acc.NpcId);
         var npcName = ResolveCurrentNpcName();
@@ -602,6 +612,53 @@ public sealed class TtsSessionAssembler
             runs.Add((sb.ToString(), false));
 
         return runs;
+    }
+
+
+    private static string QuoteDialogueParagraphs(string text)
+    {
+        if (string.IsNullOrWhiteSpace(text))
+            return text;
+
+        var normalized = text
+            .Replace("\r\n", "\n", StringComparison.Ordinal)
+            .Replace('\r', '\n');
+
+        var rawParts = Regex.Split(normalized, @"(\n\s*\n)+");
+        var paragraphs = new List<string>();
+
+        for (int i = 0; i < rawParts.Length; i += 2)
+        {
+            var part = rawParts[i];
+            if (string.IsNullOrWhiteSpace(part))
+                continue;
+
+            var trimmed = part.Trim();
+            if (trimmed.Length == 0)
+                continue;
+
+            paragraphs.Add(IsAlreadyQuoted(trimmed) ? trimmed : $"\"{trimmed}\"");
+        }
+
+        return paragraphs.Count == 0 ? text : string.Join("\n\n", paragraphs);
+    }
+
+    private static bool IsAlreadyQuoted(string text)
+    {
+        if (text.Length < 2)
+            return false;
+
+        return (text[0] == '"' && text[^1] == '"') ||
+               (text[0] == '“' && text[^1] == '”') ||
+               (text[0] == '‘' && text[^1] == '’');
+    }
+
+    private static bool IsPunctuationOnlySegment(string text)
+    {
+        if (string.IsNullOrWhiteSpace(text))
+            return true;
+
+        return !text.Any(char.IsLetterOrDigit);
     }
 
     private static string InjectSyntheticParagraphPeriods(string text)

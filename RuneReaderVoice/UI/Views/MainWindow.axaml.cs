@@ -306,6 +306,7 @@ public partial class MainWindow : Window
         ForceBookPhraseChunking.IsChecked = s.ForceBookPhraseChunking;
         TextNormalization.IsChecked = s.EnableTextNormalization;
         LowercaseTextForTts.IsChecked = s.LowercaseTextForTts;
+        QuoteDialogueParagraphsForTts.IsChecked = s.QuoteDialogueParagraphsForTts;
         PiperBinaryPath.Text     = s.PiperBinaryPath;
         PiperModelDir.Text       = s.PiperModelDirectory;
         RemoteServerUrl.Text     = s.RemoteServerUrl;

@@ -95,6 +95,7 @@ public sealed class VoiceUserSettings
     public bool ForceBookPhraseChunking { get; set; } = true;
     public bool EnableTextNormalization { get; set; } = true;
     public bool LowercaseTextForTts { get; set; } = true;
+    public bool QuoteDialogueParagraphsForTts { get; set; } = true;
 
     public float Volume { get; set; } = 0.8f;
     public float PlaybackSpeed { get; set; } = 1.0f;

@@ -286,6 +286,14 @@ public partial class MainWindow
         VoiceSettingsManager.SaveSettings(AppServices.Settings);
     }
 
+    private void OnQuoteDialogueParagraphsForTtsChanged(object? sender, RoutedEventArgs e)
+    {
+        if (_uiInitializing) return;
+        var enabled = QuoteDialogueParagraphsForTts.IsChecked == true;
+        AppServices.Settings.QuoteDialogueParagraphsForTts = enabled;
+        VoiceSettingsManager.SaveSettings(AppServices.Settings);
+    }
+
     private void OnAudioDeviceChanged(object? sender, SelectionChangedEventArgs e)
     {
         if (AudioDeviceSelector.SelectedItem is not ComboBoxItem item)

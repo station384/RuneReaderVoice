@@ -340,6 +340,12 @@ along with RuneReaderVoice. If not, see <https://www.gnu.org/licenses/>.
                                               ToolTip.Tip="Lowercases dialogue before normalization. Turn off if it causes pronunciation problems."
                                               Click="OnLowercaseTextForTtsChanged"/>
 
+                                    <CheckBox x:Name="QuoteDialogueParagraphsForTts"
+                                              Content="Quote dialogue paragraphs for TTS — helps models speak first-person text"
+                                              Margin="18,0,0,0"
+                                              ToolTip.Tip="Wraps non-narrator dialogue paragraphs in quotation marks before TTS. Narration/action text in angle or square brackets is left unchanged."
+                                              Click="OnQuoteDialogueParagraphsForTtsChanged"/>
+
                                     <TextBlock Text="Audio Output Device" Foreground="#888" FontSize="11" Margin="0,6,0,0"/>
                                     <ComboBox x:Name="AudioDeviceSelector"
                                               HorizontalAlignment="Stretch"
