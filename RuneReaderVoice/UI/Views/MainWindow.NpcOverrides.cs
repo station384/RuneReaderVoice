@@ -461,7 +461,7 @@ public partial class MainWindow
                 genderOverride: genderOverride);
 
             // Contribute to server if enabled
-            if (AppServices.Settings.ContributeByDefault)
+            if (AppServices.Settings.EffectiveContributeByDefault)
             {
                 var entry = await AppServices.NpcOverrides.GetOverrideAsync(_lastNpcId);
                 if (entry != null)

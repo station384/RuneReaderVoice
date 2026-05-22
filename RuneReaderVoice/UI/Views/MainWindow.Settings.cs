@@ -18,6 +18,7 @@
 
 
 using System;
+using System.Linq;
 using System.Threading.Tasks;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
@@ -142,8 +143,21 @@ public partial class MainWindow
         VoiceSettingsManager.SaveSettings(AppServices.Settings);
     }
 
+    private void OnClientAdminKeyChanged(object? sender, TextChangedEventArgs e)
+    {
+        AppServices.Settings.ClientAdminKey = ClientAdminKeyBox.Text ?? string.Empty;
+        VoiceSettingsManager.SaveSettings(AppServices.Settings);
+        UpdateProviderSensitiveUi();
+    }
+
     private void OnContributeByDefaultChanged(object? sender, RoutedEventArgs e)
     {
+        if (AppServices.Settings.IsRemoteConsumerClient)
+        {
+            ContributeByDefaultCheck.IsChecked = true;
+            return;
+        }
+
         AppServices.Settings.ContributeByDefault = ContributeByDefaultCheck.IsChecked == true;
         VoiceSettingsManager.SaveSettings(AppServices.Settings);
     }
@@ -424,9 +438,44 @@ public partial class MainWindow
 
     private void UpdateProviderSensitiveUi()
     {
-        var id = AppServices.Provider?.ProviderId ?? AppServices.Settings.ActiveProvider ?? string.Empty;
-        if (PronunciationTab != null)
-            PronunciationTab.IsVisible = id.Contains("kokoro", StringComparison.OrdinalIgnoreCase);
+        var settings = AppServices.Settings;
+        var provider = AppServices.Provider;
+
+        bool sharedEditorAllowed = !settings.IsRemoteProviderActive || settings.IsAdminClient;
+        bool pronunciationSupported = provider?.SupportsInlinePronunciationHints == true;
+
+        SetTabVisible(RaceVoicesTab, sharedEditorAllowed);
+        SetTabVisible(RaceEditorTab, sharedEditorAllowed);
+        SetTabVisible(VoiceDefaultsTab, sharedEditorAllowed);
+        SetTabVisible(NpcVoicesTab, sharedEditorAllowed);
+        SetTabVisible(TextShapingTab, sharedEditorAllowed);
+        SetTabVisible(PronunciationTab, sharedEditorAllowed && pronunciationSupported);
+
+        if (settings.IsRemoteConsumerClient)
+        {
+            ContributeByDefaultCheck.IsChecked = true;
+            ContributeByDefaultCheck.IsEnabled = false;
+            ContributeByDefaultCheck.Content = "Contribute NPC voice assignments to server automatically (required for remote client mode)";
+        }
+        else
+        {
+            ContributeByDefaultCheck.IsEnabled = true;
+            ContributeByDefaultCheck.Content = "Contribute NPC voice assignments to server automatically";
+            ContributeByDefaultCheck.IsChecked = settings.ContributeByDefault;
+        }
+
+        if (SettingsTabControl.SelectedItem is TabItem selected && !selected.IsVisible)
+        {
+            SettingsTabControl.SelectedItem = SettingsTabControl.Items
+                .OfType<TabItem>()
+                .FirstOrDefault(t => t.IsVisible);
+        }
+    }
+
+    private static void SetTabVisible(TabItem? tab, bool visible)
+    {
+        if (tab != null)
+            tab.IsVisible = visible;
     }
 
     private void HookProviderStatusCallbacks(ITtsProvider provider)

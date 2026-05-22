@@ -161,10 +161,32 @@ public sealed class VoiceUserSettings
     public string AdminKey { get; set; } = "";
 
     /// <summary>
+    /// Local-only trust gate for showing shared-config authoring UI.
+    /// This is not sent to the server. Current temporary key: 1234.
+    /// </summary>
+    public string ClientAdminKey { get; set; } = "";
+
+    /// <summary>
     /// When true, saving a Local NPC override automatically contributes it
     /// to the server in the background (fire-and-forget, silent failure).
     /// </summary>
     public bool ContributeByDefault { get; set; } = false;
+
+    public const string LocalAdminClientKey = "1234";
+
+    [System.Text.Json.Serialization.JsonIgnore]
+    public bool IsAdminClient =>
+        string.Equals(ClientAdminKey?.Trim(), LocalAdminClientKey, StringComparison.Ordinal);
+
+    [System.Text.Json.Serialization.JsonIgnore]
+    public bool IsRemoteProviderActive =>
+        (ActiveProvider ?? string.Empty).StartsWith("remote:", StringComparison.OrdinalIgnoreCase);
+
+    [System.Text.Json.Serialization.JsonIgnore]
+    public bool IsRemoteConsumerClient => IsRemoteProviderActive && !IsAdminClient;
+
+    [System.Text.Json.Serialization.JsonIgnore]
+    public bool EffectiveContributeByDefault => ContributeByDefault || IsRemoteConsumerClient;
 
     /// <summary>
     /// Unix timestamp of the last successful NPC override poll from server.

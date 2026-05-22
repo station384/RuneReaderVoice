@@ -313,6 +313,7 @@ public partial class MainWindow : Window
         RemoteApiKey.Text        = s.RemoteApiKey;
         ContributeKeyBox.Text    = s.ContributeKey;
         AdminKeyBox.Text         = s.AdminKey;
+        ClientAdminKeyBox.Text   = s.ClientAdminKey;
         ContributeByDefaultCheck.IsChecked = s.ContributeByDefault;
         FirstLoadCompleteCheck.IsChecked   = s.FirstLoadComplete;
         UpdateRemoteProvidersStatus();

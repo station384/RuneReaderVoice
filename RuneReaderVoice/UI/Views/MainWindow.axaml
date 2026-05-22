@@ -278,6 +278,10 @@ along with RuneReaderVoice. If not, see <https://www.gnu.org/licenses/>.
                                                ToolTip.Tip="Admin token for pushing defaults to the server. Leave empty for open LAN mode."/>
                                     <TextBox x:Name="AdminKeyBox" TextChanged="OnAdminKeyChanged" PasswordChar="*"/>
 
+                                    <TextBlock Text="Client Admin Key (local)" Foreground="#888" FontSize="11" Margin="0,6,0,0"
+                                               ToolTip.Tip="Local trust gate for showing shared-config editing tabs. Temporary key: 1234. Not sent to the server."/>
+                                    <TextBox x:Name="ClientAdminKeyBox" TextChanged="OnClientAdminKeyChanged" PasswordChar="*"/>
+
                                     <CheckBox x:Name="ContributeByDefaultCheck"
                                               Content="Contribute NPC voice assignments to server automatically"
                                               FontSize="11" Margin="0,6,0,0"
@@ -523,7 +527,7 @@ along with RuneReaderVoice. If not, see <https://www.gnu.org/licenses/>.
             </TabItem>
 
             <!-- Voice assignment tab -->
-            <TabItem Header="Race Voices">
+            <TabItem x:Name="RaceVoicesTab" Header="Race Voices">
                 <ScrollViewer>
                     <StackPanel Margin="12" Spacing="6">
                         <TextBlock Text="NPC Voice Profiles"
@@ -549,7 +553,7 @@ along with RuneReaderVoice. If not, see <https://www.gnu.org/licenses/>.
             </TabItem>
 
 
-            <TabItem Header="Race Editor">
+            <TabItem x:Name="RaceEditorTab" Header="Race Editor">
                 <ScrollViewer>
                     <Grid Margin="12" ColumnDefinitions="0.95*,1.05*" ColumnSpacing="12">
                         <StackPanel Grid.Column="0" Spacing="8">
@@ -652,7 +656,7 @@ along with RuneReaderVoice. If not, see <https://www.gnu.org/licenses/>.
                 </ScrollViewer>
             </TabItem>
 
-            <TabItem Header="Voice Defaults">
+            <TabItem x:Name="VoiceDefaultsTab" Header="Voice Defaults">
                 <ScrollViewer>
                     <StackPanel Margin="12" Spacing="6">
                         <TextBlock Text="Voice / Sample Default Profiles"
@@ -701,7 +705,7 @@ along with RuneReaderVoice. If not, see <https://www.gnu.org/licenses/>.
             </TabItem>
 
             <!-- NPC Overrides tab -->
-            <TabItem Header="NPC Voices">
+            <TabItem x:Name="NpcVoicesTab" Header="NPC Voices">
                 <ScrollViewer>
                     <StackPanel Margin="12" Spacing="10">
                         <TextBlock Text="NPC Voice Overrides"
@@ -1124,7 +1128,7 @@ along with RuneReaderVoice. If not, see <https://www.gnu.org/licenses/>.
                 </ScrollViewer>
             </TabItem>
 
-            <TabItem Header="Text Shaping">
+            <TabItem x:Name="TextShapingTab" Header="Text Shaping">
                 <ScrollViewer>
                     <Grid Margin="12" ColumnDefinitions="1.1*,0.9*" ColumnSpacing="12">
                         <StackPanel Grid.Column="0" Spacing="8">

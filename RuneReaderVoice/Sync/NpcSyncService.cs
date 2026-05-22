@@ -99,7 +99,10 @@ public sealed class NpcSyncService : IDisposable
 
     private bool ShouldUseRemoteSync()
         => !string.IsNullOrWhiteSpace(_settings.RemoteServerUrl)
-           && (_settings.ActiveProvider ?? string.Empty).StartsWith("remote:", StringComparison.OrdinalIgnoreCase);
+           && _settings.IsRemoteProviderActive;
+
+    private bool ShouldRefreshSharedConfigFromServer()
+        => ShouldUseRemoteSync() && _settings.IsRemoteConsumerClient;
 
     // ── Startup ───────────────────────────────────────────────────────────────
 
@@ -124,6 +127,9 @@ public sealed class NpcSyncService : IDisposable
         {
             // Catch up immediately on startup. Do not wait for the first 5-minute poll.
             await PollNpcOverridesAsync(_settings.LastNpcSyncAt).ConfigureAwait(false);
+
+            if (ShouldRefreshSharedConfigFromServer())
+                await RefreshSharedConfigFromServerAsync().ConfigureAwait(false);
         }
 
         _cts      = new CancellationTokenSource();
@@ -163,7 +169,11 @@ public sealed class NpcSyncService : IDisposable
             {
                 await Task.Delay(PollInterval, ct).ConfigureAwait(false);
                 await PollNpcOverridesAsync(_settings.LastNpcSyncAt).ConfigureAwait(false);
-                await PullAndApplyNpcPeopleCatalogAsync().ConfigureAwait(false);
+
+                if (ShouldRefreshSharedConfigFromServer())
+                    await RefreshSharedConfigFromServerAsync().ConfigureAwait(false);
+                else
+                    await PullAndApplyNpcPeopleCatalogAsync().ConfigureAwait(false);
             }
             catch (OperationCanceledException)
             {
@@ -174,6 +184,17 @@ public sealed class NpcSyncService : IDisposable
                 System.Diagnostics.Debug.WriteLine($"[NpcSyncService] Poll error: {ex.Message}");
             }
         }
+    }
+
+    private async Task RefreshSharedConfigFromServerAsync()
+    {
+        System.Diagnostics.Debug.WriteLine("[NpcSync] Refreshing shared config from server for remote consumer client");
+
+        await PullAndApplyProviderSlotProfilesAsync("voice_slot").ConfigureAwait(false);
+        await PullAndApplyProviderSlotProfilesAsync("sample").ConfigureAwait(false);
+        await PullAndApplyDefaultsAsync("pronunciation").ConfigureAwait(false);
+        await PullAndApplyDefaultsAsync("text-shaping").ConfigureAwait(false);
+        await PullAndApplyNpcPeopleCatalogAsync().ConfigureAwait(false);
     }
 
     /// <summary>
@@ -262,7 +283,7 @@ public sealed class NpcSyncService : IDisposable
     /// </summary>
     public void ContributeIfEnabled(NpcRaceOverride entry)
     {
-        if (!_settings.ContributeByDefault || !ShouldUseRemoteSync() || !ShouldContributeEntry(entry))
+        if (!_settings.EffectiveContributeByDefault || !ShouldUseRemoteSync() || !ShouldContributeEntry(entry))
             return;
 
         _ = Task.Run(async () =>
