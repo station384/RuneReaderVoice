@@ -1133,7 +1133,8 @@ public partial class MainWindow
         NpcOverridesStatus.Text = "Pulling from server…";
         try
         {
-            int merged = await AppServices.NpcSync.PollNpcOverridesAsync(sinceTs: 0.0);
+            var sinceTs = AppServices.Settings.LastNpcSyncAt;
+            int merged = await AppServices.NpcSync.PollNpcOverridesAsync(sinceTs);
             RefreshNpcOverridesGrid();
             NpcOverridesStatus.Text = merged > 0
                 ? $"Pulled {merged} override(s) from server."

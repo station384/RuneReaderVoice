@@ -117,7 +117,14 @@ public sealed class NpcSyncService : IDisposable
         }
 
         if (!_settings.FirstLoadComplete)
+        {
             await DoFirstLoadAsync().ConfigureAwait(false);
+        }
+        else
+        {
+            // Catch up immediately on startup. Do not wait for the first 5-minute poll.
+            await PollNpcOverridesAsync(_settings.LastNpcSyncAt).ConfigureAwait(false);
+        }
 
         _cts      = new CancellationTokenSource();
         _pollTask = PollLoopAsync(_cts.Token);
@@ -139,7 +146,8 @@ public sealed class NpcSyncService : IDisposable
         await PullAndApplyNpcPeopleCatalogAsync().ConfigureAwait(false);
 
         _settings.FirstLoadComplete = true;
-        _settings.LastNpcSyncAt     = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() / 1000.0;
+        // Do not stamp LastNpcSyncAt with local wall-clock time.
+        // PollNpcOverridesAsync updates it from server updated_at values actually received.
         VoiceSettingsManager.SaveSettings(_settings);
 
         SetStatus("First load complete.");
@@ -174,7 +182,7 @@ public sealed class NpcSyncService : IDisposable
     /// </summary>
     public async Task<int> PollNpcOverridesAsync(double sinceTs)
     {
-        System.Diagnostics.Debug.WriteLine($"[NpcSync] Polling since={sinceTs:F0}");
+        System.Diagnostics.Debug.WriteLine($"[NpcSync] Polling since={sinceTs:0.###} saved={_settings.LastNpcSyncAt:0.###}");
         var records = await _client.GetNpcOverridesSinceAsync(sinceTs).ConfigureAwait(false);
         if (records == null || records.Count == 0)
         {
@@ -214,8 +222,12 @@ public sealed class NpcSyncService : IDisposable
 
         // Update sync timestamp to the most recent record we received
         var latestTs = records.Max(r => r.UpdatedAt);
-        _settings.LastNpcSyncAt = latestTs;
-        VoiceSettingsManager.SaveSettings(_settings);
+        if (latestTs > _settings.LastNpcSyncAt)
+        {
+            _settings.LastNpcSyncAt = latestTs;
+            VoiceSettingsManager.SaveSettings(_settings);
+            System.Diagnostics.Debug.WriteLine($"[NpcSync] Saved LastNpcSyncAt={latestTs:0.###}");
+        }
 
         return merged;
     }
@@ -795,13 +807,6 @@ internal sealed class NpcOverrideExportEntry
     public string? CatalogId           { get; set; }
     [System.Text.Json.Serialization.JsonPropertyName("NpcName")]
     public string? NpcName             { get; set; }
-
-    // Compatibility with server-style default payloads.
-    [System.Text.Json.Serialization.JsonPropertyName("npc_name")]
-    public string? NpcNameSnake { get => NpcName; set => NpcName = value; }
-
-    [System.Text.Json.Serialization.JsonPropertyName("npcName")]
-    public string? NpcNameCamel { get => NpcName; set => NpcName = value; }
 
     [System.Text.Json.Serialization.JsonPropertyName("RaceId")]
     public int     RaceId              { get; set; }

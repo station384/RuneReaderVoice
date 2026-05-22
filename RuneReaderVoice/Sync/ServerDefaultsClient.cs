@@ -46,13 +46,6 @@ public sealed class ServerNpcOverrideRecord
     [JsonPropertyName("catalog_id")]           public string? CatalogId           { get; set; }
     [JsonPropertyName("npc_name")]             public string? NpcName             { get; set; }
 
-    // Compatibility with seed/default payloads or older tools that use C# names.
-    [JsonPropertyName("NpcName")]
-    public string? NpcNamePascal { get => NpcName; set => NpcName = value; }
-
-    [JsonPropertyName("npcName")]
-    public string? NpcNameCamel { get => NpcName; set => NpcName = value; }
-
     [JsonPropertyName("race_id")]              public int     RaceId              { get; set; }
     [JsonPropertyName("notes")]                public string? Notes               { get; set; }
     [JsonPropertyName("bespoke_sample_id")]    public string? BespokeSampleId     { get; set; }
