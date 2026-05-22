@@ -134,6 +134,7 @@ class WorkerBackend(AbstractTtsBackend):
         longcat_steps: int = 16,
         longcat_cfg_strength: float = 4.0,
         longcat_guidance: str = "apg",
+        cond_cache_dir: Path | None = None,
     ) -> None:
         self._backend_name = backend_name
         self._venv_path = Path(venv_path)
@@ -149,6 +150,7 @@ class WorkerBackend(AbstractTtsBackend):
         self._longcat_steps = longcat_steps
         self._longcat_cfg_strength = longcat_cfg_strength
         self._longcat_guidance = longcat_guidance
+        self._cond_cache_dir = Path(cond_cache_dir).resolve() if cond_cache_dir is not None else None
 
         # Set after load()
         self._process: Optional[subprocess.Popen] = None
@@ -312,6 +314,7 @@ class WorkerBackend(AbstractTtsBackend):
             "--samples-dir", str(self._samples_dir),
             "--gpu",         self._gpu,
             "--max-concurrent", str(self._max_concurrent),
+            *( ["--cond-cache-dir", str(self._cond_cache_dir)] if self._cond_cache_dir is not None else [] ),
             "--qwen-size",   self._qwen_size,
             "--lux-num-steps", str(self._lux_num_steps),
             "--lux-t-shift", str(self._lux_t_shift),

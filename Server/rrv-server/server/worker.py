@@ -363,6 +363,8 @@ async def _main(args: argparse.Namespace) -> None:
 def _instantiate_backend(name: str, models_dir: Path, samples_dir: Path, gpu_info, args: argparse.Namespace):
     """Instantiate the correct backend class for this worker."""
     max_concurrent = getattr(args, "max_concurrent", 2) or 2
+    cond_cache_dir = getattr(args, "cond_cache_dir", None) or os.environ.get("RRV_COND_CACHE_DIR")
+    cond_cache_dir = Path(cond_cache_dir).resolve() if cond_cache_dir else None
 
     if name == "kokoro":
         from .backends.kokoro_backend import KokoroBackend
@@ -378,6 +380,7 @@ def _instantiate_backend(name: str, models_dir: Path, samples_dir: Path, gpu_inf
             models_dir=models_dir,
             torch_device=gpu_info.torch_device,
             max_concurrent=max_concurrent,
+            cond_cache_dir=cond_cache_dir,
         )
 
     elif name == "chatterbox_full":
@@ -386,6 +389,7 @@ def _instantiate_backend(name: str, models_dir: Path, samples_dir: Path, gpu_inf
             models_dir=models_dir,
             torch_device=gpu_info.torch_device,
             max_concurrent=max_concurrent,
+            cond_cache_dir=cond_cache_dir,
         )
 
     elif name == "chatterbox_multilingual":
@@ -394,6 +398,7 @@ def _instantiate_backend(name: str, models_dir: Path, samples_dir: Path, gpu_inf
             models_dir=models_dir,
             torch_device=gpu_info.torch_device,
             max_concurrent=1,  # always serial
+            cond_cache_dir=cond_cache_dir,
         )
 
     elif name == "qwen_natural":
@@ -457,6 +462,8 @@ def _parse_args() -> argparse.Namespace:
                         help="GPU execution provider (default: auto)")
     parser.add_argument("--max-concurrent", dest="max_concurrent", type=int, default=2,
                         help="Max concurrent synthesis (Chatterbox backends only; default: 2)")
+    parser.add_argument("--cond-cache-dir", dest="cond_cache_dir", default=None,
+                        help="Voice conditioning cache directory (Chatterbox backends)")
     parser.add_argument("--qwen-size", dest="qwen_size", default="large",
                         choices=["large", "small"],
                         help="Qwen model size: large=1.7B, small=0.6B (default: large)")

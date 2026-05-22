@@ -1052,6 +1052,36 @@ class ChatterboxMultilingualBackend(AbstractTtsBackend):
         h = hashlib.sha256("|".join(parts).encode()).hexdigest()[:16]
         return f"blend_{h}|ex:{exaggeration:.3f}"
 
+    def _prior_voice_key(self, base_voice_key: str, request: SynthesisRequest, *,
+                         cfg_weight: float, temperature: float, top_p: float,
+                         repetition_penalty: float, max_new_tokens: int) -> str:
+        """Return identity key for T3 prior-token continuation.
+
+        Conditioning cache keys only include values that affect prepare_conditionals()
+        (sample/blend + exaggeration). Prior speech tokens are different: they are
+        generated output context and must be keyed by every generation knob that can
+        alter prosody/accent/token trajectory. Otherwise a cached tail from the same
+        sample but a different seed/temp/cfg/top-p/etc. can bleed into the next
+        segment.
+        """
+        import hashlib
+        ctx = request.voice_context or ""
+        ctx_hash = hashlib.sha256(ctx.encode("utf-8", "ignore")).hexdigest()[:12] if ctx else "none"
+        seed = "none" if request.synthesis_seed is None else str(int(request.synthesis_seed))
+        model_version = self._model_version or "unknown"
+        return (
+            f"{base_voice_key}"
+            f"|provider:{self.provider_id}"
+            f"|model:{model_version}"
+            f"|cfg:{cfg_weight:.4f}"
+            f"|temp:{temperature:.4f}"
+            f"|top_p:{top_p:.4f}"
+            f"|rep:{repetition_penalty:.4f}"
+            f"|seed:{seed}"
+            f"|budget:{int(max_new_tokens)}"
+            f"|ctx:{ctx_hash}"
+        )
+
     def _cond_disk_path(self, cache_key: str) -> Path:
         safe = cache_key.replace("|", "_").replace(":", "-").replace(".", "p")
         return self._cond_cache_dir / f"{safe}.pt"
@@ -1066,7 +1096,8 @@ class ChatterboxMultilingualBackend(AbstractTtsBackend):
         self._cond_mem_cache[cache_key] = (t3_cond, gen_dict)
         self._cond_mem_cache.move_to_end(cache_key)
         while len(self._cond_mem_cache) > self._COND_MEM_CACHE_SIZE:
-            self._cond_mem_cache.popitem(last=False)
+            _old_key, _old_value = self._cond_mem_cache.popitem(last=False)
+            del _old_value
 
     def _cond_disk_save(self, cache_key: str, t3_cond, gen_dict: dict) -> None:
         import torch
@@ -1164,6 +1195,7 @@ class ChatterboxMultilingualBackend(AbstractTtsBackend):
         temperature        = request.cb_temperature      if request.cb_temperature      is not None else 0.8
         top_p              = request.cb_top_p            if request.cb_top_p            is not None else 1.0
         repetition_penalty = request.cb_repetition_penalty if request.cb_repetition_penalty is not None else 1.2
+        _MAX_NEW_TOKENS     = int(os.environ.get("RRV_CB_MAX_NEW_TOKENS", "1000"))
 
         # Resolve lang_code — normalize sub-locale, validate, fall back to en
         raw_lang  = (request.lang_code or "en").lower().strip()
@@ -1194,10 +1226,23 @@ class ChatterboxMultilingualBackend(AbstractTtsBackend):
             if hasattr(self._model, "_rrv_blend_generate"):
                 del self._model._rrv_blend_generate
 
+        # Conditioning cache identity: only values that affect prepare_conditionals().
         if blend_entries:
-            _voice_key = self._cond_key_blend(blend_entries, exaggeration)
+            _cond_voice_key = self._cond_key_blend(blend_entries, exaggeration)
         else:
-            _voice_key = self._cond_key_single(request.sample_path, exaggeration)
+            _cond_voice_key = self._cond_key_single(request.sample_path, exaggeration)
+
+        # Prior-token identity: generated-token tails are context-sensitive and
+        # must include all generation controls that can alter token trajectory.
+        _voice_key = self._prior_voice_key(
+            _cond_voice_key,
+            request,
+            cfg_weight=cfg_weight,
+            temperature=temperature,
+            top_p=top_p,
+            repetition_penalty=repetition_penalty,
+            max_new_tokens=_MAX_NEW_TOKENS,
+        )
 
         if request.synthesis_seed is not None:
             import torch as _torch
@@ -1265,7 +1310,7 @@ class ChatterboxMultilingualBackend(AbstractTtsBackend):
                 speech_tokens = self._model.t3.inference(
                     t3_cond=active_t3_cond,
                     text_tokens=text_proc,
-                    max_new_tokens=1000,
+                    max_new_tokens=_MAX_NEW_TOKENS,
                     temperature=temperature,
                     cfg_weight=cfg_weight,
                     repetition_penalty=repetition_penalty,

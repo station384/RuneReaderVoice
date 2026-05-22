@@ -110,6 +110,10 @@ def _create_backend(name: str, models_dir, gpu: GpuInfo, settings=None) -> Abstr
     The proxy spawns the backend as an isolated subprocess in its own venv.
     Fall-through: backends with no venv configured are loaded in-process as before.
     """
+    chatterbox_max_concurrent = getattr(settings, "chatterbox_max_concurrent", 2)
+    _cond_cache_dir = Path(getattr(settings, "cond_cache_dir",
+                                    models_dir.parent / "cond_cache"))
+
     # Worker venv check — highest priority
     worker_venvs: dict = getattr(settings, "worker_venvs", {})
     if name in worker_venvs:
@@ -149,11 +153,8 @@ def _create_backend(name: str, models_dir, gpu: GpuInfo, settings=None) -> Abstr
             longcat_steps=longcat_steps,
             longcat_cfg_strength=longcat_cfg_strength,
             longcat_guidance=longcat_guidance,
+            cond_cache_dir=_cond_cache_dir.resolve(),
         )
-
-    chatterbox_max_concurrent = getattr(settings, "chatterbox_max_concurrent", 2)
-    _cond_cache_dir = Path(getattr(settings, "cond_cache_dir",
-                                    models_dir.parent / "cond_cache"))
 
     if name == "kokoro":
         from .kokoro_backend import KokoroBackend
@@ -195,6 +196,7 @@ def _create_backend(name: str, models_dir, gpu: GpuInfo, settings=None) -> Abstr
             # Multilingual model does not support concurrent synthesis safely —
             # always serial regardless of RRV_CHATTERBOX_MAX_CONCURRENT.
             max_concurrent=1,
+            cond_cache_dir=_cond_cache_dir,
         )
 
     elif name == "qwen_natural":
