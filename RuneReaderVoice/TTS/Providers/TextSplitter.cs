@@ -78,6 +78,12 @@ public static class TextSplitter
 
             if (c is '.' or '!' or '?' || c == '…')
             {
+                // Runs of dots ("..." or text-shaped "..") are hesitation markers,
+                // not sentence boundaries. Paragraph chunking decides whether they
+                // stay with surrounding dialogue.
+                if (c == '…' || (c == '.' && IsPartOfDotRun(input, i)))
+                    continue;
+
                 var token = GetTokenBeforeBoundary(current.ToString());
                 if (c == '.' && IsAbbreviation(token))
                     continue;
@@ -101,6 +107,16 @@ public static class TextSplitter
         var tail = current.ToString().Trim();
         if (tail.Length > 0) parts.Add(tail);
         return parts.Count > 0 ? parts : new List<string> { input };
+    }
+
+    private static bool IsPartOfDotRun(string input, int index)
+    {
+        if (index < 0 || index >= input.Length || input[index] != '.')
+            return false;
+
+        bool prevDot = index > 0 && input[index - 1] == '.';
+        bool nextDot = index + 1 < input.Length && input[index + 1] == '.';
+        return prevDot || nextDot;
     }
 
     public static List<string> SplitClauses(string text)

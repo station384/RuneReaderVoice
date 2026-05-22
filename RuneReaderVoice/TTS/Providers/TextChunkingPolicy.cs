@@ -99,6 +99,16 @@ public static class TextChunkingPolicy
         var trimmed = block.Trim();
         if (trimmed.Length == 0) return;
 
+        // Paragraph is the primary breath/dialog unit.  Do not sentence-split
+        // normal paragraphs just because they contain periods or ellipses.
+        // Sentence/clauses are fallback only for oversized or pattern-risky text.
+        if (!LooksLikeMultiLineList(trimmed))
+        {
+            AppendSized(CollapseSingleLineBreaks(trimmed), boundaryBefore, profile, dest);
+            return;
+        }
+
+        // Lists are different: each visible line is usually a separate semantic item.
         var lineBlocks = profile.SplitOnSingleLines
             ? TextSplitter.SplitSingleLines(trimmed)
             : new List<string> { trimmed };
@@ -110,15 +120,36 @@ public static class TextChunkingPolicy
         }
     }
 
+    private static bool LooksLikeMultiLineList(string text)
+    {
+        var lines = TextSplitter.SplitSingleLines(text);
+        if (lines.Count <= 1)
+            return false;
+
+        if (lines.Count(line => Regex.IsMatch(line, @"^\s*(?:[-*•]|\d+[.)])\s+")) >= 2)
+            return true;
+
+        // Several short lines are usually a UI/list artifact, not a wrapped paragraph.
+        return lines.Count >= 4 && lines.Count(line => line.Length <= 80) >= 3;
+    }
+
+    private static string CollapseSingleLineBreaks(string text)
+        => Regex.Replace(TextSplitter.NormalizeLineEndings(text).Trim(), @"\s*\n\s*", " ");
+
     private static void AppendSized(string text, string boundaryBefore, ChunkProfile profile, List<TextChunk> dest)
     {
-        if (text.Length <= profile.HardCapChars && !ShouldAggressivelySplit(text, profile))
+        var normalized = CollapseSingleLineBreaks(text);
+
+        // Keep ordinary paragraphs intact.  TargetChars is the preferred safe
+        // paragraph size; only split above it or when a known model-risk pattern
+        // is present.
+        if (normalized.Length <= profile.TargetChars && !ShouldSplitForPattern(normalized, profile))
         {
-            dest.Add(new TextChunk { Text = text, BoundaryBefore = boundaryBefore });
+            dest.Add(new TextChunk { Text = normalized, BoundaryBefore = boundaryBefore });
             return;
         }
 
-        var sentences = TextSplitter.SplitSentences(text);
+        var sentences = TextSplitter.SplitSentences(normalized);
         if (sentences.Count > 1)
         {
             var grouped = GroupBySize(sentences, profile, boundaryBefore, "sentence");
@@ -126,7 +157,7 @@ public static class TextChunkingPolicy
             return;
         }
 
-        var clauses = TextSplitter.SplitClauses(text);
+        var clauses = TextSplitter.SplitClauses(normalized);
         if (clauses.Count > 1)
         {
             var grouped = GroupBySize(clauses, profile, boundaryBefore, "clause");
@@ -134,7 +165,7 @@ public static class TextChunkingPolicy
             return;
         }
 
-        var commaParts = TextSplitter.SplitCommas(text);
+        var commaParts = TextSplitter.SplitCommas(normalized);
         if (commaParts.Count > 1)
         {
             var grouped = GroupBySize(commaParts, profile, boundaryBefore, "comma");
@@ -142,7 +173,7 @@ public static class TextChunkingPolicy
             return;
         }
 
-        foreach (var piece in TextSplitter.SplitByLength(text, profile.TargetChars, profile.HardCapChars))
+        foreach (var piece in TextSplitter.SplitByLength(normalized, profile.TargetChars, profile.HardCapChars))
         {
             dest.Add(new TextChunk { Text = piece, BoundaryBefore = boundaryBefore, BoundaryAfter = "forced" });
             boundaryBefore = "forced";
@@ -150,10 +181,10 @@ public static class TextChunkingPolicy
     }
 
     private static bool ShouldAggressivelySplit(string text, ChunkProfile profile)
-    {
-        if (text.Length > profile.TargetChars)
-            return true;
+        => text.Length > profile.TargetChars || ShouldSplitForPattern(text, profile);
 
+    private static bool ShouldSplitForPattern(string text, ChunkProfile profile)
+    {
         int itemCount = CountLikelyListItems(text);
         if (itemCount >= profile.ListItemLimit)
             return true;
