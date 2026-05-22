@@ -11215,11 +11215,11 @@
         }
       },
       "Nightborne/Female": {
-        "VoiceId": "F_Nightborne_1",
+        "VoiceId": "F_Nightborne_2",
         "LangCode": "en-gb",
         "SpeechRate": 1,
-        "CfgWeight": 1.01,
-        "Exaggeration": 0.5,
+        "CfgWeight": 0.28,
+        "Exaggeration": 0.54,
         "CfgStrength": null,
         "NfeStep": null,
         "CrossFadeDuration": null,
@@ -11227,9 +11227,9 @@
         "VoiceInstruct": null,
         "CosyInstruct": null,
         "SynthesisSeed": 7,
-        "ChatterboxTemperature": 0.6,
+        "ChatterboxTemperature": 0.9,
         "ChatterboxTopP": 1,
-        "ChatterboxRepetitionPenalty": 1.4,
+        "ChatterboxRepetitionPenalty": 1.2,
         "LongcatSteps": null,
         "LongcatCfgStrength": null,
         "LongcatGuidance": null,
@@ -11241,14 +11241,7 @@
               "Kind": 8,
               "Enabled": true,
               "Params": {
-                "amount": 0.6
-              }
-            },
-            {
-              "Kind": 3,
-              "Enabled": true,
-              "Params": {
-                "percent": -5.374593
+                "amount": 0.39576548
               }
             }
           ],
