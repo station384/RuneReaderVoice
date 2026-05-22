@@ -370,7 +370,13 @@ internal static class Program
     private static IEnumerable<AssembledSegment> ExpandPlayerNameSplit(AssembledSegment segment, int startExpandedSegmentIndex)
     {
         var mode = (AppServices.Settings.PlayerNameMode ?? "generic").Trim().ToLowerInvariant();
-        var strategy = "containing_sentence";
+
+        // Player-name replacement is intentionally isolated at paragraph level.
+        // Earlier sentence/name-level splitting improved cache reuse but made the
+        // substituted name/title sound pasted in. Keeping the whole paragraph
+        // preserves local prosody while still avoiding regeneration of unrelated
+        // paragraphs in the same dialog.
+        var strategy = "containing_paragraph";
         int expandedSegmentIndex = startExpandedSegmentIndex;
         if (mode != "split" && mode != "generic" && mode != "actual")
         {
@@ -537,10 +543,10 @@ internal static class Program
             return null;
 
         // Maintainer note:
-        // All replacement modes now use the same sentence-based cache-preserving split flow,
+        // All replacement modes now use the same paragraph-based cache-preserving split flow,
         // not just the actual player name. Cache-friendly titles (Hero / Champion /
         // Player Class Name), actual player names, and optional realm suffixes all fragment
-        // cache identity, so they all need to be isolated into their own segment when present.
+        // cache identity, so the full paragraph containing the replacement is isolated when present.
         var preset = (AppServices.Settings.PlayerNameReplacementPreset ?? "hero").Trim().ToLowerInvariant();
         var replacement = preset switch
         {

@@ -114,7 +114,7 @@ public sealed class VoiceUserSettings
     public string PlayerNameReplacementPreset { get; set; } = "champion";
     public bool PlayerNameAppendRealm { get; set; } = false;
     public bool PlayerNameEnableTitle { get; set; } = true;
-    public string PlayerNameSplitStrategy { get; set; } = "containing_sentence";
+    public string PlayerNameSplitStrategy { get; set; } = "containing_paragraph";
 
     public int CaptureIntervalMs { get; set; } = 5;
     public void NormalizeCaptureSettings()

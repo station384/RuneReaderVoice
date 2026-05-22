@@ -388,7 +388,7 @@ along with RuneReaderVoice. If not, see <https://www.gnu.org/licenses/>.
                                       IsExpanded="False">
                                 <StackPanel Margin="0,8,0,0" Spacing="6">
                                     <TextBlock Text="Player name handling" Foreground="#888" FontSize="11"
-                                               ToolTip.Tip="Controls whether the detected player name is spoken as-is or replaced with a cache-friendly title before synthesis. All modes now isolate the variable piece using sentence-shaped segments so most of the text can stay cached."/>
+                                               ToolTip.Tip="Controls whether the detected player name is spoken as-is or replaced with a cache-friendly title before synthesis. All modes now isolate the full paragraph containing the variable piece so speech stays natural while unrelated paragraphs stay cacheable."/>
                                     <ComboBox x:Name="PlayerNameModeSelector"
                                               HorizontalAlignment="Stretch"
                                               SelectionChanged="OnPlayerNameModeChanged">
@@ -397,7 +397,7 @@ along with RuneReaderVoice. If not, see <https://www.gnu.org/licenses/>.
                                     </ComboBox>
 
                                     <TextBlock Text="Replacement title" Foreground="#888" FontSize="11" Margin="0,6,0,0"
-                                               ToolTip.Tip="Used when player name handling is set to a cache-friendly title. The selected replacement is isolated into its own cache-preserving sentence-shaped segment when present."/>
+                                               ToolTip.Tip="Used when player name handling is set to a cache-friendly title. The full paragraph containing the selected replacement is isolated for cache-friendly but natural speech when present."/>
                                     <ComboBox x:Name="PlayerNamePresetSelector"
                                               HorizontalAlignment="Stretch"
                                               SelectionChanged="OnPlayerNamePresetChanged">
