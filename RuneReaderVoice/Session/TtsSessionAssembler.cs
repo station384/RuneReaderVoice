@@ -761,24 +761,28 @@ public sealed class TtsSessionAssembler
             return false;
 
         var requiredMatches = npcTokens.Count <= 2 ? npcTokens.Count : npcTokens.Count - 1;
+        var npcCompact = NormalizeCompactName(npcName);
 
         var best = voices
             .Select(v =>
             {
                 var sampleTokens = NormalizeNameTokens(v.VoiceId);
+                var sampleCompact = CompactFromTokens(sampleTokens);
                 var matchedTokens = npcTokens
                     .Where(t => sampleTokens.Any(st => string.Equals(st, t, StringComparison.OrdinalIgnoreCase)))
                     .ToArray();
+                var compactMatch = IsCompactNpcNameMatch(npcCompact, sampleCompact, npcTokens.Count);
 
                 return new
                 {
                     Voice = v,
                     Tokens = sampleTokens,
                     MatchedTokens = matchedTokens,
-                    Score = ScoreNpcSampleMatch(npcTokens, sampleTokens, matchedTokens, v.VoiceId)
+                    CompactMatch = compactMatch,
+                    Score = ScoreNpcSampleMatch(npcTokens, sampleTokens, matchedTokens, compactMatch, v.VoiceId)
                 };
             })
-            .Where(x => x.MatchedTokens.Length >= requiredMatches)
+            .Where(x => x.MatchedTokens.Length >= requiredMatches || x.CompactMatch)
             .OrderByDescending(x => x.Score)
             .ThenBy(x => x.Voice.VoiceId.Length)
             .ThenBy(x => x.Voice.VoiceId, StringComparer.OrdinalIgnoreCase)
@@ -795,9 +799,13 @@ public sealed class TtsSessionAssembler
         IReadOnlyList<string> npcTokens,
         IReadOnlyList<string> sampleTokens,
         IReadOnlyList<string> matchedTokens,
+        bool compactMatch,
         string sampleId)
     {
         var score = matchedTokens.Count * 1000;
+
+        if (compactMatch)
+            score += 750;
 
         if (sampleId.StartsWith("U_", StringComparison.OrdinalIgnoreCase))
             score += 100;
@@ -810,6 +818,37 @@ public sealed class TtsSessionAssembler
 
         return score;
     }
+
+
+    private static bool IsCompactNpcNameMatch(string npcCompact, string sampleCompact, int npcTokenCount)
+    {
+        if (string.IsNullOrWhiteSpace(npcCompact) || string.IsNullOrWhiteSpace(sampleCompact))
+            return false;
+
+        // Compact matching is for missing spaces in decoded names, e.g.
+        // "FirstArcanistThalyssra" or "First ArcanistThalyssra".
+        // Keep threshold high enough so a single short token like "Blockhead"
+        // does not match "TheronBlockhead".
+        var minLength = npcTokenCount <= 1 ? 12 : 8;
+        if (npcCompact.Length < minLength)
+            return false;
+
+        return sampleCompact.Contains(npcCompact, StringComparison.OrdinalIgnoreCase) ||
+               npcCompact.Contains(sampleCompact, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static string CompactFromTokens(IReadOnlyList<string> tokens)
+    {
+        if (tokens.Count == 0)
+            return string.Empty;
+
+        return string.Concat(tokens.Where(t =>
+            t.Length > 1 &&
+            !int.TryParse(t, out _)));
+    }
+
+    private static string NormalizeCompactName(string value)
+        => CompactFromTokens(NormalizeNameTokens(value));
 
     private static IReadOnlyList<string> NormalizeNameTokens(string value)
     {
