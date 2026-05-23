@@ -481,6 +481,7 @@ internal static class Program
         SegmentIndex = idx,
         DialogSegmentCount = dialogSegmentCount ?? segment.DialogSegmentCount,
         NpcId = segment.NpcId,
+        NpcName = segment.NpcName,
         PlayerName = segment.PlayerName,
         PlayerRealm = segment.PlayerRealm,
         PlayerClass = segment.PlayerClass,
@@ -490,9 +491,13 @@ internal static class Program
         PrimeFromBatchSegmentId = primeFromBatchSegmentId,
         BatchSegments = batchSegments,
         BespokeSampleId = segment.BespokeSampleId,
+        BespokeMatchedByNpcName = segment.BespokeMatchedByNpcName,
+        MissingBespokeSampleId = segment.MissingBespokeSampleId,
         BespokeExaggeration = segment.BespokeExaggeration,
         BespokeCfgWeight = segment.BespokeCfgWeight,
         UseNpcIdAsSeed = segment.UseNpcIdAsSeed,
+        SkipNarratorMarkerExpansion = segment.SkipNarratorMarkerExpansion,
+        IsNarratorSegment = segment.IsNarratorSegment,
     };
 
     private static string BuildPlayerNameWithOptionalRealm(AssembledSegment segment)

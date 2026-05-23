@@ -332,7 +332,9 @@ public sealed class TtsSessionAssembler
             foreach (var seg in expandedSegments)
             {
                 var emittedText = InjectSyntheticParagraphPeriods(seg.Text);
-                if (!seg.IsNarratorSegment && AppServices.Settings.QuoteDialogueParagraphsForTts)
+                if (!seg.IsNarratorSegment &&
+                    !IsSyntheticBookNpcId(seg.NpcId) &&
+                    AppServices.Settings.QuoteDialogueParagraphsForTts)
                     emittedText = QuoteDialogueParagraphs(emittedText);
 
                 if (!IsPunctuationOnlySegment(emittedText))
