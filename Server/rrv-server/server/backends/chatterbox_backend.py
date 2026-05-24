@@ -1421,11 +1421,10 @@ class ChatterboxBackend(AbstractTtsBackend):
                     self._prior_speech_tokens[_voice_key] = (tail, _ctx_tag)
                     self._prior_speech_tokens.move_to_end(_voice_key)
 
-                    # LRU eviction. popitem() removes the only cache reference to
-                    # the evicted CPU tensor, allowing Python to reclaim RAM.
+                    # LRU eviction only drops dictionary references. Do not force
+                    # Python/CUDA cleanup here; let normal allocator behavior handle it.
                     while len(self._prior_speech_tokens) > self._prior_token_cache_size:
-                        _old_key, _old_entry = self._prior_speech_tokens.popitem(last=False)
-                        del _old_entry
+                        self._prior_speech_tokens.popitem(last=False)
                 else:
                     self._prior_speech_tokens.clear()
 

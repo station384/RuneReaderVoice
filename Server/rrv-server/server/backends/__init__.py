@@ -24,6 +24,7 @@
 from __future__ import annotations
 
 import logging
+from pathlib import Path
 from typing import Optional
 
 from .base import AbstractTtsBackend
@@ -72,8 +73,6 @@ async def load_backends(
     other backends from loading or the server from starting.
     Returns a BackendRegistry containing only the successfully loaded backends.
     """
-    from pathlib import Path
-
     registry = BackendRegistry()
 
     for name in sorted(backend_names):
