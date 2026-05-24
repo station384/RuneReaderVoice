@@ -1124,18 +1124,55 @@ class ChatterboxFullBackend(AbstractTtsBackend):
         safe = cache_key.replace("|", "_").replace(":", "-").replace(".", "p")
         return self._cond_cache_dir / f"{safe}.pt"
 
+    def _cond_t3_to_cpu(self, t3_cond):
+        import torch
+        from chatterbox.models.t3.modules.cond_enc import T3Cond
+        data = {
+            k: v.detach().cpu() if torch.is_tensor(v) else v
+            for k, v in t3_cond.__dict__.items()
+        }
+        return T3Cond(**data)
+
+    def _cond_gen_to_cpu(self, gen_dict: dict) -> dict:
+        import torch
+        return {
+            k: v.detach().cpu() if torch.is_tensor(v) else v
+            for k, v in gen_dict.items()
+        }
+
+    def _cond_to_device(self, t3_cond, gen_dict: dict):
+        import torch
+        from chatterbox.models.t3.modules.cond_enc import T3Cond
+        t3_data = {
+            k: v.to(device=self._torch_device) if torch.is_tensor(v) else v
+            for k, v in t3_cond.__dict__.items()
+        }
+        gen_device = {
+            k: v.to(device=self._torch_device) if torch.is_tensor(v) else v
+            for k, v in gen_dict.items()
+        }
+        return T3Cond(**t3_data).to(device=self._torch_device), gen_device
+
     def _cond_mem_get(self, cache_key: str):
         if cache_key in self._cond_mem_cache:
             self._cond_mem_cache.move_to_end(cache_key)
-            return self._cond_mem_cache[cache_key]
+            t3_cond, gen_dict = self._cond_mem_cache[cache_key]
+            # Memory cache stores CPU tensors so voice-sample cache does not pin VRAM.
+            # Return a fresh device copy for this render; PyTorch allocator can reuse/free
+            # it naturally once model.conds moves to another voice or worker exits.
+            return self._cond_to_device(t3_cond, gen_dict)
         return None
 
     def _cond_mem_put(self, cache_key: str, t3_cond, gen_dict: dict) -> None:
-        self._cond_mem_cache[cache_key] = (t3_cond, gen_dict)
+        # Persistent memory cache is CPU-backed. Keeping prepared conditionals as CUDA
+        # tensors makes every cached voice sample retain VRAM until eviction.
+        self._cond_mem_cache[cache_key] = (
+            self._cond_t3_to_cpu(t3_cond),
+            self._cond_gen_to_cpu(gen_dict),
+        )
         self._cond_mem_cache.move_to_end(cache_key)
         while len(self._cond_mem_cache) > self._COND_MEM_CACHE_SIZE:
-            _old_key, _old_value = self._cond_mem_cache.popitem(last=False)
-            del _old_value
+            self._cond_mem_cache.popitem(last=False)
 
     def _cond_disk_save(self, cache_key: str, t3_cond, gen_dict: dict) -> None:
         import torch
