@@ -64,6 +64,9 @@ public enum DspEffectKind
     // Character
     Robot,          // RobotEffect.  params: strength (0-3)
     Whisper,        // Whisper.      params: strength (0-3)
+
+    // Keep new effects appended so older numeric DSP effect serialization remains stable.
+    Chorus,         // Layered voice chorus. params: v1Pitch, v1GainDb, v1DelayMs...
 }
 
 // -- DspEffectItem -------------------------------------------------------------
@@ -117,6 +120,12 @@ public sealed class DspEffectItem
                 item.Set("bits", 8f); break;
             case DspEffectKind.Thickness:
                 item.Set("wet", 0.5f); item.Set("rate", 1.5f); item.Set("width", 0.02f); break;
+            case DspEffectKind.Chorus:
+                item.Set("v1Pitch",  0.5f); item.Set("v1GainDb",  -1f); item.Set("v1DelayMs",  0f);
+                item.Set("v2Pitch", -0.5f); item.Set("v2GainDb",  -1f); item.Set("v2DelayMs",  0f);
+                item.Set("v3Pitch", -3.0f); item.Set("v3GainDb", -60f); item.Set("v3DelayMs", 14f);
+                item.Set("v4Pitch",  0.15f); item.Set("v4GainDb", -60f); item.Set("v4DelayMs", 10f);
+                break;
             case DspEffectKind.Wobble:
                 item.Set("width", 0.005f); item.Set("rate", 3f); break;
             case DspEffectKind.Swirl:
@@ -154,6 +163,7 @@ public sealed class DspEffectItem
         DspEffectKind.WarmthGrit    => "Warmth Grit",
         DspEffectKind.LoFi          => "Lo-Fi",
         DspEffectKind.Thickness     => "Thickness",
+        DspEffectKind.Chorus        => "Chorus",
         DspEffectKind.Wobble        => "Wobble",
         DspEffectKind.Swirl         => "Swirl",
         DspEffectKind.Jet           => "Jet",
@@ -181,6 +191,7 @@ public sealed class DspEffectItem
         DspEffectKind.WarmthGrit    => "Softer, warmer grit — like an old radio or tube amplifier.",
         DspEffectKind.LoFi          => "Deliberately degrades the sound — robotic, old game, or walkie-talkie feel.",
         DspEffectKind.Thickness     => "Makes the voice sound fuller, like multiple people speaking together.",
+        DspEffectKind.Chorus        => "Adds pitch-shifted copies of the voice for a wider, layered chorus sound.",
         DspEffectKind.Wobble        => "Adds a wavering pitch effect — ghostly or unsettling quality.",
         DspEffectKind.Swirl         => "A sweeping, otherworldly shimmer — psychedelic sci-fi feel.",
         DspEffectKind.Jet           => "A metallic whooshing effect — mechanical or alien quality.",
@@ -200,7 +211,7 @@ public sealed class DspEffectItem
         DspEffectKind.RumbleRemover or DspEffectKind.Bass or DspEffectKind.Presence
             or DspEffectKind.Brightness or DspEffectKind.Air                   => "Tone",
         DspEffectKind.Grit or DspEffectKind.WarmthGrit or DspEffectKind.LoFi  => "Distortion",
-        DspEffectKind.Thickness or DspEffectKind.Wobble or DspEffectKind.Swirl
+        DspEffectKind.Thickness or DspEffectKind.Chorus or DspEffectKind.Wobble or DspEffectKind.Swirl
             or DspEffectKind.Jet or DspEffectKind.Wah or DspEffectKind.Tremor => "Modulation",
         DspEffectKind.Room or DspEffectKind.Echo                               => "Space",
         DspEffectKind.Robot or DspEffectKind.Whisper                           => "Character",

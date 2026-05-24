@@ -1303,6 +1303,14 @@ So go quickly, keep your wits about you, and return by the main road if you valu
             panel.Children.Add(DspRow(label, (slider, tb), tip));
         }
 
+        void ChorusVoiceRows(string label, string prefix, float pitchDefault, float gainDefault, float delayDefault)
+        {
+            panel.Children.Add(new TextBlock { Text = label, FontWeight = FontWeight.SemiBold, Margin = new Avalonia.Thickness(0, 6, 0, 0) });
+            Row("Pitch", -12, 12, prefix + "Pitch", pitchDefault, "+0.0;-0.0;0", " st", "Pitch shift for this added voice layer.");
+            Row("Gain", -60, 6, prefix + "GainDb", gainDefault, "+0.0;-0.0;0", " dB", "Layer volume. -60 dB effectively silences this layer.");
+            Row("Delay", 0, 60, prefix + "DelayMs", delayDefault, "0.0", " ms", "Delay before this layer enters the mix.");
+        }
+
         switch (item.Kind)
         {
             case DspEffectKind.EvenOut:
@@ -1356,6 +1364,13 @@ So go quickly, keep your wits about you, and return by the main road if you valu
                 Row("Mix",    0,     1,    "wet",   0.5f,  "0.00", "",    "How much thickness to blend in. 0.3–0.5 is subtle.");
                 Row("Speed",  0.1f,  4,    "rate",  1.5f,  "0.00", " Hz", "How fast the doubling effect pulses.");
                 Row("Spread", 0.005f,0.04f,"width", 0.02f, "0.000"," s",  "How wide the doubling effect spreads.");
+                break;
+            case DspEffectKind.Chorus:
+                panel.Children.Add(new TextBlock { Text = "Base voice always passes through unchanged. Set a layer Gain to -60 dB to silence it.", Foreground = Brushes.Gray, FontSize = 11, TextWrapping = TextWrapping.Wrap });
+                ChorusVoiceRows("Voice 2", "v1",  0.5f, -1f,  0f);
+                ChorusVoiceRows("Voice 3", "v2", -0.5f, -1f,  0f);
+                ChorusVoiceRows("Voice 4", "v3", -3.0f, -60f, 14f);
+                ChorusVoiceRows("Voice 5", "v4",  0.15f, -60f, 10f);
                 break;
             case DspEffectKind.Wobble:
                 Row("Depth", 0,    0.02f, "width", 0.005f, "0.000", " s",  "How much the pitch wavers. 0.003–0.008 is a gentle wobble.");

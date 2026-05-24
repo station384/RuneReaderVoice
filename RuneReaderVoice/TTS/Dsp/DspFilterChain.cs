@@ -238,6 +238,12 @@ public static class DspFilterChain
                 break;
             }
 
+            case DspEffectKind.Chorus:
+            {
+                signal = ApplyLayeredChorus(signal, item);
+                break;
+            }
+
             case DspEffectKind.Wobble:
             {
                 float width = item.Get("width", 0.005f);
@@ -369,6 +375,70 @@ public static class DspFilterChain
     }
 
     // -- Helpers -----------------------------------------------------------
+
+    private static DiscreteSignal ApplyLayeredChorus(DiscreteSignal signal, DspEffectItem item)
+    {
+        var dry = signal.Samples;
+        var sr  = signal.SamplingRate;
+
+        var specs = new (float pitch, float gainDb, float delayMs)[]
+        {
+            (item.Get("v1Pitch",  0.5f), item.Get("v1GainDb",  -1f), item.Get("v1DelayMs",  0f)),
+            (item.Get("v2Pitch", -0.5f), item.Get("v2GainDb",  -1f), item.Get("v2DelayMs",  0f)),
+            (item.Get("v3Pitch", -3.0f), item.Get("v3GainDb", -60f), item.Get("v3DelayMs", 14f)),
+            (item.Get("v4Pitch",  0.15f), item.Get("v4GainDb", -60f), item.Get("v4DelayMs", 10f)),
+        };
+
+        int maxDelay = 0;
+        foreach (var spec in specs)
+        {
+            if (spec.gainDb <= -59.9f) continue;
+            maxDelay = Math.Max(maxDelay, Math.Max(0, (int)MathF.Round(sr * spec.delayMs / 1000f)));
+        }
+
+        var output = new float[dry.Length + maxDelay];
+        Array.Copy(dry, output, dry.Length);
+
+        foreach (var spec in specs)
+        {
+            if (spec.gainDb <= -59.9f) continue;
+
+            var layer = new DiscreteSignal(sr, (float[])dry.Clone());
+            if (MathF.Abs(spec.pitch) > 0.001f)
+            {
+                double ratio = Math.Pow(2.0, spec.pitch / 12.0);
+                var pitchFx = new PitchShiftEffect(ratio, windowSize: 1024, hopSize: 256,
+                                                    tsm: TsmAlgorithm.Wsola);
+                layer = pitchFx.ApplyTo(layer);
+            }
+
+            float gain = MathF.Pow(10f, spec.gainDb / 20f);
+            int delaySamples = Math.Max(0, (int)MathF.Round(sr * Math.Max(0f, spec.delayMs) / 1000f));
+            var src = layer.Samples;
+            int limit = Math.Min(src.Length, output.Length - delaySamples);
+            for (int i = 0; i < limit; i++)
+                output[i + delaySamples] += src[i] * gain;
+        }
+
+        PeakLimit(output, 0.98f);
+        return new DiscreteSignal(sr, output);
+    }
+
+    private static void PeakLimit(float[] samples, float ceiling)
+    {
+        float peak = 0f;
+        foreach (var s in samples)
+        {
+            var a = MathF.Abs(s);
+            if (a > peak) peak = a;
+        }
+
+        if (peak <= ceiling || peak <= 0f) return;
+
+        float scale = ceiling / peak;
+        for (int i = 0; i < samples.Length; i++)
+            samples[i] *= scale;
+    }
 
     private static int NextPow2(int n)
     {
