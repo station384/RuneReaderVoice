@@ -766,6 +766,10 @@ public sealed class TtsSessionAssembler
         var npcCompact = NormalizeCompactName(npcName);
 
         var best = voices
+            // Name fallback must only consider bespoke/name-style samples.
+            // Generic race/sex samples like M_Tauren or F_Tauren are too broad:
+            // "Rivermane Tauren" should not auto-pick F_Tauren.
+            .Where(v => !IsGenericGenderRaceSampleId(v.VoiceId))
             .Select(v =>
             {
                 var sampleTokens = NormalizeNameTokens(v.VoiceId);
@@ -795,6 +799,15 @@ public sealed class TtsSessionAssembler
 
         matchedSampleId = best.Voice.VoiceId;
         return true;
+    }
+
+    private static bool IsGenericGenderRaceSampleId(string? sampleId)
+    {
+        if (string.IsNullOrWhiteSpace(sampleId))
+            return false;
+
+        return sampleId.StartsWith("M_", StringComparison.OrdinalIgnoreCase) ||
+               sampleId.StartsWith("F_", StringComparison.OrdinalIgnoreCase);
     }
 
     private static int ScoreNpcSampleMatch(
