@@ -891,7 +891,7 @@ public sealed class TtsSessionAssembler
             if (category == UnicodeCategory.NonSpacingMark)
                 continue;
 
-            if (ch == '\'' || ch == '’' || ch == '`')
+            if (ch is '\'' or '’' or '`')
                 continue;
 
             if (char.IsLetterOrDigit(ch))
