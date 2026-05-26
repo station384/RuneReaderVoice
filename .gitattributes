@@ -1,1 +1,17 @@
 *.onnx filter=lfs diff=lfs merge=lfs -text
+* text=auto eol=lf
+
+# Windows scripts / project files that should stay CRLF in working tree, optional
+*.bat text eol=crlf
+*.cmd text eol=crlf
+
+# Binary files
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.ttf binary
+*.zip binary
+*.ogg binary
+*.wav binary

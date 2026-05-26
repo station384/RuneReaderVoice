@@ -331,14 +331,21 @@ public sealed class TtsSessionAssembler
             var processedSegments = new List<(AssembledSegment Segment, string Text)>(expandedSegments.Count);
             foreach (var seg in expandedSegments)
             {
+                LogTextPipeline("expanded-before-period-quote", seg, seg.Text);
                 var emittedText = InjectSyntheticParagraphPeriods(seg.Text);
+                LogTextPipeline("after-period-injection", seg, emittedText);
                 if (!seg.IsNarratorSegment &&
                     !IsSyntheticBookNpcId(seg.NpcId) &&
                     AppServices.Settings.QuoteDialogueParagraphsForTts)
+                {
                     emittedText = QuoteDialogueParagraphs(emittedText);
+                    LogTextPipeline("after-dialogue-quote", seg, emittedText);
+                }
 
                 if (!IsPunctuationOnlySegment(emittedText))
                     processedSegments.Add((seg, emittedText));
+                else
+                    LogTextPipeline("dropped-punctuation-only", seg, emittedText);
             }
 
             var audibleCount = processedSegments.Count;
@@ -387,6 +394,30 @@ public sealed class TtsSessionAssembler
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────
+
+    private static void LogTextPipeline(string stage, AssembledSegment segment, string? text)
+    {
+        var safe = VisibleText(text);
+        var line =
+            $"[TextPipeline][Assembler] {stage} dialog=0x{segment.DialogId:X} seg={segment.SegmentIndex}/{segment.DialogSegmentCount} " +
+            $"slot={segment.Slot} npc={segment.NpcId} narrator={segment.IsNarratorSegment} " +
+            $"player='{segment.PlayerName ?? string.Empty}' title='{segment.PlayerTitle ?? string.Empty}' realm='{segment.PlayerRealm ?? string.Empty}' " +
+            $"len={text?.Length ?? 0} words={CountWords(text ?? string.Empty)} text=<<<{safe}>>>";
+        Console.WriteLine(line);
+        Debug.WriteLine(line);
+    }
+
+    private static string VisibleText(string? text)
+    {
+        if (text == null)
+            return string.Empty;
+
+        return text
+            .Replace("\r\n", "␊", StringComparison.Ordinal)
+            .Replace("\n", "␊", StringComparison.Ordinal)
+            .Replace("\r", "␍", StringComparison.Ordinal)
+            .Replace("\t", "␉", StringComparison.Ordinal);
+    }
 
     /// <summary>
     /// If all sub-chunks for this segment have arrived, decodes the text and
@@ -891,7 +922,7 @@ public sealed class TtsSessionAssembler
             if (category == UnicodeCategory.NonSpacingMark)
                 continue;
 
-            if (ch is '\'' or '’' or '`')
+            if (ch == '\'' || ch == '’' || ch == '`')
                 continue;
 
             if (char.IsLetterOrDigit(ch))

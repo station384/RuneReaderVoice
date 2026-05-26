@@ -189,7 +189,9 @@ internal static class Program
 
         assembler.OnSegmentComplete += seg =>
         {
+            LogTextPipeline("00-onsegment-input", seg, seg.Text);
             var rawText = HtmlTextStripper.Strip(seg.Text);
+            LogTextPipeline("01-html-stripped", seg, rawText);
             AppServices.LastDecodedText = rawText;
             AppServices.LastRuntimeSlot = seg.Slot;
             var activeProvider = AppServices.Provider;
@@ -199,7 +201,9 @@ internal static class Program
             // that can damage machine-readable numeric tokens such as "10,000"
             // before Humanizer gets a chance to convert them to words.
             var normalizedText = AppServices.TextNormalizer.Normalize(rawText, AppServices.Settings);
+            LogTextPipeline("02-normalized", seg, normalizedText);
             var shapedText = AppServices.TextSwapProcessor.Process(normalizedText);
+            LogTextPipeline("03-text-shaped", seg, shapedText);
 
             var shapedSegment = new AssembledSegment
             {
@@ -224,12 +228,16 @@ internal static class Program
             var processed = activeProvider.SupportsInlinePronunciationHints
                 ? AppServices.PronunciationProcessor.Process(shapedSegment)
                 : shapedSegment;
+            LogTextPipeline(activeProvider.SupportsInlinePronunciationHints ? "04-pronunciation" : "04-pronunciation-skipped", processed, processed.Text);
 
             AppServices.LastProcessedText = processed.Text ?? string.Empty;
             AppServices.LastTextSpoken    = processed.Text ?? string.Empty;
 
             foreach (var chunk in ExpandPlayerNameSplit(processed, pendingExpandedSegments.Count))
+            {
+                LogTextPipeline("05-after-player-split", chunk, chunk.Text);
                 pendingExpandedSegments.Add(chunk);
+            }
 
             // The assembler's DialogSegmentCount reflects the original audible segment count
             // before player-name expansion. For playback, especially WaitForFullText mode,
@@ -241,7 +249,7 @@ internal static class Program
             for (var i = 0; i < pendingExpandedSegments.Count; i++)
             {
                 var chunk = pendingExpandedSegments[i];
-                coordinator.EnqueueSegment(CloneSegment(
+                var finalChunk = CloneSegment(
                     chunk,
                     chunk.Text ?? string.Empty,
                     i,
@@ -249,7 +257,9 @@ internal static class Program
                     chunk.BatchSegmentId,
                     chunk.PrimeFromBatchSegmentId,
                     chunk.BatchSegments,
-                    finalPlaybackCount));
+                    finalPlaybackCount);
+                LogTextPipeline("06-enqueue-final", finalChunk, finalChunk.Text);
+                coordinator.EnqueueSegment(finalChunk);
             }
 
             pendingExpandedSegments.Clear();
@@ -394,6 +404,7 @@ internal static class Program
         }
 
         Console.WriteLine($"[PlayerSplit] evaluate seg={startExpandedSegmentIndex} strategy={strategy} mode={mode} target='{splitTarget}' words={CountWords(segment.Text)} text='{Preview(segment.Text)}'");
+        LogTextPipeline("player-split-evaluate", segment, segment.Text, $"strategy={strategy} mode={mode} target={splitTarget}");
         var parts = SplitAroundPlayerName(segment.Text, splitTarget!, strategy);
         if (parts == null || parts.Count == 0)
         {
@@ -404,7 +415,10 @@ internal static class Program
 
         Console.WriteLine($"[PlayerSplit] split seg={startExpandedSegmentIndex} strategy={strategy} parts={parts.Count}");
         for (var i = 0; i < parts.Count; i++)
+        {
             Console.WriteLine($"[PlayerSplit] part[{i}] words={CountWords(parts[i])} text='{Preview(parts[i])}'");
+            LogTextPipeline($"player-split-part[{i}]", segment, parts[i], $"strategy={strategy} mode={mode} target={splitTarget}");
+        }
 
         var useRemoteBatch = AppServices.Provider is RemoteTtsProvider && parts.Count > 1;
         var batchId = useRemoteBatch ? Guid.NewGuid().ToString("N") : null;
@@ -645,6 +659,32 @@ internal static class Program
         return parts;
     }
 
+
+    private static void LogTextPipeline(string stage, AssembledSegment segment, string? text, string? extra = null)
+    {
+        var safe = VisibleText(text);
+        var line =
+            $"[TextPipeline] {stage} dialog=0x{segment.DialogId:X} seg={segment.SegmentIndex}/{segment.DialogSegmentCount} " +
+            $"slot={segment.Slot} npc={segment.NpcId} narrator={segment.IsNarratorSegment} batch={segment.BatchId ?? "-"}/{segment.BatchSegmentId ?? "-"} " +
+            $"player='{segment.PlayerName ?? string.Empty}' title='{segment.PlayerTitle ?? string.Empty}' realm='{segment.PlayerRealm ?? string.Empty}' " +
+            $"len={text?.Length ?? 0} words={CountWords(text ?? string.Empty)}" +
+            (string.IsNullOrWhiteSpace(extra) ? string.Empty : $" {extra}") +
+            $" text=<<<{safe}>>>";
+        Console.WriteLine(line);
+        System.Diagnostics.Debug.WriteLine(line);
+    }
+
+    private static string VisibleText(string? text)
+    {
+        if (text == null)
+            return string.Empty;
+
+        return text
+            .Replace("\r\n", "␊", StringComparison.Ordinal)
+            .Replace("\n", "␊", StringComparison.Ordinal)
+            .Replace("\r", "␍", StringComparison.Ordinal)
+            .Replace("\t", "␉", StringComparison.Ordinal);
+    }
 
     private static string Preview(string? text, int max = 120)
     {
