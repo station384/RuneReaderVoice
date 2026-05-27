@@ -101,8 +101,15 @@ public sealed class NpcSyncService : IDisposable
         => !string.IsNullOrWhiteSpace(_settings.RemoteServerUrl)
            && _settings.IsRemoteProviderActive;
 
+    private bool HasServerAdminKey()
+        => !string.IsNullOrWhiteSpace(_settings.AdminKey);
+
     private bool ShouldRefreshSharedConfigFromServer()
-        => ShouldUseRemoteSync() && _settings.IsRemoteConsumerClient;
+        // Read-only server sync must not require the local client-admin unlock key.
+        // If no server admin key is configured, this client is a consumer of
+        // server-managed shared config and should hydrate immediately on startup
+        // and keep refreshing on the poll timer.
+        => ShouldUseRemoteSync() && !HasServerAdminKey();
 
     // ── Startup ───────────────────────────────────────────────────────────────
 
@@ -188,10 +195,10 @@ public sealed class NpcSyncService : IDisposable
 
     private async Task RefreshSharedConfigFromServerAsync()
     {
-        System.Diagnostics.Debug.WriteLine("[NpcSync] Refreshing shared config from server for remote consumer client");
+        System.Diagnostics.Debug.WriteLine("[NpcSync] Refreshing shared config from server for read-only remote client");
 
-        await PullAndApplyProviderSlotProfilesAsync("voice_slot").ConfigureAwait(false);
-        await PullAndApplyProviderSlotProfilesAsync("sample").ConfigureAwait(false);
+        await PullAndApplyProviderSlotProfilesAsync("voice_slot", preserveLocal: true).ConfigureAwait(false);
+        await PullAndApplyProviderSlotProfilesAsync("sample", preserveLocal: true).ConfigureAwait(false);
         await PullAndApplyDefaultsAsync("pronunciation").ConfigureAwait(false);
         await PullAndApplyDefaultsAsync("text-shaping").ConfigureAwait(false);
         await PullAndApplyNpcPeopleCatalogAsync().ConfigureAwait(false);
@@ -436,7 +443,7 @@ public sealed class NpcSyncService : IDisposable
         return total;
     }
 
-    public async Task<bool> PullAndApplyProviderSlotProfilesAsync(string kind, string? providerId = null, double sinceTs = 0.0)
+    public async Task<bool> PullAndApplyProviderSlotProfilesAsync(string kind, string? providerId = null, double sinceTs = 0.0, bool preserveLocal = false)
     {
         var normalizedKind = NormalizeProfileKind(kind);
         var serverProviderId = ToServerProviderProfileId(providerId);
@@ -445,9 +452,9 @@ public sealed class NpcSyncService : IDisposable
             return false;
 
         if (normalizedKind == "voice_slot")
-            await ApplyProviderSlotProfileRecordsAsVoiceProfilesAsync(records).ConfigureAwait(false);
+            await ApplyProviderSlotProfileRecordsAsVoiceProfilesAsync(records, preserveLocal).ConfigureAwait(false);
         else
-            await ApplyProviderSlotProfileRecordsAsSampleProfilesAsync(records).ConfigureAwait(false);
+            await ApplyProviderSlotProfileRecordsAsSampleProfilesAsync(records, preserveLocal).ConfigureAwait(false);
 
         return true;
     }
@@ -480,7 +487,7 @@ public sealed class NpcSyncService : IDisposable
             : $"remote:{normalized}";
     }
 
-    private async Task ApplyProviderSlotProfileRecordsAsVoiceProfilesAsync(List<ServerProviderSlotProfileRecord> records)
+    private async Task ApplyProviderSlotProfileRecordsAsVoiceProfilesAsync(List<ServerProviderSlotProfileRecord> records, bool preserveLocal = false)
     {
         var grouped = new Dictionary<string, Dictionary<string, RuneReaderVoice.TTS.Providers.VoiceProfile>>(StringComparer.OrdinalIgnoreCase);
         foreach (var rec in records)
@@ -508,11 +515,16 @@ public sealed class NpcSyncService : IDisposable
         if (AppServices.ProviderSlotProfiles != null)
         {
             foreach (var (pid, map) in grouped)
-                await AppServices.ProviderSlotProfiles.ReplaceVoiceProfilesAsync(pid, map, "ServerSync");
+            {
+                if (preserveLocal)
+                    await AppServices.ProviderSlotProfiles.MergeVoiceProfilesFromServerAsync(pid, map, "ServerSync");
+                else
+                    await AppServices.ProviderSlotProfiles.ReplaceVoiceProfilesAsync(pid, map, "ServerSync");
+            }
         }
     }
 
-    private async Task ApplyProviderSlotProfileRecordsAsSampleProfilesAsync(List<ServerProviderSlotProfileRecord> records)
+    private async Task ApplyProviderSlotProfileRecordsAsSampleProfilesAsync(List<ServerProviderSlotProfileRecord> records, bool preserveLocal = false)
     {
         var grouped = new Dictionary<string, Dictionary<string, TTS.Providers.VoiceProfile>>(StringComparer.OrdinalIgnoreCase);
         foreach (var record in records)
@@ -542,7 +554,12 @@ public sealed class NpcSyncService : IDisposable
         if (AppServices.ProviderSlotProfiles != null)
         {
             foreach (var (pid, map) in grouped)
-                await AppServices.ProviderSlotProfiles.ReplaceSampleProfilesAsync(pid, map, "ServerSync");
+            {
+                if (preserveLocal)
+                    await AppServices.ProviderSlotProfiles.MergeSampleProfilesFromServerAsync(pid, map, "ServerSync");
+                else
+                    await AppServices.ProviderSlotProfiles.ReplaceSampleProfilesAsync(pid, map, "ServerSync");
+            }
         }
         else
         {

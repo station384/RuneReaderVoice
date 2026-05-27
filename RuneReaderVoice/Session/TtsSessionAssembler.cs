@@ -61,10 +61,12 @@ namespace RuneReaderVoice.Session;
 //   Non-zero SUB chunks that arrive before SUB=0 are stashed in _earlyChunks
 //   and replayed when SUB=0 arrives to establish the segment key.
 //
-// NPC race override lookup chain:
-//   1. _npcRaceStore (in-memory, pre-loaded from NpcRaceOverrideDb at startup)
-//   2. packet.Race (from QR header — creature type or player race)
-//   3. Falls back to narrator by packet gender when no explicit NPC override exists
+// Voice routing lookup chain:
+//   1. packet.IsNarrator is authoritative and stays narrator
+//   2. Non-narrator text starts from narrator fallback by packet gender
+//   3. TryCompleteSegment applies explicit NPC override when one exists
+//   4. If no usable bespoke sample is configured, NPC-name sample matching may fill it
+//   5. Unknown NPCs remain narrator fallback
 
 public sealed class AssembledSegment
 {
@@ -318,23 +320,23 @@ public sealed class TtsSessionAssembler
         {
             var expandedSegments = new List<AssembledSegment>();
             foreach (var seg in toFire)
-                expandedSegments.AddRange(ExpandNarratorForcedSegments(seg));
+                expandedSegments.AddRange(NarratorSegmentExpander.Expand(seg));
 
             var processedSegments = new List<(AssembledSegment Segment, string Text)>(expandedSegments.Count);
             foreach (var seg in expandedSegments)
             {
                 LogTextPipeline("expanded-before-period-quote", seg, seg.Text);
-                var emittedText = InjectSyntheticParagraphPeriods(seg.Text);
+                var emittedText = SegmentTextPreprocessor.InjectSyntheticParagraphPeriods(seg.Text);
                 LogTextPipeline("after-period-injection", seg, emittedText);
                 if (!seg.IsNarratorSegment &&
-                    !IsSyntheticBookNpcId(seg.NpcId) &&
+                    !NpcIdentityHelpers.IsSyntheticBookNpcId(seg.NpcId) &&
                     AppServices.Settings.QuoteDialogueParagraphsForTts)
                 {
-                    emittedText = QuoteDialogueParagraphs(emittedText);
+                    emittedText = SegmentTextPreprocessor.QuoteDialogueParagraphs(emittedText);
                     LogTextPipeline("after-dialogue-quote", seg, emittedText);
                 }
 
-                if (!IsPunctuationOnlySegment(emittedText))
+                if (!SegmentTextPreprocessor.IsPunctuationOnlySegment(emittedText))
                     processedSegments.Add((seg, emittedText));
                 else
                     LogTextPipeline("dropped-punctuation-only", seg, emittedText);
@@ -394,7 +396,7 @@ public sealed class TtsSessionAssembler
             $"[TextPipeline][Assembler] {stage} dialog=0x{segment.DialogId:X} seg={segment.SegmentIndex}/{segment.DialogSegmentCount} " +
             $"slot={segment.Slot} npc={segment.NpcId} narrator={segment.IsNarratorSegment} " +
             $"player='{segment.PlayerName ?? string.Empty}' title='{segment.PlayerTitle ?? string.Empty}' realm='{segment.PlayerRealm ?? string.Empty}' " +
-            $"len={text?.Length ?? 0} words={CountWords(text ?? string.Empty)} text=<<<{safe}>>>";
+            $"len={text?.Length ?? 0} words={SegmentTextPreprocessor.CountWords(text ?? string.Empty)} text=<<<{safe}>>>";
         Console.WriteLine(line);
         Debug.WriteLine(line);
     }
@@ -445,7 +447,7 @@ public sealed class TtsSessionAssembler
         float? bespokeCfgWeight = null;
         var useNpcIdAsSeed = false;
 
-        if (!acc.IsNarrator || IsSyntheticBookNpcId(effectiveNpcId))
+        if (!acc.IsNarrator || NpcIdentityHelpers.IsSyntheticBookNpcId(effectiveNpcId))
         {
             var entry = effectiveNpcId > 0
                 ? Task.Run(() => _overrideDb.GetOverrideAsync(effectiveNpcId)).GetAwaiter().GetResult()
@@ -474,7 +476,7 @@ public sealed class TtsSessionAssembler
                 useNpcIdAsSeed = entry.UseNpcIdAsSeed;
             }
 
-            bespokeMatchedByNpcName = TryResolveBespokeSampleFromNpcName(
+            bespokeMatchedByNpcName = NpcNameBespokeSampleMatcher.TryResolve(
                 npcName,
                 bespokeSampleId,
                 out var matchedSampleId,
@@ -513,235 +515,12 @@ public sealed class TtsSessionAssembler
         };
     }
 
-    private static IReadOnlyList<AssembledSegment> ExpandNarratorForcedSegments(AssembledSegment segment)
-    {
-        if (segment.SkipNarratorMarkerExpansion || segment.NpcId == 0 || string.IsNullOrWhiteSpace(segment.Text))
-            return new[] { segment };
-
-        var runs = SplitNarratorForcedRuns(segment.Text);
-        if (runs.Count <= 1)
-            return new[] { segment };
-
-        var narratorSlot = segment.Slot.Gender == Gender.Female
-            ? VoiceSlot.FemaleNarrator
-            : VoiceSlot.MaleNarrator;
-
-        var expanded = new List<AssembledSegment>(runs.Count);
-        foreach (var run in runs)
-        {
-            var trimmed = run.Text.Trim();
-            if (trimmed.Length == 0)
-                continue;
-
-            if (run.IsNarrator)
-            {
-                expanded.Add(new AssembledSegment
-                {
-                    Text = trimmed,
-                    Slot = narratorSlot,
-                    DialogId = segment.DialogId,
-                    SegmentIndex = segment.SegmentIndex,
-                    DialogSegmentCount = segment.DialogSegmentCount,
-                    NpcId = 0,
-                    NpcName = segment.NpcName,
-                    PlayerName = segment.PlayerName,
-                    PlayerRealm = segment.PlayerRealm,
-                    PlayerClass = segment.PlayerClass,
-                    PlayerTitle = segment.PlayerTitle,
-                    BatchId = null,
-                    BatchSegmentId = null,
-                    PrimeFromBatchSegmentId = null,
-                    BatchSegments = null,
-                    BespokeSampleId = null,
-                    BespokeExaggeration = null,
-                    BespokeCfgWeight = null,
-                    UseNpcIdAsSeed = false,
-                    SkipNarratorMarkerExpansion = false,
-                    IsNarratorSegment = true,
-                });
-            }
-            else
-            {
-                expanded.Add(new AssembledSegment
-                {
-                    Text = trimmed,
-                    Slot = segment.Slot,
-                    DialogId = segment.DialogId,
-                    SegmentIndex = segment.SegmentIndex,
-                    DialogSegmentCount = segment.DialogSegmentCount,
-                    NpcId = segment.NpcId,
-                    NpcName = segment.NpcName,
-                    PlayerName = segment.PlayerName,
-                    PlayerRealm = segment.PlayerRealm,
-                    PlayerClass = segment.PlayerClass,
-                    PlayerTitle = segment.PlayerTitle,
-                    BatchId = segment.BatchId,
-                    BatchSegmentId = segment.BatchSegmentId,
-                    PrimeFromBatchSegmentId = segment.PrimeFromBatchSegmentId,
-                    BatchSegments = segment.BatchSegments,
-                    BespokeSampleId = segment.BespokeSampleId,
-                    BespokeMatchedByNpcName = segment.BespokeMatchedByNpcName,
-                    MissingBespokeSampleId = segment.MissingBespokeSampleId,
-                    BespokeExaggeration = segment.BespokeExaggeration,
-                    BespokeCfgWeight = segment.BespokeCfgWeight,
-                    UseNpcIdAsSeed = segment.UseNpcIdAsSeed,
-                    SkipNarratorMarkerExpansion = segment.SkipNarratorMarkerExpansion,
-                    IsNarratorSegment = false,
-                });
-            }
-        }
-
-        return expanded.Count == 0 ? new[] { segment } : expanded;
-    }
-
-    private static List<(string Text, bool IsNarrator)> SplitNarratorForcedRuns(string text)
-    {
-        var runs = new List<(string Text, bool IsNarrator)>();
-        if (string.IsNullOrWhiteSpace(text))
-            return runs;
-
-        var sb = new StringBuilder();
-        for (int i = 0; i < text.Length; i++)
-        {
-            var ch = text[i];
-            bool isAngle = ch == '<';
-            bool isBracket = ch == '[';
-            if (!isAngle && !isBracket)
-            {
-                sb.Append(ch);
-                continue;
-            }
-
-            var close = isAngle ? '>' : ']';
-            var end = text.IndexOf(close, i + 1);
-            if (end <= i + 1)
-            {
-                sb.Append(ch);
-                continue;
-            }
-
-            if (sb.Length > 0)
-            {
-                runs.Add((sb.ToString(), false));
-                sb.Clear();
-            }
-
-            var inner = text.Substring(i + 1, end - i - 1);
-            if (!string.IsNullOrWhiteSpace(inner))
-                runs.Add((inner, true));
-
-            i = end;
-        }
-
-        if (sb.Length > 0)
-            runs.Add((sb.ToString(), false));
-
-        return runs;
-    }
-
-
-    private static string QuoteDialogueParagraphs(string text)
-    {
-        if (string.IsNullOrWhiteSpace(text))
-            return text;
-
-        var normalized = text
-            .Replace("\r\n", "\n", StringComparison.Ordinal)
-            .Replace('\r', '\n');
-
-        var rawParts = Regex.Split(normalized, @"(\n\s*\n)+");
-        var paragraphs = new List<string>();
-
-        for (int i = 0; i < rawParts.Length; i += 2)
-        {
-            var part = rawParts[i];
-            if (string.IsNullOrWhiteSpace(part))
-                continue;
-
-            var trimmed = part.Trim();
-            if (trimmed.Length == 0)
-                continue;
-
-            paragraphs.Add(IsAlreadyQuoted(trimmed) ? trimmed : $"\"{trimmed}\"");
-        }
-
-        return paragraphs.Count == 0 ? text : string.Join("\n\n", paragraphs);
-    }
-
-    private static bool IsAlreadyQuoted(string text)
-    {
-        if (text.Length < 2)
-            return false;
-
-        return (text[0] == '"' && text[^1] == '"') ||
-               (text[0] == '“' && text[^1] == '”') ||
-               (text[0] == '‘' && text[^1] == '’');
-    }
-
-    private static bool IsPunctuationOnlySegment(string text)
-    {
-        if (string.IsNullOrWhiteSpace(text))
-            return true;
-
-        return !text.Any(char.IsLetterOrDigit);
-    }
-
-    private static string InjectSyntheticParagraphPeriods(string text)
-    {
-        if (string.IsNullOrWhiteSpace(text))
-            return text;
-
-        var normalized = text.Replace("\r\n", "\n").Replace('\r', '\n');
-        var rawParts = Regex.Split(normalized, "(\\n\\s*\\n)+");
-        var paragraphs = new List<string>();
-
-        for (int i = 0; i < rawParts.Length; i += 2)
-        {
-            var part = rawParts[i];
-            if (string.IsNullOrWhiteSpace(part))
-                continue;
-
-            var trimmedEnd = part.TrimEnd();
-            if (trimmedEnd.Length == 0)
-                continue;
-
-            if (!Regex.IsMatch(trimmedEnd, @"^\s*[-*•]"))
-            {
-                var last = trimmedEnd[^1];
-                if (".!?…:;)]}\"'".IndexOf(last) < 0)
-                    trimmedEnd += ".";
-            }
-
-            var wordCount = CountWords(trimmedEnd);
-            var isBullet = Regex.IsMatch(trimmedEnd, @"^\s*[-*•]");
-
-            if (!isBullet && wordCount > 0 && wordCount <= 3 && paragraphs.Count > 0)
-            {
-                paragraphs[^1] = MergeShortParagraph(paragraphs[^1], trimmedEnd);
-
-                while (paragraphs.Count > 1 && CountWords(paragraphs[^1]) < 6)
-                {
-                    var carry = paragraphs[^1];
-                    paragraphs.RemoveAt(paragraphs.Count - 1);
-                    paragraphs[^1] = MergeShortParagraph(paragraphs[^1], carry);
-                }
-            }
-            else
-            {
-                paragraphs.Add(trimmedEnd);
-            }
-        }
-
-        return string.Join("\n\n", paragraphs);
-    }
-
-
     private static int ResolveEffectiveNpcId(int packetNpcId)
     {
         if (packetNpcId > 0)
             return packetNpcId;
 
-        return TryExtractNpcIdFromGuid(AppServices.CurrentRrvbGuid) ?? 0;
+        return NpcIdentityHelpers.TryExtractNpcIdFromGuid(AppServices.CurrentRrvbGuid) ?? 0;
     }
 
     private string ResolveCurrentNpcName()
@@ -750,229 +529,6 @@ public sealed class TtsSessionAssembler
             return _currentNpcName;
 
         return AppServices.CurrentRrvbName ?? string.Empty;
-    }
-
-    private static bool TryResolveBespokeSampleFromNpcName(
-        string? npcName,
-        string? configuredSampleId,
-        out string? matchedSampleId,
-        out string? missingConfiguredSampleId)
-    {
-        matchedSampleId = configuredSampleId;
-        missingConfiguredSampleId = null;
-
-        if (string.IsNullOrWhiteSpace(npcName))
-            return false;
-
-        var provider = AppServices.Provider;
-        if (provider is not RemoteTtsProvider remoteProvider || !remoteProvider.UsesRemoteSamples)
-            return false;
-
-        var voices = provider.GetAvailableVoices();
-        if (voices.Count == 0)
-            return false;
-
-        // Explicit assignment wins when available. Name matching only fills missing/broken assignments.
-        if (!string.IsNullOrWhiteSpace(configuredSampleId))
-        {
-            if (voices.Any(v => string.Equals(v.VoiceId, configuredSampleId, StringComparison.OrdinalIgnoreCase)))
-                return false;
-
-            missingConfiguredSampleId = configuredSampleId;
-        }
-
-        var npcTokens = NormalizeNameTokens(npcName);
-        if (npcTokens.Count == 0)
-            return false;
-
-        var requiredMatches = npcTokens.Count <= 2 ? npcTokens.Count : npcTokens.Count - 1;
-        var npcCompact = NormalizeCompactName(npcName);
-
-        var best = voices
-            // Name fallback must only consider bespoke/name-style samples.
-            // Generic race/sex samples like M_Tauren or F_Tauren are too broad:
-            // "Rivermane Tauren" should not auto-pick F_Tauren.
-            .Where(v => !IsGenericGenderRaceSampleId(v.VoiceId))
-            .Select(v =>
-            {
-                var sampleTokens = NormalizeNameTokens(v.VoiceId);
-                var sampleCompact = CompactFromTokens(sampleTokens);
-                var matchedTokens = npcTokens
-                    .Where(t => sampleTokens.Any(st => string.Equals(st, t, StringComparison.OrdinalIgnoreCase)))
-                    .ToArray();
-                var compactMatch = IsCompactNpcNameMatch(npcCompact, sampleCompact, npcTokens.Count);
-
-                return new
-                {
-                    Voice = v,
-                    Tokens = sampleTokens,
-                    MatchedTokens = matchedTokens,
-                    CompactMatch = compactMatch,
-                    Score = ScoreNpcSampleMatch(npcTokens, sampleTokens, matchedTokens, compactMatch, v.VoiceId)
-                };
-            })
-            .Where(x => x.MatchedTokens.Length >= requiredMatches || x.CompactMatch)
-            .OrderByDescending(x => x.Score)
-            .ThenBy(x => x.Voice.VoiceId.Length)
-            .ThenBy(x => x.Voice.VoiceId, StringComparer.OrdinalIgnoreCase)
-            .FirstOrDefault();
-
-        if (best == null)
-            return false;
-
-        matchedSampleId = best.Voice.VoiceId;
-        return true;
-    }
-
-    private static bool IsGenericGenderRaceSampleId(string? sampleId)
-    {
-        if (string.IsNullOrWhiteSpace(sampleId))
-            return false;
-
-        return sampleId.StartsWith("M_", StringComparison.OrdinalIgnoreCase) ||
-               sampleId.StartsWith("F_", StringComparison.OrdinalIgnoreCase);
-    }
-
-    private static int ScoreNpcSampleMatch(
-        IReadOnlyList<string> npcTokens,
-        IReadOnlyList<string> sampleTokens,
-        IReadOnlyList<string> matchedTokens,
-        bool compactMatch,
-        string sampleId)
-    {
-        var score = matchedTokens.Count * 1000;
-
-        if (compactMatch)
-            score += 750;
-
-        if (sampleId.StartsWith("U_", StringComparison.OrdinalIgnoreCase))
-            score += 100;
-
-        var extraTokenCount = sampleTokens.Count(t =>
-            t.Length > 1 &&
-            !npcTokens.Any(n => string.Equals(n, t, StringComparison.OrdinalIgnoreCase)) &&
-            !int.TryParse(t, out _));
-        score -= extraTokenCount * 10;
-
-        return score;
-    }
-
-
-    private static bool IsCompactNpcNameMatch(string npcCompact, string sampleCompact, int npcTokenCount)
-    {
-        if (string.IsNullOrWhiteSpace(npcCompact) || string.IsNullOrWhiteSpace(sampleCompact))
-            return false;
-
-        // Compact matching is for missing spaces in decoded names, e.g.
-        // "FirstArcanistThalyssra" or "First ArcanistThalyssra".
-        // Keep threshold high enough so a single short token like "Blockhead"
-        // does not match "TheronBlockhead".
-        var minLength = npcTokenCount <= 1 ? 12 : 8;
-        if (npcCompact.Length < minLength)
-            return false;
-
-        return sampleCompact.Contains(npcCompact, StringComparison.OrdinalIgnoreCase) ||
-               npcCompact.Contains(sampleCompact, StringComparison.OrdinalIgnoreCase);
-    }
-
-    private static string CompactFromTokens(IReadOnlyList<string> tokens)
-    {
-        if (tokens.Count == 0)
-            return string.Empty;
-
-        return string.Concat(tokens.Where(t =>
-            t.Length > 1 &&
-            !int.TryParse(t, out _)));
-    }
-
-    private static string NormalizeCompactName(string value)
-        => CompactFromTokens(NormalizeNameTokens(value));
-
-    private static IReadOnlyList<string> NormalizeNameTokens(string value)
-    {
-        var normalized = NormalizeSampleName(value);
-        if (string.IsNullOrWhiteSpace(normalized))
-            return Array.Empty<string>();
-
-        return normalized
-            .Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
-            .Where(t => t.Length > 1 && !int.TryParse(t, out _))
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .ToArray();
-    }
-
-    private static string NormalizeSampleName(string value)
-    {
-        if (string.IsNullOrWhiteSpace(value))
-            return string.Empty;
-
-        var decomposed = value.Normalize(NormalizationForm.FormD);
-        var sb = new StringBuilder(decomposed.Length);
-        foreach (var ch in decomposed)
-        {
-            var category = CharUnicodeInfo.GetUnicodeCategory(ch);
-            if (category == UnicodeCategory.NonSpacingMark)
-                continue;
-
-            if (ch == '\'' || ch == '’' || ch == '`')
-                continue;
-
-            if (char.IsLetterOrDigit(ch))
-                sb.Append(char.ToLowerInvariant(ch));
-            else
-                sb.Append(' ');
-        }
-
-        return Regex.Replace(sb.ToString(), @"\s+", " ").Trim();
-    }
-
-    private static int? TryExtractNpcIdFromGuid(string? guid)
-    {
-        if (string.IsNullOrWhiteSpace(guid))
-            return null;
-
-        var parts = guid.Split('-');
-        if (parts.Length < 6)
-            return null;
-
-        if (!string.Equals(parts[0], "Creature", StringComparison.OrdinalIgnoreCase) &&
-            !string.Equals(parts[0], "Vehicle", StringComparison.OrdinalIgnoreCase))
-            return null;
-
-        return int.TryParse(parts[5], out var npcId) && npcId > 0 ? npcId : null;
-    }
-
-    private static bool IsSyntheticBookNpcId(int npcId)
-        => npcId >= 0xF00000 && npcId <= 0xFFFFFF;
-
-    private static int CountWords(string text)
-        => string.IsNullOrWhiteSpace(text)
-            ? 0
-            : Regex.Matches(text, @"\b[\p{L}\p{N}']+\b").Count;
-
-    private static string MergeShortParagraph(string left, string right)
-    {
-        var mergedLeft = (left ?? string.Empty).TrimEnd();
-        var mergedRight = (right ?? string.Empty).Trim();
-
-        if (mergedLeft.Length == 0)
-            return mergedRight;
-        if (mergedRight.Length == 0)
-            return mergedLeft;
-
-        if (mergedLeft.EndsWith(".,", StringComparison.Ordinal))
-            return mergedLeft + " " + mergedRight;
-
-        if (mergedLeft.EndsWith(".", StringComparison.Ordinal))
-            mergedLeft = mergedLeft[..^1] + ".,";
-        else if (mergedLeft.EndsWith("!", StringComparison.Ordinal) ||
-                 mergedLeft.EndsWith("?", StringComparison.Ordinal) ||
-                 mergedLeft.EndsWith("…", StringComparison.Ordinal))
-            mergedLeft += ",";
-        else if (!mergedLeft.EndsWith(",", StringComparison.Ordinal))
-            mergedLeft += ".,";
-
-        return mergedLeft + " " + mergedRight;
     }
 
     private static string MakeUtteranceKey(int dialogId, VoiceSlot slot, int npcId,
