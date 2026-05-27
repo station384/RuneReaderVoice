@@ -57,6 +57,7 @@ public sealed class DialoguePronunciationProcessor
         return new AssembledSegment
         {
             Text = processed,
+            SourceText = segment.SourceText,
             Slot = segment.Slot,
             DialogId = segment.DialogId,
             SegmentIndex = segment.SegmentIndex,
@@ -68,6 +69,8 @@ public sealed class DialoguePronunciationProcessor
             PlayerClass = segment.PlayerClass,
             PlayerTitle = segment.PlayerTitle,
             BespokeSampleId = segment.BespokeSampleId,
+            BespokeMatchedByNpcName = segment.BespokeMatchedByNpcName,
+            MissingBespokeSampleId = segment.MissingBespokeSampleId,
             BespokeExaggeration = segment.BespokeExaggeration,
             BespokeCfgWeight = segment.BespokeCfgWeight,
             UseNpcIdAsSeed = segment.UseNpcIdAsSeed,

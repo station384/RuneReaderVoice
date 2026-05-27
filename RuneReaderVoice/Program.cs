@@ -190,17 +190,26 @@ internal static class Program
         assembler.OnSegmentComplete += seg =>
         {
             LogTextPipeline("00-onsegment-input", seg, seg.Text);
-            var rawText = HtmlTextStripper.Strip(seg.Text);
-            LogTextPipeline("01-html-stripped", seg, rawText);
-            AppServices.LastDecodedText = rawText;
+
+            // Diagnostics Raw must reflect the decoded/source segment before assembler
+            // speech shaping such as synthetic periods and dialogue quotes. The audio
+            // pipeline, however, must continue from seg.Text so those assembler-level
+            // TTS improvements are preserved.
+            var rawSourceText = HtmlTextStripper.Strip(!string.IsNullOrWhiteSpace(seg.SourceText) ? seg.SourceText! : seg.Text);
+            var pipelineInputText = HtmlTextStripper.Strip(seg.Text);
+
+            LogTextPipeline("01-html-stripped-source", seg, rawSourceText);
+            LogTextPipeline("01b-html-stripped-pipeline", seg, pipelineInputText);
+            AppServices.LastDecodedText = rawSourceText;
             AppServices.LastRuntimeSlot = seg.Slot;
+            AppServices.RecordDialogSegmentRaw(seg, rawSourceText);
             var activeProvider = AppServices.Provider;
 
             // Normalize before text shaping. Text shaping may intentionally add
             // punctuation/spacing for TTS pacing (for example comma pauses), and
             // that can damage machine-readable numeric tokens such as "10,000"
             // before Humanizer gets a chance to convert them to words.
-            var normalizedText = AppServices.TextNormalizer.Normalize(rawText, AppServices.Settings);
+            var normalizedText = AppServices.TextNormalizer.Normalize(pipelineInputText, AppServices.Settings);
             LogTextPipeline("02-normalized", seg, normalizedText);
             var shapedText = AppServices.TextSwapProcessor.Process(normalizedText);
             LogTextPipeline("03-text-shaped", seg, shapedText);
@@ -208,6 +217,7 @@ internal static class Program
             var shapedSegment = new AssembledSegment
             {
                 Text                = shapedText,
+                SourceText          = seg.SourceText,
                 Slot                = seg.Slot,
                 DialogId            = seg.DialogId,
                 SegmentIndex        = seg.SegmentIndex,
@@ -232,6 +242,7 @@ internal static class Program
 
             AppServices.LastProcessedText = processed.Text ?? string.Empty;
             AppServices.LastTextSpoken    = processed.Text ?? string.Empty;
+            AppServices.RecordDialogSegmentProcessed(processed, processed.Text ?? string.Empty);
 
             foreach (var chunk in ExpandPlayerNameSplit(processed, pendingExpandedSegments.Count))
             {
@@ -265,7 +276,12 @@ internal static class Program
             pendingExpandedSegments.Clear();
         };
 
-        assembler.OnSessionReset += id => { pendingExpandedSegments.Clear(); coordinator.OnSessionReset(id); };
+        assembler.OnSessionReset += id =>
+        {
+            pendingExpandedSegments.Clear();
+            AppServices.ResetDialogDiagnostics(id);
+            coordinator.OnSessionReset(id);
+        };
 
         var monitor = new RvBarcodeMonitor(platform.ScreenCapture);
         // Migrate old one-Code39-region setting into GUID side-channel.
@@ -490,6 +506,7 @@ internal static class Program
         int? dialogSegmentCount = null) => new()
     {
         Text = text,
+        SourceText = segment.SourceText,
         Slot = segment.Slot,
         DialogId = segment.DialogId,
         SegmentIndex = idx,

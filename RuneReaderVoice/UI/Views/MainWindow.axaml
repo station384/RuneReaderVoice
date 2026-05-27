@@ -250,7 +250,7 @@ along with RuneReaderVoice. If not, see <https://www.gnu.org/licenses/>.
             <!-- Basic settings tab -->
             <TabItem Header="Settings" >
                 <ScrollViewer>
-                    <Grid Margin="12" ColumnDefinitions="*,*" ColumnSpacing="12">
+                    <Grid Margin="12" ColumnDefinitions="*,*" RowDefinitions="Auto,Auto" ColumnSpacing="12" RowSpacing="12">
 
                         <!-- LEFT: TTS Provider, Playback -->
                         <StackPanel Grid.Column="0" Spacing="6">
@@ -522,6 +522,7 @@ along with RuneReaderVoice. If not, see <https://www.gnu.org/licenses/>.
 
                         </StackPanel>
 
+
                     </Grid>
                 </ScrollViewer>
             </TabItem>
@@ -769,10 +770,10 @@ along with RuneReaderVoice. If not, see <https://www.gnu.org/licenses/>.
             <!-- Advanced tab -->
             <TabItem Header="Advanced">
                 <ScrollViewer>
-                    <Grid Margin="12" ColumnDefinitions="*,*" ColumnSpacing="12">
+                    <Grid Margin="12" ColumnDefinitions="*,*" RowDefinitions="Auto,Auto" ColumnSpacing="12" RowSpacing="12">
 
                         <!-- LEFT: Capture, Playback, Cache -->
-                        <StackPanel Grid.Column="0" Spacing="10">
+                        <StackPanel Grid.Row="0" Grid.Column="0" Spacing="10">
 
                             <Expander x:Name="ExpanderCapture" Header="Capture" HorizontalAlignment="Stretch" IsExpanded="False">
                                 <StackPanel Margin="0,8,0,0" Spacing="6" HorizontalAlignment="Stretch">
@@ -839,7 +840,7 @@ along with RuneReaderVoice. If not, see <https://www.gnu.org/licenses/>.
                         </StackPanel>
 
                         <!-- RIGHT: Audio, Piper, Diagnostics, Hotkey -->
-                        <StackPanel Grid.Column="1" Spacing="10">
+                        <StackPanel Grid.Row="0" Grid.Column="1" Spacing="10">
 
                             <Expander x:Name="ExpanderAudio" Header="Audio" HorizontalAlignment="Stretch" IsExpanded="False">
                                 <StackPanel Margin="0,8,0,0" Spacing="6" HorizontalAlignment="Stretch">
@@ -866,30 +867,6 @@ along with RuneReaderVoice. If not, see <https://www.gnu.org/licenses/>.
                                     <ListBox x:Name="PiperModelList" Height="80"/>
                                     <TextBlock Text="Download models at github.com/rhasspy/piper"
                                                Foreground="#555" FontSize="10"/>
-                                </StackPanel>
-                            </Expander>
-
-                            <Expander x:Name="ExpanderDiagnostics" Header="Diagnostics" HorizontalAlignment="Stretch" IsExpanded="False">
-                                <StackPanel Margin="0,8,0,0" Spacing="6" HorizontalAlignment="Stretch">
-                                    <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto">
-                                        <TextBlock Grid.Row="0" Grid.Column="0" Text="Last packet DIALOG"    Foreground="#888" FontSize="10" Margin="0,0,12,0"/>
-                                        <TextBlock x:Name="DiagDialog"          Grid.Row="0" Grid.Column="1" Text="—" Foreground="#E0E0FF" FontSize="10"/>
-
-                                        <TextBlock Grid.Row="1" Grid.Column="0" Text="Last synthesis latency" Foreground="#888" FontSize="10" Margin="0,3,12,0"/>
-                                        <TextBlock x:Name="DiagLatency"         Grid.Row="1" Grid.Column="1" Text="—" Foreground="#E0E0FF" FontSize="10" Margin="0,3,0,0"/>
-
-                                        <TextBlock Grid.Row="2" Grid.Column="0" Text="Cache hit rate"         Foreground="#888" FontSize="10" Margin="0,3,12,0"/>
-                                        <TextBlock x:Name="DiagHitRate"         Grid.Row="2" Grid.Column="1" Text="—" Foreground="#E0E0FF" FontSize="10" Margin="0,3,0,0"/>
-
-                                        <TextBlock Grid.Row="3" Grid.Column="0" Text="Last decoded text"      Foreground="#888" FontSize="10" Margin="0,3,12,0" VerticalAlignment="Top"/>
-                                        <TextBlock x:Name="DiagLastDecodedText" Grid.Row="3" Grid.Column="1" Text="—" Foreground="#FFD166" FontSize="10" Margin="0,3,0,0" TextWrapping="Wrap"/>
-
-                                        <TextBlock Grid.Row="4" Grid.Column="0" Text="Processed text"         Foreground="#888" FontSize="10" Margin="0,3,12,0" VerticalAlignment="Top"/>
-                                        <TextBlock x:Name="DiagProcessedText"   Grid.Row="4" Grid.Column="1" Text="—" Foreground="#B8E986" FontSize="10" Margin="0,3,0,0" TextWrapping="Wrap"/>
-
-                                        <TextBlock Grid.Row="5" Grid.Column="0" Text="Text spoken"            Foreground="#888" FontSize="10" Margin="0,3,12,0" VerticalAlignment="Top"/>
-                                        <TextBlock x:Name="DiagTextSpoken"      Grid.Row="5" Grid.Column="1" Text="—" Foreground="#88C0FF" FontSize="10" Margin="0,3,0,0" TextWrapping="Wrap"/>
-                                    </Grid>
                                 </StackPanel>
                             </Expander>
 
@@ -935,6 +912,35 @@ along with RuneReaderVoice. If not, see <https://www.gnu.org/licenses/>.
                             </Expander>
 
                         </StackPanel>
+
+                        <Expander x:Name="ExpanderDiagnostics" Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2" Header="Diagnostics" HorizontalAlignment="Stretch" IsExpanded="False">
+                            <StackPanel Margin="0,8,0,0" Spacing="8" HorizontalAlignment="Stretch">
+                                <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto,Auto">
+                                    <TextBlock Grid.Row="0" Grid.Column="0" Text="Current dialog" Foreground="#888" FontSize="10" Margin="0,0,12,0"/>
+                                    <TextBlock x:Name="DiagDialog" Grid.Row="0" Grid.Column="1" Text="—" Foreground="#E0E0FF" FontSize="10"/>
+
+                                    <TextBlock Grid.Row="1" Grid.Column="0" Text="Last synthesis latency" Foreground="#888" FontSize="10" Margin="0,3,12,0"/>
+                                    <TextBlock x:Name="DiagLatency" Grid.Row="1" Grid.Column="1" Text="—" Foreground="#E0E0FF" FontSize="10" Margin="0,3,0,0"/>
+
+                                    <TextBlock Grid.Row="2" Grid.Column="0" Text="Cache hit rate" Foreground="#888" FontSize="10" Margin="0,3,12,0"/>
+                                    <TextBlock x:Name="DiagHitRate" Grid.Row="2" Grid.Column="1" Text="—" Foreground="#E0E0FF" FontSize="10" Margin="0,3,0,0"/>
+                                </Grid>
+
+                                <Grid ColumnDefinitions="42,64,90,90,72,72,72,72,72" Margin="0,6,0,0">
+                                    <TextBlock Grid.Column="0" Text="Seg" Foreground="#888" FontSize="10"/>
+                                    <TextBlock Grid.Column="1" Text="Slot" Foreground="#888" FontSize="10"/>
+                                    <TextBlock Grid.Column="2" Text="NPC" Foreground="#888" FontSize="10"/>
+                                    <TextBlock Grid.Column="3" Text="Cache" Foreground="#888" FontSize="10"/>
+                                    <TextBlock Grid.Column="4" Text="Scan" Foreground="#888" FontSize="10" HorizontalAlignment="Right"/>
+                                    <TextBlock Grid.Column="5" Text="TTS" Foreground="#888" FontSize="10" HorizontalAlignment="Right"/>
+                                    <TextBlock Grid.Column="6" Text="Play" Foreground="#888" FontSize="10" HorizontalAlignment="Right"/>
+                                    <TextBlock Grid.Column="7" Text="Total" Foreground="#888" FontSize="10" HorizontalAlignment="Right"/>
+                                    <TextBlock Grid.Column="8" Text="Raw / Processed / Server" Foreground="#888" FontSize="10"/>
+                                </Grid>
+
+                                <StackPanel x:Name="DiagSegmentRows" Spacing="8"/>
+                            </StackPanel>
+                        </Expander>
 
                     </Grid>
                 </ScrollViewer>

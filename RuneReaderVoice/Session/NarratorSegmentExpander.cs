@@ -35,6 +35,7 @@ internal static class NarratorSegmentExpander
                 expanded.Add(new AssembledSegment
                 {
                     Text = trimmed,
+                    SourceText = trimmed,
                     Slot = narratorSlot,
                     DialogId = segment.DialogId,
                     SegmentIndex = segment.SegmentIndex,
@@ -62,6 +63,7 @@ internal static class NarratorSegmentExpander
                 expanded.Add(new AssembledSegment
                 {
                     Text = trimmed,
+                    SourceText = trimmed,
                     Slot = segment.Slot,
                     DialogId = segment.DialogId,
                     SegmentIndex = segment.SegmentIndex,

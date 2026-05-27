@@ -71,6 +71,11 @@ namespace RuneReaderVoice.Session;
 public sealed class AssembledSegment
 {
     public string    Text              { get; init; } = string.Empty;
+
+    // Original source text for diagnostics. This stays pre-TTS-processing
+    // (before synthetic periods, quote wrapping, normalization, text shaping,
+    // pronunciation, and player-name split).
+    public string?   SourceText        { get; init; } = null;
     public VoiceSlot Slot              { get; init; }
     public int       DialogId          { get; init; }
     public int       SegmentIndex      { get; init; }
@@ -349,6 +354,7 @@ public sealed class TtsSessionAssembler
                 var emitted = new AssembledSegment
                 {
                     Text = emittedText,
+                    SourceText = seg.SourceText ?? seg.Text,
                     Slot = seg.Slot,
                     DialogId = seg.DialogId,
                     SegmentIndex = audibleIndex,
@@ -496,6 +502,7 @@ public sealed class TtsSessionAssembler
         _completedSegments[acc.SeqIndex] = new AssembledSegment
         {
             Text                = text,
+            SourceText          = text,
             Slot                = slot,
             DialogId            = _currentDialogId,
             SegmentIndex        = acc.SeqIndex,

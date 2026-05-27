@@ -485,6 +485,11 @@ public sealed class PlaybackCoordinator : IDisposable
             ? remoteCacheProvider.NormalizeSubmittedTextForCache(segment.Text)
             : segment.Text;
 
+        // Diagnostics must reflect the exact text used for cache identity / provider
+        // submission at playback time. Do this here, not in Program before cache
+        // lookup, so UI cannot accidentally show pre-pipeline/source text.
+        RuneReaderVoice.AppServices.RecordDialogSegmentServerText(segment, cacheText ?? string.Empty);
+
         var cacheKey = TtsAudioCache.ComputeKey(cacheText, effectiveVoiceId, _provider.ProviderId, "");
         DebugCacheTrace(
             phase: "Lookup",

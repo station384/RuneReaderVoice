@@ -51,6 +51,20 @@ public sealed record PipelineLatencySnapshot(
     string CacheState,
     string Summary);
 
+public sealed record DialogSegmentDiagnosticsSnapshot(
+    int DialogId,
+    int SegmentIndex,
+    int SegmentCount,
+    int NpcId,
+    string? NpcName,
+    VoiceSlot Slot,
+    bool IsNarrator,
+    string RawText,
+    string ProcessedText,
+    string ServerText,
+    string CacheState,
+    PipelineLatencySnapshot? Latency);
+
 public enum MainActivityKind
 {
     None,
@@ -120,11 +134,30 @@ public static class AppServices
         public string CacheState = "unknown";
     }
 
+    private sealed class DialogSegmentDiagnosticsMutable
+    {
+        public int DialogId;
+        public int SegmentIndex;
+        public int SegmentCount;
+        public int NpcId;
+        public string? NpcName;
+        public VoiceSlot Slot;
+        public bool IsNarrator;
+        public string RawText = string.Empty;
+        public string ProcessedText = string.Empty;
+        public string ServerText = string.Empty;
+        public string CacheState = "unknown";
+    }
+
     private static readonly object _pipelineLatencyLock = new();
     private static readonly Dictionary<(int DialogId, int SegmentIndex), PipelineLatencyMutable> _pipelineLatency = new();
     private static readonly Queue<double> _recentPipelineTotals = new();
     public static PipelineLatencySnapshot? LastPipelineLatency { get; private set; }
     public static event Action<PipelineLatencySnapshot>? PipelineLatencyChanged;
+
+    private static readonly object _dialogDiagnosticsLock = new();
+    private static int _currentDiagnosticsDialogId = -1;
+    private static readonly Dictionary<int, DialogSegmentDiagnosticsMutable> _currentDialogDiagnostics = new();
 
 
     private static readonly object _mainActivityLock = new();
@@ -244,6 +277,93 @@ public static class AppServices
     /// </summary>
     public static AssembledSegment? LastSegment { get; set; }
 
+    public static void ResetDialogDiagnostics(int dialogId)
+    {
+        lock (_dialogDiagnosticsLock)
+        {
+            if (_currentDiagnosticsDialogId == dialogId)
+                return;
+
+            _currentDiagnosticsDialogId = dialogId;
+            _currentDialogDiagnostics.Clear();
+        }
+    }
+
+    public static void RecordDialogSegmentRaw(AssembledSegment segment, string rawText)
+        => UpdateDialogSegmentDiagnostics(segment, rawText: rawText);
+
+    public static void RecordDialogSegmentProcessed(AssembledSegment segment, string processedText)
+        => UpdateDialogSegmentDiagnostics(segment, processedText: processedText);
+
+    public static void RecordDialogSegmentServerText(AssembledSegment segment, string serverText)
+        => UpdateDialogSegmentDiagnostics(segment, serverText: serverText);
+
+    private static void UpdateDialogSegmentDiagnostics(
+        AssembledSegment segment,
+        string? rawText = null,
+        string? processedText = null,
+        string? serverText = null)
+    {
+        lock (_dialogDiagnosticsLock)
+        {
+            if (_currentDiagnosticsDialogId != segment.DialogId)
+            {
+                _currentDiagnosticsDialogId = segment.DialogId;
+                _currentDialogDiagnostics.Clear();
+            }
+
+            if (!_currentDialogDiagnostics.TryGetValue(segment.SegmentIndex, out var item))
+            {
+                item = new DialogSegmentDiagnosticsMutable
+                {
+                    DialogId = segment.DialogId,
+                    SegmentIndex = segment.SegmentIndex,
+                    SegmentCount = segment.DialogSegmentCount,
+                };
+                _currentDialogDiagnostics[segment.SegmentIndex] = item;
+            }
+
+            item.SegmentCount = segment.DialogSegmentCount;
+            item.NpcId = segment.NpcId;
+            item.NpcName = segment.NpcName;
+            item.Slot = segment.Slot;
+            item.IsNarrator = segment.IsNarratorSegment;
+            if (rawText != null) item.RawText = rawText;
+            if (processedText != null) item.ProcessedText = processedText;
+            if (serverText != null) item.ServerText = serverText;
+        }
+    }
+
+    public static IReadOnlyList<DialogSegmentDiagnosticsSnapshot> GetCurrentDialogDiagnostics()
+    {
+        lock (_dialogDiagnosticsLock)
+        lock (_pipelineLatencyLock)
+        {
+            return _currentDialogDiagnostics.Values
+                .OrderBy(x => x.SegmentIndex)
+                .Select(x =>
+                {
+                    _pipelineLatency.TryGetValue((x.DialogId, x.SegmentIndex), out var latency);
+                    var latencySnapshot = latency == null ? null : BuildPipelineLatencySnapshot(latency, publishAverage: false);
+                    var cache = latencySnapshot?.CacheState ?? x.CacheState;
+                    return new DialogSegmentDiagnosticsSnapshot(
+                        x.DialogId,
+                        x.SegmentIndex,
+                        x.SegmentCount,
+                        x.NpcId,
+                        x.NpcName,
+                        x.Slot,
+                        x.IsNarrator,
+                        x.RawText,
+                        x.ProcessedText,
+                        x.ServerText,
+                        cache,
+                        latencySnapshot);
+                })
+                .ToList();
+        }
+    }
+
 
     public static void RecordQrPacketDecoded(RvPacket packet)
     {
@@ -309,6 +429,15 @@ public static class AppServices
             item.CacheState = hit ? "HIT" : "MISS";
             PublishPipelineLatency(item);
         }
+
+        lock (_dialogDiagnosticsLock)
+        {
+            if (_currentDiagnosticsDialogId == segment.DialogId &&
+                _currentDialogDiagnostics.TryGetValue(segment.SegmentIndex, out var diag))
+            {
+                diag.CacheState = hit ? "HIT" : "MISS";
+            }
+        }
     }
 
     public static void RecordAudioStart(int segmentIndex)
@@ -329,12 +458,19 @@ public static class AppServices
 
     private static void PublishPipelineLatency(PipelineLatencyMutable item)
     {
+        var snapshot = BuildPipelineLatencySnapshot(item, publishAverage: true);
+        LastPipelineLatency = snapshot;
+        PipelineLatencyChanged?.Invoke(snapshot);
+    }
+
+    private static PipelineLatencySnapshot BuildPipelineLatencySnapshot(PipelineLatencyMutable item, bool publishAverage)
+    {
         double? scanToAssemble = DeltaMs(item.FirstScanTicks, item.AssembledTicks);
         double? assembleToTts = DeltaMs(item.AssembledTicks, item.TtsStartTicks);
         double? ttsToAudio = DeltaMs(item.TtsStartTicks, item.AudioStartTicks);
         double? total = DeltaMs(item.FirstScanTicks, item.AudioStartTicks);
 
-        if (total.HasValue && item.AudioStartTicks.HasValue)
+        if (publishAverage && total.HasValue && item.AudioStartTicks.HasValue)
         {
             _recentPipelineTotals.Enqueue(total.Value);
             while (_recentPipelineTotals.Count > 10)
@@ -349,7 +485,7 @@ public static class AppServices
                       $"total {FormatMs(total)}, cache {item.CacheState}" +
                       (avg.HasValue ? $", avg {avg.Value:0} ms" : string.Empty);
 
-        var snapshot = new PipelineLatencySnapshot(
+        return new PipelineLatencySnapshot(
             item.DialogId,
             item.SegmentIndex,
             item.SubIndex,
@@ -360,9 +496,6 @@ public static class AppServices
             total,
             item.CacheState,
             summary);
-
-        LastPipelineLatency = snapshot;
-        PipelineLatencyChanged?.Invoke(snapshot);
     }
 
     private static double? DeltaMs(long? startTicks, long? endTicks)

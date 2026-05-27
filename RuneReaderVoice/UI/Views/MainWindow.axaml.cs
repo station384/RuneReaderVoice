@@ -25,6 +25,8 @@ using System.Linq;
 using System.Threading.Tasks;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
+using Avalonia.Layout;
+using Avalonia.Media;
 using Avalonia.Threading;
 using RuneReaderVoice;
 using RuneReaderVoice.Protocol;
@@ -186,15 +188,113 @@ public partial class MainWindow : Window
             ? $"{latency.TotalMilliseconds:F0} ms"
             : "—";
 
-        DiagLastDecodedText.Text = string.IsNullOrEmpty(AppServices.LastDecodedText) ? "—" : AppServices.LastDecodedText;
-        DiagProcessedText.Text   = string.IsNullOrEmpty(AppServices.LastProcessedText) ? "—" : AppServices.LastProcessedText;
-        DiagTextSpoken.Text      = string.IsNullOrEmpty(AppServices.LastTextSpoken) ? "—" : AppServices.LastTextSpoken;
         DiagHitRate.Text = hitRate;
+        RebuildDiagnosticsSegmentRows();
 
         CacheStatsLabel.Text =
             $"Cache: {cache.EntryCount} entries, {cache.TotalSizeBytes / 1024 / 1024} MB";
     }
 
+
+    private void RebuildDiagnosticsSegmentRows()
+    {
+        if (DiagSegmentRows == null)
+            return;
+
+        var rows = AppServices.GetCurrentDialogDiagnostics();
+        DiagSegmentRows.Children.Clear();
+
+        if (rows.Count == 0)
+        {
+            DiagDialog.Text = "—";
+            DiagSegmentRows.Children.Add(new TextBlock
+            {
+                Text = "No decoded dialog yet.",
+                Foreground = SolidColorBrush.Parse("#666"),
+                FontSize = 10,
+            });
+            return;
+        }
+
+        var dialogId = rows[0].DialogId;
+        DiagDialog.Text = $"0x{dialogId:X4}  segments {rows.Count}";
+
+        foreach (var row in rows)
+            DiagSegmentRows.Children.Add(BuildDiagnosticsSegmentRow(row));
+    }
+
+    private static Grid BuildDiagnosticsSegmentRow(DialogSegmentDiagnosticsSnapshot snapshot)
+    {
+        var grid = new Grid
+        {
+            ColumnDefinitions = new ColumnDefinitions("42,64,90,90,72,72,72,72,*"),
+            RowDefinitions = new RowDefinitions("Auto,Auto,Auto"),
+        };
+
+        AddDiagCell(grid, 0, 0, snapshot.SegmentIndex.ToString("000"), "#E0E0FF");
+        AddDiagCell(grid, 1, 0, snapshot.Slot.ToString(), "#E0E0FF");
+        AddDiagCell(grid, 2, 0, snapshot.NpcId > 0 ? snapshot.NpcId.ToString() : "—", "#E0E0FF");
+        AddDiagCell(grid, 3, 0, snapshot.CacheState, CacheColor(snapshot.CacheState));
+        AddDiagCell(grid, 4, 0, FormatDiagMs(snapshot.Latency?.ScanToAssembleMs), "#E0E0FF", HorizontalAlignment.Right);
+        AddDiagCell(grid, 5, 0, FormatDiagMs(snapshot.Latency?.AssembleToTtsStartMs), "#E0E0FF", HorizontalAlignment.Right);
+        AddDiagCell(grid, 6, 0, FormatDiagMs(snapshot.Latency?.TtsStartToAudioStartMs), "#E0E0FF", HorizontalAlignment.Right);
+        AddDiagCell(grid, 7, 0, FormatDiagMs(snapshot.Latency?.TotalMs), "#E0E0FF", HorizontalAlignment.Right);
+        AddDiagCell(grid, 8, 0, snapshot.IsNarrator ? "Narrator" : (snapshot.NpcName ?? string.Empty), "#888");
+
+        AddDiagTextLine(grid, 1, "Raw", snapshot.RawText, "#FFD166");
+        AddDiagTextLine(grid, 2, "Processed / server", (!string.IsNullOrWhiteSpace(snapshot.ServerText) ? snapshot.ServerText : snapshot.ProcessedText), "#B8E986");
+
+        return grid;
+    }
+
+    private static void AddDiagCell(Grid grid, int column, int row, string text, string color, HorizontalAlignment align = HorizontalAlignment.Left)
+    {
+        var tb = new TextBlock
+        {
+            Text = string.IsNullOrWhiteSpace(text) ? "—" : text,
+            Foreground = SolidColorBrush.Parse(color),
+            FontSize = 10,
+            FontFamily = "Consolas",
+            HorizontalAlignment = align,
+            TextWrapping = TextWrapping.NoWrap,
+        };
+        Grid.SetColumn(tb, column);
+        Grid.SetRow(tb, row);
+        grid.Children.Add(tb);
+    }
+
+    private static void AddDiagTextLine(Grid grid, int row, string label, string text, string color)
+    {
+        var tb = new TextBlock
+        {
+            Text = $"{label}: {VisibleDiagText(text)}",
+            Foreground = SolidColorBrush.Parse(color),
+            FontSize = 10,
+            TextWrapping = TextWrapping.Wrap,
+        };
+        Grid.SetColumn(tb, 8);
+        Grid.SetRow(tb, row);
+        grid.Children.Add(tb);
+    }
+
+    private static string FormatDiagMs(double? value)
+        => value.HasValue ? $"{value.Value:0}ms" : "—";
+
+    private static string CacheColor(string? cache)
+        => string.Equals(cache, "HIT", StringComparison.OrdinalIgnoreCase) ? "#B8E986" :
+           string.Equals(cache, "MISS", StringComparison.OrdinalIgnoreCase) ? "#FF9F80" :
+           "#888";
+
+    private static string VisibleDiagText(string? text)
+    {
+        if (string.IsNullOrEmpty(text))
+            return "—";
+        return text
+            .Replace("\r\n", "␊", StringComparison.Ordinal)
+            .Replace("\n", "␊", StringComparison.Ordinal)
+            .Replace("\r", "␍", StringComparison.Ordinal)
+            .Replace("\t", "␉", StringComparison.Ordinal);
+    }
 
     private void OnMainActivityChanged(MainActivityState state)
     {
