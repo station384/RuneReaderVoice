@@ -26,6 +26,7 @@ using Avalonia.Interactivity;
 using Avalonia.Threading;
 using RuneReaderVoice.Protocol;
 using RuneReaderVoice.Sync;
+using RuneReaderVoice.TTS;
 using RuneReaderVoice.TTS.Providers;
 
 namespace RuneReaderVoice.UI.Views;
@@ -256,6 +257,8 @@ public partial class MainWindow
 
     private void OnPlaybackModeChanged(object? sender, SelectionChangedEventArgs e)
     {
+        if (_uiInitializing) return;
+
         if (PlaybackModeSelector.SelectedItem is not ComboBoxItem item)
             return;
 
@@ -264,6 +267,9 @@ public partial class MainWindow
             return;
 
         AppServices.Settings.PlaybackMode = mode;
+        AppServices.Coordinator.Mode = mode == "StreamOnFirstChunk"
+            ? PlaybackMode.StreamOnFirstChunk
+            : PlaybackMode.WaitForFullText;
         VoiceSettingsManager.SaveSettings(AppServices.Settings);
     }
 
