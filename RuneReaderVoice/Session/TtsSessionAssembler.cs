@@ -203,22 +203,14 @@ public sealed class TtsSessionAssembler
             }
 
             // ── Runtime routing baseline ─────────────────────────────────────
-            // Packet race/gender provides the protocol baseline. Local NPC overrides
-            // remain authoritative and are applied when the segment completes.
+            // Narrator packets must use narrator voice. Non-narrator packets start
+            // from the same narrator fallback, then TryCompleteSegment applies local
+            // NPCID overrides or NPC-name bespoke matches when allowed.
+            // Do not use packet race as baseline for unknown NPCs.
             int effectiveRace = packet.Race;
-            var packetGender = packet.IsFemale ? Gender.Female : packet.IsMale ? Gender.Male : Gender.Unknown;
-            VoiceSlot resolvedSlot;
-            if (packet.IsNarrator)
-            {
-                resolvedSlot = packet.IsFemale ? VoiceSlot.FemaleNarrator : VoiceSlot.MaleNarrator;
-            }
-            else
-            {
-                var catalogId = NpcPeopleCatalogService.CatalogIdFromRaceId(effectiveRace);
-                resolvedSlot = !string.IsNullOrWhiteSpace(catalogId)
-                    ? (AppServices.NpcPeopleCatalog?.ResolveCatalogSlot(catalogId, packetGender) ?? VoiceSlot.CreateCatalog(catalogId, packetGender))
-                    : (packet.IsFemale ? VoiceSlot.FemaleNarrator : VoiceSlot.MaleNarrator);
-            }
+            VoiceSlot resolvedSlot = packet.IsFemale
+                ? VoiceSlot.FemaleNarrator
+                : VoiceSlot.MaleNarrator;
 
             if (packet.SubIndex == 0)
             {
