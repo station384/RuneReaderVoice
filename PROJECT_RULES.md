@@ -199,5 +199,5 @@ Preserve unless user explicitly changes them:
 
 ## Current authoritative docs
 
-- Design doc current baseline: `Design_RuneReader_Voice_v25.md` :contentReference[oaicite:30]{index=30}
+- Design doc current baseline: `Design_RuneReader_Voice_v26.md` :contentReference[oaicite:30]{index=30}
 - Provider test record: `Provider Tests.md` :contentReference[oaicite:31]{index=31}
