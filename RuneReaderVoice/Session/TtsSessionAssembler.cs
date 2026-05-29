@@ -22,6 +22,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Globalization;
 using System.Linq;
+using System.Security.Cryptography;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading;
@@ -549,7 +550,13 @@ public sealed class TtsSessionAssembler
 
     private static string MakeUtteranceKey(int dialogId, VoiceSlot slot, int npcId,
                                             string text, int seqIndex)
-        => $"{dialogId}|{seqIndex}|{slot}|{npcId}|{text}";
+    {
+        // Keep duplicate-suppression keys compact even for large book/dialog text.
+        // Use a stable hash instead of string.GetHashCode(), which is randomized per process.
+        var textHash = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(text ?? string.Empty)))[..16]
+            .ToLowerInvariant();
+        return $"{dialogId}|{seqIndex}|{slot}|{npcId}|{textHash}";
+    }
 
     private static string MakeKey(int subTotal, int flags, int race, string sub0,
                                    int seqIndex = -1)

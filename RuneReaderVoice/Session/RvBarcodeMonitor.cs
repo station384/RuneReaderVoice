@@ -361,14 +361,13 @@ public sealed class RvBarcodeMonitor : IDisposable
 
     public void ProcessFrame(Mat frame)
     {
-        Mat fullFrame = frame.Clone();
         try
         {
-            if (fullFrame.Empty()) return;
+            if (frame.Empty()) return;
 
-            OnFrameCaptured?.Invoke(fullFrame);
+            OnFrameCaptured?.Invoke(frame);
 
-            var qrResults = DecodeQrMultiple(fullFrame);
+            var qrResults = DecodeQrMultiple(frame);
             if (qrResults is { Length: > 0 })
             {
                 foreach (var result in qrResults)
@@ -385,7 +384,7 @@ public sealed class RvBarcodeMonitor : IDisposable
                 }
             }
 
-            var rrvbResults = DecodeRrvbMultiple(fullFrame);
+            var rrvbResults = DecodeRrvbMultiple(frame);
             var identity = SelectBestRrvbIdentity(rrvbResults);
             if (identity != null)
             {
@@ -395,7 +394,6 @@ public sealed class RvBarcodeMonitor : IDisposable
         }
         finally
         {
-            fullFrame.Dispose();
             if (!frame.IsDisposed)
                 frame.Dispose();
             CheckIfWeShouldGC();
@@ -408,25 +406,23 @@ public sealed class RvBarcodeMonitor : IDisposable
         lock (_gate)
             kind = _activeRegionKind;
 
-        Mat regionFrame = frame.Clone();
         try
         {
-            if (regionFrame.Empty()) return;
+            if (frame.Empty()) return;
 
             if (kind == RegionKind.Qr)
-                OnRegionCaptured?.Invoke(regionFrame);
+                OnRegionCaptured?.Invoke(frame);
 
             if (kind == RegionKind.RrvbGuid)
             {
-                ProcessRrvbIdentityRegion(regionFrame);
+                ProcessRrvbIdentityRegion(frame);
                 return;
             }
 
-            ProcessQrRegion(regionFrame);
+            ProcessQrRegion(frame);
         }
         finally
         {
-            regionFrame.Dispose();
             if (!frame.IsDisposed)
                 frame.Dispose();
             CheckIfWeShouldGC();

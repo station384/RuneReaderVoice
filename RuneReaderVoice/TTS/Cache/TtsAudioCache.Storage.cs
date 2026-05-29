@@ -117,10 +117,8 @@ public sealed partial class TtsAudioCache
         PcmAudio audio, string text, string voiceId, string providerId, string dspKey,
         CancellationToken ct)
     {
-        var key     = ComputeKey(text, voiceId, providerId, dspKey);
-        var keyLock = GetKeyLock(key);
-
-        await keyLock.WaitAsync(ct);
+        var key = ComputeKey(text, voiceId, providerId, dspKey);
+        var keyLock = await AcquireKeyLockAsync(key, ct).ConfigureAwait(false);
         try
         {
             var existing = await TryGetAsync(text, voiceId, providerId, dspKey);
@@ -150,7 +148,7 @@ public sealed partial class TtsAudioCache
         }
         finally
         {
-            keyLock.Release();
+            keyLock.Dispose();
         }
     }
 
@@ -163,10 +161,8 @@ public sealed partial class TtsAudioCache
         byte[] oggBytes, string text, string voiceId, string providerId, string dspKey,
         CancellationToken ct)
     {
-        var key     = ComputeKey(text, voiceId, providerId, dspKey);
-        var keyLock = GetKeyLock(key);
-
-        await keyLock.WaitAsync(ct);
+        var key = ComputeKey(text, voiceId, providerId, dspKey);
+        var keyLock = await AcquireKeyLockAsync(key, ct).ConfigureAwait(false);
         try
         {
             var existing = await TryGetAsync(text, voiceId, providerId, dspKey);
@@ -195,7 +191,7 @@ public sealed partial class TtsAudioCache
         }
         finally
         {
-            keyLock.Release();
+            keyLock.Dispose();
         }
     }
 

@@ -4,6 +4,7 @@
 // Copyright (C) 2026 Michael Sutton
 
 using System;
+using System.Buffers;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
@@ -874,7 +875,32 @@ public static class RrvBarcodeDetector
 
     private static int Median(IEnumerable<int> values)
     {
-        var sorted = values.OrderBy(v => v).ToArray();
-        return sorted.Length == 0 ? 0 : sorted[sorted.Length / 2];
+        var rented = ArrayPool<int>.Shared.Rent(16);
+        var count = 0;
+        try
+        {
+            foreach (var value in values)
+            {
+                if (count == rented.Length)
+                {
+                    var larger = ArrayPool<int>.Shared.Rent(rented.Length * 2);
+                    Array.Copy(rented, larger, count);
+                    ArrayPool<int>.Shared.Return(rented);
+                    rented = larger;
+                }
+
+                rented[count++] = value;
+            }
+
+            if (count == 0)
+                return 0;
+
+            Array.Sort(rented, 0, count);
+            return rented[count / 2];
+        }
+        finally
+        {
+            ArrayPool<int>.Shared.Return(rented);
+        }
     }
 }

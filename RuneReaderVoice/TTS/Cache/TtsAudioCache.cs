@@ -39,8 +39,10 @@ public sealed partial class TtsAudioCache : IDisposable
 
     private readonly RvrDb _db;
 
-    // Per-key synthesis lock: prevents duplicate synthesis for the same key
-    private readonly Dictionary<string, SemaphoreSlim> _keyLocks = new();
+    // Per-key synthesis lock: prevents duplicate synthesis for the same key.
+    // Entries are reference-counted and removed after the last waiter leaves so
+    // long sessions with many unique utterances do not retain one SemaphoreSlim per key.
+    private readonly Dictionary<string, KeyLockEntry> _keyLocks = new();
     private readonly object _keyLocksGate = new();
 
     // ── Diagnostics (for settings UI) ────────────────────────────────────────
