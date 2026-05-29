@@ -104,9 +104,8 @@ public sealed partial class TtsAudioCache : IDisposable
     {
         try
         {
-            var rows = await _db.Connection.Table<AudioCacheManifestRow>().ToListAsync();
-            TotalSizeBytes = rows.Sum(r => r.FileSizeBytes);
-            EntryCount     = rows.Count;
+            EntryCount     = await _db.Connection.ExecuteScalarAsync<int>("SELECT COUNT(*) FROM AudioCacheManifestRow");
+            TotalSizeBytes = await _db.Connection.ExecuteScalarAsync<long>("SELECT COALESCE(SUM(FileSizeBytes), 0) FROM AudioCacheManifestRow");
         }
         catch { /* best-effort */ }
     }

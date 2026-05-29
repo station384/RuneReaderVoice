@@ -671,10 +671,14 @@ public sealed class RvBarcodeMonitor : IDisposable
         if (result.ResultPoints == null || result.ResultPoints.Length < 2)
             return;
 
-        float minX = result.ResultPoints.Min(p => p.X);
-        float minY = result.ResultPoints.Min(p => p.Y);
-        float maxX = result.ResultPoints.Max(p => p.X);
-        float maxY = result.ResultPoints.Max(p => p.Y);
+        float minX = float.MaxValue, minY = float.MaxValue, maxX = float.MinValue, maxY = float.MinValue;
+        foreach (var p in result.ResultPoints)
+        {
+            if (p.X < minX) minX = p.X;
+            if (p.X > maxX) maxX = p.X;
+            if (p.Y < minY) minY = p.Y;
+            if (p.Y > maxY) maxY = p.Y;
+        }
 
         const int padding = 30;
         var minHeight = (kind == RegionKind.RrvbGuid) ? 80 : 0;

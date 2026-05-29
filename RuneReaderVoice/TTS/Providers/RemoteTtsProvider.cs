@@ -1198,17 +1198,44 @@ public sealed class RemoteTtsProvider : ITtsProvider
 
             var sampleRate = vorbis.SampleRate;
             var channels   = vorbis.Channels;
-            var samples    = new List<float>(sampleRate * channels * 5);
             var readBuf    = new float[4096];
-            int read;
-            while ((read = vorbis.ReadSamples(readBuf)) > 0)
+
+            var totalSamples = vorbis.TotalSamples;
+            if (totalSamples > 0)
             {
-                ct.ThrowIfCancellationRequested();
-                for (var i = 0; i < read; i++)
-                    samples.Add(readBuf[i]);
+                var capacity = (int)(totalSamples * channels);
+                var samples = new float[capacity];
+                var offset = 0;
+
+                int read;
+                while ((read = vorbis.ReadSamples(readBuf)) > 0)
+                {
+                    ct.ThrowIfCancellationRequested();
+                    if (offset + read > samples.Length)
+                    {
+                        var newSize = Math.Max(offset + read, samples.Length * 2);
+                        Array.Resize(ref samples, newSize);
+                    }
+                    Array.Copy(readBuf, 0, samples, offset, read);
+                    offset += read;
+                }
+
+                if (offset < capacity)
+                    Array.Resize(ref samples, offset);
+
+                return new PcmAudio(samples, sampleRate, channels);
             }
 
-            return new PcmAudio(samples.ToArray(), sampleRate, channels);
+            var list = new List<float>(sampleRate * channels * 5);
+            int readCount;
+            while ((readCount = vorbis.ReadSamples(readBuf)) > 0)
+            {
+                ct.ThrowIfCancellationRequested();
+                for (var i = 0; i < readCount; i++)
+                    list.Add(readBuf[i]);
+            }
+
+            return new PcmAudio(list.ToArray(), sampleRate, channels);
         }, ct);
     }
 }
