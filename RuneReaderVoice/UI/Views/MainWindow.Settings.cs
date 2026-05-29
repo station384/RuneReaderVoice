@@ -35,7 +35,7 @@ namespace RuneReaderVoice.UI.Views;
 public partial class MainWindow
 {
 
-    private async Task RebuildRemoteRuntimeAsync(bool refreshUi)
+    private void RebuildRemoteRuntime(bool refreshUi)
     {
         try
         {
@@ -61,7 +61,7 @@ public partial class MainWindow
                 AppServices.NpcPeopleCatalog,
                 syncClient,
                 assemblerBridge);
-            await npcSync.StartAsync();
+            npcSync.StartAsync();
         }
         else
         {
@@ -223,7 +223,7 @@ public partial class MainWindow
             VoiceSettingsManager.SaveSettings(AppServices.Settings);
             AppServices.ProviderRegistry = TtsProviderFactory.BuildRegistry(AppServices.Settings);
             PopulateProviderSelector();
-            await RebuildRemoteRuntimeAsync(refreshUi: true);
+            RebuildRemoteRuntime(refreshUi: true);
             UpdateRemoteProvidersStatus();
             SessionStatus.Text = $"Loaded {providers.Count} remote provider(s).";
         }

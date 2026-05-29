@@ -604,6 +604,17 @@ public partial class MainWindow : Window
 
         AppServices.NpcSync.NpcRecordsMerged -= OnNpcRecordsMergedFromSync;
         AppServices.NpcSync.NpcRecordsMerged += OnNpcRecordsMergedFromSync;
+
+        AppServices.NpcSync.SyncStatusChanged -= OnNpcSyncStatusChanged;
+        AppServices.NpcSync.SyncStatusChanged += OnNpcSyncStatusChanged;
+    }
+
+    private void OnNpcSyncStatusChanged(string msg)
+    {
+        Dispatcher.UIThread.Post(() =>
+        {
+            NpcOverridesStatus.Text = msg;
+        });
     }
 
     private void OnNpcRecordsMergedFromSync(int mergedCount)
@@ -639,7 +650,10 @@ public partial class MainWindow : Window
     protected override void OnClosing(Avalonia.Controls.WindowClosingEventArgs e)
     {
         if (AppServices.NpcSync != null)
+        {
             AppServices.NpcSync.NpcRecordsMerged -= OnNpcRecordsMergedFromSync;
+            AppServices.NpcSync.SyncStatusChanged -= OnNpcSyncStatusChanged;
+        }
         _statusTimer.Stop();
         _ = VoiceSettingsManager.SaveSettingsAsync(AppServices.Settings);
         base.OnClosing(e);

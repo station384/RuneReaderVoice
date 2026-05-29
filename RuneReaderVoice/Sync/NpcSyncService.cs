@@ -114,33 +114,54 @@ public sealed class NpcSyncService : IDisposable
     // ── Startup ───────────────────────────────────────────────────────────────
 
     /// <summary>
-    /// Call once at startup. Performs first-load pull if needed,
-    /// then starts the background polling loop.
+    /// Call once at startup. Returns immediately — initial server sync runs in the
+    /// background so the app loads without blocking, even if the server is unreachable.
+    /// The polling loop starts immediately and will retry on its next tick if the
+    /// initial background sync encountered errors.
     /// </summary>
-    public async Task StartAsync()
+    public Task StartAsync()
     {
         if (!ShouldUseRemoteSync())
         {
             System.Diagnostics.Debug.WriteLine("[NpcSync] Remote sync skipped — active provider is not remote or no server URL is configured.");
             SetStatus("Remote sync skipped — local provider active.");
-            return;
+            return Task.CompletedTask;
         }
 
-        if (!_settings.FirstLoadComplete)
-        {
-            await DoFirstLoadAsync().ConfigureAwait(false);
-        }
-        else
-        {
-            // Catch up immediately on startup. Do not wait for the first 5-minute poll.
-            await PollNpcOverridesAsync(_settings.LastNpcSyncAt).ConfigureAwait(false);
-
-            if (ShouldRefreshSharedConfigFromServer())
-                await RefreshSharedConfigFromServerAsync().ConfigureAwait(false);
-        }
+        SetStatus("Connecting to server…");
 
         _cts      = new CancellationTokenSource();
         _pollTask = PollLoopAsync(_cts.Token);
+
+        // Fire initial sync in the background — does not block startup.
+        _ = BackgroundInitialSyncAsync();
+
+        return Task.CompletedTask;
+    }
+
+    private async Task BackgroundInitialSyncAsync()
+    {
+        try
+        {
+            if (!_settings.FirstLoadComplete)
+            {
+                await DoFirstLoadAsync().ConfigureAwait(false);
+            }
+            else
+            {
+                await PollNpcOverridesAsync(_settings.LastNpcSyncAt).ConfigureAwait(false);
+
+                if (ShouldRefreshSharedConfigFromServer())
+                    await RefreshSharedConfigFromServerAsync().ConfigureAwait(false);
+            }
+
+            System.Diagnostics.Debug.WriteLine("[NpcSync] Initial background sync completed");
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"[NpcSync] Initial background sync failed: {ex.Message}");
+            SetStatus($"Sync failed — will retry later ({ex.Message})");
+        }
     }
 
     private async Task DoFirstLoadAsync()

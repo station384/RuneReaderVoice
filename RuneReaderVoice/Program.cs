@@ -154,7 +154,7 @@ internal static class Program
             npcSync = new NpcSyncService(
                 settings, npcOverrides, pronunciationRules, textSwapRules,
                 npcPeopleCatalogService, syncClient, assemblerBridge);
-            npcSync.StartAsync().GetAwaiter().GetResult();
+            npcSync.StartAsync();
         }
         else
         {
