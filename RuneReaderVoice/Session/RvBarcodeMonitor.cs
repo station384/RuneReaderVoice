@@ -605,55 +605,49 @@ public sealed class RvBarcodeMonitor : IDisposable
         return result?.Text;
     }
 
-    // RRVB decode pipeline: same gray+threshold+pad cleanup as DecodeMultiple,
-    // then calls RrvBarcodeDetector.Detect on the cleaned Mat instead of ZXing.
+    private static Mat PrepareMatForDecode(Mat frame, int pad, out Mat toDispose)
+    {
+        var gray = frame.Channels() == 1 ? frame.Clone() : frame.CvtColor(ColorConversionCodes.BGR2GRAY);
+        Cv2.Threshold(gray, gray, 20, 255, ThresholdTypes.Binary);
+
+        if (pad > 0)
+        {
+            var padded = new Mat();
+            Cv2.CopyMakeBorder(gray, padded, pad, pad, pad, pad, BorderTypes.Constant, Scalar.White);
+            gray.Dispose();
+            toDispose = padded;
+            return padded;
+        }
+
+        toDispose = gray;
+        return gray;
+    }
+
     private static Result[]? DecodeMultipleRrvb(Mat frame, ref byte[] buffer, int pad)
     {
-        Mat gray   = new();
-        Mat? padded = null;
         try
         {
-            gray = frame.Channels() == 1 ? frame.Clone() : frame.CvtColor(ColorConversionCodes.BGR2GRAY);
-            Cv2.Threshold(gray, gray, 20, 255, ThresholdTypes.Binary);
-
-            Mat source = gray;
-            if (pad > 0)
+            var source = PrepareMatForDecode(frame, pad, out var toDispose);
+            try
             {
-                padded = new Mat();
-                Cv2.CopyMakeBorder(gray, padded, pad, pad, pad, pad, BorderTypes.Constant, Scalar.White);
-                source = padded;
+                return RrvBarcodeDetector.Detect(source);
             }
-
-            return RrvBarcodeDetector.Detect(source);
+            finally
+            {
+                toDispose.Dispose();
+            }
         }
         catch
         {
             return null;
         }
-        finally
-        {
-            padded?.Dispose();
-            gray.Dispose();
-        }
     }
 
     private static Result[]? DecodeMultiple(Mat frame, BarcodeReaderGeneric reader, ref byte[] buffer, int pad)
     {
-        Mat gray = new();
         try
         {
-            gray = frame.Channels() == 1 ? frame.Clone() : frame.CvtColor(ColorConversionCodes.BGR2GRAY);
-            Cv2.Threshold(gray, gray, 20, 255, ThresholdTypes.Binary);
-
-            Mat source = gray;
-            Mat? padded = null;
-            if (pad > 0)
-            {
-                padded = new Mat();
-                Cv2.CopyMakeBorder(gray, padded, pad, pad, pad, pad, BorderTypes.Constant, Scalar.White);
-                source = padded;
-            }
-
+            var source = PrepareMatForDecode(frame, pad, out var toDispose);
             try
             {
                 var required = source.Rows * source.Cols;
@@ -667,16 +661,12 @@ public sealed class RvBarcodeMonitor : IDisposable
             }
             finally
             {
-                padded?.Dispose();
+                toDispose.Dispose();
             }
         }
         catch
         {
             return null;
-        }
-        finally
-        {
-            gray.Dispose();
         }
     }
 

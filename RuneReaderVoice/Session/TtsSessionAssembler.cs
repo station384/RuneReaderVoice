@@ -705,34 +705,6 @@ public sealed class TtsSessionAssembler
 
     private static string DecodeAndClean(string[] subs)
     {
-        // var totalBytes = 0;
-        // var decodedChunks = new byte[subs.Length][];
-        //
-        // for (int i = 0; i < subs.Length; i++)
-        // {
-        //     var b64 = subs[i];
-        //     var bytes = Convert.FromBase64String(b64);
-        //     decodedChunks[i] = bytes;
-        //     totalBytes += bytes.Length;
-        //
-        //     System.Diagnostics.Debug.WriteLine(
-        //         $"[Assembler] sub {i}/{subs.Length - 1} b64len={b64.Length} " +
-        //         $"bytelen={bytes.Length}");
-        // }
-        //
-        // var allBytes = new byte[totalBytes];
-        // var offset = 0;
-        // for (int i = 0; i < decodedChunks.Length; i++)
-        // {
-        //     var bytes = decodedChunks[i];
-        //     Buffer.BlockCopy(bytes, 0, allBytes, offset, bytes.Length);
-        //     offset += bytes.Length;
-        // }
-
-        //var text = Encoding.UTF8.GetString(allBytes);
-
-        //System.Diagnostics.Debug.WriteLine($"[Assembler] final bytelen={allBytes.Length} text='{text}'");
-        
         StringBuilder sb = new StringBuilder();
         foreach (var s in subs)
         {

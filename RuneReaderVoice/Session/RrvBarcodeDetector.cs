@@ -474,6 +474,8 @@ public static class RrvBarcodeDetector
 
     private static bool HasCompatibleContinuationRow(List<GuardRow> rowsInfo, int currentRowIndex, int lastRowBottom, int refDataW, int refHeight)
     {
+        // Rows are ordered top-to-bottom. Once a row is beyond the gap
+        // threshold, no further rows can be in range — stop scanning.
         for (int i = currentRowIndex + 1; i < rowsInfo.Count; i++)
         {
             var row = rowsInfo[i];
@@ -481,9 +483,10 @@ public static class RrvBarcodeDetector
             if (gap < 0)
                 continue;
             if (gap > MaxWrappedRowGapPixels)
-                return false;
+                break;
 
-            return LooksLikeContinuationRow(row, refDataW, refHeight);
+            if (LooksLikeContinuationRow(row, refDataW, refHeight))
+                return true;
         }
 
         return false;
