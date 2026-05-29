@@ -45,7 +45,7 @@ internal static class NpcNameBespokeSampleMatcher
         if (npcTokens.Count == 0)
             return false;
 
-        var requiredMatches = npcTokens.Count <= 2 ? npcTokens.Count : npcTokens.Count - 1;
+        var requiredMatches = npcTokens.Count <= 2 ? npcTokens.Count : 2;
         var npcCompact = NormalizeCompactName(npcName);
 
         var best = voices
@@ -71,7 +71,7 @@ internal static class NpcNameBespokeSampleMatcher
                     Score = ScoreNpcSampleMatch(npcTokens, sampleTokens, matchedTokens, compactMatch, v.VoiceId)
                 };
             })
-            .Where(x => x.MatchedTokens.Length >= requiredMatches || x.CompactMatch)
+            .Where(x => IsStrongEnoughMatch(x.Tokens, x.MatchedTokens, x.CompactMatch, requiredMatches))
             .OrderByDescending(x => x.Score)
             .ThenBy(x => x.Voice.VoiceId.Length)
             .ThenBy(x => x.Voice.VoiceId, StringComparer.OrdinalIgnoreCase)
@@ -91,6 +91,24 @@ internal static class NpcNameBespokeSampleMatcher
 
         return sampleId.StartsWith("M_", StringComparison.OrdinalIgnoreCase) ||
                sampleId.StartsWith("F_", StringComparison.OrdinalIgnoreCase);
+    }
+
+
+    private static bool IsStrongEnoughMatch(
+        IReadOnlyList<string> sampleTokens,
+        IReadOnlyList<string> matchedTokens,
+        bool compactMatch,
+        int requiredMatches)
+    {
+        // Avoid weak single-word matches such as:
+        //   NPC: "Magistrix Landra Dawnstrider"
+        //   Sample: "U_Dawn_1"
+        // Multi-token NPCs must match at least two meaningful name tokens,
+        // or a compact missing-space match backed by at least two sample tokens.
+        if (matchedTokens.Count >= requiredMatches)
+            return true;
+
+        return compactMatch && sampleTokens.Count >= requiredMatches;
     }
 
     private static int ScoreNpcSampleMatch(

@@ -49,6 +49,7 @@ class NpcOverrideContributeRequest(BaseModel):
     bespoke_sample_id:    Optional[str]   = None
     bespoke_exaggeration: Optional[float] = None
     bespoke_cfg_weight:   Optional[float] = None
+    disable_bespoke_auto_match: Optional[bool] = Field(default=None, validation_alias=AliasChoices("disable_bespoke_auto_match", "DisableBespokeAutoMatch", "disableBespokeAutoMatch"))
     gender_override:      Optional[str]   = None
 
 
@@ -60,6 +61,7 @@ class NpcOverrideAdminRequest(BaseModel):
     bespoke_sample_id:    Optional[str]   = None
     bespoke_exaggeration: Optional[float] = None
     bespoke_cfg_weight:   Optional[float] = None
+    disable_bespoke_auto_match: Optional[bool] = Field(default=None, validation_alias=AliasChoices("disable_bespoke_auto_match", "DisableBespokeAutoMatch", "disableBespokeAutoMatch"))
     gender_override:      Optional[str]   = None
     source:               str   = "confirmed"
 
@@ -147,6 +149,7 @@ async def contribute_npc_override(
         bespoke_sample_id    = body.bespoke_sample_id,
         bespoke_exaggeration = body.bespoke_exaggeration,
         bespoke_cfg_weight   = body.bespoke_cfg_weight,
+        disable_bespoke_auto_match = body.disable_bespoke_auto_match,
         gender_override      = body.gender_override,
         source               = "crowdsourced",
         confidence_delta     = 1,
@@ -182,6 +185,7 @@ async def contribute_npc_override_batch(
             "bespoke_sample_id": r.bespoke_sample_id,
             "bespoke_exaggeration": r.bespoke_exaggeration,
             "bespoke_cfg_weight": r.bespoke_cfg_weight,
+            "disable_bespoke_auto_match": r.disable_bespoke_auto_match,
             "gender_override": r.gender_override,
         }
         for r in body.records
@@ -220,6 +224,7 @@ async def admin_confirm_npc_override(
         bespoke_sample_id    = body.bespoke_sample_id,
         bespoke_exaggeration = body.bespoke_exaggeration,
         bespoke_cfg_weight   = body.bespoke_cfg_weight,
+        disable_bespoke_auto_match = body.disable_bespoke_auto_match,
         gender_override      = body.gender_override,
         source               = body.source,
         confidence_delta     = 0,

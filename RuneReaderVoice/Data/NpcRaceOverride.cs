@@ -75,6 +75,12 @@ public sealed class NpcRaceOverride
     public string? BespokeSampleId { get; set; } = null;
 
     /// <summary>
+    /// When true, automatic NPC-name bespoke sample matching is disabled for this NPC.
+    /// Null BespokeSampleId then means use race/default voice only, not auto-match.
+    /// </summary>
+    public bool DisableBespokeAutoMatch { get; set; } = false;
+
+    /// <summary>
     /// Overrides the exaggeration parameter for this NPC's synthesis.
     /// Null means inherit from the race slot's VoiceProfile.
     /// </summary>

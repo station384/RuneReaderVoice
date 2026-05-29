@@ -53,6 +53,7 @@ CREATE TABLE IF NOT EXISTS npc_overrides (
     bespoke_sample_id    TEXT    DEFAULT NULL,
     bespoke_exaggeration REAL    DEFAULT NULL,
     bespoke_cfg_weight   REAL    DEFAULT NULL,
+    disable_bespoke_auto_match INTEGER NOT NULL DEFAULT 0,
     gender_override      TEXT    NOT NULL DEFAULT 'auto',
     source               TEXT    NOT NULL DEFAULT 'crowdsourced',
     confidence           INTEGER NOT NULL DEFAULT 1,
@@ -102,6 +103,8 @@ class CommunityDb:
             await self._conn.execute("ALTER TABLE npc_overrides ADD COLUMN npc_name TEXT DEFAULT ''")
         if "gender_override" not in cols:
             await self._conn.execute("ALTER TABLE npc_overrides ADD COLUMN gender_override TEXT NOT NULL DEFAULT 'auto'")
+        if "disable_bespoke_auto_match" not in cols:
+            await self._conn.execute("ALTER TABLE npc_overrides ADD COLUMN disable_bespoke_auto_match INTEGER NOT NULL DEFAULT 0")
 
     # ── Queries ───────────────────────────────────────────────────────────────
 
@@ -134,6 +137,7 @@ class CommunityDb:
         bespoke_sample_id: str | None = None,
         bespoke_exaggeration: float | None = None,
         bespoke_cfg_weight: float | None = None,
+        disable_bespoke_auto_match: bool | None = None,
         gender_override: str | None = None,
         source: str = "crowdsourced",
         confidence_delta: int = 1,
@@ -176,6 +180,7 @@ class CommunityDb:
                     bespoke_sample_id    = ?,
                     bespoke_exaggeration = ?,
                     bespoke_cfg_weight   = ?,
+                    disable_bespoke_auto_match = ?,
                     gender_override      = ?,
                     source               = ?,
                     confidence           = ?,
@@ -190,6 +195,7 @@ class CommunityDb:
                     bespoke_sample_id,
                     bespoke_exaggeration,
                     bespoke_cfg_weight,
+                    int(disable_bespoke_auto_match) if disable_bespoke_auto_match is not None else int(existing.get("disable_bespoke_auto_match", 0) or 0),
                     gender_override,
                     new_source,
                     new_confidence,
@@ -202,13 +208,14 @@ class CommunityDb:
                 """
                 INSERT INTO npc_overrides
                     (npc_id, catalog_id, npc_name, race_id, notes, bespoke_sample_id,
-                     bespoke_exaggeration, bespoke_cfg_weight, gender_override,
+                     bespoke_exaggeration, bespoke_cfg_weight, disable_bespoke_auto_match, gender_override,
                      source, confidence, created_at, updated_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     npc_id, catalog_id or "", npc_name or "", race_id, notes or "",
                     bespoke_sample_id, bespoke_exaggeration, bespoke_cfg_weight,
+                    int(disable_bespoke_auto_match or False),
                     gender_override, source, confidence_delta, now, now,
                 ),
             )
@@ -249,6 +256,7 @@ class CommunityDb:
                 bespoke_sample_id=rec.get("bespoke_sample_id"),
                 bespoke_exaggeration=rec.get("bespoke_exaggeration"),
                 bespoke_cfg_weight=rec.get("bespoke_cfg_weight"),
+                disable_bespoke_auto_match=rec.get("disable_bespoke_auto_match"),
                 gender_override=rec.get("gender_override"),
                 source=source,
                 confidence_delta=confidence_delta,

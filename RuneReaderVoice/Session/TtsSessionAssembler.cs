@@ -449,6 +449,7 @@ public sealed class TtsSessionAssembler
         string? bespokeSampleId = null;
         string? missingBespokeSampleId = null;
         var bespokeMatchedByNpcName = false;
+        var disableBespokeAutoMatch = false;
         float? bespokeExaggeration = null;
         float? bespokeCfgWeight = null;
         var useNpcIdAsSeed = false;
@@ -477,25 +478,33 @@ public sealed class TtsSessionAssembler
                 }
 
                 bespokeSampleId = entry.BespokeSampleId;
+                disableBespokeAutoMatch = entry.DisableBespokeAutoMatch;
                 bespokeExaggeration = entry.BespokeExaggeration;
                 bespokeCfgWeight = entry.BespokeCfgWeight;
                 useNpcIdAsSeed = entry.UseNpcIdAsSeed;
             }
 
-            bespokeMatchedByNpcName = NpcNameBespokeSampleMatcher.TryResolve(
-                npcName,
-                bespokeSampleId,
-                out var matchedSampleId,
-                out missingBespokeSampleId);
+            if (!disableBespokeAutoMatch)
+            {
+                bespokeMatchedByNpcName = NpcNameBespokeSampleMatcher.TryResolve(
+                    npcName,
+                    bespokeSampleId,
+                    out var matchedSampleId,
+                    out missingBespokeSampleId);
 
-            if (bespokeMatchedByNpcName && !string.IsNullOrWhiteSpace(matchedSampleId))
-            {
-                Debug.WriteLine($"[Assembler] NPC name matched bespoke sample npc='{npcName}' sample='{matchedSampleId}' slot={slot} isNarratorFlag={acc.IsNarrator}");
-                bespokeSampleId = matchedSampleId;
+                if (bespokeMatchedByNpcName && !string.IsNullOrWhiteSpace(matchedSampleId))
+                {
+                    Debug.WriteLine($"[Assembler] NPC name matched bespoke sample npc='{npcName}' sample='{matchedSampleId}' slot={slot} isNarratorFlag={acc.IsNarrator}");
+                    bespokeSampleId = matchedSampleId;
+                }
+                else if (!string.IsNullOrWhiteSpace(npcName) && string.IsNullOrWhiteSpace(bespokeSampleId))
+                {
+                    Debug.WriteLine($"[Assembler] NPC name had no bespoke sample match npc='{npcName}' slot={slot} isNarratorFlag={acc.IsNarrator}");
+                }
             }
-            else if (!string.IsNullOrWhiteSpace(npcName) && string.IsNullOrWhiteSpace(bespokeSampleId))
+            else
             {
-                Debug.WriteLine($"[Assembler] NPC name had no bespoke sample match npc='{npcName}' slot={slot} isNarratorFlag={acc.IsNarrator}");
+                Debug.WriteLine($"[Assembler] NPC name bespoke auto-match disabled npc='{npcName}' slot={slot} isNarratorFlag={acc.IsNarrator}");
             }
         }
 

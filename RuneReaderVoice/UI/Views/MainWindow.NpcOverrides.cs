@@ -48,6 +48,7 @@ public partial class MainWindow
     private string? _lastMatchedBespokeSampleId;
     private bool _lastBespokeMatchedByNpcName;
     private string? _lastMissingBespokeSampleId;
+    private bool _lastNpcBespokeAutoMatchDisabled;
     private int _lastNpcPanelRevision;
     private bool _suppressLastNpcRaceSearchEvents;
     private int _npcOverridesPageNumber = 1;
@@ -55,6 +56,7 @@ public partial class MainWindow
     private int _npcOverridesTotalCount;
     private string _npcOverridesFilter = string.Empty;
     private IReadOnlyList<NpcRaceOverride> _npcOverridesPageItems = Array.Empty<NpcRaceOverride>();
+    private const string NoBespokeAutoMatchTag = "__RRV_NO_BESPOKE_AUTO_MATCH__";
 
     private static void QuickSetTrace(string message)
     {
@@ -62,7 +64,11 @@ public partial class MainWindow
     }
 
     private static string SampleLabel(string? sampleId)
-        => string.IsNullOrWhiteSpace(sampleId) ? "(race default)" : sampleId!;
+        => string.IsNullOrWhiteSpace(sampleId)
+            ? "(race default)"
+            : string.Equals(sampleId, NoBespokeAutoMatchTag, StringComparison.Ordinal)
+                ? "(race voice only)"
+                : sampleId!;
 
     // ── Initialization ────────────────────────────────────────────────────────
 
@@ -171,7 +177,9 @@ public partial class MainWindow
         // The background voice warmup and provider refresh paths call this method after the
         // Last NPC panel may already have selected an NPC-name matched sample. Blindly
         // resetting to index 0 loses the suggestion even though the renderer used it.
-        var selectedBeforeRefresh = GetSelectedLastNpcSampleId();
+        var selectedBeforeRefresh = IsLastNpcBespokeAutoMatchDisabled()
+            ? NoBespokeAutoMatchTag
+            : GetSelectedLastNpcSampleId();
 
         LastNpcSampleDropdown.SelectionChanged -= OnBaseSampleSelectionChanged;
         LastNpcSampleDropdown.Items.Clear();
@@ -181,6 +189,11 @@ public partial class MainWindow
         {
             Content = "(race default)",
             Tag     = (string?)null,
+        });
+        LastNpcSampleDropdown.Items.Add(new ComboBoxItem
+        {
+            Content = "(race voice only — no auto match)",
+            Tag     = NoBespokeAutoMatchTag,
         });
 
         var showPanel = ShouldShowLastNpcSamplePanel();
@@ -287,7 +300,8 @@ public partial class MainWindow
     private void OnBaseSampleSelectionChanged(object? sender, SelectionChangedEventArgs e)
     {
         var baseSampleId = (LastNpcSampleDropdown.SelectedItem as ComboBoxItem)?.Tag as string;
-        QuickSetTrace($"base changed: {SampleLabel(baseSampleId)}");
+        _lastNpcBespokeAutoMatchDisabled = string.Equals(baseSampleId, NoBespokeAutoMatchTag, StringComparison.Ordinal);
+        QuickSetTrace($"base changed: {SampleLabel(baseSampleId)} disabledAutoMatch={_lastNpcBespokeAutoMatchDisabled}");
         PopulateVariantDropdown(baseSampleId);
     }
 
@@ -394,19 +408,26 @@ public partial class MainWindow
                 // Bespoke sample — explicit override wins when valid. Missing explicit sample warns and
                 // preselects the NPC-name match when one exists so Save can promote it.
                 var explicitSampleId = existing?.BespokeSampleId;
+                var autoMatchDisabled = existing?.DisableBespokeAutoMatch == true;
                 var explicitMissing = CurrentProviderUsesRemoteSamples()
                                       && !string.IsNullOrWhiteSpace(explicitSampleId)
                                       && !IsCurrentProviderSampleAvailable(explicitSampleId);
-                var sampleToSelect = explicitMissing && !string.IsNullOrWhiteSpace(matchedSampleId)
-                    ? matchedSampleId
-                    : !string.IsNullOrWhiteSpace(explicitSampleId)
-                        ? explicitSampleId
-                        : matchedSampleId;
+                var sampleToSelect = autoMatchDisabled
+                    ? NoBespokeAutoMatchTag
+                    : explicitMissing && !string.IsNullOrWhiteSpace(matchedSampleId)
+                        ? matchedSampleId
+                        : !string.IsNullOrWhiteSpace(explicitSampleId)
+                            ? explicitSampleId
+                            : matchedSampleId;
 
-                QuickSetTrace($"load override: npc={npcId} existing={(existing != null)} explicit={SampleLabel(explicitSampleId)} explicitMissing={explicitMissing} matched={SampleLabel(matchedSampleId)} selecting={SampleLabel(sampleToSelect)}");
+                QuickSetTrace($"load override: npc={npcId} existing={(existing != null)} explicit={SampleLabel(explicitSampleId)} autoDisabled={autoMatchDisabled} explicitMissing={explicitMissing} matched={SampleLabel(matchedSampleId)} selecting={SampleLabel(sampleToSelect)}");
                 SelectLastNpcSampleDropdown(sampleToSelect);
 
-                if (explicitMissing)
+                if (autoMatchDisabled)
+                {
+                    UpdateLastNpcSampleStatus("NPC-name bespoke matching disabled. Race voice will be used unless you select a sample.", Brushes.LightGray);
+                }
+                else if (explicitMissing)
                 {
                     var suffix = !string.IsNullOrWhiteSpace(matchedSampleId)
                         ? $" Fallback matched by NPC name: {matchedSampleId}. Save to replace explicit value."
@@ -444,6 +465,7 @@ public partial class MainWindow
         var raceId          = 0;
         var notes           = LastNpcNotesBox.Text?.Trim();
         var bespokeSampleId = GetSelectedLastNpcSampleId();
+        var disableBespokeAutoMatch = IsLastNpcBespokeAutoMatchDisabled();
         var useNpcIdAsSeed  = LastNpcUseNpcIdAsSeedCheckBox.IsChecked == true;
         var genderOverride  = GetSelectedLastNpcGenderOverride();
         BumpNpcCatalogSelection(catalogId);
@@ -457,6 +479,7 @@ public partial class MainWindow
                 raceId: raceId,
                 npcName: _lastNpcName,
                 bespokeSampleId: bespokeSampleId,
+                disableBespokeAutoMatch: disableBespokeAutoMatch,
                 useNpcIdAsSeed: useNpcIdAsSeed,
                 genderOverride: genderOverride);
 
@@ -475,8 +498,8 @@ public partial class MainWindow
                 SyncLastNpcRaceSearchTextFromSelection();
 
                 PopulateLastNpcSampleDropdown();
-                SelectLastNpcSampleDropdown(bespokeSampleId);
-                UpdateLastNpcSampleStatus(null);
+                SelectLastNpcSampleDropdown(disableBespokeAutoMatch ? NoBespokeAutoMatchTag : bespokeSampleId);
+                UpdateLastNpcSampleStatus(disableBespokeAutoMatch ? "NPC-name bespoke matching disabled. Race voice will be used unless you select a sample." : null);
                 _lastMatchedBespokeSampleId = null;
                 _lastBespokeMatchedByNpcName = false;
                 _lastMissingBespokeSampleId = null;
@@ -715,8 +738,13 @@ public partial class MainWindow
         LastNpcPanel.IsVisible = true;
         SelectDropdownByCatalogId(LastNpcRaceDropdown, entry.CatalogId);
         SyncLastNpcRaceSearchTextFromSelection();
+        _lastMatchedBespokeSampleId = null;
+        _lastBespokeMatchedByNpcName = false;
+        _lastMissingBespokeSampleId = null;
+        _lastNpcBespokeAutoMatchDisabled = entry.DisableBespokeAutoMatch;
+
         PopulateLastNpcSampleDropdown();
-        SelectLastNpcSampleDropdown(entry.BespokeSampleId);
+        SelectLastNpcSampleDropdown(entry.DisableBespokeAutoMatch ? NoBespokeAutoMatchTag : entry.BespokeSampleId);
         LastNpcUseNpcIdAsSeedCheckBox.IsChecked = entry.UseNpcIdAsSeed;
         SelectLastNpcGenderOverride(entry.GenderOverride);
         LastNpcClearButton.IsEnabled = true;
@@ -749,6 +777,7 @@ public partial class MainWindow
                 raceId: entry.RaceId,
                 npcName: entry.NpcName,
                 bespokeSampleId: entry.BespokeSampleId,
+                disableBespokeAutoMatch: entry.DisableBespokeAutoMatch,
                 bespokeExaggeration: entry.BespokeExaggeration,
                 bespokeCfgWeight: entry.BespokeCfgWeight,
                 useNpcIdAsSeed: entry.UseNpcIdAsSeed,
@@ -890,12 +919,30 @@ public partial class MainWindow
 
         if (string.IsNullOrWhiteSpace(sampleId))
         {
+            _lastNpcBespokeAutoMatchDisabled = false;
             LastNpcSampleDropdown.SelectedIndex = 0;
             PopulateVariantDropdown(null);
             QuickSetTrace("select result: race default");
             return;
         }
 
+        if (string.Equals(sampleId, NoBespokeAutoMatchTag, StringComparison.Ordinal))
+        {
+            _lastNpcBespokeAutoMatchDisabled = true;
+            foreach (var item in LastNpcSampleDropdown.Items.OfType<ComboBoxItem>())
+            {
+                if (string.Equals(item.Tag as string, NoBespokeAutoMatchTag, StringComparison.Ordinal))
+                {
+                    LastNpcSampleDropdown.SelectedItem = item;
+                    break;
+                }
+            }
+            PopulateVariantDropdown(null);
+            QuickSetTrace("select result: race voice only / no auto match");
+            return;
+        }
+
+        _lastNpcBespokeAutoMatchDisabled = false;
         var baseId = GetBaseSampleId(sampleId);
 
         if (!LastNpcSampleDropdown.Items.OfType<ComboBoxItem>()
@@ -945,18 +992,32 @@ public partial class MainWindow
     /// or null if "(race default)" is selected.
     /// Reads from the variant dropdown — its Tag holds the full ID.
     /// </summary>
+    private bool IsLastNpcBespokeAutoMatchDisabled()
+    {
+        // Keep an explicit backing flag so grid edit / hidden-provider paths preserve
+        // the override even if the ComboBox has not been populated or selected yet.
+        if (_lastNpcBespokeAutoMatchDisabled)
+            return true;
+
+        var baseItem = LastNpcSampleDropdown.SelectedItem as ComboBoxItem;
+        return string.Equals(baseItem?.Tag as string, NoBespokeAutoMatchTag, StringComparison.Ordinal);
+    }
+
     private string? GetSelectedLastNpcSampleId()
     {
-        // Base dropdown has null tag for "(race default)"
+        // Base dropdown has null tag for "(race default)". The explicit
+        // "race voice only" option also stores no sample, but disables
+        // NPC-name auto matching through a separate DB flag.
         var baseItem = LastNpcSampleDropdown.SelectedItem as ComboBoxItem;
-        if (baseItem?.Tag as string == null)
+        var baseTag = baseItem?.Tag as string;
+        if (baseTag == null || string.Equals(baseTag, NoBespokeAutoMatchTag, StringComparison.Ordinal))
             return null;
 
         // Variant dropdown tag holds the full ID (base or base+variant)
         if (LastNpcVariantDropdown.SelectedItem is ComboBoxItem varItem)
             return varItem.Tag as string;
 
-        return baseItem.Tag as string;
+        return baseTag;
     }
 
     private void AddCell(string text, int row, int col,
@@ -991,6 +1052,7 @@ public partial class MainWindow
         public int     RaceId              { get; set; }
         public string? Notes               { get; set; }
         public string? BespokeSampleId     { get; set; }
+        public bool    DisableBespokeAutoMatch { get; set; }
         public float?  BespokeExaggeration { get; set; }
         public float?  BespokeCfgWeight    { get; set; }
         public bool    UseNpcIdAsSeed     { get; set; }
@@ -1028,6 +1090,7 @@ public partial class MainWindow
                     RaceId              = x.RaceId,
                     Notes               = x.Notes,
                     BespokeSampleId     = x.BespokeSampleId,
+                    DisableBespokeAutoMatch = x.DisableBespokeAutoMatch,
                     BespokeExaggeration = x.BespokeExaggeration,
                     BespokeCfgWeight    = x.BespokeCfgWeight,
                     UseNpcIdAsSeed     = x.UseNpcIdAsSeed,
@@ -1100,6 +1163,7 @@ public partial class MainWindow
                     raceId: entry.RaceId,
                     npcName: entry.NpcName,
                     bespokeSampleId:     entry.BespokeSampleId,
+                    disableBespokeAutoMatch: entry.DisableBespokeAutoMatch,
                     bespokeExaggeration: entry.BespokeExaggeration,
                     bespokeCfgWeight:    entry.BespokeCfgWeight,
                     useNpcIdAsSeed:     entry.UseNpcIdAsSeed,
