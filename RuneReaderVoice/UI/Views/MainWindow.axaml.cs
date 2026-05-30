@@ -41,6 +41,8 @@ namespace RuneReaderVoice.UI.Views;
 public partial class MainWindow : Window
 {
     private readonly DispatcherTimer _statusTimer;
+    private readonly DispatcherTimer _diagnosticsRefreshTimer;
+    private bool _diagnosticsRefreshDirty;
     private bool _capturing;
     private bool _pronunciationUiInitializing;
     private bool _uiInitializing;
@@ -103,18 +105,39 @@ public partial class MainWindow : Window
         _statusTimer.Tick += OnStatusTick;
         _statusTimer.Start();
 
+        // Diagnostics can receive many updates while scanner/playback run. Coalesce UI rebuilds
+        // so Avalonia is not asked to recreate the diagnostics rows for every small state change.
+        _diagnosticsRefreshTimer = new DispatcherTimer
+        {
+            Interval = TimeSpan.FromMilliseconds(150)
+        };
+        _diagnosticsRefreshTimer.Tick += (_, _) =>
+        {
+            _diagnosticsRefreshTimer.Stop();
+            if (!_diagnosticsRefreshDirty)
+                return;
+
+            _diagnosticsRefreshDirty = false;
+            RebuildDiagnosticsSegmentRows();
+        };
+
+        AppServices.DialogDiagnosticsChanged += RequestDiagnosticsRefresh;
+        RequestDiagnosticsRefresh();
+
         // Subscribe to assembler events for live session status
         AppServices.Assembler.OnSessionReset    += id => Dispatcher.UIThread.Post(() =>
         {
             SessionStatus.Text = $"Dialog 0x{id:X4}  —  waiting";
             DiagDialog.Text    = $"0x{id:X4}";
             PlayerStatus.Text  = string.IsNullOrWhiteSpace(AppServices.CurrentPlayerName) ? "—" : AppServices.CurrentPlayerName;
+            RequestDiagnosticsRefresh();
         });
         AppServices.Assembler.OnSegmentComplete += seg => Dispatcher.UIThread.Post(() =>
         {
             SessionStatus.Text = $"Dialog 0x{seg.DialogId:X4}  seg {seg.SegmentIndex}  {GetDisplaySlotLabel(seg.Slot)}";
             DiagDialog.Text    = $"0x{seg.DialogId:X4}";
             PlayerStatus.Text  = string.IsNullOrWhiteSpace(AppServices.CurrentPlayerName) ? "—" : AppServices.CurrentPlayerName;
+            RequestDiagnosticsRefresh();
         });
 
         HookProviderStatusCallbacks(AppServices.Provider);
@@ -133,6 +156,7 @@ public partial class MainWindow : Window
         };
         Closing += (_, _) =>
         {
+            AppServices.DialogDiagnosticsChanged -= RequestDiagnosticsRefresh;
             StopTestQrOverlay();
             AppServices.Settings.AppStartX = Position.X;
             AppServices.Settings.AppStartY = Position.Y;
@@ -189,12 +213,24 @@ public partial class MainWindow : Window
             : "—";
 
         DiagHitRate.Text = hitRate;
-        RebuildDiagnosticsSegmentRows();
 
         CacheStatsLabel.Text =
             $"Cache: {cache.EntryCount} entries, {cache.TotalSizeBytes / 1024 / 1024} MB";
     }
 
+
+    private void RequestDiagnosticsRefresh()
+    {
+        if (!Dispatcher.UIThread.CheckAccess())
+        {
+            Dispatcher.UIThread.Post(RequestDiagnosticsRefresh);
+            return;
+        }
+
+        _diagnosticsRefreshDirty = true;
+        if (!_diagnosticsRefreshTimer.IsEnabled)
+            _diagnosticsRefreshTimer.Start();
+    }
 
     private void RebuildDiagnosticsSegmentRows()
     {

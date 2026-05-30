@@ -154,6 +154,7 @@ public static class AppServices
     private static readonly Queue<double> _recentPipelineTotals = new();
     public static PipelineLatencySnapshot? LastPipelineLatency { get; private set; }
     public static event Action<PipelineLatencySnapshot>? PipelineLatencyChanged;
+    public static event Action? DialogDiagnosticsChanged;
 
     private static readonly object _dialogDiagnosticsLock = new();
     private static int _currentDiagnosticsDialogId = -1;
@@ -279,6 +280,7 @@ public static class AppServices
 
     public static void ResetDialogDiagnostics(int dialogId)
     {
+        var changed = false;
         lock (_dialogDiagnosticsLock)
         {
             if (_currentDiagnosticsDialogId == dialogId)
@@ -286,7 +288,11 @@ public static class AppServices
 
             _currentDiagnosticsDialogId = dialogId;
             _currentDialogDiagnostics.Clear();
+            changed = true;
         }
+
+        if (changed)
+            DialogDiagnosticsChanged?.Invoke();
     }
 
     public static void RecordDialogSegmentRaw(AssembledSegment segment, string rawText)
@@ -332,6 +338,8 @@ public static class AppServices
             if (processedText != null) item.ProcessedText = processedText;
             if (serverText != null) item.ServerText = serverText;
         }
+
+        DialogDiagnosticsChanged?.Invoke();
     }
 
     public static IReadOnlyList<DialogSegmentDiagnosticsSnapshot> GetCurrentDialogDiagnostics()
@@ -438,6 +446,8 @@ public static class AppServices
                 diag.CacheState = hit ? "HIT" : "MISS";
             }
         }
+
+        DialogDiagnosticsChanged?.Invoke();
     }
 
     public static void RecordAudioStart(int segmentIndex)
@@ -461,6 +471,7 @@ public static class AppServices
         var snapshot = BuildPipelineLatencySnapshot(item, publishAverage: true);
         LastPipelineLatency = snapshot;
         PipelineLatencyChanged?.Invoke(snapshot);
+        DialogDiagnosticsChanged?.Invoke();
     }
 
     private static PipelineLatencySnapshot BuildPipelineLatencySnapshot(PipelineLatencyMutable item, bool publishAverage)

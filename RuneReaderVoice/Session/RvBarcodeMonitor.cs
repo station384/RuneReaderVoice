@@ -106,6 +106,10 @@ public sealed class RvBarcodeMonitor : IDisposable
     private DateTime _lastRrvbNameDecodeTime = DateTime.MinValue;
     private string _lastRrvbGuid = string.Empty;
     private string _lastRrvbName = string.Empty;
+    private string _pendingRrvbGuid = string.Empty;
+    private string _pendingRrvbName = string.Empty;
+    private int _pendingRrvbIdentityCount;
+    private DateTime _pendingRrvbIdentityTime = DateTime.MinValue;
     private bool _sourceGoneSignalled;
 
     private readonly object _gate = new();
@@ -115,6 +119,13 @@ public sealed class RvBarcodeMonitor : IDisposable
     private const string RrvbIdentityPrefix = "RRVX-";
     private const string RrvbGuidFieldPrefix = "G=";
     private const string RrvbNameFieldMarker = ";N=";
+
+    // RRVB is a visual side-channel; single-frame reads can flip one field on
+    // antialias/crop noise. Accept an identity only after seeing the same
+    // GUID+name twice in a short window. QR remains primary, so a one-frame
+    // metadata delay is safer than poisoning the current dialog identity.
+    private const int RrvbIdentityDebounceRequiredReads = 2;
+    private const int RrvbIdentityDebounceWindowMs = 750;
 
     // Full-screen scans are only needed to acquire or recover lost regions.
     // Once region polling is actively decoding all channels, keep full-screen
@@ -214,6 +225,7 @@ public sealed class RvBarcodeMonitor : IDisposable
             _sourceGoneSignalled = false;
             _lastRrvbGuidDecodeTime = DateTime.MinValue;
             _lastRrvbNameDecodeTime = DateTime.MinValue;
+            ResetPendingRrvbIdentityLocked();
             _activeRegionKind = RegionKind.None;
 
             var token = _cts.Token;
@@ -467,6 +479,7 @@ public sealed class RvBarcodeMonitor : IDisposable
             {
                 _regionHasRrvbGuid = false;
                 _regionHasRrvbName = false;
+                ResetPendingRrvbIdentityLocked();
             }
             return;
         }
@@ -476,52 +489,71 @@ public sealed class RvBarcodeMonitor : IDisposable
 
     private void RecordRrvbIdentity(string guid, string name)
     {
-        RecordRrvbGuid(guid);
-        RecordRrvbName(name);
-    }
+        var accepted = false;
+        var acceptedGuid = string.Empty;
+        var acceptedName = string.Empty;
 
-    private void RecordRrvbGuid(string guid)
-    {
-        var shouldRaise = false;
         lock (_gate)
         {
+            var now = DateTime.UtcNow;
+
+            // Raw RRVB identity was decoded from the locked region, so keep region
+            // stability fresh even while debounce is waiting for a second read.
             _regionHasRrvbGuid = true;
-            _lastRrvbDecodeTime = DateTime.UtcNow;
-            _lastRrvbGuidDecodeTime = _lastRrvbDecodeTime;
-            if (!string.Equals(_lastRrvbGuid, guid, StringComparison.OrdinalIgnoreCase))
+            _regionHasRrvbName = true;
+            _lastRrvbDecodeTime = now;
+            _lastRrvbGuidDecodeTime = now;
+            _lastRrvbNameDecodeTime = now;
+
+            if (string.Equals(_lastRrvbGuid, guid, StringComparison.OrdinalIgnoreCase) &&
+                string.Equals(_lastRrvbName, name, StringComparison.Ordinal))
             {
-                _lastRrvbGuid = guid;
-                shouldRaise = true;
+                // Already accepted. Times above are still refreshed so full-screen
+                // rescans remain suppressed while the barcode is stable.
+                return;
             }
+
+            var samePending = string.Equals(_pendingRrvbGuid, guid, StringComparison.OrdinalIgnoreCase) &&
+                              string.Equals(_pendingRrvbName, name, StringComparison.Ordinal);
+            var pendingFresh = _pendingRrvbIdentityTime != DateTime.MinValue &&
+                               (now - _pendingRrvbIdentityTime).TotalMilliseconds <= RrvbIdentityDebounceWindowMs;
+
+            if (!samePending || !pendingFresh)
+            {
+                _pendingRrvbGuid = guid;
+                _pendingRrvbName = name;
+                _pendingRrvbIdentityCount = 1;
+                _pendingRrvbIdentityTime = now;
+                TraceRrvb($"[RRVB] Pending identity {guid} / {name}");
+                return;
+            }
+
+            _pendingRrvbIdentityCount++;
+            _pendingRrvbIdentityTime = now;
+            if (_pendingRrvbIdentityCount < RrvbIdentityDebounceRequiredReads)
+                return;
+
+            _lastRrvbGuid = guid;
+            _lastRrvbName = name;
+            acceptedGuid = guid;
+            acceptedName = name;
+            accepted = true;
+            ResetPendingRrvbIdentityLocked();
         }
 
-        if (shouldRaise)
-        {
-            TraceRrvb($"[RRVB] GUID {guid}");
-            OnRrvbGuidDecoded?.Invoke(guid);
-        }
+        if (!accepted) return;
+
+        TraceRrvb($"[RRVB] Identity {acceptedGuid} / {acceptedName}");
+        OnRrvbGuidDecoded?.Invoke(acceptedGuid);
+        OnRrvbNameDecoded?.Invoke(acceptedName);
     }
 
-    private void RecordRrvbName(string name)
+    private void ResetPendingRrvbIdentityLocked()
     {
-        var shouldRaise = false;
-        lock (_gate)
-        {
-            _regionHasRrvbName = true;
-            _lastRrvbDecodeTime = DateTime.UtcNow;
-            _lastRrvbNameDecodeTime = _lastRrvbDecodeTime;
-            if (!string.Equals(_lastRrvbName, name, StringComparison.Ordinal))
-            {
-                _lastRrvbName = name;
-                shouldRaise = true;
-            }
-        }
-
-        if (shouldRaise)
-        {
-            TraceRrvb($"[RRVB] Name {name}");
-            OnRrvbNameDecoded?.Invoke(name);
-        }
+        _pendingRrvbGuid = string.Empty;
+        _pendingRrvbName = string.Empty;
+        _pendingRrvbIdentityCount = 0;
+        _pendingRrvbIdentityTime = DateTime.MinValue;
     }
 
     private static string? TryDecodeBase45(string text)

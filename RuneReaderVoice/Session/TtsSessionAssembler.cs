@@ -152,6 +152,9 @@ public sealed class TtsSessionAssembler
 
     private int _currentDialogId = -1;
     private int _seqTotal;          // how many segments this dialog has (from SeqTotal field)
+    private bool _dialogFullyFired; // true after full dialog emitted; late duplicate QR packets are ignored until source gone or dialog changes
+    private int  _lateCompletedPacketCount;
+    private bool _lateCompletedPacketLogWritten;
 
     // Active accumulators: key = MakeKey(subTotal, flags, race, sub0payload)
     private readonly Dictionary<string, SegmentAccumulator> _segments          = new();
@@ -192,13 +195,13 @@ public sealed class TtsSessionAssembler
             // ── New dialog ────────────────────────────────────────────────────
             if (packet.DialogId != _currentDialogId)
             {
+                LogLateCompletedPacketSummaryIfNeeded();
                 _currentDialogId = packet.DialogId;
                 _seqTotal        = packet.SeqTotal;
-                _segments.Clear();
-                _completedKeys.Clear();
-                _completedUtteranceKeys.Clear();
-                _earlyChunks.Clear();
-                _completedSegments.Clear();
+                _dialogFullyFired = false;
+                _lateCompletedPacketCount = 0;
+                _lateCompletedPacketLogWritten = false;
+                ClearChunkState();
                 _currentPlayerName  = AppServices.CurrentPlayerName  ?? string.Empty;
                 _currentPlayerRealm = AppServices.CurrentPlayerRealm ?? string.Empty;
                 _currentPlayerClass = AppServices.CurrentPlayerClass ?? string.Empty;
@@ -208,6 +211,23 @@ public sealed class TtsSessionAssembler
                 OnSessionReset?.Invoke(_currentDialogId);
                 System.Diagnostics.Debug.WriteLine(
                     $"[Assembler] New dialog 0x{packet.DialogId:X4} seqTotal={packet.SeqTotal}");
+            }
+
+            // Once a full dialog has been emitted, the addon may still cycle the
+            // same QR packets for a few frames while the dialog remains visible.
+            // Ignore those late duplicates so non-zero subchunks are not stashed
+            // after their anchor segment has already been fired. Source-gone or a
+            // different DialogId reopens assembly.
+            if (_dialogFullyFired)
+            {
+                _lateCompletedPacketCount++;
+                if (!_lateCompletedPacketLogWritten)
+                {
+                    _lateCompletedPacketLogWritten = true;
+                    System.Diagnostics.Debug.WriteLine(
+                        $"[Assembler] Ignoring late packets for completed dialog 0x{packet.DialogId:X4} until source gone");
+                }
+                return;
             }
 
             // ── Runtime routing baseline ─────────────────────────────────────
@@ -273,6 +293,7 @@ public sealed class TtsSessionAssembler
                 // previous transmission of a same-shaped segment from matching a
                 // new accumulator that hasn't received its SUB=0 yet.
                 var acc = _segments.Values.FirstOrDefault(a =>
+                    a.SeqIndex == packet.SeqIndex &&
                     a.Subs.Length == packet.SubTotal &&
                     a.Subs[0] != null &&
                     a.Subs[packet.SubIndex] == null);
@@ -316,7 +337,8 @@ public sealed class TtsSessionAssembler
                     if (!string.IsNullOrWhiteSpace(seg.Text))
                         toFire.Add(seg);
                 }
-                _completedSegments.Clear();
+                _dialogFullyFired = true;
+                ClearChunkState();
                 System.Diagnostics.Debug.WriteLine(
                     $"[Assembler] Dialog 0x{_currentDialogId:X4} complete — firing {toFire.Count} audible segment(s)");
             }
@@ -391,10 +413,45 @@ public sealed class TtsSessionAssembler
 
     public void SignalSourceGone()
     {
-        // No-op: playback continues; same dialog may reappear.
+        lock (_lock)
+        {
+            // Keep in-progress assembly resilient to brief capture gaps. Once a
+            // dialog has already fired, source-gone means the next appearance of
+            // the same DialogId should be treated as a fresh read instead of a
+            // late duplicate loop.
+            if (!_dialogFullyFired)
+                return;
+
+            LogLateCompletedPacketSummaryIfNeeded();
+            ClearChunkState();
+            _currentDialogId = -1;
+            _seqTotal = 0;
+            _dialogFullyFired = false;
+            _lateCompletedPacketCount = 0;
+            _lateCompletedPacketLogWritten = false;
+        }
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────
+
+    private void ClearChunkState()
+    {
+        _segments.Clear();
+        _completedKeys.Clear();
+        _completedUtteranceKeys.Clear();
+        _earlyChunks.Clear();
+        _completedSegments.Clear();
+    }
+
+    private void LogLateCompletedPacketSummaryIfNeeded()
+    {
+        if (_lateCompletedPacketCount <= 0)
+            return;
+
+        System.Diagnostics.Debug.WriteLine(
+            $"[Assembler] Ignored {_lateCompletedPacketCount} late packet(s) for completed dialog 0x{_currentDialogId:X4}");
+    }
+
 
     private static void LogTextPipeline(string stage, AssembledSegment segment, string? text)
     {

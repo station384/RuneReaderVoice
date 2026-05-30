@@ -307,6 +307,11 @@ internal static class Program
         };
         monitor.OnSourceGone += () =>
         {
+            // Side-channel metadata belongs to the visible QR dialog. Clear it
+            // when the source disappears so a debounced RRVB value from the
+            // previous NPC cannot leak into the next cold dialog.
+            AppServices.CurrentRrvbGuid = string.Empty;
+            AppServices.CurrentRrvbName = string.Empty;
             assembler.SignalSourceGone();
             coordinator.OnSourceGone();
         };
