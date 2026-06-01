@@ -132,7 +132,7 @@ public sealed class RvBarcodeMonitor : IDisposable
     // capture off. This avoids expensive 5-second rescans while stable barcodes
     // remain on screen.
     private const int RegionStableGraceMultiplier = 3;
-    private const bool RrvbDebugTraceEnabled = false;
+    private const bool RrvbDebugTraceEnabled = true;
 
 
     private static void TraceRrvb(string message)
@@ -624,8 +624,149 @@ public sealed class RvBarcodeMonitor : IDisposable
         return result == null ? null : TryDecodeBase45(result.Text);
     }
 
+    /// <summary>
+    /// Full-screen RRVB detection.
+    /// Uses vertical morphology to find candidate regions containing repeating
+    /// guard bars, then decodes each candidate crop individually.
+    /// </summary>
     private Result[]? DecodeRrvbMultiple(Mat frame)
-        => DecodeMultipleRrvb(frame, ref _fullRrvbScanBuffer, pad: 0);
+    {
+        try
+        {
+            var candidates = FindRrvbCandidateRects(frame);
+            TraceRrvb($"[RRVB] Full-screen candidates={candidates.Count} frame={frame.Cols}x{frame.Rows}");
+            if (candidates.Count == 0) return null;
+
+            var allResults = new List<Result>();
+            foreach (var rect in candidates)
+            {
+                using var crop    = new Mat(frame, rect);
+                var       decoded = DecodeMultipleRrvb(crop, ref _fullRrvbScanBuffer, pad: 0);
+                if (decoded == null) continue;
+                // Offset result points back to full-frame coordinates.
+                foreach (var r in decoded)
+                {
+                    var pts     = r.ResultPoints ?? Array.Empty<ResultPoint>();
+                    var shifted = pts.Select(p => new ResultPoint(p.X + rect.X, p.Y + rect.Y)).ToArray();
+                    allResults.Add(new Result(r.Text, null, shifted, r.BarcodeFormat));
+                }
+            }
+            return allResults.Count > 0 ? allResults.ToArray() : null;
+        }
+        catch (Exception ex)
+        {
+            TraceRrvb($"[RRVB] DecodeRrvbMultiple error: {ex.Message}");
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// Finds candidate bounding rects that likely contain RRVB guard bars.
+    ///
+    /// Algorithm:
+    ///   1. Grayscale + threshold (black ink on white).
+    ///   2. Invert so ink = white (required for morphology).
+    ///   3. Erode with a tall thin vertical kernel to keep only full-height
+    ///      vertical runs (guard bars).  Short horizontal data lanes disappear.
+    ///   4. Dilate horizontally to merge nearby guard bars into a single blob
+    ///      covering the full barcode width.
+    ///   5. FindContours on the merged blobs → bounding rects.
+    ///   6. Filter: width > height (landscape), minimum area.
+    /// </summary>
+    private static List<Rect> FindRrvbCandidateRects(Mat frame)
+    {
+        var results = new List<Rect>();
+        Mat? gray = null, binary = null,  eroded = null, dilated = null, dilate0 = null;
+        try
+        {
+            // Grayscale + threshold → black ink on white.
+            gray   = frame.Channels() == 1 ? frame.Clone() : frame.CvtColor(ColorConversionCodes.BGR2GRAY);
+            binary = new Mat();
+            Cv2.Threshold(gray, binary, 20, 255, ThresholdTypes.BinaryInv);
+
+
+
+
+            // Step 0 dilate a bit to merge the barcode bars together so it make a good blob.
+            // var dilKernel2 = Cv2.GetStructuringElement(MorphShapes.Rect, new Size(2, 2));
+            // dilate0       = new Mat();
+            // Cv2.Erode(binary, dilate0, dilKernel2,null,2);
+            // Cv2.Dilate(dilate0, dilate0, dilKernel2, null, 2);
+    
+            
+            // ── Step 1: Erode ─────────────────────────────────────────────
+            // Small square kernel kills isolated noise pixels and thin UI
+            // lines while keeping the denser barcode guard bars and data lanes.
+            var erodeKernel = Cv2.GetStructuringElement(MorphShapes.Rect, new Size(3, 3));
+            eroded          = new Mat();
+            Cv2.Erode(binary, eroded, erodeKernel);
+            
+            // ── Step 2: Dilate ────────────────────────────────────────────
+            // Wide+tall kernel merges guard bars and data lanes within each
+            // barcode row into a solid blob, AND bridges the small gaps between
+            // wrapped rows so all rows of one barcode merge into one rectangle.
+            //
+            // Width: enough to bridge the data gap between adjacent guard bars
+            //        (~cell width = frame.Cols/200 at typical barcode size).
+            //        Use cols/30 to be generous.
+            // Height: enough to bridge the inter-row gap between wrapped rows
+            //         (~2-10px).  Use rows/40 as a scale-relative value.
+
+            var dilKernel = Cv2.GetStructuringElement(MorphShapes.Rect, new Size(3, 3));
+            dilated       = new Mat();
+            Cv2.Dilate(eroded, dilated, dilKernel);
+           // Cv2.ImShow("Fdsa", dilated);
+            //Cv2.BitwiseNot(dilated,dilated);
+          // Cv2.ImShow("Fdsa", dilated);
+            // ── Step 3: FindContours ──────────────────────────────────────
+            Cv2.FindContours(dilated, out var contours, out _,
+                             RetrievalModes.External, ContourApproximationModes.ApproxSimple);
+
+            if (contours == null || contours.Length == 0) return results;
+
+            // ── Step 4: Filter ────────────────────────────────────────────
+            // Minimum area: large enough to contain at least one barcode row.
+            // Maximum area: reject anything that covers most of the screen
+            // (the full-frame merge artifact).
+            // Use contour area (actual blob pixels) not bounding rect area.
+            // After erode+dilate the barcode becomes an irregular blob — its
+            // bounding rect is unreliable for aspect ratio or area checks.
+            // Contour area correctly measures just the blob itself.
+            double frameArea = (double)frame.Rows * frame.Cols;
+            double minArea   = Math.Max(1000.0, frameArea * 0.0002);
+            double maxArea   = frameArea * 0.30;
+
+            TraceRrvb($"[RRVB] FindContours found={contours.Length} minArea={minArea:F0} maxArea={maxArea:F0}");
+            foreach (var contour in contours)
+            {
+                double area = Cv2.ContourArea(contour);
+                var    brect = Cv2.BoundingRect(contour);
+                //TraceRrvb($"[RRVB] Contour area={area:F0} brect=({brect.X},{brect.Y},{brect.Width},{brect.Height}) filtered={area < minArea || area > maxArea}");
+
+                // Filter by actual blob area only — no aspect ratio check.
+                if (area < minArea || area > maxArea) continue;
+
+                // Bounding rect is still used for the crop region.
+                int pad = 0;
+                int x0  = Math.Max(0,              brect.X - pad);
+                int y0  = Math.Max(0,              brect.Y - pad);
+                int x1  = Math.Min(frame.Cols - 1, brect.X + brect.Width  + pad);
+                int y1  = Math.Min(frame.Rows - 1, brect.Y + brect.Height + pad);
+                results.Add(new Rect(x0, y0, x1 - x0 + 1, y1 - y0 + 1));
+
+                TraceRrvb($"[RRVB] Candidate rect=({x0},{y0},{x1-x0+1},{y1-y0+1}) area={area:F0}");
+            }
+        }
+        finally
+        {
+            gray?.Dispose();
+            binary?.Dispose();
+            dilate0?.Dispose();
+            eroded?.Dispose();
+            dilated?.Dispose();
+        }
+        return results;
+    }
 
     private string? DecodeRrvbSingle(Mat frame)
     {
