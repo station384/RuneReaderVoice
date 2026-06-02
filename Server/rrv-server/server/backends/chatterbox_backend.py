@@ -430,6 +430,7 @@ class ChatterboxBackend(AbstractTtsBackend):
             self._patch_t3_hidden_states()
             self._patch_t3_inference()
             self._patch_watermarker()
+            self._patch_sinegen()
             import hashlib
             files = sorted(str(p) for p in local_model_dir.rglob("*.safetensors"))
             self._model_version = (
@@ -747,6 +748,50 @@ class ChatterboxBackend(AbstractTtsBackend):
         if self._model is not None and hasattr(self._model, "watermarker"):
             self._model.watermarker.apply_watermark = lambda wav, sample_rate=None: wav
             log.info("Chatterbox: Perth watermarker disabled (no-op patch applied)")
+
+    def _patch_sinegen(self) -> None:
+        """Vectorize SineGen.forward() in HiFT-GAN — see chatterbox_full_backend for full explanation."""
+        if self._model is None:
+            return
+        if not hasattr(self._model, "s3gen"):
+            return
+        s3gen = self._model.s3gen
+        if not hasattr(s3gen, "mel2wav"):
+            return
+
+        sine_gen = s3gen.mel2wav.m_source.l_sin_gen
+
+        import torch as _torch
+        import numpy as _np
+        import types
+
+        def _patched_sinegen_forward(self_sg, f0):
+            harmonics = _torch.arange(
+                1, self_sg.harmonic_num + 2,
+                device=f0.device, dtype=f0.dtype,
+            ).view(1, -1, 1)
+            F_mat = f0 * harmonics / self_sg.sampling_rate
+
+            theta_mat = 2 * _np.pi * (_torch.cumsum(F_mat, dim=-1) % 1)
+
+            phase_vec = _torch.empty(
+                f0.size(0), self_sg.harmonic_num + 1, 1,
+                device=f0.device, dtype=f0.dtype,
+            ).uniform_(-_np.pi, _np.pi)
+            phase_vec[:, 0, :] = 0.0
+
+            sine_waves = self_sg.sine_amp * _torch.sin(theta_mat + phase_vec)
+            uv = self_sg._f02uv(f0)
+            noise_amp = uv * self_sg.noise_std + (1 - uv) * self_sg.sine_amp / 3
+            noise = noise_amp * _torch.randn_like(sine_waves)
+            sine_waves = sine_waves * uv + noise
+            return sine_waves, uv, noise
+
+        sine_gen.forward = types.MethodType(_patched_sinegen_forward, sine_gen)
+        log.info(
+            "Chatterbox: SineGen.forward patched — vectorized harmonic loop, "
+            "harmonic_num=%d", sine_gen.harmonic_num,
+        )
 
     def _patch_mel_filters(self) -> None:
         """Force float32 through Chatterbox's pipeline. See chatterbox_full_backend.py for explanation."""

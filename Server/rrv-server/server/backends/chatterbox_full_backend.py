@@ -442,6 +442,7 @@ class ChatterboxFullBackend(AbstractTtsBackend):
             self._patch_t3_hidden_states()
             self._patch_t3_inference()
             self._patch_watermarker()
+            self._patch_sinegen()
             import hashlib
             files = sorted(str(p) for p in local_model_dir.rglob("*.safetensors"))
             self._model_version = (
@@ -470,6 +471,75 @@ class ChatterboxFullBackend(AbstractTtsBackend):
         if self._model is not None and hasattr(self._model, "watermarker"):
             self._model.watermarker.apply_watermark = lambda wav, sample_rate=None: wav
             log.info("Chatterbox: Perth watermarker disabled (no-op patch applied)")
+
+    def _patch_sinegen(self) -> None:
+        """
+        Vectorize SineGen.forward() in HiFT-GAN to eliminate a CPU-bound Python loop.
+
+        The original HiFT-GAN SineGen builds a harmonic frequency matrix using a
+        Python for-loop over harmonic_num+1 (typically 9) iterations, each doing a
+        slice-assign on a [B, harmonics, sample_len] tensor:
+
+            for i in range(self.harmonic_num + 1):
+                F_mat[:, i: i + 1, :] = f0 * (i + 1) / self.sampling_rate
+
+        This loop runs on a single CPU core regardless of device. For 24kHz output
+        at 5 seconds that's 120,000 samples × 9 iterations of Python overhead,
+        plus a CPU→GPU sync for each slice-assign. This is the primary cause of
+        100% single-core CPU utilization during S3Gen inference.
+
+        Also vectorized: the torch.distributions.Uniform phase_vec sampling, which
+        has significant Python-side overhead. Replaced with torch.empty().uniform_()
+        which dispatches directly to the CUDA RNG kernel.
+
+        The patched forward is semantically identical — same math, same output shape,
+        same dtype/device behaviour. Only the execution path changes.
+        """
+        if self._model is None:
+            return
+        if not hasattr(self._model, "s3gen"):
+            return
+        s3gen = self._model.s3gen
+        if not hasattr(s3gen, "mel2wav"):
+            return
+
+        sine_gen = s3gen.mel2wav.m_source.l_sin_gen
+
+        import torch as _torch
+        import numpy as _np
+        import types
+
+        def _patched_sinegen_forward(self_sg, f0):
+            # f0: [B, 1, sample_len]
+            # Vectorized harmonic matrix — single GPU kernel instead of Python loop
+            harmonics = _torch.arange(
+                1, self_sg.harmonic_num + 2,
+                device=f0.device, dtype=f0.dtype,
+            ).view(1, -1, 1)  # [1, H, 1]
+            F_mat = f0 * harmonics / self_sg.sampling_rate  # [B, H, sample_len]
+
+            theta_mat = 2 * _np.pi * (_torch.cumsum(F_mat, dim=-1) % 1)
+
+            # Vectorized phase sampling — torch RNG dispatches to CUDA directly
+            phase_vec = _torch.empty(
+                f0.size(0), self_sg.harmonic_num + 1, 1,
+                device=f0.device, dtype=f0.dtype,
+            ).uniform_(-_np.pi, _np.pi)
+            phase_vec[:, 0, :] = 0.0
+
+            sine_waves = self_sg.sine_amp * _torch.sin(theta_mat + phase_vec)
+
+            uv = self_sg._f02uv(f0)
+            noise_amp = uv * self_sg.noise_std + (1 - uv) * self_sg.sine_amp / 3
+            noise = noise_amp * _torch.randn_like(sine_waves)
+            sine_waves = sine_waves * uv + noise
+            return sine_waves, uv, noise
+
+        sine_gen.forward = types.MethodType(_patched_sinegen_forward, sine_gen)
+        log.info(
+            "Chatterbox: SineGen.forward patched — vectorized harmonic loop, "
+            "harmonic_num=%d", sine_gen.harmonic_num,
+        )
 
 
     def _patch_t3_inference(self) -> None:
