@@ -107,6 +107,10 @@ public sealed class RvBarcodeMonitor : IDisposable
     private string _lastRrvbGuid = string.Empty;
     private string _lastRrvbName = string.Empty;
     private string _pendingRrvbGuid = string.Empty;
+    private int _fullScreenRrvbMissCount = 0;
+    private int _lockedRrvbRegionMissCount = 0;
+    private const int MaxFullScreenRrvbMisses = 5; // clear stale lock after this many consecutive full-screen misses
+    private const int MaxLockedRrvbRegionMisses = 3; // clear stale locked crop after this many failed region reads
     private string _pendingRrvbName = string.Empty;
     private int _pendingRrvbIdentityCount;
     private DateTime _pendingRrvbIdentityTime = DateTime.MinValue;
@@ -400,8 +404,39 @@ public sealed class RvBarcodeMonitor : IDisposable
             var identity = SelectBestRrvbIdentity(rrvbResults);
             if (identity != null)
             {
+                _fullScreenRrvbMissCount = 0;
+                lock (_gate)
+                    _lockedRrvbRegionMissCount = 0;
                 UpdateRegionLock(identity.Result, RegionKind.RrvbGuid);
                 RecordRrvbIdentity(identity.Guid, identity.Name);
+            }
+            else
+            {
+                // If full-screen scan keeps failing to decode RRVB while a locked
+                // region exists, the region is stale (barcode moved). Clear it so
+                // the capture loop stops polling the wrong position.
+                _fullScreenRrvbMissCount++;
+                if (_fullScreenRrvbMissCount >= MaxFullScreenRrvbMisses)
+                {
+                    bool cleared = false;
+                    lock (_gate)
+                    {
+                        if (_lockedRrvbGuidRegion.HasValue)
+                        {
+                            _lockedRrvbGuidRegion = null;
+                            _lockedRrvbNameRegion = null;
+                            _lockedRrvbRegionMissCount = 0;
+                            _regionHasRrvbGuid    = false;
+                            _regionHasRrvbName    = false;
+                            cleared = true;
+                        }
+                    }
+                    if (cleared)
+                    {
+                        _fullScreenRrvbMissCount = 0;
+                        TraceRrvb($"[RRVB] Stale locked region cleared after {MaxFullScreenRrvbMisses} full-screen misses");
+                    }
+                }
             }
         }
         finally
@@ -475,14 +510,31 @@ public sealed class RvBarcodeMonitor : IDisposable
         var identity = SelectBestRrvbIdentity(DecodeMultipleRrvb(frame, ref _singleRrvbScanBuffer, pad: 20));
         if (identity == null)
         {
+            bool cleared = false;
             lock (_gate)
             {
                 _regionHasRrvbGuid = false;
                 _regionHasRrvbName = false;
                 ResetPendingRrvbIdentityLocked();
+
+                _lockedRrvbRegionMissCount++;
+                if (_lockedRrvbRegionMissCount >= MaxLockedRrvbRegionMisses && _lockedRrvbGuidRegion.HasValue)
+                {
+                    _lockedRrvbGuidRegion = null;
+                    _lockedRrvbNameRegion = null;
+                    _lockedRrvbRegionMissCount = 0;
+                    cleared = true;
+                }
             }
+
+            if (cleared)
+                TraceRrvb($"[RRVB] Stale locked region cleared after {MaxLockedRrvbRegionMisses} failed region reads");
+
             return;
         }
+
+        lock (_gate)
+            _lockedRrvbRegionMissCount = 0;
 
         RecordRrvbIdentity(identity.Guid, identity.Name);
     }
@@ -661,111 +713,163 @@ public sealed class RvBarcodeMonitor : IDisposable
     }
 
     /// <summary>
-    /// Finds candidate bounding rects that likely contain RRVB guard bars.
+    /// Finds RRVB candidate bounding rects by first making the barcode ink a
+    /// single connected component, then decoding every plausible component.
     ///
-    /// Algorithm:
-    ///   1. Grayscale + threshold (black ink on white).
-    ///   2. Invert so ink = white (required for morphology).
-    ///   3. Erode with a tall thin vertical kernel to keep only full-height
-    ///      vertical runs (guard bars).  Short horizontal data lanes disappear.
-    ///   4. Dilate horizontally to merge nearby guard bars into a single blob
-    ///      covering the full barcode width.
-    ///   5. FindContours on the merged blobs → bounding rects.
-    ///   6. Filter: width > height (landscape), minimum area.
+    /// Important project invariant:
+    ///   Threshold must match the QR path exactly: 20, BinaryInv.
+    ///
+    /// With BinaryInv, dark RRVB bars become white foreground for OpenCV.
+    /// The 3x3 morphology below is only for candidate discovery; decoding
+    /// still uses the original frame/crop.
     /// </summary>
     private static List<Rect> FindRrvbCandidateRects(Mat frame)
     {
         var results = new List<Rect>();
-        Mat? gray = null, binary = null,  eroded = null, dilated = null, dilate0 = null;
+        Mat? gray = null, inkMask = null, panelMask = null, labels = null, stats = null, centroids = null;
         try
         {
-            // Grayscale + threshold → black ink on white.
-            gray   = frame.Channels() == 1 ? frame.Clone() : frame.CvtColor(ColorConversionCodes.BGR2GRAY);
-            binary = new Mat();
-            Cv2.Threshold(gray, binary, 20, 255, ThresholdTypes.BinaryInv);
+            gray = frame.Channels() == 1 ? frame.Clone() : frame.CvtColor(ColorConversionCodes.BGR2GRAY);
+            inkMask = new Mat();
 
+            // Keep the currently verified monitor threshold path.
+            // BinaryInv: dark barcode/world pixels become white foreground.
+            Cv2.Threshold(gray, inkMask, 10, 255, ThresholdTypes.BinaryInv);
 
+            // Region acquisition should find the framed light barcode panel, not dark ink/world blobs.
+            // Invert the ink mask so light panel/background becomes white, then remove anything
+            // white-connected to the screen edge. Enclosed white islands are candidate panels.
+            panelMask = BuildInteriorPanelMask(inkMask);
 
+            labels = new Mat();
+            stats = new Mat();
+            centroids = new Mat();
+            int count = Cv2.ConnectedComponentsWithStats(
+                panelMask,
+                labels,
+                stats,
+                centroids,
+                PixelConnectivity.Connectivity4,
+                MatType.CV_32S);
 
-            // Step 0 dilate a bit to merge the barcode bars together so it make a good blob.
-            // var dilKernel2 = Cv2.GetStructuringElement(MorphShapes.Rect, new Size(2, 2));
-            // dilate0       = new Mat();
-            // Cv2.Erode(binary, dilate0, dilKernel2,null,2);
-            // Cv2.Dilate(dilate0, dilate0, dilKernel2, null, 2);
-    
-            
-            // ── Step 1: Erode ─────────────────────────────────────────────
-            // Small square kernel kills isolated noise pixels and thin UI
-            // lines while keeping the denser barcode guard bars and data lanes.
-            var erodeKernel = Cv2.GetStructuringElement(MorphShapes.Rect, new Size(3, 3));
-            eroded          = new Mat();
-            Cv2.Erode(binary, eroded, erodeKernel);
-            
-            // ── Step 2: Dilate ────────────────────────────────────────────
-            // Wide+tall kernel merges guard bars and data lanes within each
-            // barcode row into a solid blob, AND bridges the small gaps between
-            // wrapped rows so all rows of one barcode merge into one rectangle.
-            //
-            // Width: enough to bridge the data gap between adjacent guard bars
-            //        (~cell width = frame.Cols/200 at typical barcode size).
-            //        Use cols/30 to be generous.
-            // Height: enough to bridge the inter-row gap between wrapped rows
-            //         (~2-10px).  Use rows/40 as a scale-relative value.
-
-            var dilKernel = Cv2.GetStructuringElement(MorphShapes.Rect, new Size(3, 3));
-            dilated       = new Mat();
-            Cv2.Dilate(eroded, dilated, dilKernel);
-           // Cv2.ImShow("Fdsa", dilated);
-            //Cv2.BitwiseNot(dilated,dilated);
-          // Cv2.ImShow("Fdsa", dilated);
-            // ── Step 3: FindContours ──────────────────────────────────────
-            Cv2.FindContours(dilated, out var contours, out _,
-                             RetrievalModes.External, ContourApproximationModes.ApproxSimple);
-
-            if (contours == null || contours.Length == 0) return results;
-
-            // ── Step 4: Filter ────────────────────────────────────────────
-            // Minimum area: large enough to contain at least one barcode row.
-            // Maximum area: reject anything that covers most of the screen
-            // (the full-frame merge artifact).
-            // Use contour area (actual blob pixels) not bounding rect area.
-            // After erode+dilate the barcode becomes an irregular blob — its
-            // bounding rect is unreliable for aspect ratio or area checks.
-            // Contour area correctly measures just the blob itself.
             double frameArea = (double)frame.Rows * frame.Cols;
-            double minArea   = Math.Max(1000.0, frameArea * 0.0002);
-            double maxArea   = frameArea * 0.30;
+            int minWidth = 120;
+            int minHeight = 40;
+            int minArea = Math.Max(1000, (int)(frameArea * 0.00010));
+            int maxArea = (int)(frameArea * 0.20);
 
-            TraceRrvb($"[RRVB] FindContours found={contours.Length} minArea={minArea:F0} maxArea={maxArea:F0}");
-            foreach (var contour in contours)
+            TraceRrvb($"[RRVB] Panel components found={count - 1} minArea={minArea} maxArea={maxArea}");
+
+            for (int i = 1; i < count; i++) // component 0 is background
             {
-                double area = Cv2.ContourArea(contour);
-                var    brect = Cv2.BoundingRect(contour);
-                //TraceRrvb($"[RRVB] Contour area={area:F0} brect=({brect.X},{brect.Y},{brect.Width},{brect.Height}) filtered={area < minArea || area > maxArea}");
+                int x = stats.Get<int>(i, (int)ConnectedComponentsTypes.Left);
+                int y = stats.Get<int>(i, (int)ConnectedComponentsTypes.Top);
+                int w = stats.Get<int>(i, (int)ConnectedComponentsTypes.Width);
+                int h = stats.Get<int>(i, (int)ConnectedComponentsTypes.Height);
+                int area = stats.Get<int>(i, (int)ConnectedComponentsTypes.Area);
 
-                // Filter by actual blob area only — no aspect ratio check.
                 if (area < minArea || area > maxArea) continue;
+                if (w < minWidth || h < minHeight) continue;
 
-                // Bounding rect is still used for the crop region.
-                int pad = 0;
-                int x0  = Math.Max(0,              brect.X - pad);
-                int y0  = Math.Max(0,              brect.Y - pad);
-                int x1  = Math.Min(frame.Cols - 1, brect.X + brect.Width  + pad);
-                int y1  = Math.Min(frame.Rows - 1, brect.Y + brect.Height + pad);
-                results.Add(new Rect(x0, y0, x1 - x0 + 1, y1 - y0 + 1));
+                double aspect = w / (double)Math.Max(1, h);
+                if (aspect < 0.45 || aspect > 10.0) continue;
 
-                TraceRrvb($"[RRVB] Candidate rect=({x0},{y0},{x1-x0+1},{y1-y0+1}) area={area:F0}");
+                var rect = new Rect(x, y, w, h);
+                if (!HasBarcodeInkPattern(inkMask, rect)) continue;
+
+                // Component bounds are the barcode panel. Do not pad.
+                results.Add(rect);
+
+                TraceRrvb($"[RRVB] Candidate rect=({rect.X},{rect.Y},{rect.Width},{rect.Height}) panelArea={area} aspect={aspect:F2}");
             }
         }
         finally
         {
             gray?.Dispose();
-            binary?.Dispose();
-            dilate0?.Dispose();
-            eroded?.Dispose();
-            dilated?.Dispose();
+            inkMask?.Dispose();
+            panelMask?.Dispose();
+            labels?.Dispose();
+            stats?.Dispose();
+            centroids?.Dispose();
         }
-        return results;
+
+        return results
+            .OrderByDescending(r => r.Width * r.Height)
+            .Take(12)
+            .ToList();
+    }
+
+    private static Mat BuildInteriorPanelMask(Mat inkMask)
+    {
+        var panelMask = new Mat();
+        Cv2.BitwiseNot(inkMask, panelMask);
+
+        // Kill all light regions connected to the image edge. The RRVB panel is framed/enclosed,
+        // so it should remain as an interior white island.
+        using var floodMask = new Mat(
+            panelMask.Rows + 2,
+            panelMask.Cols + 2,
+            MatType.CV_8UC1,
+            Scalar.Black);
+
+        void KillEdgePoint(int x, int y)
+        {
+            if (x < 0 || y < 0 || x >= panelMask.Cols || y >= panelMask.Rows)
+                return;
+
+            if (panelMask.At<byte>(y, x) == 0)
+                return;
+
+            Cv2.FloodFill(panelMask, floodMask, new Point(x, y), Scalar.Black);
+        }
+
+        for (int x = 0; x < panelMask.Cols; x++)
+        {
+            KillEdgePoint(x, 0);
+            KillEdgePoint(x, panelMask.Rows - 1);
+        }
+
+        for (int y = 0; y < panelMask.Rows; y++)
+        {
+            KillEdgePoint(0, y);
+            KillEdgePoint(panelMask.Cols - 1, y);
+        }
+
+        return panelMask;
+    }
+
+    private static bool HasBarcodeInkPattern(Mat inkMask, Rect panel)
+    {
+        const int inset = 2;
+        if (panel.Width <= inset * 2 || panel.Height <= inset * 2)
+            return false;
+
+        var inner = new Rect(
+            panel.X + inset,
+            panel.Y + inset,
+            panel.Width - inset * 2,
+            panel.Height - inset * 2);
+
+        using var roi = new Mat(inkMask, inner);
+
+        int ink = Cv2.CountNonZero(roi);
+        double inkRatio = ink / (double)Math.Max(1, roi.Width * roi.Height);
+
+        // Barcode panel should contain ink, but not be mostly dark world/noise.
+        if (inkRatio < 0.02 || inkRatio > 0.60)
+            return false;
+
+        int strongColumns = 0;
+        int minColumnInk = Math.Max(3, (int)Math.Round(roi.Height * 0.10));
+
+        for (int x = 0; x < roi.Width; x++)
+        {
+            using var col = roi.Col(x);
+            if (Cv2.CountNonZero(col) >= minColumnInk)
+                strongColumns++;
+        }
+
+        return strongColumns >= 20;
     }
 
     private string? DecodeRrvbSingle(Mat frame)
