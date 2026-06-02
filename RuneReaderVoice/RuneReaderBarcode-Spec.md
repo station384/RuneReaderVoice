@@ -14,7 +14,14 @@ v10 is the current working WoW-rendered baseline. It keeps the reliable 50-em gu
 
 The symbology is adaptive. The decoder does not assume a fixed screen pixel size; it derives rows, guard spans, data gaps, and lane slots from rendered geometry.
 
-Older barcode experiments and fallback decoders are intentionally not part of this spec. This document describes only the current v10 RRVB format and decoder model.
+Obsolete designs are intentionally not part of this spec:
+
+- Code39 side-channel
+- RRV2 / BarcodeV2 font
+- 13-lane v2 layout
+- Empty-cell `§` marker from v8/v9
+- Detector prefix filtering
+- Old lane/block decoder fallback
 
 ---
 
