@@ -193,6 +193,11 @@ class ChatterboxBackend(AbstractTtsBackend):
         self._static_cache = None        # transformers.cache_utils.StaticCache | None
         self._static_cache_len: int = 0  # max_cache_len this cache was built for
 
+        # Hot CUDA cond cache — one slot, same-voice fast path (see chatterbox_full_backend).
+        self._cond_hot_key: str = ""
+        self._cond_hot_t3 = None
+        self._cond_hot_gen: dict | None = None
+
     def _voice_group_key(self, request: SynthesisRequest) -> str:
         sample_key = str(request.sample_path.resolve()) if request.sample_path is not None else ""
         lang_key   = request.lang_code or ""
@@ -351,6 +356,8 @@ class ChatterboxBackend(AbstractTtsBackend):
         import os
         if os.environ.get("RRV_T3_COMPILE", "1") == "1":
             await loop.run_in_executor(None, self._warmup_t3_compile)
+        if os.environ.get("RRV_S3GEN_COMPILE", "0") == "1":
+            await loop.run_in_executor(None, self._warmup_s3gen_compile)
 
     def _warmup_t3_compile(self) -> None:
         """
@@ -394,6 +401,31 @@ class ChatterboxBackend(AbstractTtsBackend):
             log.info("Chatterbox T3: torch.compile warmup complete")
         except Exception as e:
             log.warning("Chatterbox T3: compile warmup failed (non-fatal): %s", e)
+
+    def _warmup_s3gen_compile(self) -> None:
+        """Warmup torch.compile on S3Gen CFM estimator — see chatterbox_full_backend for details."""
+        try:
+            import torch
+            if self._model is None or not hasattr(self._model, "s3gen"):
+                return
+            estimator = self._model.s3gen.flow.decoder.estimator
+            if not (hasattr(estimator, '_orig_mod') or
+                    type(estimator).__name__ == 'OptimizedModule'):
+                return
+            log.info("Chatterbox S3Gen: torch.compile warmup starting — may take 15-30s")
+            device = self._torch_device
+            s3gen = self._model.s3gen
+            dummy_tokens = torch.zeros(1, 4, dtype=torch.long, device=device)
+            dummy_ref = torch.zeros(1, 1, 16000, device=device)
+            with torch.inference_mode():
+                s3gen.inference(
+                    speech_tokens=dummy_tokens,
+                    ref_wav=dummy_ref,
+                    ref_sr=16000,
+                )
+            log.info("Chatterbox S3Gen: torch.compile warmup complete")
+        except Exception as e:
+            log.warning("Chatterbox S3Gen: compile warmup failed (non-fatal): %s", e)
 
 
     def _load_sync(self) -> None:
@@ -847,9 +879,35 @@ class ChatterboxBackend(AbstractTtsBackend):
             if hasattr(_flow_mod, 'make_pad_mask'):
                 _flow_mod.make_pad_mask = _make_pad_mask_nosync
 
+            import chatterbox.models.s3gen.decoder as _decoder_mod
+            _decoder_mod.add_optional_chunk_mask = _add_optional_chunk_mask_nosync
+
             log.info("Chatterbox: S3Gen mask utils patched — GPU sync points eliminated")
         except Exception as e:
             log.warning("Chatterbox: S3Gen mask patch failed (%s) — running unpatched", e)
+
+        # ── torch.compile on CFM estimator — see chatterbox_full_backend for full explanation
+        # Default OFF — mode="reduce-overhead" + dynamic=True recompiles per utterance length.
+        # Enable with RRV_S3GEN_COMPILE=1 once confirmed stable.
+        use_compile = os.environ.get("RRV_S3GEN_COMPILE", "0") == "1"
+        if use_compile and self._model is not None and hasattr(self._model, "s3gen"):
+            try:
+                estimator = self._model.s3gen.flow.decoder.estimator
+                compiled_estimator = _torch.compile(
+                    estimator,
+                    mode="default",
+                    fullgraph=False,
+                    dynamic=True,
+                )
+                self._model.s3gen.flow.decoder.estimator = compiled_estimator
+                log.info(
+                    "Chatterbox: S3Gen CFM estimator compiled with torch.compile "
+                    "(mode=default, dynamic=True, first call will warm up)"
+                )
+            except Exception as e:
+                log.warning(
+                    "Chatterbox: S3Gen torch.compile failed (%s) — running uncompiled", e
+                )
 
     def _patch_mel_filters(self) -> None:
         """Force float32 through Chatterbox's pipeline. See chatterbox_full_backend.py for explanation."""
@@ -1248,13 +1306,23 @@ class ChatterboxBackend(AbstractTtsBackend):
         return T3Cond(**t3_data).to(device=self._torch_device), gen_device
 
     def _cond_mem_get(self, cache_key: str):
+        # Hot path: same voice as last synthesis — CUDA tensors, no transfer.
+        if cache_key == self._cond_hot_key and self._cond_hot_t3 is not None:
+            log.debug("Cond cache: hot HIT key=%s", cache_key[:20])
+            return self._cond_hot_t3, self._cond_hot_gen
+
         if cache_key in self._cond_mem_cache:
             self._cond_mem_cache.move_to_end(cache_key)
             t3_cond, gen_dict = self._cond_mem_cache[cache_key]
             # Memory cache stores CPU tensors so voice-sample cache does not pin VRAM.
             # Return a fresh device copy for this render; PyTorch allocator can reuse/free
             # it naturally once model.conds moves to another voice or worker exits.
-            return self._cond_to_device(t3_cond, gen_dict)
+            t3_device, gen_device = self._cond_to_device(t3_cond, gen_dict)
+            # Promote to hot cache
+            self._cond_hot_key = cache_key
+            self._cond_hot_t3  = t3_device
+            self._cond_hot_gen = gen_device
+            return t3_device, gen_device
         return None
 
     def _cond_mem_put(self, cache_key: str, t3_cond, gen_dict: dict) -> None:
@@ -1266,7 +1334,15 @@ class ChatterboxBackend(AbstractTtsBackend):
         )
         self._cond_mem_cache.move_to_end(cache_key)
         while len(self._cond_mem_cache) > self._COND_MEM_CACHE_SIZE:
-            self._cond_mem_cache.popitem(last=False)
+            evicted_key, _ = self._cond_mem_cache.popitem(last=False)
+            if evicted_key == self._cond_hot_key:
+                self._cond_hot_key = ""
+                self._cond_hot_t3  = None
+                self._cond_hot_gen = None
+        # Populate hot cache with freshly computed CUDA tensors
+        self._cond_hot_key = cache_key
+        self._cond_hot_t3  = t3_cond
+        self._cond_hot_gen = gen_dict
 
     def _cond_disk_save(self, cache_key: str, t3_cond, gen_dict: dict) -> None:
         import torch
