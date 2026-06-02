@@ -430,7 +430,7 @@ class ChatterboxBackend(AbstractTtsBackend):
             self._patch_t3_hidden_states()
             self._patch_t3_inference()
             self._patch_watermarker()
-            self._patch_sinegen()
+            self._patch_s3gen()
             import hashlib
             files = sorted(str(p) for p in local_model_dir.rglob("*.safetensors"))
             self._model_version = (
@@ -749,7 +749,7 @@ class ChatterboxBackend(AbstractTtsBackend):
             self._model.watermarker.apply_watermark = lambda wav, sample_rate=None: wav
             log.info("Chatterbox: Perth watermarker disabled (no-op patch applied)")
 
-    def _patch_sinegen(self) -> None:
+    def _patch_s3gen(self) -> None:
         """Vectorize SineGen.forward() in HiFT-GAN — see chatterbox_full_backend for full explanation."""
         if self._model is None:
             return
@@ -792,6 +792,64 @@ class ChatterboxBackend(AbstractTtsBackend):
             "Chatterbox: SineGen.forward patched — vectorized harmonic loop, "
             "harmonic_num=%d", sine_gen.harmonic_num,
         )
+
+        # ── Patch mask utility functions — eliminate GPU sync points ─────────
+        # See chatterbox_full_backend._patch_s3gen for full explanation.
+        try:
+            import chatterbox.models.s3gen.utils.mask as _mask_mod
+
+            def _make_pad_mask_nosync(lengths: _torch.Tensor, max_len: int = 0) -> _torch.Tensor:
+                lengths = lengths.long()
+                batch_size = lengths.size(0)
+                if max_len <= 0:
+                    max_len_t = lengths.max()
+                else:
+                    max_len_t = max_len
+                seq_range = _torch.arange(0, max_len_t if isinstance(max_len_t, int) else max_len_t.item(),
+                                          dtype=_torch.int64, device=lengths.device)
+                seq_range_expand = seq_range.unsqueeze(0).expand(batch_size, seq_range.size(0))
+                seq_length_expand = lengths.unsqueeze(-1)
+                return seq_range_expand >= seq_length_expand
+
+            def _add_optional_chunk_mask_nosync(
+                xs, masks, use_dynamic_chunk, use_dynamic_left_chunk,
+                decoding_chunk_size, static_chunk_size, num_decoding_left_chunks,
+                enable_full_context=True,
+            ):
+                if use_dynamic_chunk:
+                    return _mask_mod._orig_add_optional_chunk_mask(
+                        xs, masks, use_dynamic_chunk, use_dynamic_left_chunk,
+                        decoding_chunk_size, static_chunk_size,
+                        num_decoding_left_chunks, enable_full_context,
+                    )
+                elif static_chunk_size > 0:
+                    chunk_masks = _mask_mod.subsequent_chunk_mask(
+                        xs.size(1), static_chunk_size,
+                        num_decoding_left_chunks, xs.device,
+                    )
+                    chunk_masks = chunk_masks.unsqueeze(0)
+                    chunk_masks = masks & chunk_masks
+                else:
+                    chunk_masks = masks
+                assert chunk_masks.dtype == _torch.bool
+                return chunk_masks
+
+            if not hasattr(_mask_mod, '_orig_add_optional_chunk_mask'):
+                _mask_mod._orig_add_optional_chunk_mask = _mask_mod.add_optional_chunk_mask
+            _mask_mod.make_pad_mask = _make_pad_mask_nosync
+            _mask_mod.add_optional_chunk_mask = _add_optional_chunk_mask_nosync
+
+            import chatterbox.models.s3gen.transformer.upsample_encoder as _enc_mod
+            _enc_mod.make_pad_mask = _make_pad_mask_nosync
+            _enc_mod.add_optional_chunk_mask = _add_optional_chunk_mask_nosync
+
+            import chatterbox.models.s3gen.flow as _flow_mod
+            if hasattr(_flow_mod, 'make_pad_mask'):
+                _flow_mod.make_pad_mask = _make_pad_mask_nosync
+
+            log.info("Chatterbox: S3Gen mask utils patched — GPU sync points eliminated")
+        except Exception as e:
+            log.warning("Chatterbox: S3Gen mask patch failed (%s) — running unpatched", e)
 
     def _patch_mel_filters(self) -> None:
         """Force float32 through Chatterbox's pipeline. See chatterbox_full_backend.py for explanation."""
