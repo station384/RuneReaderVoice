@@ -21,6 +21,7 @@ using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using RuneReaderVoice.Data;
+using RuneReaderVoice.Diagnostics;
 
 namespace RuneReaderVoice.TTS.Cache;
 

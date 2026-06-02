@@ -13,6 +13,7 @@ using System.Linq;
 using System.Text;
 using OpenCvSharp;
 using ZXing;
+using RuneReaderVoice.Diagnostics;
 
 namespace RuneReaderVoice.Session;
 
@@ -36,16 +37,13 @@ public static class RrvBarcodeDetector
     private const int GuardOpenKernelHeight = 3;
     private const double RowOverlapThreshold = 0.55;
     private const double MinBarHeightToWidthRatio = 1.20;
-    private const double LaneBandStartFraction = 0.15;
-    private const double LaneBandEndFraction = 0.42;
-    private const double LaneInkDensityThreshold = 0.33;
+    private const double LanePeakInkFraction = 0.50;
     private const int MaxDebugPayloadPreviewChars = 80;
     private const double LogicalAdvance = 250.0;
     private const double LogicalGuardWidth = 50.0;
     private const double LogicalDataWidth = 200.0;
-    private const bool DebugTraceEnabled = true;
 
-    private const bool DebugDumpImages = true;
+    private const bool DebugDumpImages = false;
     private const int DebugDumpMaxImages = 240;
     private static readonly string DebugDumpDir = Path.Combine(AppContext.BaseDirectory, "rrvb-debug");
     private static int _debugDumpImageId;
@@ -53,8 +51,7 @@ public static class RrvBarcodeDetector
 
     private static void Trace(string message)
     {
-        if (DebugTraceEnabled)
-            Debug.WriteLine(message);
+        RrvDebug.RrvbDebug(message);
     }
 
     private static bool ReserveDebugDump(out int id)
@@ -544,60 +541,59 @@ public static class RrvBarcodeDetector
         byte value = 0;
         for (int lane = 0; lane < NumLanes; lane++)
         {
-            var (y0, y1) = GetLaneBand(row.Top, row.Height, lane, imageRows);
-            if (LaneHasInk(binary, x0, x1, y0, y1, imageCols))
+            if (LaneHasInk(binary, row, x0, x1, lane, imageRows, imageCols))
                 value |= (byte)(1 << (7 - lane));
         }
 
         return value;
     }
 
-    private static (int Y0, int Y1) GetLaneBand(int rowTop, int rowHeight, int lane, int rows)
-    {
-        double slotH = rowHeight / (double)NumLanes;
-        int y0 = (int)Math.Round(rowTop + lane * slotH + slotH * LaneBandStartFraction);
-        int y1 = (int)Math.Round(rowTop + lane * slotH + slotH * LaneBandEndFraction);
-
-        y0 = Math.Clamp(y0, 0, rows - 1);
-        y1 = Math.Clamp(y1, 0, rows - 1);
-        if (y1 < y0) (y0, y1) = (y1, y0);
-        return (y0, y1);
-    }
-
-    private static bool LaneHasInk(Mat binary, int x0, int x1, int y0, int y1, int cols)
+    private static bool LaneHasInk(Mat binary, BarRow row, int x0, int x1, int lane, int rows, int cols)
     {
         int xa = Math.Clamp(Math.Min(x0, x1), 0, cols - 1);
         int xb = Math.Clamp(Math.Max(x0, x1), 0, cols - 1);
-
-        // Avoid lane-boundary bleed from neighboring horizontal bars.
-        if (y1 - y0 + 1 >= 3)
-        {
-            y0++;
-            y1--;
-        }
-
-        if (xb < xa || y1 < y0)
+        if (xb < xa)
             return false;
 
-        int pixels = 0;
-        int ink = 0;
+        // Rendering jitter can move the horizontal bit stroke up/down by a pixel.
+        // Treat each lane as a slot and look for the strongest 1-pixel row inside
+        // that slot instead of sampling a fixed band. Whitespace between lanes keeps
+        // adjacent bits separated.
+        double slotH = row.Height / (double)NumLanes;
+        int slotTop = (int)Math.Floor(row.Top + lane * slotH);
+        int slotBottom = (int)Math.Ceiling(row.Top + (lane + 1) * slotH) - 1;
+
+        slotTop = Math.Clamp(slotTop, 0, rows - 1);
+        slotBottom = Math.Clamp(slotBottom, 0, rows - 1);
+        if (slotBottom < slotTop)
+            (slotTop, slotBottom) = (slotBottom, slotTop);
+
+        int sampleWidth = xb - xa + 1;
+        int bestInk = 0;
+
         unsafe
         {
             byte* ptr = (byte*)binary.DataPointer;
             int step = (int)binary.Step();
-            for (int y = y0; y <= y1; y++)
+
+            for (int y = slotTop; y <= slotBottom; y++)
             {
-                byte* row = ptr + y * step;
+                byte* data = ptr + y * step;
+                int ink = 0;
+
                 for (int x = xa; x <= xb; x++)
                 {
-                    pixels++;
-                    if (row[x] > 0)
+                    if (data[x] > 0)
                         ink++;
                 }
+
+                if (ink > bestInk)
+                    bestInk = ink;
             }
         }
 
-        return pixels > 0 && ink / (double)pixels >= LaneInkDensityThreshold;
+        int requiredInk = Math.Max(1, (int)Math.Ceiling(sampleWidth * LanePeakInkFraction));
+        return bestInk >= requiredInk;
     }
 
     private static Result MakeResult(List<byte> payload, int x1, int y1, int x2, int y2)

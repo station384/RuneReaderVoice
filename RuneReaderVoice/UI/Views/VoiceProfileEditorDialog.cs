@@ -28,6 +28,7 @@ using Avalonia.Media;
 using RuneReaderVoice.Protocol;
 using RuneReaderVoice.TTS.Dsp;
 using RuneReaderVoice.TTS.Providers;
+using RuneReaderVoice.Diagnostics;
 
 namespace RuneReaderVoice.UI.Views;
 

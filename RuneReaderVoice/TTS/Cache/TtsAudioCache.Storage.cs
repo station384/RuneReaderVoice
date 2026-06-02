@@ -25,6 +25,7 @@ using System.Threading.Tasks;
 using NVorbis;
 using RuneReaderVoice.Data;
 using RuneReaderVoice.TTS.Providers;
+using RuneReaderVoice.Diagnostics;
 
 namespace RuneReaderVoice.TTS.Cache;
 
@@ -221,7 +222,7 @@ public sealed partial class TtsAudioCache
         var preview = fullText.Replace("\r", " ").Replace("\n", " ");
         if (preview.Length > 160)
             preview = preview[..160] + "...";
-        Debug.WriteLine($"[CacheKeyDebug] phase={phase} key={key} provider={providerId ?? string.Empty} voice={voiceId ?? string.Empty} textLen={fullText.Length} text=\"{preview}\"");
+        RrvDebug.CacheDebug($"CacheKey phase={phase} key={key} provider={providerId ?? string.Empty} voice={voiceId ?? string.Empty} textLen={fullText.Length} text=\"{preview}\"");
     }
 
 

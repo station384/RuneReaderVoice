@@ -28,6 +28,7 @@ using RuneReaderVoice.Platform;
 using RuneReaderVoice.Protocol;
 using ZXing;
 using ZXing.Common;
+using RuneReaderVoice.Diagnostics;
 
 namespace RuneReaderVoice.Session;
 
@@ -136,13 +137,11 @@ public sealed class RvBarcodeMonitor : IDisposable
     // capture off. This avoids expensive 5-second rescans while stable barcodes
     // remain on screen.
     private const int RegionStableGraceMultiplier = 3;
-    private const bool RrvbDebugTraceEnabled = true;
 
 
     private static void TraceRrvb(string message)
     {
-        if (RrvbDebugTraceEnabled)
-            Debug.WriteLine(message);
+        RrvDebug.RrvbDebug(message);
     }
 
     public RvBarcodeMonitor(IScreenCaptureProvider capture)

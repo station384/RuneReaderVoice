@@ -38,6 +38,7 @@ using RuneReaderVoice.Session;
 using RuneReaderVoice.TTS.Pronunciation;
 using RuneReaderVoice.TTS.TextSwap;
 using Rect = OpenCvSharp.Rect;
+using RuneReaderVoice.Diagnostics;
 
 
 namespace RuneReaderVoice;
@@ -298,12 +299,12 @@ internal static class Program
         monitor.OnRrvbGuidDecoded += guid =>
         {
             AppServices.CurrentRrvbGuid = guid;
-            System.Diagnostics.Debug.WriteLine($"[RRVB] Current GUID side-channel = {guid}");
+            RrvDebug.RrvbDebug($"Current GUID side-channel = {guid}");
         };
         monitor.OnRrvbNameDecoded += name =>
         {
             AppServices.CurrentRrvbName = name;
-            System.Diagnostics.Debug.WriteLine($"[RRVB] Current NPC name side-channel = {name}");
+            RrvDebug.RrvbDebug($"Current NPC name side-channel = {name}");
         };
         monitor.OnSourceGone += () =>
         {
@@ -411,7 +412,7 @@ internal static class Program
         int expandedSegmentIndex = startExpandedSegmentIndex;
         if (mode != "split" && mode != "generic" && mode != "actual")
         {
-            Console.WriteLine($"[PlayerSplit] bypass seg={startExpandedSegmentIndex} reason=mode mode={mode}");
+            RrvDebug.PlayerSplitDebug($"bypass seg={startExpandedSegmentIndex} reason=mode mode={mode}");
             yield return CloneSegment(segment, segment.Text ?? string.Empty, expandedSegmentIndex);
             yield break;
         }
@@ -419,25 +420,25 @@ internal static class Program
         var splitTarget = ResolvePlayerSplitTarget(segment, mode);
         if (string.IsNullOrWhiteSpace(segment.Text) || string.IsNullOrWhiteSpace(splitTarget))
         {
-            Console.WriteLine($"[PlayerSplit] bypass seg={startExpandedSegmentIndex} reason=missing-text-or-target mode={mode} target='{splitTarget ?? string.Empty}' textLen={segment.Text?.Length ?? 0}");
+            RrvDebug.PlayerSplitDebug($"bypass seg={startExpandedSegmentIndex} reason=missing-text-or-target mode={mode} target='{splitTarget ?? string.Empty}' textLen={segment.Text?.Length ?? 0}");
             yield return CloneSegment(segment, segment.Text ?? string.Empty, expandedSegmentIndex);
             yield break;
         }
 
-        Console.WriteLine($"[PlayerSplit] evaluate seg={startExpandedSegmentIndex} strategy={strategy} mode={mode} target='{splitTarget}' words={CountWords(segment.Text)} text='{Preview(segment.Text)}'");
+        RrvDebug.PlayerSplitDebug($"evaluate seg={startExpandedSegmentIndex} strategy={strategy} mode={mode} target='{splitTarget}' words={CountWords(segment.Text)} text='{Preview(segment.Text)}'");
         LogTextPipeline("player-split-evaluate", segment, segment.Text, $"strategy={strategy} mode={mode} target={splitTarget}");
         var parts = SplitAroundPlayerName(segment.Text, splitTarget!, strategy);
         if (parts == null || parts.Count == 0)
         {
-            Console.WriteLine($"[PlayerSplit] no-split seg={startExpandedSegmentIndex} strategy={strategy} mode={mode} target='{splitTarget}'");
+            RrvDebug.PlayerSplitDebug($"no-split seg={startExpandedSegmentIndex} strategy={strategy} mode={mode} target='{splitTarget}'");
             yield return CloneSegment(segment, segment.Text ?? string.Empty, expandedSegmentIndex);
             yield break;
         }
 
-        Console.WriteLine($"[PlayerSplit] split seg={startExpandedSegmentIndex} strategy={strategy} parts={parts.Count}");
+        RrvDebug.PlayerSplitDebug($"split seg={startExpandedSegmentIndex} strategy={strategy} parts={parts.Count}");
         for (var i = 0; i < parts.Count; i++)
         {
-            Console.WriteLine($"[PlayerSplit] part[{i}] words={CountWords(parts[i])} text='{Preview(parts[i])}'");
+            RrvDebug.PlayerSplitDebug($"part[{i}] words={CountWords(parts[i])} text='{Preview(parts[i])}'");
             LogTextPipeline($"player-split-part[{i}]", segment, parts[i], $"strategy={strategy} mode={mode} target={splitTarget}");
         }
 
@@ -480,7 +481,7 @@ internal static class Program
                     PrimeFromSegmentId = primeFrom,
                 });
             }
-            Console.WriteLine($"[PlayerSplit] remote-batch batchId={batchId} plans={batchPlans.Count} strategy={strategy}");
+            RrvDebug.PlayerSplitDebug($"remote-batch batchId={batchId} plans={batchPlans.Count} strategy={strategy}");
         }
 
         var planIndex = 0;
@@ -610,7 +611,7 @@ internal static class Program
         var escaped = Regex.Escape(playerName);
         var pattern = $@"(?<![\p{{L}}\p{{N}}_'-]){escaped}(?![\p{{L}}\p{{N}}_'-])";
         var matches = Regex.Matches(text, pattern, RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
-        Console.WriteLine($"[PlayerSplit] matches={matches.Count} player='{playerName}' strategy={strategy} text='{Preview(text)}'");
+        RrvDebug.PlayerSplitDebug($"matches={matches.Count} player='{playerName}' strategy={strategy} text='{Preview(text)}'");
         if (matches.Count != 1) return null;
 
         var match = matches[0];
@@ -638,18 +639,18 @@ internal static class Program
 
             var sentence = text[start..end];
             var sentenceWords = CountWords(sentence);
-            Console.WriteLine($"[PlayerSplit] strategy=name_only sentenceStart={start} sentenceEnd={end} words={sentenceWords} sentence='{Preview(sentence)}'");
+            RrvDebug.PlayerSplitDebug($"strategy=name_only sentenceStart={start} sentenceEnd={end} words={sentenceWords} sentence='{Preview(sentence)}'");
             if (sentenceWords < MinimumPlayerNameSentenceWords)
             {
                 ExpandToTwoSentences(text, ref start, ref end);
-                Console.WriteLine($"[PlayerSplit] strategy=name_only expanded_to_two_sentences start={start} end={end} words={CountWords(text[start..end])} text='{Preview(text[start..end])}'");
+                RrvDebug.PlayerSplitDebug($"strategy=name_only expanded_to_two_sentences start={start} end={end} words={CountWords(text[start..end])} text='{Preview(text[start..end])}'");
             }
         }
         else if (strategy == "containing_paragraph")
         {
             start = FindParagraphStart(text, nameStart);
             end = FindParagraphEnd(text, nameEnd);
-            Console.WriteLine($"[PlayerSplit] strategy=containing_paragraph start={start} end={end}");
+            RrvDebug.PlayerSplitDebug($"strategy=containing_paragraph start={start} end={end}");
         }
         else
         {
@@ -658,11 +659,11 @@ internal static class Program
 
             var sentence = text[start..end];
             var sentenceWords = CountWords(sentence);
-            Console.WriteLine($"[PlayerSplit] strategy=containing_sentence start={start} end={end} words={sentenceWords} sentence='{Preview(sentence)}'");
+            RrvDebug.PlayerSplitDebug($"strategy=containing_sentence start={start} end={end} words={sentenceWords} sentence='{Preview(sentence)}'");
             if (sentenceWords < MinimumPlayerNameSentenceWords)
             {
                 ExpandToTwoSentences(text, ref start, ref end);
-                Console.WriteLine($"[PlayerSplit] expanded_to_two_sentences start={start} end={end} words={CountWords(text[start..end])} text='{Preview(text[start..end])}'");
+                RrvDebug.PlayerSplitDebug($"expanded_to_two_sentences start={start} end={end} words={CountWords(text[start..end])} text='{Preview(text[start..end])}'");
             }
         }
 
@@ -692,8 +693,7 @@ internal static class Program
             $"len={text?.Length ?? 0} words={CountWords(text ?? string.Empty)}" +
             (string.IsNullOrWhiteSpace(extra) ? string.Empty : $" {extra}") +
             $" text=<<<{safe}>>>";
-        Console.WriteLine(line);
-        System.Diagnostics.Debug.WriteLine(line);
+        RrvDebug.TextPipelineDebug(line);
     }
 
     private static string VisibleText(string? text)
@@ -773,7 +773,7 @@ internal static class Program
 
     private static void LogPlayerSplit(string message)
     {
-        System.Diagnostics.Debug.WriteLine($"[PlayerSplit] {message}");
+        RrvDebug.PlayerSplitDebug($"{message}");
     }
 
     private static string PreviewText(string? text, int max = 80)

@@ -35,6 +35,15 @@ namespace RuneReaderVoice.UI.Views;
 public partial class MainWindow
 {
 
+    private async void OnSettingsTabSelectionChanged(object? sender, SelectionChangedEventArgs e)
+    {
+        if (_uiInitializing)
+            return;
+
+        if (IsVoiceDefaultsTabSelected())
+            await EnsureSampleDefaultsGridLoadedAsync();
+    }
+
     private void RebuildRemoteRuntime(bool refreshUi)
     {
         try
@@ -99,7 +108,9 @@ public partial class MainWindow
             PopulateLastNpcSampleDropdown();
             PopulateTestQrRaceSelector();
             RefreshNpcOverridesGrid();
-            _ = PopulateSampleDefaultsGridAsync();
+            InvalidateSampleDefaultsGrid();
+            if (IsVoiceDefaultsTabSelected())
+                _ = EnsureSampleDefaultsGridLoadedAsync();
         }
     }
     private void OnProviderChanged(object? sender, SelectionChangedEventArgs e)
@@ -439,7 +450,9 @@ public partial class MainWindow
         UpdateProviderSensitiveUi();
         PopulateVoiceGrid();
         PopulateLastNpcSampleDropdown();
-        _ = PopulateSampleDefaultsGridAsync();
+        InvalidateSampleDefaultsGrid();
+        if (IsVoiceDefaultsTabSelected())
+            _ = EnsureSampleDefaultsGridLoadedAsync();
     }
 
     private void UpdateProviderSensitiveUi()

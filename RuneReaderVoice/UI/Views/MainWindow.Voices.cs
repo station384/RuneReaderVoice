@@ -28,6 +28,7 @@ using Avalonia.Interactivity;
 using Avalonia.Platform.Storage;
 using RuneReaderVoice.Protocol;
 using RuneReaderVoice.TTS.Providers;
+using RuneReaderVoice.Diagnostics;
 
 namespace RuneReaderVoice.UI.Views;
 
@@ -64,11 +65,9 @@ public partial class MainWindow
             IReadOnlyList<VoiceInfo> voices;
             if (AppServices.Provider is RemoteTtsProvider remote)
             {
-                System.Diagnostics.Debug.WriteLine(
-                    $"[Voices] Calling RefreshVoiceSourcesAsync for {remote.ProviderId}");
+                RrvDebug.VoicesDebug($"Calling RefreshVoiceSourcesAsync for {remote.ProviderId}");
                 voices = await remote.RefreshVoiceSourcesAsync(CancellationToken.None);
-                System.Diagnostics.Debug.WriteLine(
-                    $"[Voices] RefreshVoiceSourcesAsync returned {voices.Count} voices");
+                RrvDebug.VoicesDebug($"RefreshVoiceSourcesAsync returned {voices.Count} voices");
             }
             else
                 voices = AppServices.Provider.GetAvailableVoices();

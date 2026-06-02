@@ -26,6 +26,7 @@ using System.Text.Json.Serialization;
 using System.Threading;
 using System.Threading.Tasks;
 using RuneReaderVoice.Data;
+using RuneReaderVoice.Diagnostics;
 
 namespace RuneReaderVoice.Sync;
 

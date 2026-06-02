@@ -3,6 +3,7 @@
 #define PERF_TRACE_UI
 using System;
 using System.Diagnostics;
+using RuneReaderVoice.Diagnostics;
 namespace RuneReaderVoice.UI.Views;
 public partial class MainWindow
 {
@@ -13,11 +14,11 @@ public partial class MainWindow
         {
             var managedMb = GC.GetTotalMemory(false) / (1024 * 1024);
             var workingMb = Environment.WorkingSet / (1024 * 1024);
-            Debug.WriteLine($"[PERF] {area} | {message} | managed={managedMb}MB working={workingMb}MB");
+            RrvDebug.PerfDebug($"{area} | {message} | managed={managedMb}MB working={workingMb}MB");
         }
         catch
         {
-            Debug.WriteLine($"[PERF] {area} | {message}");
+            RrvDebug.PerfDebug($"{area} | {message}");
         }
     }
 }

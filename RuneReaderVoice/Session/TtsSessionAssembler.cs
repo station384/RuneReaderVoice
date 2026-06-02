@@ -31,6 +31,7 @@ using RuneReaderVoice.Data;
 using RuneReaderVoice.Protocol;
 using RuneReaderVoice.TTS;
 using RuneReaderVoice.TTS.Providers;
+using RuneReaderVoice.Diagnostics;
 
 namespace RuneReaderVoice.Session;
 
@@ -209,8 +210,7 @@ public sealed class TtsSessionAssembler
                 _currentNpcName     = string.Empty;
                 AppServices.CurrentPlayerTitle = string.Empty;
                 OnSessionReset?.Invoke(_currentDialogId);
-                System.Diagnostics.Debug.WriteLine(
-                    $"[Assembler] New dialog 0x{packet.DialogId:X4} seqTotal={packet.SeqTotal}");
+                RrvDebug.AssemblerDebug($"New dialog 0x{packet.DialogId:X4} seqTotal={packet.SeqTotal}");
             }
 
             // Once a full dialog has been emitted, the addon may still cycle the
@@ -224,8 +224,7 @@ public sealed class TtsSessionAssembler
                 if (!_lateCompletedPacketLogWritten)
                 {
                     _lateCompletedPacketLogWritten = true;
-                    System.Diagnostics.Debug.WriteLine(
-                        $"[Assembler] Ignoring late packets for completed dialog 0x{packet.DialogId:X4} until source gone");
+                    RrvDebug.AssemblerDebug($"Ignoring late packets for completed dialog 0x{packet.DialogId:X4} until source gone");
                 }
                 return;
             }
@@ -255,15 +254,13 @@ public sealed class TtsSessionAssembler
                     acc = new SegmentAccumulator(packet.SubTotal, slot, packet.NpcId,
                                                  packet.SeqIndex, packet.IsNarrator, packet.IsFemale, packet.IsMale);
                     _segments[key] = acc;
-                    System.Diagnostics.Debug.WriteLine(
-                        $"[Assembler] New acc seq={packet.SeqIndex} sub=0/{packet.SubTotal} npc={packet.NpcId} slot={slot}");
+                    RrvDebug.AssemblerDebug($"New acc seq={packet.SeqIndex} sub=0/{packet.SubTotal} npc={packet.NpcId} slot={slot}");
 
                     // Replay stashed early sub-chunks for this segment
                     var earlyKey = MakeEarlyKey(packet.SubTotal, packet.Flags, effectiveRace, packet.SeqIndex);
                     if (_earlyChunks.TryGetValue(earlyKey, out var early))
                     {
-                        System.Diagnostics.Debug.WriteLine(
-                            $"[Assembler] Replaying {early.Count} early subs for seq={packet.SeqIndex}");
+                        RrvDebug.AssemblerDebug($"Replaying {early.Count} early subs for seq={packet.SeqIndex}");
                         foreach (var (sub, payload) in early)
                         {
                             if (sub < acc.Subs.Length && acc.Subs[sub] == null)
@@ -302,8 +299,7 @@ public sealed class TtsSessionAssembler
                 {
                     acc.Subs[packet.SubIndex] = packet.Base64Payload;
                     acc.SubsReceived++;
-                    System.Diagnostics.Debug.WriteLine(
-                        $"[Assembler] sub {packet.SubIndex}/{packet.SubTotal} -> seq={acc.SeqIndex} ({acc.SubsReceived}/{acc.Subs.Length} received)");
+                    RrvDebug.AssemblerDebug($"sub {packet.SubIndex}/{packet.SubTotal} -> seq={acc.SeqIndex} ({acc.SubsReceived}/{acc.Subs.Length} received)");
                     var key = _segments.First(kv => kv.Value == acc).Key;
                     TryCompleteSegment(acc, key);
                 }
@@ -319,8 +315,7 @@ public sealed class TtsSessionAssembler
                     if (early.All(e => e.sub != packet.SubIndex))
                     {
                         early.Add((packet.SubIndex, packet.Base64Payload));
-                        System.Diagnostics.Debug.WriteLine(
-                            $"[Assembler] Stashed early sub={packet.SubIndex}/{packet.SubTotal} seq={packet.SeqIndex} (no anchor yet)");
+                        RrvDebug.AssemblerDebug($"Stashed early sub={packet.SubIndex}/{packet.SubTotal} seq={packet.SeqIndex} (no anchor yet)");
                     }
                 }
             }
@@ -339,8 +334,7 @@ public sealed class TtsSessionAssembler
                 }
                 _dialogFullyFired = true;
                 ClearChunkState();
-                System.Diagnostics.Debug.WriteLine(
-                    $"[Assembler] Dialog 0x{_currentDialogId:X4} complete — firing {toFire.Count} audible segment(s)");
+                RrvDebug.AssemblerDebug($"Dialog 0x{_currentDialogId:X4} complete — firing {toFire.Count} audible segment(s)");
             }
         }
 
@@ -401,8 +395,7 @@ public sealed class TtsSessionAssembler
                     SkipNarratorMarkerExpansion = seg.SkipNarratorMarkerExpansion,
                     IsNarratorSegment = seg.IsNarratorSegment,
                 };
-                System.Diagnostics.Debug.WriteLine(
-                    $"[Assembler] Firing seg={emitted.SegmentIndex} slot={emitted.Slot} npc={emitted.NpcId}" +
+                RrvDebug.AssemblerDebug($"Firing seg={emitted.SegmentIndex} slot={emitted.Slot} npc={emitted.NpcId}" +
                     $" bespoke={emitted.BespokeSampleId ?? "none"} text='{emitted.Text.Substring(0, Math.Min(60, emitted.Text.Length))}'");
                 AppServices.LastSegment = emitted;
                 RuneReaderVoice.AppServices.RecordSegmentAssembled(emitted);
@@ -448,8 +441,7 @@ public sealed class TtsSessionAssembler
         if (_lateCompletedPacketCount <= 0)
             return;
 
-        System.Diagnostics.Debug.WriteLine(
-            $"[Assembler] Ignored {_lateCompletedPacketCount} late packet(s) for completed dialog 0x{_currentDialogId:X4}");
+        RrvDebug.AssemblerDebug($"Ignored {_lateCompletedPacketCount} late packet(s) for completed dialog 0x{_currentDialogId:X4}");
     }
 
 
@@ -461,8 +453,7 @@ public sealed class TtsSessionAssembler
             $"slot={segment.Slot} npc={segment.NpcId} narrator={segment.IsNarratorSegment} " +
             $"player='{segment.PlayerName ?? string.Empty}' title='{segment.PlayerTitle ?? string.Empty}' realm='{segment.PlayerRealm ?? string.Empty}' " +
             $"len={text?.Length ?? 0} words={SegmentTextPreprocessor.CountWords(text ?? string.Empty)} text=<<<{safe}>>>";
-        Console.WriteLine(line);
-        Debug.WriteLine(line);
+        RrvDebug.TextPipelineDebug(line);
     }
 
     private static string VisibleText(string? text)
@@ -552,17 +543,17 @@ public sealed class TtsSessionAssembler
 
                 if (bespokeMatchedByNpcName && !string.IsNullOrWhiteSpace(matchedSampleId))
                 {
-                    Debug.WriteLine($"[Assembler] NPC name matched bespoke sample npc='{npcName}' sample='{matchedSampleId}' slot={slot} isNarratorFlag={acc.IsNarrator}");
+                    RrvDebug.AssemblerDebug($"NPC name matched bespoke sample npc='{npcName}' sample='{matchedSampleId}' slot={slot} isNarratorFlag={acc.IsNarrator}");
                     bespokeSampleId = matchedSampleId;
                 }
                 else if (!string.IsNullOrWhiteSpace(npcName) && string.IsNullOrWhiteSpace(bespokeSampleId))
                 {
-                    Debug.WriteLine($"[Assembler] NPC name had no bespoke sample match npc='{npcName}' slot={slot} isNarratorFlag={acc.IsNarrator}");
+                    RrvDebug.AssemblerDebug($"NPC name had no bespoke sample match npc='{npcName}' slot={slot} isNarratorFlag={acc.IsNarrator}");
                 }
             }
             else
             {
-                Debug.WriteLine($"[Assembler] NPC name bespoke auto-match disabled npc='{npcName}' slot={slot} isNarratorFlag={acc.IsNarrator}");
+                RrvDebug.AssemblerDebug($"NPC name bespoke auto-match disabled npc='{npcName}' slot={slot} isNarratorFlag={acc.IsNarrator}");
             }
         }
 

@@ -27,6 +27,7 @@ using RuneReaderVoice.Data;
 using RuneReaderVoice.TTS.Pronunciation;
 using RuneReaderVoice.TTS.Providers;
 using RuneReaderVoice.TTS.TextSwap;
+using RuneReaderVoice.Diagnostics;
 
 namespace RuneReaderVoice.Sync;
 // Sync/NpcSyncService.cs
@@ -123,7 +124,7 @@ public sealed class NpcSyncService : IDisposable
     {
         if (!ShouldUseRemoteSync())
         {
-            System.Diagnostics.Debug.WriteLine("[NpcSync] Remote sync skipped — active provider is not remote or no server URL is configured.");
+            RrvDebug.NpcSyncDebug("Remote sync skipped — active provider is not remote or no server URL is configured.");
             SetStatus("Remote sync skipped — local provider active.");
             return Task.CompletedTask;
         }
@@ -155,18 +156,18 @@ public sealed class NpcSyncService : IDisposable
                     await RefreshSharedConfigFromServerAsync().ConfigureAwait(false);
             }
 
-            System.Diagnostics.Debug.WriteLine("[NpcSync] Initial background sync completed");
+            RrvDebug.NpcSyncDebug("Initial background sync completed");
         }
         catch (Exception ex)
         {
-            System.Diagnostics.Debug.WriteLine($"[NpcSync] Initial background sync failed: {ex.Message}");
+            RrvDebug.NpcSyncDebug($"Initial background sync failed: {ex.Message}");
             SetStatus($"Sync failed — will retry later ({ex.Message})");
         }
     }
 
     private async Task DoFirstLoadAsync()
     {
-        System.Diagnostics.Debug.WriteLine("[NpcSync] First load — pulling all server defaults");
+        RrvDebug.NpcSyncDebug("First load — pulling all server defaults");
         SetStatus("First load — pulling server defaults…");
 
         // Pull NPC overrides (full pull: t=0)
@@ -209,14 +210,14 @@ public sealed class NpcSyncService : IDisposable
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"[NpcSyncService] Poll error: {ex.Message}");
+                RrvDebug.NpcSyncDebug($"Poll error: {ex.Message}");
             }
         }
     }
 
     private async Task RefreshSharedConfigFromServerAsync()
     {
-        System.Diagnostics.Debug.WriteLine("[NpcSync] Refreshing shared config from server for read-only remote client");
+        RrvDebug.NpcSyncDebug("Refreshing shared config from server for read-only remote client");
 
         await PullAndApplyProviderSlotProfilesAsync("voice_slot", preserveLocal: true).ConfigureAwait(false);
         await PullAndApplyProviderSlotProfilesAsync("sample", preserveLocal: true).ConfigureAwait(false);
@@ -231,14 +232,14 @@ public sealed class NpcSyncService : IDisposable
     /// </summary>
     public async Task<int> PollNpcOverridesAsync(double sinceTs)
     {
-        System.Diagnostics.Debug.WriteLine($"[NpcSync] Polling since={sinceTs:0.###} saved={_settings.LastNpcSyncAt:0.###}");
+        RrvDebug.NpcSyncDebug($"Polling since={sinceTs:0.###} saved={_settings.LastNpcSyncAt:0.###}");
         var records = await _client.GetNpcOverridesSinceAsync(sinceTs).ConfigureAwait(false);
         if (records == null || records.Count == 0)
         {
-            System.Diagnostics.Debug.WriteLine("[NpcSync] Poll returned 0 records");
+            RrvDebug.NpcSyncDebug("Poll returned 0 records");
             return 0;
         }
-        System.Diagnostics.Debug.WriteLine($"[NpcSync] Poll returned {records.Count} record(s)");
+        RrvDebug.NpcSyncDebug($"Poll returned {records.Count} record(s)");
 
         // Map server records to domain model
         var domainRecords = records.Select(r => new NpcRaceOverride
@@ -260,7 +261,7 @@ public sealed class NpcSyncService : IDisposable
         }).ToList();
 
         int merged = await _npcDb.MergeFromServerAsync(domainRecords).ConfigureAwait(false);
-        System.Diagnostics.Debug.WriteLine($"[NpcSync] Merged {merged}/{domainRecords.Count} records (skipped Local entries)");
+        RrvDebug.NpcSyncDebug($"Merged {merged}/{domainRecords.Count} records (skipped Local entries)");
 
         if (merged > 0)
         {
@@ -275,7 +276,7 @@ public sealed class NpcSyncService : IDisposable
         {
             _settings.LastNpcSyncAt = latestTs;
             VoiceSettingsManager.SaveSettings(_settings);
-            System.Diagnostics.Debug.WriteLine($"[NpcSync] Saved LastNpcSyncAt={latestTs:0.###}");
+            RrvDebug.NpcSyncDebug($"Saved LastNpcSyncAt={latestTs:0.###}");
         }
 
         return merged;
@@ -319,9 +320,9 @@ public sealed class NpcSyncService : IDisposable
             var ok = await _client.ContributeNpcOverrideAsync(entry).ConfigureAwait(false);
             if (ok)
                 await MarkSubmittedAsync(entry.NpcId).ConfigureAwait(false);
-            System.Diagnostics.Debug.WriteLine(
-                ok ? $"[NpcSyncService] Contributed NPC {entry.NpcId}; marked Submitted"
-                   : $"[NpcSyncService] Contribute failed for NPC {entry.NpcId}");
+            RrvDebug.NpcSyncDebug(
+                ok ? $"Contributed NPC {entry.NpcId}; marked Submitted"
+                   : $"Contribute failed for NPC {entry.NpcId}");
         });
     }
 
@@ -420,7 +421,7 @@ public sealed class NpcSyncService : IDisposable
         }
         catch (Exception ex)
         {
-            System.Diagnostics.Debug.WriteLine($"[NpcSyncService] Apply {dataType} failed: {ex.Message}");
+            RrvDebug.NpcSyncDebug($"Apply {dataType} failed: {ex.Message}");
             return false;
         }
     }
@@ -800,7 +801,7 @@ public sealed class NpcSyncService : IDisposable
         }
         catch (Exception ex)
         {
-            System.Diagnostics.Debug.WriteLine($"[NpcSyncService] Apply npc-people-catalog failed: {ex.Message}");
+            RrvDebug.NpcSyncDebug($"Apply npc-people-catalog failed: {ex.Message}");
             return false;
         }
     }

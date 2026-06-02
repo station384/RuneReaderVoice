@@ -30,6 +30,7 @@ using RuneReaderVoice.TTS.Cache;
 using RuneReaderVoice.TTS.Audio;
 using RuneReaderVoice.TTS.Dsp;
 using RuneReaderVoice.Session;
+using RuneReaderVoice.Diagnostics;
 
 namespace RuneReaderVoice.TTS;
 // PlaybackCoordinator.cs
@@ -117,7 +118,7 @@ public sealed class PlaybackCoordinator : IDisposable
     /// </summary>
     public void EnqueueSegment(AssembledSegment segment)
     {
-        System.Diagnostics.Debug.WriteLine(
+        RrvDebug.PlaybackDebug(
             $"[PC] Enqueued segment {segment.SegmentIndex}: \"{segment.Text.Substring(0, Math.Min(40, segment.Text.Length))}\"");
         lock (_queueLock)
         {
@@ -159,7 +160,7 @@ public sealed class PlaybackCoordinator : IDisposable
 
     private void CancelCurrentSession()
     {
-        System.Diagnostics.Debug.WriteLine(
+        RrvDebug.PlaybackDebug(
             $"[PC] Session reset — cancelling {_synthTasks.Count} pending task(s)");
         _player.Stop();
         _sessionCts?.Cancel();
@@ -207,7 +208,7 @@ public sealed class PlaybackCoordinator : IDisposable
                 if (_mode == PlaybackMode.WaitForFullText)
                     await WaitForAllDialogSegmentsAsync(ct);
 
-                System.Diagnostics.Debug.WriteLine(
+                RrvDebug.PlaybackDebug(
                     $"[PC] Awaiting segment {_nextExpectedIndex}, tasks in map: {string.Join(",", _synthTasks.Keys.OrderBy(k=>k))}");
 
                 audio = await nextTask;
@@ -220,7 +221,7 @@ public sealed class PlaybackCoordinator : IDisposable
             catch (Exception ex)
             {
                 AppServices.ClearPlaybackActivity();
-                System.Diagnostics.Debug.WriteLine(
+                RrvDebug.PlaybackDebug(
                     $"[PlaybackCoordinator] Synthesis error segment {_nextExpectedIndex}: {ex.Message}");
                 lock (_queueLock) { _synthTasks.Remove(_nextExpectedIndex); _nextExpectedIndex++; }
                 continue;
@@ -279,10 +280,10 @@ public sealed class PlaybackCoordinator : IDisposable
                 {
                     AppServices.SetPlaybackActivity(MainActivityKind.Playing, "Playing audio…");
                     var mergedBatchAudio = ConcatenatePcm(batchAudios);
-                    System.Diagnostics.Debug.WriteLine($"[PC] Play batch merged start segs={startSeg}-{endSeg} items={batchAudios.Count} samples={mergedBatchAudio.Samples.Length} pending={_synthTasks.Count}");
+                    RrvDebug.PlaybackDebug($"[PC] Play batch merged start segs={startSeg}-{endSeg} items={batchAudios.Count} samples={mergedBatchAudio.Samples.Length} pending={_synthTasks.Count}");
                     await _player.PlayAsync(mergedBatchAudio, ct);
                     AppServices.ClearPlaybackActivity();
-                    System.Diagnostics.Debug.WriteLine($"[PC] Play batch merged done segs={startSeg}-{endSeg}");
+                    RrvDebug.PlaybackDebug($"[PC] Play batch merged done segs={startSeg}-{endSeg}");
                 }
                 catch (OperationCanceledException) { AppServices.ClearPlaybackActivity(); break; }
                 catch (Exception ex) when (IsCancellationIoException(ex, ct))
@@ -292,7 +293,7 @@ public sealed class PlaybackCoordinator : IDisposable
                 catch (Exception ex)
                 {
                     AppServices.ClearPlaybackActivity();
-                    System.Diagnostics.Debug.WriteLine($"[PlaybackCoordinator] Batch playback error: {ex.Message}");
+                    RrvDebug.PlaybackDebug($"[PlaybackCoordinator] Batch playback error: {ex.Message}");
                 }
 
                 continue;
@@ -304,14 +305,14 @@ public sealed class PlaybackCoordinator : IDisposable
                 AppServices.SetPlaybackActivity(MainActivityKind.Playing, "Playing audio…");
                 int segIdx = _nextExpectedIndex - 1;
                 RuneReaderVoice.AppServices.RecordAudioStart(segIdx);
-                System.Diagnostics.Debug.WriteLine(
+                RrvDebug.PlaybackDebug(
                     $"[PC] Play start seg={segIdx} samples={audio?.Samples.Length} pending={_synthTasks.Count}");
                 if (audio != null)
                 {
                     await _player.PlayAsync(audio, ct);
                 }
                 AppServices.ClearPlaybackActivity();
-                System.Diagnostics.Debug.WriteLine($"[PC] Play done seg={segIdx}");
+                RrvDebug.PlaybackDebug($"[PC] Play done seg={segIdx}");
             }
             catch (OperationCanceledException) { AppServices.ClearPlaybackActivity(); break; }
             catch (Exception ex) when (IsCancellationIoException(ex, ct))
@@ -321,7 +322,7 @@ public sealed class PlaybackCoordinator : IDisposable
             catch (Exception ex)
             {
                 AppServices.ClearPlaybackActivity();
-                System.Diagnostics.Debug.WriteLine($"[PlaybackCoordinator] Playback error: {ex.Message}");
+                RrvDebug.PlaybackDebug($"[PlaybackCoordinator] Playback error: {ex.Message}");
             }
         }
     }
@@ -372,7 +373,7 @@ public sealed class PlaybackCoordinator : IDisposable
             throw new InvalidOperationException($"Remote batch response missing segment '{segment.BatchSegmentId ?? "<null>"}'.");
 
         var oggBytes = await remoteProvider.FetchBatchSegmentResultAsync(batch.BatchId, response.ProgressKey, response.CacheKey, ct);
-        System.Diagnostics.Debug.WriteLine($"[PC] Remote batch synth complete seg={segment.SegmentIndex} batchId={batch.BatchId} batchSeg={segment.BatchSegmentId} progressKey={response.ProgressKey} cacheKey={response.CacheKey} bytes={oggBytes.Length}");
+        RrvDebug.PlaybackDebug($"[PC] Remote batch synth complete seg={segment.SegmentIndex} batchId={batch.BatchId} batchSeg={segment.BatchSegmentId} progressKey={response.ProgressKey} cacheKey={response.CacheKey} bytes={oggBytes.Length}");
         var audio = await RemoteTtsProvider.DecodeOggAsync(oggBytes, ct);
 
         bool applyBespoke = !string.IsNullOrWhiteSpace(segment.BespokeSampleId)
@@ -389,7 +390,7 @@ public sealed class PlaybackCoordinator : IDisposable
     private async Task<PcmAudio?> SynthesizeSegmentAsync(AssembledSegment segment, CancellationToken ct)
     {
         RuneReaderVoice.AppServices.RecordTtsStart(segment);
-        System.Diagnostics.Debug.WriteLine(
+        RrvDebug.PlaybackDebug(
             $"[PC] Synth start seg={segment.SegmentIndex} slot={segment.Slot} provider={_provider.ProviderId}");
         // Suppressor key includes SegmentIndex so two segments with identical text
         // at different positions in the same dialog (e.g. "You flip to the next
@@ -397,7 +398,7 @@ public sealed class PlaybackCoordinator : IDisposable
         var suppressorKey = $"{segment.Slot}:{segment.SegmentIndex}";
         if (_recentSpeechSuppressor.ShouldSuppress(segment.Text, suppressorKey))
         {
-            System.Diagnostics.Debug.WriteLine($"[PC] Suppressed seg={segment.SegmentIndex} slot={suppressorKey} (recent repeat)");
+            RrvDebug.PlaybackDebug($"[PC] Suppressed seg={segment.SegmentIndex} slot={suppressorKey} (recent repeat)");
             return null;
         }
 
@@ -431,15 +432,15 @@ public sealed class PlaybackCoordinator : IDisposable
             segment.BatchSegments != null && segment.BatchSegments.Count > 1 &&
             !string.IsNullOrWhiteSpace(segment.BatchSegmentId))
         {
-            System.Diagnostics.Debug.WriteLine($"[PC] Using remote batch seg={segment.SegmentIndex} batchId={segment.BatchId} batchSeg={segment.BatchSegmentId} primeFrom={segment.PrimeFromBatchSegmentId ?? "-"}");
+            RrvDebug.PlaybackDebug($"[PC] Using remote batch seg={segment.SegmentIndex} batchId={segment.BatchId} batchSeg={segment.BatchSegmentId} primeFrom={segment.PrimeFromBatchSegmentId ?? "-"}");
             return await SynthesizeBatchSegmentAsync(segment, remoteProvider, ct);
         }
 
         if (!string.IsNullOrWhiteSpace(segment.BespokeSampleId) && !applyBespoke)
-            System.Diagnostics.Debug.WriteLine(
+            RrvDebug.PlaybackDebug(
                 $"[PC] Bespoke ignored for narrator seg={segment.SegmentIndex} slot={segment.Slot} sample={segment.BespokeSampleId}");
         else if (applyBespoke)
-            System.Diagnostics.Debug.WriteLine(
+            RrvDebug.PlaybackDebug(
                 $"[PC] Bespoke applied seg={segment.SegmentIndex} sample={segment.BespokeSampleId} slot={segment.Slot} narratorFlag={segment.IsNarratorSegment}");
 
         var profile = _provider is RemoteTtsProvider remoteProfileProvider
@@ -505,7 +506,7 @@ public sealed class PlaybackCoordinator : IDisposable
         if (cached != null)
         {
             RuneReaderVoice.AppServices.RecordCacheState(segment, hit: true);
-            System.Diagnostics.Debug.WriteLine($"[PC] Cache HIT seg={segment.SegmentIndex} slot={cacheSlotKey} voice={effectiveVoiceId} words={Regex.Matches(segment.Text ?? string.Empty, @"\b[\p{L}\p{N}']+\b", RegexOptions.CultureInvariant).Count} text='{PreviewSegment(segment.Text)}'");
+            RrvDebug.PlaybackDebug($"[PC] Cache HIT seg={segment.SegmentIndex} slot={cacheSlotKey} voice={effectiveVoiceId} words={Regex.Matches(segment.Text ?? string.Empty, @"\b[\p{L}\p{N}']+\b", RegexOptions.CultureInvariant).Count} text='{PreviewSegment(segment.Text)}'");
             DebugCacheTrace(
                 phase: "Hit",
                 segmentIndex: segment.SegmentIndex,
@@ -518,7 +519,7 @@ public sealed class PlaybackCoordinator : IDisposable
             return DspFilterChain.Apply(cached, profile?.Dsp);
         }
         RuneReaderVoice.AppServices.RecordCacheState(segment, hit: false);
-        System.Diagnostics.Debug.WriteLine($"[PC] Cache MISS seg={segment.SegmentIndex} slot={cacheSlotKey} voice={effectiveVoiceId} words={Regex.Matches(segment.Text ?? string.Empty, @"\b[\p{L}\p{N}']+\b", RegexOptions.CultureInvariant).Count} text='{PreviewSegment(segment.Text)}'");
+        RrvDebug.PlaybackDebug($"[PC] Cache MISS seg={segment.SegmentIndex} slot={cacheSlotKey} voice={effectiveVoiceId} words={Regex.Matches(segment.Text ?? string.Empty, @"\b[\p{L}\p{N}']+\b", RegexOptions.CultureInvariant).Count} text='{PreviewSegment(segment.Text)}'");
         DebugCacheTrace(
             phase: "Miss",
             segmentIndex: segment.SegmentIndex,
@@ -542,14 +543,14 @@ public sealed class PlaybackCoordinator : IDisposable
                 forcedNpcSeed,
                 suppressStoredSeed);
 
-            System.Diagnostics.Debug.WriteLine(
+            RrvDebug.PlaybackDebug(
                 $"[PC] Remote synth complete seg={segment.SegmentIndex} bytes={oggBytes.Length}");
             await _cache.StoreOggAsync(oggBytes, cacheText, effectiveVoiceId, _provider.ProviderId, string.Empty, ct);
             var decoded = await _cache.TryGetDecodedAsync(cacheText, effectiveVoiceId, _provider.ProviderId, "", ct);
             if (decoded == null)
                 throw new InvalidOperationException("Remote audio cached but could not be decoded.");
 
-            System.Diagnostics.Debug.WriteLine(
+            RrvDebug.PlaybackDebug(
                 $"[PC] Synth done seg={segment.SegmentIndex} samples={decoded.Samples.Length} dsp={profile?.Dsp?.IsNeutral == false}");
             return DspFilterChain.Apply(decoded, profile?.Dsp);
         }
@@ -595,7 +596,7 @@ public sealed class PlaybackCoordinator : IDisposable
         if (phrases.Count <= 1)
             return null;
 
-        System.Diagnostics.Debug.WriteLine(
+        RrvDebug.PlaybackDebug(
             $"[PC] Force book phrase chunking seg={segment.SegmentIndex} npc={segment.NpcId} chunks={phrases.Count} provider={_provider.ProviderId}");
 
         var sw = System.Diagnostics.Stopwatch.StartNew();
@@ -690,10 +691,10 @@ public sealed class PlaybackCoordinator : IDisposable
             if (tasksToAwait != null)
             {
                 AppServices.SetPlaybackActivity(MainActivityKind.Waiting, "Waiting for full text…");
-                System.Diagnostics.Debug.WriteLine($"[PC] WaitForFullText holding playback until segs {firstNeeded}-{_expectedDialogSegments - 1} ({tasksToAwait.Length} segment(s)) are synthesized");
+                RrvDebug.PlaybackDebug($"[PC] WaitForFullText holding playback until segs {firstNeeded}-{_expectedDialogSegments - 1} ({tasksToAwait.Length} segment(s)) are synthesized");
                 await Task.WhenAll(tasksToAwait);
                 AppServices.ClearPlaybackActivity();
-                System.Diagnostics.Debug.WriteLine("[PC] WaitForFullText released playback");
+                RrvDebug.PlaybackDebug("[PC] WaitForFullText released playback");
                 return;
             }
 
@@ -774,7 +775,7 @@ public sealed class PlaybackCoordinator : IDisposable
         string cacheKey,
         string? originalText)
     {
-        System.Diagnostics.Debug.WriteLine($@"[CacheDebug] phase={phase} seg={segmentIndex}
+        RrvDebug.CacheDebug($@"phase={phase} seg={segmentIndex}
 provider={providerId}
 slot={slotKey}
 key={cacheKey}

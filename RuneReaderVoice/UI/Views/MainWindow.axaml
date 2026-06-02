@@ -240,6 +240,7 @@ along with RuneReaderVoice. If not, see <https://www.gnu.org/licenses/>.
                   Expanded="ExpanderSettings_OnExpanded">
             <TabControl
                         x:Name="SettingsTabControl"
+                        SelectionChanged="OnSettingsTabSelectionChanged"
                         Margin="0" 
                         MinHeight="320"
                 

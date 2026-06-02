@@ -31,6 +31,7 @@ using NVorbis;
 using OggVorbisEncoder;
 using RuneReaderVoice.Protocol;
 using RuneReaderVoice.Session;
+using RuneReaderVoice.Diagnostics;
 
 namespace RuneReaderVoice.TTS.Providers;
 
@@ -117,7 +118,7 @@ public sealed class RemoteTtsProvider : ITtsProvider
         var chunkingEnabled = _settings.EnablePhraseChunking && !profile.DisableChunking;
         var phrases = TextChunkingPolicy.GetChunkTexts(text, ProviderId, profile, chunkingEnabled);
 
-        System.Diagnostics.Debug.WriteLine(
+        RrvDebug.RemoteTtsDebug(
             $"[RemoteTTS] SynthesizeOgg provider={ProviderId} chunks={phrases.Count} chunking={chunkingEnabled} textLen={text.Length}");
 
         // Generate a batch ID here — one per full text request regardless of chunk count.
@@ -311,10 +312,10 @@ public sealed class RemoteTtsProvider : ITtsProvider
             }
 
             var submitted = await _client.SynthesizeV2BatchAsync(request, ct);
-            System.Diagnostics.Debug.WriteLine(
+            RrvDebug.RemoteTtsDebug(
                 $"[RemoteTTS] v2 batch submitted: batchId={submitted.BatchId} segments={submitted.Segments.Count}");
             foreach (var seg in submitted.Segments)
-                System.Diagnostics.Debug.WriteLine(
+                RrvDebug.RemoteTtsDebug(
                     $"[RemoteTTS] v2 batch seg={seg.SegmentId} status={seg.Status} progressKey={seg.ProgressKey} cacheKey={seg.CacheKey}");
 
             return new RemoteBatchResolution
@@ -338,15 +339,15 @@ public sealed class RemoteTtsProvider : ITtsProvider
         if (string.IsNullOrWhiteSpace(progressKey))
             throw new InvalidOperationException($"Batch segment is missing progress_key for batchId={batchId} cacheKey={cacheKey}");
 
-        System.Diagnostics.Debug.WriteLine($"[RemoteTTS] v2 batch wait start: batchId={batchId} progressKey={progressKey} cacheKey={cacheKey}");
+        RrvDebug.RemoteTtsDebug($"[RemoteTTS] v2 batch wait start: batchId={batchId} progressKey={progressKey} cacheKey={cacheKey}");
         await _client.WaitForJobAsync(progressKey, ct);
-        System.Diagnostics.Debug.WriteLine($"[RemoteTTS] v2 batch wait complete: batchId={batchId} progressKey={progressKey} cacheKey={cacheKey}");
+        RrvDebug.RemoteTtsDebug($"[RemoteTTS] v2 batch wait complete: batchId={batchId} progressKey={progressKey} cacheKey={cacheKey}");
 
         var result = await _client.GetV2ResultAsync(progressKey, ct);
         if (result == null)
             throw new InvalidOperationException($"Batch job completed but result was not ready for batchId={batchId} progressKey={progressKey} cacheKey={cacheKey}");
 
-        System.Diagnostics.Debug.WriteLine($"[RemoteTTS] v2 batch result fetched: batchId={batchId} progressKey={progressKey} cacheKey={cacheKey} bytes={result.Length}");
+        RrvDebug.RemoteTtsDebug($"[RemoteTTS] v2 batch result fetched: batchId={batchId} progressKey={progressKey} cacheKey={cacheKey} bytes={result.Length}");
         return result;
     }
 
@@ -408,7 +409,7 @@ public sealed class RemoteTtsProvider : ITtsProvider
         };
 
         var submitted = await _client.SynthesizeV2Async(v2Request, ct);
-        System.Diagnostics.Debug.WriteLine(
+        RrvDebug.RemoteTtsDebug(
             $"[RemoteTTS] v2 submitted: key={submitted.ProgressKey} cached={submitted.Cached}");
         return (submitted, profile);
     }
@@ -423,7 +424,7 @@ public sealed class RemoteTtsProvider : ITtsProvider
             var cached = await _client.GetV2ResultAsync(submitted.ProgressKey, ct);
             if (cached != null)
             {
-                System.Diagnostics.Debug.WriteLine(
+                RrvDebug.RemoteTtsDebug(
                     $"[RemoteTTS] v2 cache hit: key={submitted.ProgressKey} bytes={cached.Length}");
                 return cached;
             }
@@ -435,7 +436,7 @@ public sealed class RemoteTtsProvider : ITtsProvider
         var result = await _client.GetV2ResultAsync(submitted.ProgressKey, ct);
         if (result != null)
         {
-            System.Diagnostics.Debug.WriteLine(
+            RrvDebug.RemoteTtsDebug(
                 $"[RemoteTTS] v2 result fetched: key={submitted.ProgressKey} bytes={result.Length}");
             return result;
         }
@@ -537,19 +538,19 @@ public sealed class RemoteTtsProvider : ITtsProvider
         if (AppServices.TryGetStoredVoiceProfile(ProviderId, slot, out var storedProfile) && storedProfile != null)
         {
 
-            Debug.WriteLine($"[RaceVoiceDebug] RemoteTtsProvider.ResolveProfile provider={ProviderId} slot={slot} source=db voiceId={(storedProfile.VoiceId ?? "<null>")}");
+            RrvDebug.RaceVoiceDebug($"RemoteTtsProvider.ResolveProfile provider={ProviderId} slot={slot} source=db voiceId={(storedProfile.VoiceId ?? "<null>")}");
             return storedProfile;
         }
 
         if (_descriptor.VoiceSourceKind == RemoteVoiceSourceKind.Samples)
         {
             var fallbackSample = GetDefaultSampleProfile(slot);
-            Debug.WriteLine($"[RaceVoiceDebug] RemoteTtsProvider.ResolveProfile provider={ProviderId} slot={slot} source=sample-default voiceId={(fallbackSample?.VoiceId ?? "<null>")}");
+            RrvDebug.RaceVoiceDebug($"RemoteTtsProvider.ResolveProfile provider={ProviderId} slot={slot} source=sample-default voiceId={(fallbackSample?.VoiceId ?? "<null>")}");
             return fallbackSample;
         }
 
         var fallbackVoice = VoiceProfileDefaults.Create(GetAvailableVoices().FirstOrDefault()?.VoiceId ?? string.Empty);
-        Debug.WriteLine($"[RaceVoiceDebug] RemoteTtsProvider.ResolveProfile provider={ProviderId} slot={slot} source=provider-default voiceId={(fallbackVoice?.VoiceId ?? "<null>")}");
+        RrvDebug.RaceVoiceDebug($"RemoteTtsProvider.ResolveProfile provider={ProviderId} slot={slot} source=provider-default voiceId={(fallbackVoice?.VoiceId ?? "<null>")}");
         return fallbackVoice;
     }
 
@@ -985,7 +986,7 @@ public sealed class RemoteTtsProvider : ITtsProvider
 
         if (chunks.Any(c => c.SampleRate != targetSampleRate || Math.Max(1, c.Channels) != targetChannels))
         {
-            System.Diagnostics.Debug.WriteLine(
+            RrvDebug.RemoteTtsDebug(
                 $"[RemoteTTS] Normalized mixed chunk formats to {targetSampleRate} Hz / {targetChannels} ch before concatenation.");
         }
 

@@ -25,6 +25,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Threading.Tasks;
 using RuneReaderVoice.TTS.Providers;
+using RuneReaderVoice.Diagnostics;
 
 namespace RuneReaderVoice;
 

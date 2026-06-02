@@ -35,6 +35,7 @@ using RuneReaderVoice.TTS.Cache;
 using RuneReaderVoice.TTS.Pronunciation;
 using RuneReaderVoice.TTS.Providers;
 using RuneReaderVoice.TTS.TextSwap;
+using RuneReaderVoice.Diagnostics;
 
 namespace RuneReaderVoice;
 
@@ -591,9 +592,7 @@ public static class AppServices
             && ProviderSlotProfiles.TryGetProfile(providerId, slotId, out profile)
             && profile != null;
 
-#if DEBUG
-        Console.WriteLine($"[RaceVoiceDebug] TryGetStoredVoiceProfile provider={providerId} slot={slotId} hit={ok} voiceId={(profile?.VoiceId ?? "<null>")}");
-#endif
+        RrvDebug.RaceVoiceDebug($"TryGetStoredVoiceProfile provider={providerId} slot={slotId} hit={ok} voiceId={(profile?.VoiceId ?? "<null>")}");
         return ok;
     }
 

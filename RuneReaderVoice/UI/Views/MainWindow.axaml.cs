@@ -33,6 +33,7 @@ using RuneReaderVoice.Protocol;
 using RuneReaderVoice.TTS;
 using RuneReaderVoice.TTS.Pronunciation;
 using RuneReaderVoice.TTS.Providers;
+using RuneReaderVoice.Diagnostics;
 
 namespace RuneReaderVoice.UI.Views;
 // MainWindow.axaml.cs
@@ -49,16 +50,16 @@ public partial class MainWindow : Window
 
     public MainWindow()
     {
+        _uiInitializing = true;
         InitializeComponent();
         PopulateProviderSelector();
-        _uiInitializing = true;
         LoadSettingsIntoUI();
         _uiInitializing = false;
         WireExpanderStateSaving();
         PopulateAudioDevices();
         PopulateVoiceGrid();
         InitRaceEditorUi();
-        _ = PopulateSampleDefaultsGridAsync();
+        InvalidateSampleDefaultsGrid();
         PopulateVolumeTrimGrid();
         SetPlatformVisibility();
         PopulatePronunciationWorkbench();
@@ -80,20 +81,19 @@ public partial class MainWindow : Window
             {
                 if (AppServices.Provider is TTS.Providers.RemoteTtsProvider remote)
                 {
-                    System.Diagnostics.Debug.WriteLine("[MainWindow] Background voice cache warmup starting");
+                    RrvDebug.MainWindowDebug("Background voice cache warmup starting");
                     await remote.RefreshVoiceSourcesAsync(System.Threading.CancellationToken.None);
-                    System.Diagnostics.Debug.WriteLine(
-                        $"[MainWindow] Voice cache warmed: {remote.GetAvailableVoices().Count} voices");
+                    RrvDebug.MainWindowDebug($"Voice cache warmed: {remote.GetAvailableVoices().Count} voices");
                     Avalonia.Threading.Dispatcher.UIThread.Post(() =>
                     {
                         PopulateLastNpcSampleDropdown();
-                        _ = PopulateSampleDefaultsGridAsync();
+                        RefreshSampleDefaultsGridIfLoaded();
                     });
                 }
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"[MainWindow] Voice cache warmup failed: {ex.Message}");
+                RrvDebug.MainWindowDebug($"Voice cache warmup failed: {ex.Message}");
             }
         });
 

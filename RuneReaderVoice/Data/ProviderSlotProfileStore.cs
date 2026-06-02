@@ -5,6 +5,7 @@ using System.Text.Json;
 using System.Threading.Tasks;
 using System.Linq;
 using RuneReaderVoice.TTS.Providers;
+using RuneReaderVoice.Diagnostics;
 
 namespace RuneReaderVoice.Data;
 
@@ -85,9 +86,7 @@ public sealed class ProviderSlotProfileStore
 
         if (TryGetCachedProfile(providerId, slotId, out profile) && profile != null)
         {
-#if DEBUG
-            Console.WriteLine($"[RaceVoiceDebug] ProviderSlotProfileStore cache-hit provider={providerId} slot={slotId} voiceId={(profile.VoiceId ?? "<null>")}");
-#endif
+            RrvDebug.RaceVoiceDebug($"ProviderSlotProfileStore cache-hit provider={providerId} slot={slotId} voiceId={(profile.VoiceId ?? "<null>")}");
             return true;
         }
 
@@ -100,17 +99,13 @@ public sealed class ProviderSlotProfileStore
         var loaded = DeserializeProfile(row?.ProfileJson);
         if (loaded == null)
         {
-#if DEBUG
-            Console.WriteLine($"[RaceVoiceDebug] ProviderSlotProfileStore db-miss provider={providerId} slot={slotId}");
-#endif
+            RrvDebug.RaceVoiceDebug($"ProviderSlotProfileStore db-miss provider={providerId} slot={slotId}");
             return false;
         }
 
         CacheProfile(providerId, slotId, loaded);
         profile = loaded.Clone();
-#if DEBUG
-        Console.WriteLine($"[RaceVoiceDebug] ProviderSlotProfileStore db-hit provider={providerId} slot={slotId} voiceId={(profile.VoiceId ?? "<null>")}");
-#endif
+        RrvDebug.RaceVoiceDebug($"ProviderSlotProfileStore db-hit provider={providerId} slot={slotId} voiceId={(profile.VoiceId ?? "<null>")}");
         return true;
     }
 

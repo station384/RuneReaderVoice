@@ -29,6 +29,7 @@ using System.DirectoryServices.ActiveDirectory;
 using System.Linq;
 using System.Runtime.InteropServices;
 using System.Runtime.Versioning;
+using RuneReaderVoice.Diagnostics;
 
 namespace RuneReaderVoice.Platform.Windows;
 

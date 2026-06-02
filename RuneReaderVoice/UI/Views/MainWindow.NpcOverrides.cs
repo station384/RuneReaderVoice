@@ -34,6 +34,7 @@ using Avalonia.Platform.Storage;
 using Avalonia.Threading;
 using RuneReaderVoice.Data;
 using RuneReaderVoice.Protocol;
+using RuneReaderVoice.Diagnostics;
 
 namespace RuneReaderVoice.UI.Views;
 // MainWindow.NpcOverrides.cs
@@ -60,7 +61,7 @@ public partial class MainWindow
 
     private static void QuickSetTrace(string message)
     {
-        Debug.WriteLine($"[NpcQuickSet] {DateTime.Now:HH:mm:ss.fff} {message}");
+        RrvDebug.NpcQuickSetDebug($"{DateTime.Now:HH:mm:ss.fff} {message}");
     }
 
     private static string SampleLabel(string? sampleId)

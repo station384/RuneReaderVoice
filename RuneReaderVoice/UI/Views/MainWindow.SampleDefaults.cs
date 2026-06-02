@@ -38,11 +38,61 @@ public partial class MainWindow
     private int _sampleDefaultsPageNumber = 1;
     private int _sampleDefaultsPageSize = 25;
     private string _sampleDefaultsSearchText = string.Empty;
+    private bool _sampleDefaultsLoaded;
+    private bool _sampleDefaultsLoading;
+
+    private async Task EnsureSampleDefaultsGridLoadedAsync()
+    {
+        if (_sampleDefaultsLoaded || _sampleDefaultsLoading)
+            return;
+
+        _sampleDefaultsLoading = true;
+        try
+        {
+            await PopulateSampleDefaultsGridAsync();
+            _sampleDefaultsLoaded = true;
+        }
+        finally
+        {
+            _sampleDefaultsLoading = false;
+        }
+    }
+
+    private void InvalidateSampleDefaultsGrid()
+    {
+        _sampleDefaultsLoaded = false;
+        _sampleDefaultsLoading = false;
+
+        if (SampleDefaultsGrid != null)
+            SampleDefaultsGrid.Children.Clear();
+
+        if (SampleDefaultsStatus != null)
+            SampleDefaultsStatus.Text = "Voice defaults not loaded. Open this tab or click Refresh Voices.";
+
+        if (SampleDefaultsPageInfoText != null)
+            SampleDefaultsPageInfoText.Text = string.Empty;
+
+        if (SampleDefaultsPrevButton != null)
+            SampleDefaultsPrevButton.IsEnabled = false;
+
+        if (SampleDefaultsNextButton != null)
+            SampleDefaultsNextButton.IsEnabled = false;
+    }
+
+    private void RefreshSampleDefaultsGridIfLoaded()
+    {
+        if (_sampleDefaultsLoaded)
+            _ = PopulateSampleDefaultsGridAsync();
+    }
+
+    private bool IsVoiceDefaultsTabSelected()
+        => SettingsTabControl?.SelectedItem == VoiceDefaultsTab;
 
     private async Task PopulateSampleDefaultsGridAsync()
     {
         try
         {
+            _sampleDefaultsLoaded = true;
             SampleDefaultsGrid.Children.Clear();
 
             var provider = AppServices.Provider;
@@ -263,6 +313,10 @@ public partial class MainWindow
     {
         _sampleDefaultsSearchText = SampleDefaultsSearchBox?.Text?.Trim() ?? string.Empty;
         _sampleDefaultsPageNumber = 1;
+
+        if (!_sampleDefaultsLoaded && !IsVoiceDefaultsTabSelected())
+            return;
+
         await PopulateSampleDefaultsGridAsync();
     }
 
@@ -289,6 +343,10 @@ public partial class MainWindow
         {
             _sampleDefaultsPageSize = pageSize;
             _sampleDefaultsPageNumber = 1;
+
+            if (!_sampleDefaultsLoaded && !IsVoiceDefaultsTabSelected())
+                return;
+
             await PopulateSampleDefaultsGridAsync();
         }
     }
