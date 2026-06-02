@@ -128,12 +128,6 @@ class WorkerBackend(AbstractTtsBackend):
         max_concurrent: int = 2,
         log_level: str = "info",
         qwen_size: str = "large",
-        lux_num_steps: int = 32,
-        lux_t_shift: float = 0.5,
-        longcat_model_variant: str = "1B",
-        longcat_steps: int = 16,
-        longcat_cfg_strength: float = 4.0,
-        longcat_guidance: str = "apg",
         cond_cache_dir: Path | None = None,
     ) -> None:
         self._backend_name = backend_name
@@ -144,12 +138,6 @@ class WorkerBackend(AbstractTtsBackend):
         self._max_concurrent = max_concurrent
         self._log_level = log_level
         self._qwen_size = qwen_size
-        self._lux_num_steps = lux_num_steps
-        self._lux_t_shift = lux_t_shift
-        self._longcat_model_variant = longcat_model_variant
-        self._longcat_steps = longcat_steps
-        self._longcat_cfg_strength = longcat_cfg_strength
-        self._longcat_guidance = longcat_guidance
         self._cond_cache_dir = Path(cond_cache_dir).resolve() if cond_cache_dir is not None else None
 
         # Set after load()
@@ -316,12 +304,6 @@ class WorkerBackend(AbstractTtsBackend):
             "--max-concurrent", str(self._max_concurrent),
             *( ["--cond-cache-dir", str(self._cond_cache_dir)] if self._cond_cache_dir is not None else [] ),
             "--qwen-size",   self._qwen_size,
-            "--lux-num-steps", str(self._lux_num_steps),
-            "--lux-t-shift", str(self._lux_t_shift),
-            "--longcat-model-variant", self._longcat_model_variant,
-            "--longcat-steps", str(self._longcat_steps),
-            "--longcat-cfg-strength", str(self._longcat_cfg_strength),
-            "--longcat-guidance", self._longcat_guidance,
             "--log-level",   self._log_level,
         ]
 
@@ -330,23 +312,8 @@ class WorkerBackend(AbstractTtsBackend):
             self._backend_name, launcher,
         )
 
-        # Build subprocess environment — inherit host env, then inject any
-        # backend-specific overrides that must be set before the dynamic linker
-        # loads shared libraries (e.g. LD_LIBRARY_PATH for vLLM/ONNX CUDA EP).
+        # Build subprocess environment — inherit host env
         spawn_env = os.environ.copy()
-        if self._backend_name == "cosyvoice_vllm":
-            venv_lib = self._venv_path / "lib" / "python3.11" / "site-packages"
-            nvidia_dirs = [
-                str(venv_lib / "nvidia" / "cudnn"        / "lib"),
-                str(venv_lib / "nvidia" / "cublas"       / "lib"),
-                str(venv_lib / "nvidia" / "cuda_runtime" / "lib"),
-                str(venv_lib / "nvidia" / "cuda_nvrtc"   / "lib"),
-            ]
-            existing = spawn_env.get("LD_LIBRARY_PATH", "")
-            spawn_env["LD_LIBRARY_PATH"] = ":".join(
-                nvidia_dirs + ([existing] if existing else [])
-            )
-            log.info("cosyvoice_vllm: injecting LD_LIBRARY_PATH for NVIDIA libs")
 
         # Spawn the worker.
         # stdout is piped so we can read the READY line.

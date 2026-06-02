@@ -58,7 +58,7 @@ def _env_set(key: str, default: str) -> FrozenSet[str]:
 
 # ── Valid values ──────────────────────────────────────────────────────────────
 
-VALID_BACKENDS: FrozenSet[str] = frozenset({"kokoro", "f5tts", "chatterbox", "chatterbox_full", "chatterbox_multilingual", "qwen_natural", "qwen_custom", "qwen_design", "lux", "cosyvoice", "cosyvoice_vllm", "longcat"})
+VALID_BACKENDS: FrozenSet[str] = frozenset({"kokoro", "f5tts", "chatterbox", "chatterbox_full", "chatterbox_multilingual", "qwen_natural", "qwen_custom", "qwen_design"})
 VALID_GPU_MODES: FrozenSet[str] = frozenset({"auto", "cuda", "rocm", "cpu"})
 VALID_LOG_LEVELS: FrozenSet[str] = frozenset({"debug", "info", "warning", "error"})
 
@@ -85,7 +85,7 @@ class Settings:
         self.samples_dir:          Path = Path(_env_str("RRV_SAMPLES_DIR",          "./data/samples"))
         self.whisper_model_dir:    Path = Path(_env_str("RRV_WHISPER_MODEL_DIR",    "./data/models/whisper"))
         # ASR provider selection.
-        # Options: whisper (default, in-process), qwen_asr, crisper_whisper, cohere_transcribe
+        # Options: whisper (default, in-process), qwen_asr, crisper_whisper
         self.asr_provider: str = _env_str("RRV_ASR_PROVIDER", "whisper").lower()
         # Resource manager eviction window — backends idle longer than this
         # are eligible for eviction when a new backend needs to load.
@@ -243,32 +243,6 @@ class Settings:
         self.qwen_models_dir: Path = Path(_env_str("RRV_QWEN_MODELS_DIR",
                                                     "../data/models/qwen"))
 
-        # ── CosyVoice configuration ───────────────────────────────────────────
-        self.cosyvoice_src_dir: str = _env_str("RRV_COSYVOICE_SRC_DIR", "")
-        self.cosyvoice_vllm_max_concurrent: int = _env_int("RRV_COSYVOICE_VLLM_MAX_CONCURRENT", 6)
-        if self.cosyvoice_vllm_max_concurrent < 1:
-            self.cosyvoice_vllm_max_concurrent = 1
-
-        # ── LuxTTS sample format ─────────────────────────────────────────────
-        self.lux_sample_channels: int = _env_int("RRV_LUX_SAMPLE_CHANNELS", 1)
-        self.lux_sample_rate: int = _env_int("RRV_LUX_SAMPLE_RATE", 48000)
-        # Synthesis defaults validated by Provider_Tests.md 2026-04-06:
-        #   num_steps=32 is the quality ceiling; 10 (old default) has audible frame artifacts.
-        #   t_shift=0.5 gives more natural comma/pause handling vs the previous 0.7 default.
-        self.lux_num_steps: int = _env_int("RRV_LUX_NUM_STEPS", 32)
-        self.lux_t_shift: float = float(os.environ.get("RRV_LUX_T_SHIFT", "0.5"))
-
-        # ── LongCat-AudioDiT configuration ────────────────────────────────────
-        # model_variant: "1B" (FP32, ~4GB VRAM), "3.5B-bf16" (BF16, ~7GB, recommended
-        # for 10GB+ VRAM), or "3.5B" (FP32, ~14GB, requires 16GB+ VRAM).
-        # Directory: data/models/longcat/<variant>/
-        self.longcat_model_variant: str = _env_str("RRV_LONGCAT_MODEL_VARIANT", "1B")
-        self.longcat_steps: int         = _env_int("RRV_LONGCAT_STEPS", 16)
-        self.longcat_cfg_strength: float = float(os.environ.get("RRV_LONGCAT_CFG_STRENGTH", "4.0"))
-        self.longcat_guidance: str       = _env_str("RRV_LONGCAT_GUIDANCE", "apg")
-        self.longcat_sample_rate: int    = _env_int("RRV_LONGCAT_SAMPLE_RATE", 22050)
-        self.longcat_sample_channels: int = _env_int("RRV_LONGCAT_SAMPLE_CHANNELS", 1)
-
     def override(self, **kwargs) -> None:
         """
         Apply CLI argument overrides. Called from main.py after argparse.
@@ -349,7 +323,6 @@ class Settings:
             f"f5_sample_channels={self.f5_sample_channels}, "
             f"chatterbox_sample_channels={self.chatterbox_sample_channels}, "
             f"chatterbox_max_concurrent={self.chatterbox_max_concurrent}, "
-            f"cosyvoice_vllm_max_concurrent={self.cosyvoice_vllm_max_concurrent}, "
             f"cache_max_mb={self.cache_max_mb}, "
             f"f5_vocoder={self.f5_vocoder}, "
             f"auth_enabled={self.auth_enabled}, "

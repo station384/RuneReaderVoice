@@ -187,6 +187,12 @@ class ChatterboxBackend(AbstractTtsBackend):
         self._prior_token_cache_size = max(0, int(os.environ.get("RRV_CB_PRIOR_TOKEN_CACHE_SIZE", "16")))
         self._prior_speech_tokens: OrderedDict[str, tuple[object, str]] = OrderedDict()
 
+        # Persistent StaticCache — allocated once at load time, reset() between
+        # inference calls instead of allocating/freeing every synthesis.
+        # Eliminates PyTorch CUDA allocator pool bloat over long uptimes.
+        self._static_cache = None        # transformers.cache_utils.StaticCache | None
+        self._static_cache_len: int = 0  # max_cache_len this cache was built for
+
     def _voice_group_key(self, request: SynthesisRequest) -> str:
         sample_key = str(request.sample_path.resolve()) if request.sample_path is not None else ""
         lang_key   = request.lang_code or ""
@@ -213,6 +219,55 @@ class ChatterboxBackend(AbstractTtsBackend):
                 if self._active_count == 0:
                     self._active_voice_key = None
             self._voice_cond.notify_all()
+
+    def _acquire_static_cache(self, device, dtype, context_len: int,
+                               max_new_tokens: int, llama_config):
+        """Return the persistent StaticCache, reset for a new inference call.
+
+        Identical to ChatterboxFullBackend._acquire_static_cache — see that
+        method for full design notes. Duplicated (not shared) to keep each
+        backend independently deployable in its own venv.
+        """
+        try:
+            from transformers.cache_utils import StaticCache
+        except ImportError:
+            return None
+
+        needed_len = max(context_len + max_new_tokens,
+                         int(os.environ.get("RRV_T3_STATIC_CACHE_LEN", "1400")))
+
+        if self._static_cache is None or self._static_cache_len < needed_len:
+            if self._static_cache is not None:
+                log.info(
+                    "Chatterbox T3: StaticCache resize %d → %d",
+                    self._static_cache_len, needed_len,
+                )
+            self._static_cache = StaticCache(
+                config=llama_config,
+                max_batch_size=2,
+                max_cache_len=needed_len,
+                device=device,
+                dtype=dtype,
+            )
+            self._static_cache_len = needed_len
+            log.info(
+                "Chatterbox T3: StaticCache allocated batch=2 len=%d dtype=%s",
+                needed_len, dtype,
+            )
+        else:
+            try:
+                self._static_cache.reset()
+            except AttributeError:
+                log.debug("Chatterbox T3: StaticCache.reset() unavailable — reallocating")
+                self._static_cache = StaticCache(
+                    config=llama_config,
+                    max_batch_size=2,
+                    max_cache_len=self._static_cache_len,
+                    device=device,
+                    dtype=dtype,
+                )
+
+        return self._static_cache
 
     # ── Identity ──────────────────────────────────────────────────────────────
 
@@ -481,12 +536,11 @@ class ChatterboxBackend(AbstractTtsBackend):
             log.info("Chatterbox: T3HuggingfaceBackend built once at load time")
 
         # ── Build the patched inference() ─────────────────────────────────────
-        _has_static_cache = has_static_cache
-        _use_compile      = use_compile
-        _static_cache_len = static_cache_len
-        _cfg_batch        = cfg_batch
+        _has_static_cache   = has_static_cache
+        _use_compile        = use_compile
         _persistent_backend = persistent_backend
-        _log              = log
+        _backend_ref        = self   # for _acquire_static_cache
+        _log                = log
 
         def _patched_inference(
             self_t3,
@@ -575,30 +629,22 @@ class ChatterboxBackend(AbstractTtsBackend):
             repetition_penalty_processor = RepetitionPenaltyLogitsProcessor(
                 penalty=float(repetition_penalty))
 
-            # ── Build StaticCache if available ────────────────────────────────
+            # ── Acquire persistent StaticCache ────────────────────────────────
+            # Cache is allocated once at load time and reset() between calls.
+            context_len = inputs_embeds.size(1)
             past = None
             if _has_static_cache:
                 try:
-                    from transformers.cache_utils import StaticCache
-                    # seq_len = context (embeds) + bos + max_new_tokens
-                    context_len = inputs_embeds.size(1)
-                    total_len = context_len + max_new_tokens
-                    # Pad up to configured static length, take the larger
-                    cache_len = max(total_len, _static_cache_len)
-                    past = StaticCache(
-                        config=self_t3.cfg,
-                        max_batch_size=_cfg_batch,
-                        max_cache_len=cache_len,
+                    past = _backend_ref._acquire_static_cache(
                         device=device,
                         dtype=embeds.dtype,
-                    )
-                    _log.debug(
-                        "Chatterbox T3: StaticCache allocated batch=%d len=%d",
-                        _cfg_batch, cache_len,
+                        context_len=context_len,
+                        max_new_tokens=max_new_tokens,
+                        llama_config=self_t3.cfg,
                     )
                 except Exception as e:
                     _log.warning(
-                        "Chatterbox T3: StaticCache init failed (%s) — "
+                        "Chatterbox T3: StaticCache acquire failed (%s) — "
                         "falling back to DynamicCache", e)
                     past = None
 

@@ -260,19 +260,6 @@ def _opt_int(d: dict, key: str):
 # ── Main ──────────────────────────────────────────────────────────────────────
 
 async def _main(args: argparse.Namespace) -> None:
-    # For CosyVoice backend: add cosyvoice-src and Matcha-TTS to sys.path
-    if args.backend in ("cosyvoice", "cosyvoice_vllm"):
-        import os as _os
-        cosy_src = _os.environ.get("RRV_COSYVOICE_SRC_DIR", "")
-        if cosy_src:
-            matcha = _os.path.join(cosy_src, "third_party", "Matcha-TTS")
-            for _p in [cosy_src, matcha]:
-                if _p not in sys.path:
-                    sys.path.insert(0, _p)
-            log.info("CosyVoice: added to sys.path: %s, %s", cosy_src, matcha)
-        else:
-            log.warning("CosyVoice: RRV_COSYVOICE_SRC_DIR not set")
-
     # Configure logging — write to stdout so WorkerBackend can forward it
     logging.basicConfig(
         level=args.log_level.upper(),
@@ -416,33 +403,16 @@ def _instantiate_backend(name: str, models_dir: Path, samples_dir: Path, gpu_inf
         return QwenDesignBackend(models_dir=models_dir, torch_device=gpu_info.torch_device)
 
     elif name == "lux":
-        from .backends.lux_backend import LuxBackend
-        num_steps = getattr(args, "lux_num_steps", 32) or 32
-        t_shift   = getattr(args, "lux_t_shift",   0.5)
-        if t_shift is None: t_shift = 0.5
-        return LuxBackend(models_dir=models_dir, torch_device=gpu_info.torch_device,
-                          num_steps=num_steps, t_shift=t_shift)
+        raise ValueError("lux backend has been removed")
 
     elif name == "longcat":
-        from .backends.longcat_backend import LongCatBackend
-        return LongCatBackend(
-            models_dir=models_dir,
-            torch_device=gpu_info.torch_device,
-            model_variant=getattr(args, "longcat_model_variant", "1B") or "1B",
-            steps=getattr(args, "longcat_steps", 16) or 16,
-            cfg_strength=getattr(args, "longcat_cfg_strength", 4.0) or 4.0,
-            guidance_method=getattr(args, "longcat_guidance", "apg") or "apg",
-        )
+        raise ValueError("longcat backend has been removed")
 
     elif name == "cosyvoice":
-        from .backends.cosyvoice_backend import CosyVoiceBackend
-        return CosyVoiceBackend(models_dir=models_dir, torch_device=gpu_info.torch_device)
+        raise ValueError("cosyvoice backend has been removed")
 
     elif name == "cosyvoice_vllm":
-        from .backends.cosyvoice_vllm_backend import CosyVoiceVllmBackend
-        import os as _os
-        _max = int(_os.environ.get("RRV_COSYVOICE_VLLM_MAX_CONCURRENT", "6"))
-        return CosyVoiceVllmBackend(models_dir=models_dir, torch_device=gpu_info.torch_device, max_concurrent=_max)
+        raise ValueError("cosyvoice_vllm backend has been removed")
 
     else:
         raise ValueError(f"Unknown backend: {name!r}")
@@ -467,19 +437,6 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument("--qwen-size", dest="qwen_size", default="large",
                         choices=["large", "small"],
                         help="Qwen model size: large=1.7B, small=0.6B (default: large)")
-    parser.add_argument("--lux-num-steps", dest="lux_num_steps", type=int, default=32,
-                        help="LuxTTS ODE solver steps — higher = better quality (default: 32, validated ceiling)")
-    parser.add_argument("--lux-t-shift", dest="lux_t_shift", type=float, default=0.5,
-                        help="LuxTTS ODE time-step distribution — 0.5 = natural comma/pause handling (default: 0.5)")
-    parser.add_argument("--longcat-model-variant", dest="longcat_model_variant", default="1B",
-                        help="LongCat model variant: '1B', '3.5B-bf16', or '3.5B' (default: 1B)")
-    parser.add_argument("--longcat-steps", dest="longcat_steps", type=int, default=16,
-                        help="LongCat ODE Euler steps (default: 16)")
-    parser.add_argument("--longcat-cfg-strength", dest="longcat_cfg_strength", type=float, default=4.0,
-                        help="LongCat guidance strength (default: 4.0)")
-    parser.add_argument("--longcat-guidance", dest="longcat_guidance", default="apg",
-                        choices=["apg", "cfg"],
-                        help="LongCat guidance method: apg (recommended) or cfg (default: apg)")
     parser.add_argument("--log-level", dest="log_level", default="info",
                         choices=["debug", "info", "warning", "error"])
     return parser.parse_args()

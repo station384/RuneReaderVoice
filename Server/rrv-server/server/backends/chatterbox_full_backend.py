@@ -186,6 +186,13 @@ class ChatterboxFullBackend(AbstractTtsBackend):
         self._prior_token_cache_size = max(0, int(os.environ.get("RRV_CB_PRIOR_TOKEN_CACHE_SIZE", "16")))
         self._prior_speech_tokens: OrderedDict[str, tuple[object, str]] = OrderedDict()
 
+        # Persistent StaticCache — allocated once at load time, reset() between
+        # inference calls instead of allocating/freeing every synthesis.
+        # Eliminates PyTorch CUDA allocator pool bloat that accumulates over long
+        # uptimes when large KV buffers are repeatedly allocated and released.
+        self._static_cache = None        # transformers.cache_utils.StaticCache | None
+        self._static_cache_len: int = 0  # max_cache_len this cache was built for
+
     def _voice_group_key(self, request: SynthesisRequest) -> str:
         sample_key = str(request.sample_path.resolve()) if request.sample_path is not None else ""
         lang_key   = request.lang_code or ""
@@ -212,6 +219,68 @@ class ChatterboxFullBackend(AbstractTtsBackend):
                 if self._active_count == 0:
                     self._active_voice_key = None
             self._voice_cond.notify_all()
+
+    def _acquire_static_cache(self, device, dtype, context_len: int,
+                               max_new_tokens: int, llama_config):
+        """Return the persistent StaticCache, reset for a new inference call.
+
+        On first call (or if max_cache_len needs to grow) the cache is allocated
+        and stored on self._static_cache.  Subsequent calls zero the KV buffers
+        via reset() so no new GPU memory is allocated.
+
+        The cache is sized to max(context_len + max_new_tokens, RRV_T3_STATIC_CACHE_LEN).
+        If a request arrives that exceeds the current allocation (e.g. very long
+        text + large max_new_tokens) the cache is reallocated at the new size.
+
+        Thread safety: _synthesize_sync runs in a thread-pool executor but the
+        voice-slot serialisation guarantees only one synthesis is active at a time
+        inside a given worker process, so self._static_cache is never accessed
+        concurrently.
+        """
+        try:
+            from transformers.cache_utils import StaticCache
+        except ImportError:
+            return None
+
+        needed_len = max(context_len + max_new_tokens,
+                         int(os.environ.get("RRV_T3_STATIC_CACHE_LEN", "1400")))
+
+        if self._static_cache is None or self._static_cache_len < needed_len:
+            # First allocation or cache too small — (re)allocate.
+            # This should happen only once per worker lifetime under normal usage.
+            if self._static_cache is not None:
+                log.info(
+                    "Chatterbox T3: StaticCache resize %d → %d",
+                    self._static_cache_len, needed_len,
+                )
+            self._static_cache = StaticCache(
+                config=llama_config,
+                max_batch_size=2,          # CFG always batch=2
+                max_cache_len=needed_len,
+                device=device,
+                dtype=dtype,
+            )
+            self._static_cache_len = needed_len
+            log.info(
+                "Chatterbox T3: StaticCache allocated batch=2 len=%d dtype=%s",
+                needed_len, dtype,
+            )
+        else:
+            # Reset in-place — zeros KV buffers, no reallocation.
+            try:
+                self._static_cache.reset()
+            except AttributeError:
+                # transformers < 4.44 lacks reset(); reallocate as fallback.
+                log.debug("Chatterbox T3: StaticCache.reset() unavailable — reallocating")
+                self._static_cache = StaticCache(
+                    config=llama_config,
+                    max_batch_size=2,
+                    max_cache_len=self._static_cache_len,
+                    device=device,
+                    dtype=dtype,
+                )
+
+        return self._static_cache
 
     # ── Identity ──────────────────────────────────────────────────────────────
 
@@ -532,9 +601,8 @@ class ChatterboxFullBackend(AbstractTtsBackend):
 
         # ── Capture everything needed as closure locals ───────────────────────
         _has_static_cache   = has_static_cache
-        _static_cache_len   = static_cache_len
-        _cfg_batch          = cfg_batch
         _persistent_backend = persistent_backend
+        _backend_ref        = self   # for _acquire_static_cache
         _log                = log
 
         def _patched_inference(
@@ -624,34 +692,28 @@ class ChatterboxFullBackend(AbstractTtsBackend):
             repetition_penalty_processor = RepetitionPenaltyLogitsProcessor(
                 penalty=float(repetition_penalty))
 
-            # ── Build StaticCache if available ────────────────────────────────
-            # StaticCache requires cache_position to track the write offset into
-            # the pre-allocated buffer. Without it LlamaModel writes every token
-            # to position 0 and output is garbage. We track it manually.
+            # ── Acquire persistent StaticCache ────────────────────────────────
+            # Cache is allocated once at load time and reset() between calls.
+            # cache_position tracks the write offset into the pre-allocated KV
+            # buffer; without it LlamaModel writes every token to position 0.
             past = None
             cache_position = None
             context_len = inputs_embeds.size(1)
 
             if _has_static_cache:
                 try:
-                    from transformers.cache_utils import StaticCache
-                    total_len = context_len + max_new_tokens
-                    cache_len = max(total_len, _static_cache_len)
-                    past = StaticCache(
-                        config=self_t3.cfg,
-                        max_batch_size=_cfg_batch,
-                        max_cache_len=cache_len,
+                    past = _backend_ref._acquire_static_cache(
                         device=device,
                         dtype=embeds.dtype,
+                        context_len=context_len,
+                        max_new_tokens=max_new_tokens,
+                        llama_config=self_t3.cfg,
                     )
-                    cache_position = _torch.arange(context_len, device=device)
-                    _log.debug(
-                        "Chatterbox T3: StaticCache allocated batch=%d len=%d",
-                        _cfg_batch, cache_len,
-                    )
+                    if past is not None:
+                        cache_position = _torch.arange(context_len, device=device)
                 except Exception as e:
                     _log.warning(
-                        "Chatterbox T3: StaticCache init failed (%s) — "
+                        "Chatterbox T3: StaticCache acquire failed (%s) — "
                         "falling back to DynamicCache", e)
                     past = None
                     cache_position = None

@@ -126,32 +126,15 @@ def _create_backend(name: str, models_dir, gpu: GpuInfo, settings=None) -> Abstr
             qwen_size = getattr(settings, "qwen_natural_size", "large")
         elif name == "qwen_custom":
             qwen_size = getattr(settings, "qwen_custom_size", "large")
-        lux_num_steps = getattr(settings, "lux_num_steps", 32)
-        lux_t_shift   = getattr(settings, "lux_t_shift",   0.5)
-        longcat_model_variant  = getattr(settings, "longcat_model_variant",  "1B")
-        longcat_steps          = getattr(settings, "longcat_steps",          16)
-        longcat_cfg_strength   = getattr(settings, "longcat_cfg_strength",   4.0)
-        longcat_guidance       = getattr(settings, "longcat_guidance",       "apg")
-        # Use backend-specific max_concurrent where defined
-        if name == "cosyvoice_vllm":
-            effective_max_concurrent = getattr(settings, "cosyvoice_vllm_max_concurrent", 6)
-        else:
-            effective_max_concurrent = chatterbox_max_concurrent
         return WorkerBackend(
             backend_name=name,
             venv_path=worker_venvs[name],
             models_dir=models_dir,
             samples_dir=samples_dir,
             gpu=getattr(settings, "gpu", "auto"),
-            max_concurrent=effective_max_concurrent,
+            max_concurrent=chatterbox_max_concurrent,
             log_level=log_level,
             qwen_size=qwen_size,
-            lux_num_steps=lux_num_steps,
-            lux_t_shift=lux_t_shift,
-            longcat_model_variant=longcat_model_variant,
-            longcat_steps=longcat_steps,
-            longcat_cfg_strength=longcat_cfg_strength,
-            longcat_guidance=longcat_guidance,
             cond_cache_dir=_cond_cache_dir.resolve(),
         )
 
@@ -224,24 +207,10 @@ def _create_backend(name: str, models_dir, gpu: GpuInfo, settings=None) -> Abstr
         )
 
     elif name == "cosyvoice_vllm":
-        from .cosyvoice_vllm_backend import CosyVoiceVllmBackend
-        cosyvoice_vllm_max = getattr(settings, "cosyvoice_vllm_max_concurrent", 6)
-        return CosyVoiceVllmBackend(
-            models_dir=models_dir,
-            torch_device=gpu.torch_device,
-            max_concurrent=cosyvoice_vllm_max,
-        )
+        raise ValueError("cosyvoice_vllm backend has been removed")
 
     elif name == "longcat":
-        from .longcat_backend import LongCatBackend
-        return LongCatBackend(
-            models_dir=models_dir,
-            torch_device=gpu.torch_device,
-            model_variant=getattr(settings, "longcat_model_variant", "1B"),
-            steps=getattr(settings, "longcat_steps", 16),
-            cfg_strength=getattr(settings, "longcat_cfg_strength", 4.0),
-            guidance_method=getattr(settings, "longcat_guidance", "apg"),
-        )
+        raise ValueError("longcat backend has been removed")
 
     else:
         raise ValueError(f"Unknown backend name: {name!r}")
