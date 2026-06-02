@@ -1634,6 +1634,10 @@ class ChatterboxFullBackend(AbstractTtsBackend):
 
     def _synthesize_sync(self, request: SynthesisRequest) -> bytes:
         import numpy as np
+        import time as _time_mod
+
+        _timing     = os.environ.get("RRV_CB_TIMING", "0") == "1"
+        _prep_start = _time_mod.perf_counter()
 
         cfg_weight          = request.cfg_weight          if request.cfg_weight          is not None else 0.5
         exaggeration        = request.exaggeration        if request.exaggeration        is not None else 0.5
@@ -1649,6 +1653,7 @@ class ChatterboxFullBackend(AbstractTtsBackend):
         # Route: blend vs single reference — both paths go through the two-level
         # conditioning cache (memory → disk → compute).
         blend_entries = [e for e in request.blend if e.get("sample_path")] if request.blend else []
+        _cond_start = _time_mod.perf_counter()
         if blend_entries:
             t3_cond, gen_dict = self._cond_get_or_compute_blend(blend_entries, exaggeration)
             # Apply to model and set up generate() bypass
@@ -1667,6 +1672,7 @@ class ChatterboxFullBackend(AbstractTtsBackend):
             # Remove any stale blend bypass
             if hasattr(self._model, "_rrv_blend_generate"):
                 del self._model._rrv_blend_generate
+        _cond_elapsed = _time_mod.perf_counter() - _cond_start
 
         # Conditioning cache identity: only values that affect prepare_conditionals().
         if blend_entries:
@@ -1696,6 +1702,13 @@ class ChatterboxFullBackend(AbstractTtsBackend):
         chunks = _split_into_chunks(request.text)
         total  = len(chunks)
         _progress_cb = request.progress_callback
+
+        _prep_elapsed = _time_mod.perf_counter() - _prep_start
+        if _timing:
+            log.info(
+                "Chatterbox timing: prep=%.3fs (cond=%.3fs) chunks=%d chars=%d",
+                _prep_elapsed, _cond_elapsed, total, len(request.text),
+            )
 
         # Prior speech token priming.
         # Texts with ≤ _SHORT_WORD_THRESHOLD words use the last _PRIOR_TOKEN_LEN
@@ -1758,6 +1771,7 @@ class ChatterboxFullBackend(AbstractTtsBackend):
             text_proc = _F.pad(text_proc, (1, 0), value=sot)
             text_proc = _F.pad(text_proc, (0, 1), value=eot)
             with _torch.inference_mode():
+                _t3_t0 = _time_mod.perf_counter() if _timing else 0.0
                 speech_tokens = self._model.t3.inference(
                     t3_cond=active_t3_cond,
                     text_tokens=text_proc,
@@ -1770,6 +1784,7 @@ class ChatterboxFullBackend(AbstractTtsBackend):
                 )
                 clean = _drop_invalid(speech_tokens[0])
                 clean = clean[clean < 6561].to(self._model.device)
+                _s3_t0 = _time_mod.perf_counter() if _timing else 0.0
                 wav, _ = self._model.s3gen.inference(
                     speech_tokens=clean,
                     ref_dict=gen_dict,
@@ -1777,6 +1792,12 @@ class ChatterboxFullBackend(AbstractTtsBackend):
                 wav_np = wav.squeeze(0).detach().cpu().numpy()
                 wav_np = self._model.watermarker.apply_watermark(
                     wav_np, sample_rate=self._model.sr)
+            if _timing:
+                _now = _time_mod.perf_counter()
+                log.info(
+                    "Chatterbox timing: T3=%.3fs S3Gen=%.3fs tokens=%d samples=%d",
+                    _s3_t0 - _t3_t0, _now - _s3_t0, len(clean), len(wav_np),
+                )
             return wav_np, clean
 
         try:
@@ -1813,6 +1834,7 @@ class ChatterboxFullBackend(AbstractTtsBackend):
                     )
                 )
 
+                _chunk_prep_start = _time_mod.perf_counter() if _timing else 0.0
                 if use_prior:
                     # Swap reference tokens for prior generation tokens
                     active_t3 = _T3Cond(
@@ -1825,8 +1847,15 @@ class ChatterboxFullBackend(AbstractTtsBackend):
                         i + 1, total, word_count, prior_tokens.shape[-1])
                 else:
                     active_t3 = t3_cond
+                _chunk_prep_elapsed = _time_mod.perf_counter() - _chunk_prep_start
 
                 wav_np, clean_tokens = _run_inference(chunk_text, active_t3)
+                # patch timing line to include chunk prep
+                if _timing:
+                    log.info(
+                        "Chatterbox timing: chunk=%d/%d chunk_prep=%.3fs prior=%s",
+                        i + 1, total, _chunk_prep_elapsed, use_prior,
+                    )
 
                 # Update in-memory prior context. Store tail tokens on CPU and
                 # bound this cache, otherwise each new voice/sample retains CUDA VRAM.
@@ -1851,6 +1880,7 @@ class ChatterboxFullBackend(AbstractTtsBackend):
                 if request.cache_key and request.cache_dir:
                     try:
                         import torch as _ts
+                        _sidecar_t0 = _time_mod.perf_counter() if _timing else 0.0
                         _sidecar_dir = Path(request.cache_dir) / self.provider_id
                         _sidecar_dir.mkdir(parents=True, exist_ok=True)
                         _sidecar_tmp = _sidecar_dir / f"{request.cache_key}.tokens.pt.tmp"
@@ -1861,7 +1891,8 @@ class ChatterboxFullBackend(AbstractTtsBackend):
                             "voice_context": _ctx_tag,
                         }, _sidecar_tmp)
                         _sidecar_tmp.rename(_sidecar)
-                        log.debug("Tail tokens saved: %s", request.cache_key[:12])
+                        if _timing:
+                            log.info("Chatterbox timing: sidecar_write=%.3fs", _time_mod.perf_counter() - _sidecar_t0)
                     except Exception as _e:
                         log.debug("Tail token sidecar write failed (non-fatal): %s", _e)
 
@@ -1887,4 +1918,8 @@ class ChatterboxFullBackend(AbstractTtsBackend):
             return pcm_to_ogg(np.zeros(self._model.sr, dtype=np.float32), self._model.sr)
 
         combined = np.concatenate(all_samples)
-        return pcm_to_ogg(combined, self._model.sr)
+        _enc_t0 = _time_mod.perf_counter() if _timing else 0.0
+        result = pcm_to_ogg(combined, self._model.sr)
+        if _timing:
+            log.info("Chatterbox timing: ogg_encode=%.3fs samples=%d", _time_mod.perf_counter() - _enc_t0, len(combined))
+        return result

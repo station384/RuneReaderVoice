@@ -314,6 +314,12 @@ class WorkerBackend(AbstractTtsBackend):
 
         # Build subprocess environment — inherit host env
         spawn_env = os.environ.copy()
+        # Disable tqdm progress bars in the worker — they write continuously to
+        # stdout during T3 inference, flooding the pipe buffer and causing terminal
+        # lock-up when running the server directly in a terminal. The bars are
+        # useless in production; keep them available via RRV_WORKER_TQDM=1.
+        if spawn_env.get("RRV_WORKER_TQDM", "0") != "1":
+            spawn_env["TQDM_DISABLE"] = "1"
 
         # Spawn the worker.
         # stdout is piped so we can read the READY line.
@@ -427,6 +433,9 @@ class WorkerBackend(AbstractTtsBackend):
                 log.debug("Worker stdout: %s", line)
                 return
             # Forward non-READY lines (worker log output before the socket is up)
+            worker_prefix = f"[worker:{self._backend_name}] "
+            if line.startswith(worker_prefix):
+                line = line[len(worker_prefix):]
             log.debug("[worker:%s] %s", self._backend_name, line)
 
         # stdout closed before READY — worker exited prematurely
@@ -456,6 +465,13 @@ class WorkerBackend(AbstractTtsBackend):
             line = raw_line.decode("utf-8", errors="replace").rstrip()
             if not line:
                 continue
+            # The worker's logging.basicConfig emits lines like:
+            #   [worker:chatterbox_full] INFO     server.backends... — message
+            # Strip that prefix so the host logger's own [worker:name] tag
+            # doesn't double up in the console output.
+            worker_prefix = f"[worker:{self._backend_name}] "
+            if line.startswith(worker_prefix):
+                line = line[len(worker_prefix):]
             lower = line.lower()
             if " debug " in lower or lower.startswith("debug"):
                 log.debug("[worker:%s] %s", self._backend_name, line)
