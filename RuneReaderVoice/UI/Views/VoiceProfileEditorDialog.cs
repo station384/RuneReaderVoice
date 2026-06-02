@@ -79,17 +79,13 @@ public sealed class VoiceProfileEditorDialog : Window
     private readonly Slider      _speechRateSlider;
     private readonly TextBox     _speechRateText;
     private readonly TextBox     _previewText;
-    private readonly string      _previewShortText = "By the Light, keep your blade high and your courage higher.";
-    private readonly string      _previewMediumText = "Champion, the road ahead winds through ruined watchtowers and restless woods. Stay to the lantern path, heed the warding stones, and return before moonrise if you value your hide.";
-    private readonly string      _previewLongText = @"Ehh? You there—yes, you. Come closer. I have a task, and before you ask, no, I cannot do it myself, because the last time I walked that road my knees argued with me for three full days. Listen carefully, because this matters.
-
-Take this satchel to Bramblewatch Hollow, speak to Warden Elira, and make certain she receives it before sunset. On the way, keep to the old stone path, avoid the shallow marsh to the east, and do not, under any circumstances, answer if something in the fog calls your name. It may sound like a friend. It will not be a friend.
-
-Now then, there are three things you must remember. First, the bridge near the hollow looks sturdy, but the center planks are rotten. Second, the crows nesting in the watchtower startle easily, and when they scatter, the bandits nearby take it as a warning. Third—and this is the part people forget—if you find a silver lantern hanging from a branch, leave it where it is and walk the other way.
-
-Years ago, before the road fell quiet, caravans used to pass through Bramblewatch every week. Traders, pilgrims, mercenaries, storytellers—always too loud, always in a hurry, always certain the woods were only woods. Then the disappearances began, and the village learned to keep its fires low and its doors barred after dusk. Some say the land remembers old grief. Some say it is only smugglers and superstition. Me? I say a wise traveler respects both.
-
-So go quickly, keep your wits about you, and return by the main road if you value your skin. And if Warden Elira offers you tea, be polite and decline. Her tea is strong enough to wake the dead, and we have enough restless things wandering about already.";
+    private readonly string      _previewShortText = "\"By the Light, keep your blade high and your courage higher.\"";
+    private readonly string      _previewMediumText = "\"Champion, the road ahead winds through ruined watchtowers and restless woods. Stay to the lantern path, heed the warding stones, and return before moonrise if you value your hide.\"";
+    private readonly string      _previewLongText = @"""Ehh? You there—yes, you. Come closer. I have a task, and before you ask, no, I cannot do it myself, because the last time I walked that road my knees argued with me for three full days. Listen carefully, because this matters.""
+""Take this satchel to Bramblewatch Hollow, speak to Warden Elira, and make certain she receives it before sunset. On the way, keep to the old stone path, avoid the shallow marsh to the east, and do not, under any circumstances, answer if something in the fog calls your name. It may sound like a friend. It will not be a friend.""
+""Now then, there are three things you must remember. First, the bridge near the hollow looks sturdy, but the center planks are rotten. Second, the crows nesting in the watchtower startle easily, and when they scatter, the bandits nearby take it as a warning. Third—and this is the part people forget—if you find a silver lantern hanging from a branch, leave it where it is and walk the other way.""
+""Years ago, before the road fell quiet, caravans used to pass through Bramblewatch every week. Traders, pilgrims, mercenaries, storytellers—always too loud, always in a hurry, always certain the woods were only woods. Then the disappearances began, and the village learned to keep its fires low and its doors barred after dusk. Some say the land remembers old grief. Some say it is only smugglers and superstition. Me? I say a wise traveler respects both.""
+""So go quickly, keep your wits about you, and return by the main road if you value your skin. And if Warden Elira offers you tea, be polite and decline. Her tea is strong enough to wake the dead, and we have enough restless things wandering about already.""";
     private readonly TextBlock   _summaryText;
     private readonly Slider?     _cfgWeightSlider;
     private readonly TextBox?    _cfgWeightText;
@@ -1822,7 +1818,8 @@ So go quickly, keep your wits about you, and return by the main road if you valu
                     await AppServices.ProviderSlotProfiles.UpsertAsync(provider.ProviderId, _slot.ToString(), _workingProfile.Clone(), "PreviewTemp");
             }
 
-            var previewText = _previewText.Text ?? string.Empty;
+            var previewText = RuneReaderVoice.Session.SegmentTextPreprocessor.ApplyPreviewPipeline(
+                _previewText.Text ?? string.Empty, _slot.IsNarrator);
             PcmAudio pcm;
             if (provider is RemoteTtsProvider remote)
             {
@@ -1843,8 +1840,8 @@ So go quickly, keep your wits about you, and return by the main road if you valu
                 if (cached == null)
                 {
                     var oggBytes = !string.IsNullOrWhiteSpace(_sampleProfileKey)
-                        ? await remote.SynthesizeOggAsync(previewText, _slot, ct, bespokeSampleId: _sampleProfileKey)
-                        : await remote.SynthesizeOggAsync(previewText, _slot, ct);
+                        ? await remote.SynthesizeOggViaBatchAsync(previewText, _slot, ct, bespokeSampleId: _sampleProfileKey)
+                        : await remote.SynthesizeOggViaBatchAsync(previewText, _slot, ct);
                     await AppServices.Cache.StoreOggAsync(oggBytes, previewText, voiceId, provider.ProviderId, "", ct);
                     AppServices.SetOperationStatus("Decoding preview…");
                     cached = await AppServices.Cache.TryGetDecodedAsync(previewText, voiceId, provider.ProviderId, "", ct);

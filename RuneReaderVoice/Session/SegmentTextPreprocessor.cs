@@ -4,11 +4,59 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.RegularExpressions;
+using RuneReaderVoice.TTS;
+using RuneReaderVoice.TTS.Providers;
 
 namespace RuneReaderVoice.Session;
 
 internal static class SegmentTextPreprocessor
 {
+    /// <summary>
+    /// Run preview text through the same pipeline as in-game dialog, minus
+    /// player-name substitution (which requires live player data).
+    ///
+    /// Pipeline order mirrors Program.cs + TtsSessionAssembler:
+    ///   1. HTML strip
+    ///   2. Text normalizer
+    ///   3. Text swap rules
+    ///   4. Pronunciation hints (if provider supports inline hints)
+    ///   5. Synthetic paragraph periods
+    ///   6. Dialogue paragraph quoting (NPC slots only, if setting enabled)
+    ///
+    /// Call this once in each preview entry point before passing text to synthesis.
+    /// </summary>
+    public static string ApplyPreviewPipeline(string text, bool isNarratorSlot)
+    {
+        if (string.IsNullOrWhiteSpace(text))
+            return text;
+
+        // 1. Strip HTML
+        text = RuneReaderVoice.TTS.HtmlTextStripper.Strip(text);
+
+        // 2. Normalize
+        text = AppServices.TextNormalizer?.Normalize(text, AppServices.Settings) ?? text;
+
+        // 3. Text swap
+        text = AppServices.TextSwapProcessor?.Process(text) ?? text;
+
+        // 4. Pronunciation hints — wrap in a minimal AssembledSegment for the processor
+        if (AppServices.Provider?.SupportsInlinePronunciationHints == true &&
+            AppServices.PronunciationProcessor != null)
+        {
+            var seg = new AssembledSegment { Text = text };
+            text = AppServices.PronunciationProcessor.Process(seg).Text ?? text;
+        }
+
+        // 5. Synthetic paragraph periods
+        text = InjectSyntheticParagraphPeriods(text);
+
+        // 6. Dialogue paragraph quoting — NPC dialog only, same guard as assembler
+        if (!isNarratorSlot && AppServices.Settings?.QuoteDialogueParagraphsForTts == true)
+            text = QuoteDialogueParagraphs(text);
+
+        return text;
+    }
+
     public static string QuoteDialogueParagraphs(string text)
     {
         if (string.IsNullOrWhiteSpace(text))

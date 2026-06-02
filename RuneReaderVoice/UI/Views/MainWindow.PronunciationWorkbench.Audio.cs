@@ -31,6 +31,8 @@ public partial class MainWindow
 {
     private async Task<PcmAudio> GetOrCreateAudioAsync(string text, VoiceSlot slot)
     {
+        text = RuneReaderVoice.Session.SegmentTextPreprocessor.ApplyPreviewPipeline(text, slot.IsNarrator);
+
         var voiceId = AppServices.Provider.ResolveVoiceId(slot);
         var profile = AppServices.Provider.ResolveProfile(slot);
         // Include slot in cache key — same as PlaybackCoordinator — so two slots
@@ -48,7 +50,7 @@ public partial class MainWindow
 
         if (AppServices.Provider is RemoteTtsProvider remote)
         {
-            var oggBytes = await remote.SynthesizeOggAsync(text, slot, default);
+            var oggBytes = await remote.SynthesizeOggViaBatchAsync(text, slot, default);
             await AppServices.Cache.StoreOggAsync(
                 oggBytes,
                 text,

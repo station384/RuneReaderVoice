@@ -65,14 +65,18 @@ public sealed class PlaybackCoordinator : IDisposable
     private readonly RecentSpeechSuppressor _recentSpeechSuppressor;
 
     // Synthesis task map keyed by SegmentIndex.
-    // Tasks are fired immediately on EnqueueSegment and consumed in strict order.
-    private readonly Dictionary<int, Task<PcmAudio?>> _synthTasks = new();
-    private readonly Dictionary<int, AssembledSegment> _segmentMap = new();
+    // For remote provider: backed by TaskCompletionSource, completed when batch result arrives.
+    // For local provider: backed by direct async synthesis task as before.
+    private readonly Dictionary<int, Task<PcmAudio?>>                       _synthTasks    = new();
+    private readonly Dictionary<int, TaskCompletionSource<PcmAudio?>>       _synthTcs      = new();
+    private readonly Dictionary<int, AssembledSegment>                       _segmentMap    = new();
+    private readonly Dictionary<int, AssembledSegment>                       _pendingSegments = new();
     private readonly Dictionary<string, Task<RemoteTtsProvider.RemoteBatchResolution>> _remoteBatchTasks = new();
     private int            _nextExpectedIndex;
     private int            _expectedDialogSegments;
     private readonly SemaphoreSlim _queueSignal = new(0);
     private readonly object        _queueLock   = new();
+
 
 
 
@@ -112,9 +116,11 @@ public sealed class PlaybackCoordinator : IDisposable
     // ── Segment intake ────────────────────────────────────────────────────────
 
     /// <summary>
-    /// Immediately fires a background synthesis task for this segment so all
-    /// segments in a dialog synthesize concurrently. The playback loop awaits
-    /// results in strict SegmentIndex order.
+    /// Called once per assembled segment (all segments arrive in a burst for the same dialog).
+    /// For remote providers: segments are collected until the full dialog count is known, then
+    /// a single batch POST is submitted. Each segment's Task is backed by a TCS completed when
+    /// its batch result arrives — eliminating per-segment HTTP round-trips and lock overhead.
+    /// For local providers: fires synthesis immediately as before.
     /// </summary>
     public void EnqueueSegment(AssembledSegment segment)
     {
@@ -122,11 +128,40 @@ public sealed class PlaybackCoordinator : IDisposable
             $"[PC] Enqueued segment {segment.SegmentIndex}: \"{segment.Text.Substring(0, Math.Min(40, segment.Text.Length))}\"");
         lock (_queueLock)
         {
-            var ct        = _sessionCts?.Token ?? CancellationToken.None;
-            var synthTask = SynthesizeSegmentAsync(segment, ct);
-            _synthTasks[segment.SegmentIndex] = synthTask;
+            var ct = _sessionCts?.Token ?? CancellationToken.None;
             _segmentMap[segment.SegmentIndex] = segment;
             _expectedDialogSegments = Math.Max(_expectedDialogSegments, segment.DialogSegmentCount);
+
+            if (_provider is RemoteTtsProvider)
+            {
+                // Remote path: collect segments, submit as one batch when all have arrived.
+                var tcs = new TaskCompletionSource<PcmAudio?>(TaskCreationOptions.RunContinuationsAsynchronously);
+                _synthTcs[segment.SegmentIndex]        = tcs;
+                _synthTasks[segment.SegmentIndex]      = tcs.Task;
+                _pendingSegments[segment.SegmentIndex] = segment;
+
+                // When all segments for this dialog have arrived, submit the batch.
+                // Fallback: if DialogSegmentCount is 0/unknown, treat as single-segment dialog.
+                bool allArrived = segment.DialogSegmentCount > 0
+                    ? _pendingSegments.Count == segment.DialogSegmentCount
+                    : true;  // single unknown-count segment — submit immediately
+
+                if (allArrived)
+                {
+                    var allSegments = _pendingSegments.Values
+                        .OrderBy(s => s.SegmentIndex)
+                        .ToList();
+                    _pendingSegments.Clear();
+                    _ = Task.Run(() => SubmitDialogBatchAndFillAsync(allSegments, ct), ct);
+                }
+            }
+            else
+            {
+                // Local provider: synthesize immediately as before.
+                var synthTask = SynthesizeSegmentAsync(segment, ct);
+                _synthTasks[segment.SegmentIndex] = synthTask;
+            }
+
             _queueSignal.Release();
         }
     }
@@ -167,7 +202,9 @@ public sealed class PlaybackCoordinator : IDisposable
         lock (_queueLock)
         {
             _synthTasks.Clear();
+            _synthTcs.Clear();
             _segmentMap.Clear();
+            _pendingSegments.Clear();
             _remoteBatchTasks.Clear();
             _nextExpectedIndex = 0;
             _expectedDialogSegments = 0;
@@ -383,6 +420,219 @@ public sealed class PlaybackCoordinator : IDisposable
             : _provider.ResolveProfile(segment.Slot);
 
         return DspFilterChain.Apply(audio, playbackProfile?.Dsp);
+    }
+
+    // ── Dialog batch submit ───────────────────────────────────────────────────
+
+    /// <summary>
+    /// Submits all segments for one dialog as a single batch POST, then fetches
+    /// each result and completes the corresponding TCS so the playback loop can
+    /// proceed as results arrive.
+    ///
+    /// Prime-chain logic: each segment is primed from the immediately prior segment
+    /// of the same voice slot. Narrator and NPC slots maintain independent chains —
+    /// a narrator interjection does not reset the NPC's prime context.
+    /// </summary>
+    private async Task SubmitDialogBatchAndFillAsync(
+        List<AssembledSegment> segments,
+        CancellationToken ct)
+    {
+        if (!(_provider is RemoteTtsProvider remoteProvider))
+            return;
+
+        try
+        {
+            // Build slot-aware prime chain: last segment_id per slot.
+            var lastSegmentIdPerSlot = new Dictionary<string, string>(StringComparer.Ordinal);
+            var plans = new List<BatchSegmentPlan>(segments.Count);
+
+            foreach (var seg in segments)
+            {
+                var slotKey  = seg.Slot.ToString();
+                var segId    = $"d_{seg.SegmentIndex}";
+                string? primeFrom = null;
+                lastSegmentIdPerSlot.TryGetValue(slotKey, out primeFrom);
+                lastSegmentIdPerSlot[slotKey] = segId;
+
+                plans.Add(new BatchSegmentPlan
+                {
+                    SegmentId          = segId,
+                    Text               = seg.Text ?? string.Empty,
+                    PrimeFromSegmentId = primeFrom,
+                });
+            }
+
+            // All segments in this dialog share the same slot/voice — use first segment's
+            // bespoke/seed settings. If slots differ (narrator + NPC) the batch uses the
+            // slot resolved per-segment inside SubmitSplitBatchAsync via the plan list.
+            // We use the first segment's slot as the primary slot for profile resolution;
+            // the server handles per-segment cache keys independently.
+            var firstSeg       = segments[0];
+            var batchId        = Guid.NewGuid().ToString("N");
+            bool applyBespoke  = !string.IsNullOrWhiteSpace(firstSeg.BespokeSampleId)
+                                 && !firstSeg.IsNarratorSegment;
+            bool suppressSeed  = !firstSeg.IsNarratorSegment
+                                 && firstSeg.NpcId > 0
+                                 && !firstSeg.UseNpcIdAsSeed
+                                 && !applyBespoke;
+
+            RrvDebug.PlaybackDebug(
+                $"[PC] Dialog batch submit batchId={batchId} segments={segments.Count}");
+
+            // SubmitSplitBatchAsync builds per-segment requests honoring each segment's
+            // text, cache key, and prime chain. The slot passed here is used only for
+            // profile resolution when a per-segment slot is not overridden.
+            //
+            // IMPORTANT: we need per-segment slot support. SubmitSplitBatchAsync takes
+            // a single slot — for mixed-slot dialogs (narrator + NPC) we group by slot
+            // and submit one batch per slot group, then merge results.
+            var slotGroups = segments
+                .GroupBy(s => s.Slot.ToString(), StringComparer.Ordinal)
+                .ToList();
+
+            // Map segment_id -> (progressKey, cacheKey) across all slot batches
+            var allSegmentResponses = new Dictionary<string, V2BatchSegmentResponse>(StringComparer.Ordinal);
+
+            foreach (var group in slotGroups)
+            {
+                var groupSegments = group.OrderBy(s => s.SegmentIndex).ToList();
+                var groupPlans    = plans
+                    .Where(p => groupSegments.Any(s => $"d_{s.SegmentIndex}" == p.SegmentId))
+                    .ToList();
+
+                var groupFirstSeg   = groupSegments[0];
+                bool groupBespoke   = !string.IsNullOrWhiteSpace(groupFirstSeg.BespokeSampleId)
+                                      && !groupFirstSeg.IsNarratorSegment;
+                bool groupSuppSeed  = !groupFirstSeg.IsNarratorSegment
+                                      && groupFirstSeg.NpcId > 0
+                                      && !groupFirstSeg.UseNpcIdAsSeed
+                                      && !groupBespoke;
+
+                var resolution = await remoteProvider.SubmitSplitBatchAsync(
+                    groupPlans,
+                    groupFirstSeg.Slot,
+                    ct,
+                    groupBespoke ? groupFirstSeg.BespokeSampleId    : null,
+                    groupBespoke ? groupFirstSeg.BespokeExaggeration : null,
+                    groupBespoke ? groupFirstSeg.BespokeCfgWeight    : null,
+                    batchId,
+                    null,
+                    groupFirstSeg.UseNpcIdAsSeed && groupFirstSeg.NpcId > 0 ? groupFirstSeg.NpcId : null,
+                    groupSuppSeed);
+
+                foreach (var kvp in resolution.Segments)
+                    allSegmentResponses[kvp.Key] = kvp.Value;
+            }
+
+            // Fetch results and complete TCS for each segment as they arrive.
+            // Fetch all in parallel — server processes them sequentially on the worker lock
+            // but we don't want the client serializing the fetches.
+            var fetchTasks = segments.Select(async seg =>
+            {
+                var segId = $"d_{seg.SegmentIndex}";
+                try
+                {
+                    if (!allSegmentResponses.TryGetValue(segId, out var response))
+                        throw new InvalidOperationException(
+                            $"Batch response missing segment '{segId}' for seg={seg.SegmentIndex}");
+
+                    var oggBytes = await remoteProvider.FetchBatchSegmentResultAsync(
+                        batchId, response.ProgressKey, response.CacheKey, ct);
+
+                    RrvDebug.PlaybackDebug(
+                        $"[PC] Dialog batch result seg={seg.SegmentIndex} progressKey={response.ProgressKey} bytes={oggBytes.Length}");
+
+                    var decoded = await RemoteTtsProvider.DecodeOggAsync(oggBytes, ct);
+
+                    bool segBespoke = !string.IsNullOrWhiteSpace(seg.BespokeSampleId)
+                                      && !seg.IsNarratorSegment;
+                    var playbackProfile = segBespoke
+                        ? remoteProvider.ResolveSampleProfile(seg.BespokeSampleId!, seg.Slot)
+                        : _provider.ResolveProfile(seg.Slot);
+
+                    var audio = DspFilterChain.Apply(decoded, playbackProfile?.Dsp);
+
+                    // Store in local client cache so repeat encounters are instant
+                    var cacheText = remoteProvider.NormalizeSubmittedTextForCache(seg.Text ?? string.Empty);
+                    bool segApplyBespoke = !string.IsNullOrWhiteSpace(seg.BespokeSampleId) && !seg.IsNarratorSegment;
+                    var effectiveVoiceId = BuildEffectiveVoiceId(seg, remoteProvider, segApplyBespoke);
+                    await _cache.StoreOggAsync(oggBytes, cacheText, effectiveVoiceId, _provider.ProviderId, string.Empty, ct);
+
+                    lock (_queueLock)
+                    {
+                        if (_synthTcs.TryGetValue(seg.SegmentIndex, out var tcs))
+                            tcs.TrySetResult(audio);
+                    }
+                }
+                catch (OperationCanceledException)
+                {
+                    lock (_queueLock)
+                    {
+                        if (_synthTcs.TryGetValue(seg.SegmentIndex, out var tcs))
+                            tcs.TrySetCanceled(ct);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    RrvDebug.PlaybackDebug(
+                        $"[PC] Dialog batch fetch error seg={seg.SegmentIndex}: {ex.Message}");
+                    lock (_queueLock)
+                    {
+                        if (_synthTcs.TryGetValue(seg.SegmentIndex, out var tcs))
+                            tcs.TrySetException(ex);
+                    }
+                }
+            }).ToArray();
+
+            await Task.WhenAll(fetchTasks);
+        }
+        catch (OperationCanceledException)
+        {
+            // Cancel all pending TCS for this dialog
+            lock (_queueLock)
+            {
+                foreach (var seg in segments)
+                {
+                    if (_synthTcs.TryGetValue(seg.SegmentIndex, out var tcs))
+                        tcs.TrySetCanceled(ct);
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            RrvDebug.PlaybackDebug($"[PC] Dialog batch submit error: {ex.Message}");
+            lock (_queueLock)
+            {
+                foreach (var seg in segments)
+                {
+                    if (_synthTcs.TryGetValue(seg.SegmentIndex, out var tcs))
+                        tcs.TrySetException(ex);
+                }
+            }
+        }
+    }
+
+    private string BuildEffectiveVoiceId(AssembledSegment seg, RemoteTtsProvider remoteProvider, bool applyBespoke)
+    {
+        var cacheSlotKey = seg.Slot.ToString();
+        bool forcedNpcSeed = seg.UseNpcIdAsSeed && seg.NpcId > 0;
+        bool suppressSeed  = !seg.IsNarratorSegment && seg.NpcId > 0 && !seg.UseNpcIdAsSeed && !applyBespoke;
+
+        var profile = remoteProvider.ResolveEffectiveSynthesisProfile(
+            seg.Slot,
+            applyBespoke ? seg.BespokeSampleId    : null,
+            applyBespoke ? seg.BespokeExaggeration : null,
+            applyBespoke ? seg.BespokeCfgWeight    : null,
+            forcedNpcSeed ? seg.NpcId : null,
+            suppressSeed);
+
+        var voiceId = applyBespoke
+            ? $"sample:{profile.BuildIdentityKey()}"
+            : profile.BuildIdentityKey();
+
+        return applyBespoke
+            ? $"{cacheSlotKey}:{voiceId}+bespoke:{seg.BespokeSampleId}"
+            : $"{cacheSlotKey}:{voiceId}";
     }
 
     // ── Synthesis ─────────────────────────────────────────────────────────────

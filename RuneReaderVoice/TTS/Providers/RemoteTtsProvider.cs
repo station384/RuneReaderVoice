@@ -140,32 +140,12 @@ public sealed class RemoteTtsProvider : ITtsProvider
                     bespokeSampleId, bespokeExaggeration, bespokeCfgWeight,
                     effectiveBatchId, effectiveBatchTotal, forcedSynthesisSeed, suppressStoredSeed);
 
-            // Multi-chunk pipeline:
-            //   Phase 1: Submit ALL chunks immediately (fast, ~5ms each, no concurrency limit)
-            //   Phase 2: Fetch results as they complete (each awaits its own SSE)
-            // This means chunk N+1's result can be fetched while chunk N is still playing,
-            // rather than waiting for all chunks before returning any.
-
-            // Phase 1 — submit all
-            var submitTasks = phrases
-                .Select(phrase => SubmitOggCoreAsync(phrase, slot, profile, ct,
-                    bespokeSampleId, bespokeExaggeration, bespokeCfgWeight,
-                    effectiveBatchId, effectiveBatchTotal, forcedSynthesisSeed, suppressStoredSeed))
-                .ToArray();
-            var submitted = await Task.WhenAll(submitTasks);
-
-            // Phase 2 — fetch in parallel (each chunk awaits its own SSE independently)
-            var fetchTasks = submitted
-                .Select(s => FetchOggResultAsync(s.submitted, ct))
-                .ToArray();
-            var oggChunks = await Task.WhenAll(fetchTasks);
-
-            var pcmChunks = new List<PcmAudio>(oggChunks.Length);
-            foreach (var ogg in oggChunks)
-                pcmChunks.Add(await DecodeOggAsync(ogg, ct));
-
-            var combined = ConcatenatePcm(pcmChunks);
-            return await EncodeOggAsync(combined, ct);
+            // Multi-chunk: delegate to the batch path which submits a single POST
+            // with prime chain instead of N individual POSTs.
+            return await SynthesizeOggViaBatchAsync(
+                text, slot, ct,
+                bespokeSampleId, bespokeExaggeration, bespokeCfgWeight,
+                forcedSynthesisSeed, suppressStoredSeed);
         }
         catch
         {
@@ -349,6 +329,82 @@ public sealed class RemoteTtsProvider : ITtsProvider
 
         RrvDebug.RemoteTtsDebug($"[RemoteTTS] v2 batch result fetched: batchId={batchId} progressKey={progressKey} cacheKey={cacheKey} bytes={result.Length}");
         return result;
+    }
+
+    // ── Batch-based synthesis (preview path) ──────────────────────────────────
+
+    /// <summary>
+    /// Synthesize text via the batch endpoint, running through the same chunking
+    /// pipeline used for in-game playback. This is the correct path for all previews:
+    /// it ensures previews sound identical to in-game rendering.
+    ///
+    /// Text shaping (player-name substitution, narrator markers) is NOT applied here —
+    /// previews pass raw text. The chunker and prime chain are applied identically to
+    /// the in-game path.
+    ///
+    /// For bespoke sample previews pass bespokeSampleId; otherwise null.
+    /// </summary>
+    public async Task<byte[]> SynthesizeOggViaBatchAsync(
+        string text,
+        VoiceSlot slot,
+        CancellationToken ct,
+        string? bespokeSampleId     = null,
+        float?  bespokeExaggeration = null,
+        float?  bespokeCfgWeight    = null,
+        int?    forcedSynthesisSeed = null,
+        bool    suppressStoredSeed  = false)
+    {
+        if (string.IsNullOrWhiteSpace(_descriptor.RemoteProviderId))
+            throw new InvalidOperationException("Remote provider id is missing.");
+
+        var profile = ResolveEffectiveSynthesisProfile(
+            slot, bespokeSampleId, bespokeExaggeration, bespokeCfgWeight,
+            forcedSynthesisSeed, suppressStoredSeed);
+
+        var chunkingEnabled = _settings.EnablePhraseChunking && !profile.DisableChunking;
+        var phrases = TextChunkingPolicy.GetChunkTexts(text, ProviderId, profile, chunkingEnabled);
+
+        RrvDebug.RemoteTtsDebug(
+            $"[RemoteTTS] SynthesizeOggViaBatch provider={ProviderId} chunks={phrases.Count} chunking={chunkingEnabled} textLen={text.Length}");
+
+        // Build sequential prime chain — single slot, each chunk primed from prior.
+        var plans = new List<BatchSegmentPlan>(phrases.Count);
+        for (int i = 0; i < phrases.Count; i++)
+        {
+            plans.Add(new BatchSegmentPlan
+            {
+                SegmentId          = $"preview_{i}",
+                Text               = phrases[i],
+                PrimeFromSegmentId = i > 0 ? $"preview_{i - 1}" : null,
+            });
+        }
+
+        var batchId    = System.Guid.NewGuid().ToString("N");
+        var resolution = await SubmitSplitBatchAsync(
+            plans, slot, ct,
+            bespokeSampleId, bespokeExaggeration, bespokeCfgWeight,
+            batchId, null, forcedSynthesisSeed, suppressStoredSeed);
+
+        // Fetch all chunks in parallel, then concatenate PCM and re-encode.
+        var fetchTasks = plans.Select(async plan =>
+        {
+            if (!resolution.Segments.TryGetValue(plan.SegmentId, out var seg))
+                throw new InvalidOperationException($"Batch missing segment '{plan.SegmentId}'");
+            return await FetchBatchSegmentResultAsync(resolution.BatchId, seg.ProgressKey, seg.CacheKey, ct);
+        }).ToArray();
+
+        var oggChunks = await Task.WhenAll(fetchTasks);
+
+        if (oggChunks.Length == 1)
+            return oggChunks[0];
+
+        // Multiple chunks — decode, concatenate PCM, re-encode as single OGG.
+        var pcmChunks = new List<PcmAudio>(oggChunks.Length);
+        foreach (var ogg in oggChunks)
+            pcmChunks.Add(await DecodeOggAsync(ogg, ct));
+
+        var combined = ConcatenatePcm(pcmChunks);
+        return await EncodeOggAsync(combined, ct);
     }
 
     // ── Core synthesis (v2 API) ───────────────────────────────────────────────
