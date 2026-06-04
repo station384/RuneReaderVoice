@@ -57,6 +57,7 @@ import os
 import re
 import tempfile
 from collections import OrderedDict
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 from .base import AbstractTtsBackend, SynthesisRequest, SynthesisResult, VoiceInfo
@@ -202,6 +203,15 @@ class ChatterboxFullBackend(AbstractTtsBackend):
         self._cond_hot_key: str = ""          # cache key for the CUDA-resident conds
         self._cond_hot_t3 = None              # T3Cond on CUDA
         self._cond_hot_gen: dict | None = None  # gen_dict on CUDA
+
+        # Tail-token sidecar persistence is useful for continuation across cache
+        # hits / worker lifetimes, but torch.save can block on busy storage. Keep
+        # it off the synthesis critical path by default.
+        # Values: defer (default), sync, off.
+        self._tail_sidecar_mode = os.environ.get("RRV_CB_TAIL_SIDECAR_WRITE", "defer").strip().lower()
+        if self._tail_sidecar_mode not in {"defer", "sync", "off"}:
+            self._tail_sidecar_mode = "defer"
+        self._tail_sidecar_executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="rrv-cb-tail-sidecar")
 
     def _voice_group_key(self, request: SynthesisRequest) -> str:
         sample_key = str(request.sample_path.resolve()) if request.sample_path is not None else ""
@@ -1060,13 +1070,18 @@ class ChatterboxFullBackend(AbstractTtsBackend):
             repetition_penalty=1.2,
             cfg_weight=0.5,
         ):
+            import os as _os
+            import time as _time_mod
             import torch as _torch
             from transformers.generation.logits_process import (
                 RepetitionPenaltyLogitsProcessor,
                 TopPLogitsWarper,
                 MinPLogitsWarper,
             )
-            from tqdm import tqdm
+
+            _timing = _os.environ.get("RRV_CB_TIMING", "0") == "1"
+            _timing_detail = _os.environ.get("RRV_CB_TIMING_DETAIL", "0") == "1"
+            _t3_total_t0 = _time_mod.perf_counter() if _timing else 0.0
 
             assert prepend_prompt_speech_tokens is None, "not implemented"
 
@@ -1079,12 +1094,14 @@ class ChatterboxFullBackend(AbstractTtsBackend):
                     * _torch.ones_like(text_tokens[:, :1])
                 )
 
+            _prepare_t0 = _time_mod.perf_counter() if _timing else 0.0
             embeds, len_cond = self_t3.prepare_input_embeds(
                 t3_cond=t3_cond,
                 text_tokens=text_tokens,
                 speech_tokens=initial_speech_tokens,
                 cfg_weight=cfg_weight,
             )
+            _prepare_elapsed = (_time_mod.perf_counter() - _prepare_t0) if _timing else 0.0
 
             # ── Select / build backend (used for alignment analyzer only) ─────
             # patched_model is only needed for multilingual alignment stream.
@@ -1121,8 +1138,31 @@ class ChatterboxFullBackend(AbstractTtsBackend):
 
             inputs_embeds = _torch.cat([embeds, bos_embed], dim=1)
 
-            generated_ids = bos_token.clone()
-            predicted = []
+            # Preallocate generated token buffer.
+            # The previous loop did torch.cat(generated_ids, next_token) every step.
+            # That reallocates/copies a growing tensor hundreds of times and also
+            # feeds the repetition-penalty processor with a freshly allocated tensor.
+            # Keep BOS at index 0, write generated tokens at 1..N, and slice views.
+            generated_ids = _torch.empty(
+                (1, max_new_tokens + 1), dtype=_torch.long, device=device)
+            generated_ids[:, 0:1] = bos_token
+            generated_count = 0
+
+            # Avoid LearnedPositionEmbeddings.get_fixed_embedding(i) in the hot loop.
+            # That helper builds a new scalar tensor every token. Index the embedding
+            # table once here and slice one position per generated token.
+            pos_ids = _torch.arange(
+                1, max_new_tokens + 1, dtype=_torch.long, device=device).view(1, -1)
+            pos_embeds = self_t3.speech_pos_emb.emb(pos_ids)
+
+            cfg_scale = _torch.as_tensor(
+                cfg_weight, device=device, dtype=inputs_embeds.dtype)
+
+            try:
+                eos_check_interval = max(
+                    1, int(_os.environ.get("RRV_T3_EOS_CHECK_INTERVAL", "8")))
+            except Exception:
+                eos_check_interval = 8
 
             top_p_warper = TopPLogitsWarper(top_p=top_p)
             min_p_warper = MinPLogitsWarper(min_p=min_p)
@@ -1137,7 +1177,9 @@ class ChatterboxFullBackend(AbstractTtsBackend):
             cache_position = None
             context_len = inputs_embeds.size(1)
 
+            _static_elapsed = 0.0
             if _has_static_cache:
+                _static_t0 = _time_mod.perf_counter() if _timing else 0.0
                 try:
                     past = _backend_ref._acquire_static_cache(
                         device=device,
@@ -1154,10 +1196,12 @@ class ChatterboxFullBackend(AbstractTtsBackend):
                         "falling back to DynamicCache", e)
                     past = None
                     cache_position = None
+                _static_elapsed = (_time_mod.perf_counter() - _static_t0) if _timing else 0.0
 
             # ── Initial forward pass — full context ──────────────────────────
             # Call _tfmr (compiled LlamaModel) directly — no HF wrapper overhead.
             # speech_head applied manually to get logits.
+            _initial_t0 = _time_mod.perf_counter() if _timing else 0.0
             tfmr_out = _tfmr(
                 inputs_embeds=inputs_embeds,
                 past_key_values=past,
@@ -1173,29 +1217,60 @@ class ChatterboxFullBackend(AbstractTtsBackend):
                 hidden = tfmr_out.last_hidden_state
             logits_full = _speech_head(hidden)
             past = tfmr_out.past_key_values
+            _initial_elapsed = (_time_mod.perf_counter() - _initial_t0) if _timing else 0.0
 
             # Advance cache_position past the context
             if cache_position is not None:
                 cache_position = _torch.tensor([context_len], device=device)
 
             # ── Generation loop ───────────────────────────────────────────────
-            for i in tqdm(range(max_new_tokens), desc="Sampling", dynamic_ncols=True):
+            _loop_t0 = _time_mod.perf_counter() if _timing else 0.0
+            _detail_cfg = 0.0
+            _detail_align = 0.0
+            _detail_repetition = 0.0
+            _detail_warp = 0.0
+            _detail_sample = 0.0
+            _detail_store_eos = 0.0
+            _detail_embed = 0.0
+            _detail_forward = 0.0
+            _step_count = 0
+            _sample_iter = range(max_new_tokens)
+            if _os.environ.get("RRV_T3_TQDM", "0") == "1":
+                try:
+                    from tqdm import tqdm as _tqdm
+                    _sample_iter = _tqdm(
+                        _sample_iter, desc="Sampling", dynamic_ncols=True, disable=False)
+                except Exception:
+                    pass
+
+            for i in _sample_iter:
+                _step_t0 = _time_mod.perf_counter() if _timing_detail else 0.0
                 logits_step = logits_full[:, -1, :]
                 cond   = logits_step[0:1, :]
                 uncond = logits_step[1:2, :]
-                cfg    = _torch.as_tensor(cfg_weight, device=cond.device, dtype=cond.dtype)
-                logits = cond + cfg * (cond - uncond)
+                logits = cond + cfg_scale * (cond - uncond)
+
+                _align_t0 = _time_mod.perf_counter() if _timing_detail else 0.0
+                if _timing_detail:
+                    _detail_cfg += _align_t0 - _step_t0
 
                 if patched_model.alignment_stream_analyzer is not None:
                     if logits.dim() == 1:
                         logits = logits.unsqueeze(0)
-                    last_token = (generated_ids[0, -1].item()
-                                  if len(generated_ids[0]) > 0 else None)
+                    last_token = int(generated_ids[0, generated_count].item())
                     logits = patched_model.alignment_stream_analyzer.step(
                         logits, next_token=last_token)
 
-                ids_for_proc = generated_ids[:1, ...]
+                _rep_t0 = _time_mod.perf_counter() if _timing_detail else 0.0
+                if _timing_detail:
+                    _detail_align += _rep_t0 - _align_t0
+
+                ids_for_proc = generated_ids[:, :generated_count + 1]
                 logits = repetition_penalty_processor(ids_for_proc, logits)
+
+                _warp_t0 = _time_mod.perf_counter() if _timing_detail else 0.0
+                if _timing_detail:
+                    _detail_repetition += _warp_t0 - _rep_t0
 
                 if temperature != 1.0:
                     logits = logits / temperature
@@ -1203,22 +1278,57 @@ class ChatterboxFullBackend(AbstractTtsBackend):
                 logits = min_p_warper(ids_for_proc, logits)
                 logits = top_p_warper(ids_for_proc, logits)
 
+                _sample_t0 = _time_mod.perf_counter() if _timing_detail else 0.0
+                if _timing_detail:
+                    _detail_warp += _sample_t0 - _warp_t0
+
                 probs = _torch.softmax(logits, dim=-1)
                 next_token = _torch.multinomial(probs, num_samples=1)
 
-                predicted.append(next_token)
-                generated_ids = _torch.cat([generated_ids, next_token], dim=1)
+                _store_t0 = _time_mod.perf_counter() if _timing_detail else 0.0
+                if _timing_detail:
+                    _detail_sample += _store_t0 - _sample_t0
 
-                if next_token.view(-1) == self_t3.hp.stop_speech_token:
-                    _log.info(
-                        f"✅ EOS token detected! Stopping generation at step {i+1}")
-                    break
+                generated_count += 1
+                generated_ids[:, generated_count:generated_count + 1] = next_token
 
+                _step_count = i + 1
+
+                # Avoid a CPU/GPU sync on every generated token.  A direct
+                # `next_token.item()` or single-element tensor comparison forces
+                # the CPU to wait for the GPU every step and showed up as
+                # ~5ms/token in steady-state timing.  Check a small generated
+                # window periodically instead, then trim the output back to the
+                # first EOS if it appeared inside the window.
+                should_check_eos = (
+                    eos_check_interval <= 1
+                    or ((i + 1) % eos_check_interval) == 0
+                    or (i + 1) >= max_new_tokens
+                )
+                if should_check_eos:
+                    eos_start = max(1, generated_count - eos_check_interval + 1)
+                    eos_window = generated_ids[0, eos_start:generated_count + 1].detach().cpu()
+                    eos_hits = (eos_window == self_t3.hp.stop_speech_token).nonzero(as_tuple=False)
+                    if eos_hits.numel() > 0:
+                        eos_offset = int(eos_hits[0].item())
+                        generated_count = eos_start + eos_offset
+                        if _timing_detail:
+                            _detail_store_eos += _time_mod.perf_counter() - _store_t0
+                        _log.info(
+                            f"✅ EOS token detected! Stopping generation at step {i+1} (eos_index={generated_count})")
+                        break
+
+                _embed_t0 = _time_mod.perf_counter() if _timing_detail else 0.0
+                if _timing_detail:
+                    _detail_store_eos += _embed_t0 - _store_t0
                 next_token_embed = self_t3.speech_emb(next_token)
-                next_token_embed = (next_token_embed
-                                    + self_t3.speech_pos_emb.get_fixed_embedding(i + 1))
+                next_token_embed = next_token_embed + pos_embeds[:, i:i + 1, :]
                 # CFG batch=2
                 next_token_embed = _torch.cat([next_token_embed, next_token_embed])
+
+                _forward_t0 = _time_mod.perf_counter() if _timing_detail else 0.0
+                if _timing_detail:
+                    _detail_embed += _forward_t0 - _embed_t0
 
                 # ── Single-token forward — hot path, compiled tfmr directly ──
                 tfmr_out = _tfmr(
@@ -1238,8 +1348,38 @@ class ChatterboxFullBackend(AbstractTtsBackend):
                 past = tfmr_out.past_key_values
                 if cache_position is not None:
                     cache_position = cache_position + 1
+                if _timing_detail:
+                    _detail_forward += _time_mod.perf_counter() - _forward_t0
 
-            predicted_tokens = _torch.cat(predicted, dim=1)
+            _loop_elapsed = (_time_mod.perf_counter() - _loop_t0) if _timing else 0.0
+            predicted_tokens = generated_ids[:, 1:generated_count + 1].contiguous()
+            if _timing:
+                _total_elapsed = _time_mod.perf_counter() - _t3_total_t0
+                _log.info(
+                    "Chatterbox T3 timing: total=%.3fs prepare=%.3fs static_cache=%.3fs initial_forward=%.3fs loop=%.3fs steps=%d ctx=%d generated=%d eos_interval=%d",
+                    _total_elapsed,
+                    _prepare_elapsed,
+                    _static_elapsed,
+                    _initial_elapsed,
+                    _loop_elapsed,
+                    _step_count,
+                    context_len,
+                    predicted_tokens.size(1),
+                    eos_check_interval,
+                )
+                if _timing_detail and _step_count > 0:
+                    _log.info(
+                        "Chatterbox T3 detail: cfg=%.3fs align=%.3fs rep=%.3fs warp=%.3fs sample=%.3fs store_eos=%.3fs embed=%.3fs tfmr_forward=%.3fs avg_step=%.2fms",
+                        _detail_cfg,
+                        _detail_align,
+                        _detail_repetition,
+                        _detail_warp,
+                        _detail_sample,
+                        _detail_store_eos,
+                        _detail_embed,
+                        _detail_forward,
+                        (_loop_elapsed / _step_count) * 1000.0,
+                    )
             return predicted_tokens
 
         # Bind the patched inference as a method on the T3 instance
@@ -1402,13 +1542,34 @@ class ChatterboxFullBackend(AbstractTtsBackend):
 
         loop = asyncio.get_event_loop()
         voice_key = self._voice_group_key(request)
+        _timing = os.environ.get("RRV_CB_TIMING", "0") == "1"
+        if _timing:
+            import time as _time_mod
+            _total_t0 = _time_mod.perf_counter()
+            _slot_t0 = _total_t0
         await self._acquire_voice_slot(voice_key)
+        if _timing:
+            _slot_elapsed = _time_mod.perf_counter() - _slot_t0
+            _synth_t0 = _time_mod.perf_counter()
         try:
             ogg_bytes = await loop.run_in_executor(None, self._synthesize_sync, request)
         finally:
             await self._release_voice_slot(voice_key)
+        if _timing:
+            _synth_elapsed = _time_mod.perf_counter() - _synth_t0
+            _dur_t0 = _time_mod.perf_counter()
 
         duration = estimate_duration(ogg_bytes)
+        if _timing:
+            _dur_elapsed = _time_mod.perf_counter() - _dur_t0
+            log.info(
+                "Chatterbox timing: async_total=%.3fs slot_wait=%.3fs synth_executor=%.3fs duration_probe=%.3fs ogg_bytes=%d",
+                _time_mod.perf_counter() - _total_t0,
+                _slot_elapsed,
+                _synth_elapsed,
+                _dur_elapsed,
+                len(ogg_bytes),
+            )
         return SynthesisResult(ogg_bytes=ogg_bytes, duration_sec=duration)
 
     def _setup_blend_generate(self, t3_cond, gen_dict: dict) -> None:
@@ -1842,6 +2003,53 @@ class ChatterboxFullBackend(AbstractTtsBackend):
         self._cond_tmp_wav     = new_tmp_path
         log.debug("Chatterbox: new temp WAV at %s", new_tmp_path)
 
+    def _write_tail_sidecar_file(self, cache_dir: str | Path, cache_key: str, tail,
+                                 voice_key: str, voice_context: str, timing: bool) -> None:
+        """Persist tail tokens for future explicit continuation. Non-fatal."""
+        try:
+            import time as _time_mod
+            import torch as _ts
+            _sidecar_t0 = _time_mod.perf_counter() if timing else 0.0
+            _sidecar_dir = Path(cache_dir) / self.provider_id
+            _sidecar_dir.mkdir(parents=True, exist_ok=True)
+            _sidecar_tmp = _sidecar_dir / f"{cache_key}.tokens.pt.tmp"
+            _sidecar = _sidecar_dir / f"{cache_key}.tokens.pt"
+            _ts.save({
+                "tokens": tail.cpu(),
+                "voice_key": voice_key,
+                "voice_context": voice_context,
+            }, _sidecar_tmp)
+            _sidecar_tmp.rename(_sidecar)
+            if timing:
+                log.info("Chatterbox timing: sidecar_write=%.3fs mode=%s",
+                         _time_mod.perf_counter() - _sidecar_t0,
+                         self._tail_sidecar_mode)
+        except Exception as _e:
+            log.debug("Tail token sidecar write failed (non-fatal): %s", _e)
+
+    def _submit_tail_sidecar_write(self, cache_dir: str | Path | None, cache_key: str | None,
+                                   tail, voice_key: str, voice_context: str, timing: bool) -> None:
+        if not cache_key or not cache_dir or tail is None or self._tail_sidecar_mode == "off":
+            return
+        # Tail is already CPU-detached at call sites. Clone it so the background
+        # writer owns immutable payload data even if caller updates local refs.
+        try:
+            tail_payload = tail.detach().cpu().clone()
+        except Exception:
+            tail_payload = tail
+        if self._tail_sidecar_mode == "sync":
+            self._write_tail_sidecar_file(cache_dir, cache_key, tail_payload, voice_key, voice_context, timing)
+            return
+        try:
+            self._tail_sidecar_executor.submit(
+                self._write_tail_sidecar_file,
+                cache_dir, cache_key, tail_payload, voice_key, voice_context, timing,
+            )
+            if timing:
+                log.info("Chatterbox timing: sidecar_write=deferred mode=defer")
+        except Exception as _e:
+            log.debug("Tail token sidecar defer failed (non-fatal): %s", _e)
+
     def _synthesize_sync(self, request: SynthesisRequest) -> bytes:
         import numpy as np
         import time as _time_mod
@@ -1971,7 +2179,11 @@ class ChatterboxFullBackend(AbstractTtsBackend):
 
         def _run_inference(chunk_text: str, active_t3_cond) -> tuple:
             """Run t3.inference() + s3gen.inference() directly, return (wav_np, tokens)."""
+            _token_t0 = _time_mod.perf_counter() if _timing else 0.0
             text_proc = self._model.tokenizer.text_to_tokens(chunk_text).to(self._model.device)
+            _token_elapsed = (_time_mod.perf_counter() - _token_t0) if _timing else 0.0
+
+            _pad_t0 = _time_mod.perf_counter() if _timing else 0.0
             # Chatterbox T3 always runs in CFG batch mode (bos_embed is unconditionally
             # doubled). text_proc must always be [2, seq] regardless of cfg_weight.
             # When cfg_weight=0.0, the uncond row is zeroed inside prepare_input_embeds.
@@ -1980,6 +2192,8 @@ class ChatterboxFullBackend(AbstractTtsBackend):
             eot = self._model.t3.hp.stop_text_token
             text_proc = _F.pad(text_proc, (1, 0), value=sot)
             text_proc = _F.pad(text_proc, (0, 1), value=eot)
+            _pad_elapsed = (_time_mod.perf_counter() - _pad_t0) if _timing else 0.0
+
             with _torch.inference_mode():
                 _t3_t0 = _time_mod.perf_counter() if _timing else 0.0
                 speech_tokens = self._model.t3.inference(
@@ -1992,23 +2206,45 @@ class ChatterboxFullBackend(AbstractTtsBackend):
                     min_p=0.05,
                     top_p=top_p,
                 )
+                _t3_elapsed = (_time_mod.perf_counter() - _t3_t0) if _timing else 0.0
+
+                _clean_t0 = _time_mod.perf_counter() if _timing else 0.0
                 clean = _drop_invalid(speech_tokens[0])
                 clean = clean[clean < 6561].to(self._model.device)
+                _clean_elapsed = (_time_mod.perf_counter() - _clean_t0) if _timing else 0.0
+
                 _s3_t0 = _time_mod.perf_counter() if _timing else 0.0
                 wav, _ = self._model.s3gen.inference(
                     speech_tokens=clean,
                     ref_dict=gen_dict,
                 )
+                _s3_elapsed = (_time_mod.perf_counter() - _s3_t0) if _timing else 0.0
+
+                _cpu_t0 = _time_mod.perf_counter() if _timing else 0.0
                 wav_np = wav.squeeze(0).detach().cpu().numpy()
+                _cpu_elapsed = (_time_mod.perf_counter() - _cpu_t0) if _timing else 0.0
+
+                _wm_t0 = _time_mod.perf_counter() if _timing else 0.0
                 wav_np = self._model.watermarker.apply_watermark(
                     wav_np, sample_rate=self._model.sr)
+                _wm_elapsed = (_time_mod.perf_counter() - _wm_t0) if _timing else 0.0
             if _timing:
-                _now = _time_mod.perf_counter()
                 log.info(
-                    "Chatterbox timing: T3=%.3fs S3Gen=%.3fs tokens=%d samples=%d",
-                    _s3_t0 - _t3_t0, _now - _s3_t0, len(clean), len(wav_np),
+                    "Chatterbox timing: tokenize=%.3fs pad=%.3fs T3=%.3fs clean=%.3fs S3Gen=%.3fs cpu_copy=%.3fs watermark=%.3fs tokens=%d samples=%d",
+                    _token_elapsed,
+                    _pad_elapsed,
+                    _t3_elapsed,
+                    _clean_elapsed,
+                    _s3_elapsed,
+                    _cpu_elapsed,
+                    _wm_elapsed,
+                    len(clean),
+                    len(wav_np),
                 )
             return wav_np, clean
+
+        _last_tail_for_sidecar = None
+        _last_ctx_for_sidecar = request.voice_context or ""
 
         try:
             for i, chunk_text in enumerate(chunks):
@@ -2083,28 +2319,12 @@ class ChatterboxFullBackend(AbstractTtsBackend):
                 else:
                     self._prior_speech_tokens.clear()
 
-                # Write tail token sidecar to cache dir alongside the OGG.
-                # Written for all requests (single and multi-chunk) using the
-                # last chunk's tail tokens — this is what the next chained segment
-                # needs to prime from, regardless of how many chunks this request had.
-                if request.cache_key and request.cache_dir:
-                    try:
-                        import torch as _ts
-                        _sidecar_t0 = _time_mod.perf_counter() if _timing else 0.0
-                        _sidecar_dir = Path(request.cache_dir) / self.provider_id
-                        _sidecar_dir.mkdir(parents=True, exist_ok=True)
-                        _sidecar_tmp = _sidecar_dir / f"{request.cache_key}.tokens.pt.tmp"
-                        _sidecar     = _sidecar_dir / f"{request.cache_key}.tokens.pt"
-                        _ts.save({
-                            "tokens": tail.cpu(),
-                            "voice_key": _voice_key,
-                            "voice_context": _ctx_tag,
-                        }, _sidecar_tmp)
-                        _sidecar_tmp.rename(_sidecar)
-                        if _timing:
-                            log.info("Chatterbox timing: sidecar_write=%.3fs", _time_mod.perf_counter() - _sidecar_t0)
-                    except Exception as _e:
-                        log.debug("Tail token sidecar write failed (non-fatal): %s", _e)
+                # Persist only the final chunk tail for this request. The next
+                # chained segment needs the last generated tokens, not each
+                # intermediate chunk. Actual disk write is submitted after all
+                # chunks are synthesized so storage latency stays off hot path.
+                _last_tail_for_sidecar = tail
+                _last_ctx_for_sidecar = _ctx_tag
 
                 samples = wav_np.squeeze()
                 if samples.ndim > 1:
@@ -2125,11 +2345,43 @@ class ChatterboxFullBackend(AbstractTtsBackend):
                     del self._model._rrv_blend_generate
 
         if not all_samples:
-            return pcm_to_ogg(np.zeros(self._model.sr, dtype=np.float32), self._model.sr)
+            result = pcm_to_ogg(np.zeros(self._model.sr, dtype=np.float32), self._model.sr)
+            # Sidecar write is intentionally scheduled after response audio is
+            # fully assembled/encoded so busy storage cannot slow concat/OGG
+            # work. In defer mode this submits to a background writer and returns
+            # immediately; in sync mode it preserves explicitly requested old
+            # blocking behavior.
+            self._submit_tail_sidecar_write(
+                request.cache_dir,
+                request.cache_key,
+                _last_tail_for_sidecar,
+                _voice_key,
+                _last_ctx_for_sidecar,
+                _timing,
+            )
+            return result
 
+        _concat_t0 = _time_mod.perf_counter() if _timing else 0.0
         combined = np.concatenate(all_samples)
+        _concat_elapsed = (_time_mod.perf_counter() - _concat_t0) if _timing else 0.0
         _enc_t0 = _time_mod.perf_counter() if _timing else 0.0
         result = pcm_to_ogg(combined, self._model.sr)
         if _timing:
-            log.info("Chatterbox timing: ogg_encode=%.3fs samples=%d", _time_mod.perf_counter() - _enc_t0, len(combined))
+            log.info(
+                "Chatterbox timing: concat=%.3fs ogg_encode=%.3fs samples=%d",
+                _concat_elapsed,
+                _time_mod.perf_counter() - _enc_t0,
+                len(combined),
+            )
+
+        # Submit sidecar write last. This keeps storage I/O out of synthesis,
+        # concat, and OGG encode timings in normal defer mode.
+        self._submit_tail_sidecar_write(
+            request.cache_dir,
+            request.cache_key,
+            _last_tail_for_sidecar,
+            _voice_key,
+            _last_ctx_for_sidecar,
+            _timing,
+        )
         return result
