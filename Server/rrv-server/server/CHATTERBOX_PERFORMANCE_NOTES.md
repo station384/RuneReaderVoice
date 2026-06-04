@@ -809,3 +809,193 @@ RRV_CB_PIPELINE_S3GEN=0
 RRV_CB_CHUNK_TARGET_CHARS=380
 RRV_CB_CHUNK_HARD_CHARS=480
 ```
+
+## v148: single-stream fast sampler experiment
+
+Direction chosen after rejecting chunk/pipeline overlap: optimize the single T3 token stream itself.
+Not every request has multiple voices or multiple segments, so the next useful path is reducing
+per-token Python/HuggingFace sampler overhead without changing chunking or voice continuity.
+
+v148 adds an opt-in tensor-only sampler:
+
+```env
+RRV_T3_FAST_SAMPLER=1
+RRV_T3_FAST_SAMPLER_COMPILE=0   # default, eager tensor helper
+RRV_T3_FAST_SAMPLER_COMPILE=1   # optional torch.compile helper experiment
+```
+
+What it changes:
+
+- Replaces per-token HuggingFace `RepetitionPenaltyLogitsProcessor`, `MinPLogitsWarper`, and `TopPLogitsWarper` calls with one tensor-only helper.
+- Keeps sampling on tensors/GPU as much as possible.
+- Preserves current default behavior unless explicitly enabled.
+- Runtime profile now logs `fast_sampler` and `fast_sampler_compile`.
+
+Why this is the right next area:
+
+- T3 is autoregressive, so one stream cannot be parallelized across tokens without speculative decoding/model changes.
+- `t3_fp16` made GPU math faster, exposing CPU/Python/token-loop overhead.
+- The sampler path is inside the single-stream hot loop and affects every request, including one-voice/one-chunk requests.
+
+Caution:
+
+- This is an experiment. It should be compared for speed and audio/output behavior against the default HF sampler.
+- Top-p/min-p edge behavior is intended to be close, but may not be bit-identical to HuggingFace warpers.
+- If testing compiled sampler, use eager fast sampler first; `torch.compile` around dynamic sampling may or may not help.
+
+Recommended first test:
+
+```env
+RRV_T3_FAST_SAMPLER=1
+RRV_T3_FAST_SAMPLER_COMPILE=0
+RRV_CB_TIMING=1
+RRV_CB_TIMING_DETAIL=1
+```
+
+Compare against default using:
+
+- `avg_step`
+- `sample` timing in `Chatterbox T3 detail`
+- `tfmr_forward`
+- total `T3` time
+- audio quality / voice stability
+
+
+## v149: fast sampler accepted into recommended profile
+
+v148 fast tensor sampler was tested with `RRV_T3_FAST_SAMPLER=1` and eager mode (`RRV_T3_FAST_SAMPLER_COMPILE=0`). Audio was reported good.
+
+Observed representative comparison on similar 342-char / 346-char requests:
+
+- Previous default sampler around 342 chars: `T3≈4.956s`, `avg_step≈8.56ms`, `async_total≈6.366s`, `synth_time≈6.38s`.
+- v148 eager fast sampler around 342 chars: `T3≈4.618s`, `avg_step≈8.44ms`, `async_total≈6.099s`, `synth_time≈6.20s`.
+- v148 eager fast sampler 346-char batch item: `T3≈4.359s`, `avg_step≈8.47ms`, `async_total≈5.761s`, `synth_time≈5.97s`.
+
+Conclusion:
+
+- Fast sampler gives modest but real single-stream speed gain.
+- It avoids chunking/continuity tradeoffs.
+- Audio quality is acceptable in user test.
+- Keep eager fast sampler in the recommended profile.
+- Do not enable compiled fast sampler yet; it remains an optional future throwaway test.
+
+Current best-known production profile:
+
+```env
+RRV_CB_PRECISION=fp16              # canonicalizes to t3_fp16
+RRV_CB_LOAD_STRATEGY=cpu_precision_gpu
+RRV_T3_COMPILE_MODE=default
+RRV_T3_STATIC_CACHE=1
+RRV_T3_EOS_CHECK_INTERVAL=16
+RRV_CB_TAIL_SIDECAR_WRITE=defer
+RRV_CB_PIPELINE_S3GEN=0
+RRV_T3_FAST_SAMPLER=1
+RRV_T3_FAST_SAMPLER_COMPILE=0
+RRV_CB_CHUNK_TARGET_CHARS=380
+RRV_CB_CHUNK_HARD_CHARS=480
+```
+
+Rejected / not recommended paths still apply:
+
+- `RRV_T3_COMPILE_MODE=reduce-overhead` failed with CUDA graph / TorchInductor issues.
+- `RRV_CB_PRECISION=fp16_full` ran but caused bad/choppy audio.
+- `RRV_CB_PIPELINE_S3GEN=1` worked technically but gave too little gain and more voice drift with smaller chunks.
+- Tiny chunking such as `50/100` is worse than default `380/480` for current Chatterbox.
+
+
+## v150: T3 loop profiler for CPU/GPU bottleneck evidence
+
+Added diagnostic-only T3 loop profiling. This does not change synthesis behavior; it only adds more granular timing around the single-stream autoregressive token loop.
+
+New knobs:
+
+```env
+RRV_T3_LOOP_PROFILING=1       # enable aggregate loop profile log
+RRV_T3_LOOP_PROFILE_SYNC=0    # default; no explicit CUDA synchronize per token
+RRV_T3_LOOP_PROFILE_SYNC=1    # diagnostic only; synchronizes every token and will slow generation
+```
+
+Purpose:
+
+- Determine whether `tfmr_forward` time is mostly Python dispatch/wall time, GPU wait, sampler/update work, or other Python gap.
+- Provide evidence before attempting larger work like native loop, TorchScript/LibTorch, ONNX Runtime GenAI, or C++/CUDA extension work.
+- Avoid guessing based only on one CPU core being saturated and GPU utilization being below 100%.
+
+New log line when enabled:
+
+```text
+Chatterbox T3 loop profile: steps=... sync=... loop=... model_call=... model_sync_wait=... sampler=... token_store=... eos_check=... input_embed=... cfg=... align=... python_gap=... avg_step=...
+```
+
+How to test first:
+
+```env
+RRV_T3_LOOP_PROFILING=1
+RRV_T3_LOOP_PROFILE_SYNC=0
+RRV_CB_TIMING=1
+RRV_CB_TIMING_DETAIL=1
+```
+
+Only use `RRV_T3_LOOP_PROFILE_SYNC=1` for a short one-off diagnostic run, because it inserts `torch.cuda.synchronize()` before/after every model forward and will distort normal performance.
+
+Interpretation notes:
+
+- Large `model_call` with `sync=0` means the Python-visible forward call wall time dominates, but it may include async dispatch and implicit waits.
+- Large `model_sync_wait` with `sync=1` means GPU work/wait dominates after dispatch.
+- Large `sampler`, `token_store`, `eos_check`, `input_embed`, or `python_gap` would point to Python/tensor bookkeeping still worth optimizing.
+- If most time remains inside model call/sync, Python-side parallel-for style work is unlikely to help single-stream decode; a compiled/native generation runtime is the real route.
+
+## v151: max-autotune experiment rejected
+
+`RRV_T3_COMPILE_MODE=max-autotune` was tested as a throwaway experiment after v150 loop profiling showed the T3 model call dominates the token loop. The goal was to see whether TorchInductor/Triton kernel autotuning could improve the compiled `LlamaModel.forward` path.
+
+Result: reject for production.
+
+Observed behavior:
+
+- Server reached `LlamaModel.forward compiled with torch.compile mode=max-autotune dynamic=True`.
+- T3 warmup then spent many minutes in TorchInductor/Triton autotune benchmarking.
+- The RTX 3080 repeatedly hit shared-memory over-limit candidates, for example required shared memory around `110592`, `131072`, or `147456` bytes versus hardware limit `101376`.
+- Autotune produced bursty GPU activity while compiling/benchmarking candidate kernels.
+- StaticCache/CUDA graph conflict still occurred: TorchInductor reported mutated inputs from `past_key_values.update(... index_copy_ ...)`.
+- Warmup failed non-fatally with CUDA graph output reuse errors.
+- First real synthesis failed with TorchInductor CUDA graph tree `AssertionError`, returning HTTP 500.
+- No usable runtime speed number was produced.
+
+Conclusion:
+
+- `max-autotune` is not compatible enough with current T3 + StaticCache + per-token compiled-call path.
+- Startup/autotune cost is unacceptable even before the runtime failure.
+- This path should not be retried unless doing a deeper TorchInductor/CUDA graph rewrite, such as explicit graph-step handling or a custom graph-safe decode wrapper.
+
+Production setting remains:
+
+```env
+RRV_T3_COMPILE_MODE=default
+```
+
+Rejected compile modes now documented:
+
+```env
+RRV_T3_COMPILE_MODE=reduce-overhead  # rejected: CUDA graph/static-cache/per-token decode conflict
+RRV_T3_COMPILE_MODE=max-autotune     # rejected: huge autotune cost + CUDA graph failure + runtime AssertionError
+```
+
+Current best-known production profile remains:
+
+```env
+RRV_CB_PRECISION=fp16              # canonicalizes to t3_fp16
+RRV_CB_LOAD_STRATEGY=cpu_precision_gpu
+RRV_T3_COMPILE_MODE=default
+RRV_T3_STATIC_CACHE=1
+RRV_T3_EOS_CHECK_INTERVAL=16
+RRV_CB_TAIL_SIDECAR_WRITE=defer
+RRV_CB_PIPELINE_S3GEN=0
+RRV_T3_FAST_SAMPLER=1
+RRV_T3_FAST_SAMPLER_COMPILE=0
+RRV_T3_LOOP_PROFILING=0
+RRV_T3_LOOP_PROFILE_SYNC=0
+RRV_CB_CHUNK_TARGET_CHARS=380
+RRV_CB_CHUNK_HARD_CHARS=480
+```
+

@@ -66,6 +66,87 @@ from ..utils import compute_file_hash
 
 log = logging.getLogger(__name__)
 
+
+
+_FAST_T3_SAMPLER_COMPILED = None
+
+
+def _t3_fast_sample_next_token(logits, generated_ids, generated_count: int,
+                               *, temperature: float, top_p: float, min_p: float,
+                               repetition_penalty: float):
+    """
+    Tensor-only T3 sampling helper used by RRV_T3_FAST_SAMPLER.
+
+    This replaces HuggingFace RepetitionPenaltyLogitsProcessor + MinP/TopP
+    warpers in the per-token hot loop.  It intentionally stays on tensors so
+    Python does less work per generated token.  Behavior is meant to match the
+    existing sampler closely, but it is gated because top-p/min-p edge cases can
+    differ slightly from HF's implementation.
+    """
+    import torch
+
+    # logits: [1, vocab]
+    if repetition_penalty and repetition_penalty != 1.0 and generated_count >= 0:
+        ids = generated_ids[:, :generated_count + 1].reshape(-1)
+        if ids.numel() > 0:
+            ids = torch.unique(ids)
+            selected = logits.index_select(1, ids)
+            penalty = float(repetition_penalty)
+            adjusted = torch.where(selected < 0, selected * penalty, selected / penalty)
+            logits = logits.scatter(1, ids.unsqueeze(0).expand(logits.size(0), -1), adjusted)
+
+    if temperature and temperature != 1.0:
+        logits = logits / float(temperature)
+
+    # Min-p: keep tokens whose probability is at least min_p * max_prob.
+    if min_p and min_p > 0.0:
+        probs_for_min = torch.softmax(logits, dim=-1)
+        max_prob = probs_for_min.max(dim=-1, keepdim=True).values
+        remove = probs_for_min < (float(min_p) * max_prob)
+        # Always keep current best token so distribution cannot become empty.
+        best = probs_for_min.argmax(dim=-1, keepdim=True)
+        remove.scatter_(1, best, False)
+        logits = logits.masked_fill(remove, torch.finfo(logits.dtype).min)
+
+    # Top-p nucleus filter, descending probability order.
+    if top_p and top_p < 1.0:
+        sorted_logits, sorted_indices = torch.sort(logits, descending=True, dim=-1)
+        sorted_probs = torch.softmax(sorted_logits, dim=-1)
+        cumulative = torch.cumsum(sorted_probs, dim=-1)
+        sorted_remove = cumulative > float(top_p)
+        # Shift right so first token above threshold is still retained.
+        sorted_remove[..., 1:] = sorted_remove[..., :-1].clone()
+        sorted_remove[..., 0] = False
+        remove = torch.zeros_like(sorted_remove, dtype=torch.bool)
+        remove.scatter_(1, sorted_indices, sorted_remove)
+        logits = logits.masked_fill(remove, torch.finfo(logits.dtype).min)
+
+    probs = torch.softmax(logits, dim=-1)
+    return torch.multinomial(probs, num_samples=1)
+
+
+def _get_t3_fast_sampler():
+    """Return optional torch.compile'd fast sampler helper."""
+    global _FAST_T3_SAMPLER_COMPILED
+    if os.environ.get("RRV_T3_FAST_SAMPLER_COMPILE", "0") != "1":
+        return _t3_fast_sample_next_token
+    if _FAST_T3_SAMPLER_COMPILED is not None:
+        return _FAST_T3_SAMPLER_COMPILED
+    try:
+        import torch
+        _FAST_T3_SAMPLER_COMPILED = torch.compile(
+            _t3_fast_sample_next_token,
+            mode=os.environ.get("RRV_T3_FAST_SAMPLER_COMPILE_MODE", "default"),
+            fullgraph=False,
+            dynamic=True,
+        )
+        log.info("Chatterbox T3: fast sampler helper compiled with torch.compile")
+        return _FAST_T3_SAMPLER_COMPILED
+    except Exception as exc:
+        log.warning("Chatterbox T3: fast sampler compile failed (%s) — using eager fast sampler", exc)
+        _FAST_T3_SAMPLER_COMPILED = _t3_fast_sample_next_token
+        return _FAST_T3_SAMPLER_COMPILED
+
 # ── Transparent sentence-level chunking ───────────────────────────────────────
 # Chatterbox has a practical ceiling of ~400 chars / ~65 words before truncation
 # and hallucination become likely (benchmark data, April 2026).
@@ -360,7 +441,7 @@ class ChatterboxFullBackend(AbstractTtsBackend):
         self._log_vram_checkpoint("runtime-profile")
         log.info(
             "Chatterbox runtime profile: precision=%s requested_precision=%s load_strategy=%s "
-            "eos_interval=%s sidecar=%s static_cache=%s t3_compile_mode=%s t3_dtype=%s s3gen_dtype=%s pipeline_s3gen=%s pipeline_s3gen_workers=%d",
+            "eos_interval=%s sidecar=%s static_cache=%s t3_compile_mode=%s t3_dtype=%s s3gen_dtype=%s pipeline_s3gen=%s pipeline_s3gen_workers=%d fast_sampler=%s fast_sampler_compile=%s loop_profile=%s loop_profile_sync=%s",
             self._render_precision,
             self._requested_precision,
             self._load_strategy,
@@ -372,6 +453,10 @@ class ChatterboxFullBackend(AbstractTtsBackend):
             s3_dtype,
             self._pipeline_s3gen,
             self._pipeline_s3gen_workers,
+            os.environ.get("RRV_T3_FAST_SAMPLER", "0"),
+            os.environ.get("RRV_T3_FAST_SAMPLER_COMPILE", "0"),
+            os.environ.get("RRV_T3_LOOP_PROFILING", "0"),
+            os.environ.get("RRV_T3_LOOP_PROFILE_SYNC", "0"),
         )
 
     def _load_chatterbox_cpu_precision_gpu(self, local_model_dir):
@@ -1643,10 +1728,28 @@ class ChatterboxFullBackend(AbstractTtsBackend):
             except Exception:
                 eos_check_interval = 8
 
-            top_p_warper = TopPLogitsWarper(top_p=top_p)
-            min_p_warper = MinPLogitsWarper(min_p=min_p)
-            repetition_penalty_processor = RepetitionPenaltyLogitsProcessor(
-                penalty=float(repetition_penalty))
+            fast_sampler_enabled = _os.environ.get("RRV_T3_FAST_SAMPLER", "0") == "1"
+            fast_sampler = _get_t3_fast_sampler() if fast_sampler_enabled else None
+            loop_profile = _os.environ.get("RRV_T3_LOOP_PROFILING", "0") == "1"
+            loop_profile_sync = _os.environ.get("RRV_T3_LOOP_PROFILE_SYNC", "0") == "1"
+            if loop_profile:
+                _log.info(
+                    "Chatterbox T3: loop profiling enabled sync=%s — diagnostics only; sync=1 slows generation",
+                    int(loop_profile_sync),
+                )
+            if fast_sampler_enabled:
+                _log.info(
+                    "Chatterbox T3: fast tensor sampler enabled compile=%s",
+                    _os.environ.get("RRV_T3_FAST_SAMPLER_COMPILE", "0"),
+                )
+                top_p_warper = None
+                min_p_warper = None
+                repetition_penalty_processor = None
+            else:
+                top_p_warper = TopPLogitsWarper(top_p=top_p)
+                min_p_warper = MinPLogitsWarper(min_p=min_p)
+                repetition_penalty_processor = RepetitionPenaltyLogitsProcessor(
+                    penalty=float(repetition_penalty))
 
             # ── Acquire persistent StaticCache ────────────────────────────────
             # Cache is allocated once at load time and reset() between calls.
@@ -1712,6 +1815,14 @@ class ChatterboxFullBackend(AbstractTtsBackend):
             _detail_store_eos = 0.0
             _detail_embed = 0.0
             _detail_forward = 0.0
+            _profile_cfg = 0.0
+            _profile_align = 0.0
+            _profile_sampler = 0.0
+            _profile_token_store = 0.0
+            _profile_eos_check = 0.0
+            _profile_input_embed = 0.0
+            _profile_forward_call = 0.0
+            _profile_forward_sync_wait = 0.0
             _step_count = 0
             _sample_iter = range(max_new_tokens)
             if _os.environ.get("RRV_T3_TQDM", "0") == "1":
@@ -1723,13 +1834,15 @@ class ChatterboxFullBackend(AbstractTtsBackend):
                     pass
 
             for i in _sample_iter:
-                _step_t0 = _time_mod.perf_counter() if _timing_detail else 0.0
+                _step_t0 = _time_mod.perf_counter() if (_timing_detail or loop_profile) else 0.0
                 logits_step = logits_full[:, -1, :]
                 cond   = logits_step[0:1, :]
                 uncond = logits_step[1:2, :]
                 logits = cond + cfg_scale * (cond - uncond)
 
-                _align_t0 = _time_mod.perf_counter() if _timing_detail else 0.0
+                _align_t0 = _time_mod.perf_counter() if (_timing_detail or loop_profile) else 0.0
+                if loop_profile:
+                    _profile_cfg += _align_t0 - _step_t0
                 if _timing_detail:
                     _detail_cfg += _align_t0 - _step_t0
 
@@ -1740,36 +1853,64 @@ class ChatterboxFullBackend(AbstractTtsBackend):
                     logits = patched_model.alignment_stream_analyzer.step(
                         logits, next_token=last_token)
 
-                _rep_t0 = _time_mod.perf_counter() if _timing_detail else 0.0
+                _rep_t0 = _time_mod.perf_counter() if (_timing_detail or loop_profile) else 0.0
+                if loop_profile:
+                    _profile_align += _rep_t0 - _align_t0
                 if _timing_detail:
                     _detail_align += _rep_t0 - _align_t0
 
                 ids_for_proc = generated_ids[:, :generated_count + 1]
-                logits = repetition_penalty_processor(ids_for_proc, logits)
+                if fast_sampler_enabled and fast_sampler is not None:
+                    next_token = fast_sampler(
+                        logits,
+                        generated_ids,
+                        generated_count,
+                        temperature=float(temperature),
+                        top_p=float(top_p),
+                        min_p=float(min_p),
+                        repetition_penalty=float(repetition_penalty),
+                    )
+                    _store_t0 = _time_mod.perf_counter() if (_timing_detail or loop_profile) else 0.0
+                    if loop_profile:
+                        _profile_sampler += _store_t0 - _rep_t0
+                    if _timing_detail:
+                        # Fast sampler includes repetition + min-p/top-p + softmax/multinomial.
+                        _detail_repetition += 0.0
+                        _detail_warp += 0.0
+                        _detail_sample += _store_t0 - _rep_t0
+                else:
+                    logits = repetition_penalty_processor(ids_for_proc, logits)
 
-                _warp_t0 = _time_mod.perf_counter() if _timing_detail else 0.0
-                if _timing_detail:
-                    _detail_repetition += _warp_t0 - _rep_t0
+                    _warp_t0 = _time_mod.perf_counter() if _timing_detail else 0.0
+                    if _timing_detail:
+                        _detail_repetition += _warp_t0 - _rep_t0
 
-                if temperature != 1.0:
-                    logits = logits / temperature
+                    if temperature != 1.0:
+                        logits = logits / temperature
 
-                logits = min_p_warper(ids_for_proc, logits)
-                logits = top_p_warper(ids_for_proc, logits)
+                    logits = min_p_warper(ids_for_proc, logits)
+                    logits = top_p_warper(ids_for_proc, logits)
 
-                _sample_t0 = _time_mod.perf_counter() if _timing_detail else 0.0
-                if _timing_detail:
-                    _detail_warp += _sample_t0 - _warp_t0
+                    _sample_t0 = _time_mod.perf_counter() if _timing_detail else 0.0
+                    if _timing_detail:
+                        _detail_warp += _sample_t0 - _warp_t0
 
-                probs = _torch.softmax(logits, dim=-1)
-                next_token = _torch.multinomial(probs, num_samples=1)
+                    probs = _torch.softmax(logits, dim=-1)
+                    next_token = _torch.multinomial(probs, num_samples=1)
 
-                _store_t0 = _time_mod.perf_counter() if _timing_detail else 0.0
-                if _timing_detail:
-                    _detail_sample += _store_t0 - _sample_t0
+                    _store_t0 = _time_mod.perf_counter() if (_timing_detail or loop_profile) else 0.0
+                    if loop_profile:
+                        _profile_sampler += _store_t0 - _rep_t0
+                    if _timing_detail:
+                        _detail_sample += _store_t0 - _sample_t0
 
                 generated_count += 1
                 generated_ids[:, generated_count:generated_count + 1] = next_token
+                if loop_profile:
+                    _after_store_t0 = _time_mod.perf_counter()
+                    _profile_token_store += _after_store_t0 - _store_t0
+                else:
+                    _after_store_t0 = 0.0
 
                 _step_count = i + 1
 
@@ -1779,6 +1920,7 @@ class ChatterboxFullBackend(AbstractTtsBackend):
                 # ~5ms/token in steady-state timing.  Check a small generated
                 # window periodically instead, then trim the output back to the
                 # first EOS if it appeared inside the window.
+                _eos_t0 = _time_mod.perf_counter() if loop_profile else 0.0
                 should_check_eos = (
                     eos_check_interval <= 1
                     or ((i + 1) % eos_check_interval) == 0
@@ -1791,13 +1933,18 @@ class ChatterboxFullBackend(AbstractTtsBackend):
                     if eos_hits.numel() > 0:
                         eos_offset = int(eos_hits[0].item())
                         generated_count = eos_start + eos_offset
+                        _eos_done_t0 = _time_mod.perf_counter() if (loop_profile or _timing_detail) else 0.0
+                        if loop_profile:
+                            _profile_eos_check += _eos_done_t0 - _eos_t0
                         if _timing_detail:
-                            _detail_store_eos += _time_mod.perf_counter() - _store_t0
+                            _detail_store_eos += _eos_done_t0 - _store_t0
                         _log.info(
                             f"✅ EOS token detected! Stopping generation at step {i+1} (eos_index={generated_count})")
                         break
+                if loop_profile:
+                    _profile_eos_check += _time_mod.perf_counter() - _eos_t0
 
-                _embed_t0 = _time_mod.perf_counter() if _timing_detail else 0.0
+                _embed_t0 = _time_mod.perf_counter() if (_timing_detail or loop_profile) else 0.0
                 if _timing_detail:
                     _detail_store_eos += _embed_t0 - _store_t0
                 next_token_embed = self_t3.speech_emb(next_token)
@@ -1805,11 +1952,16 @@ class ChatterboxFullBackend(AbstractTtsBackend):
                 # CFG batch=2
                 next_token_embed = _torch.cat([next_token_embed, next_token_embed])
 
-                _forward_t0 = _time_mod.perf_counter() if _timing_detail else 0.0
+                _forward_t0 = _time_mod.perf_counter() if (_timing_detail or loop_profile) else 0.0
+                if loop_profile:
+                    _profile_input_embed += _forward_t0 - _embed_t0
                 if _timing_detail:
                     _detail_embed += _forward_t0 - _embed_t0
 
                 # ── Single-token forward — hot path, compiled tfmr directly ──
+                if loop_profile and loop_profile_sync and device.type == "cuda":
+                    _torch.cuda.synchronize(device)
+                    _forward_t0 = _time_mod.perf_counter()
                 tfmr_out = _tfmr(
                     inputs_embeds=next_token_embed,
                     past_key_values=past,
@@ -1819,6 +1971,13 @@ class ChatterboxFullBackend(AbstractTtsBackend):
                     return_dict=True,
                     **({"cache_position": cache_position} if cache_position is not None else {}),
                 )
+                if loop_profile:
+                    _forward_call_done_t0 = _time_mod.perf_counter()
+                    _profile_forward_call += _forward_call_done_t0 - _forward_t0
+                    if loop_profile_sync and device.type == "cuda":
+                        _torch.cuda.synchronize(device)
+                        _sync_done_t0 = _time_mod.perf_counter()
+                        _profile_forward_sync_wait += _sync_done_t0 - _forward_call_done_t0
                 if tfmr_out.hidden_states is not None:
                     hidden = tfmr_out.hidden_states[-1]
                 else:
@@ -1857,6 +2016,34 @@ class ChatterboxFullBackend(AbstractTtsBackend):
                         _detail_store_eos,
                         _detail_embed,
                         _detail_forward,
+                        (_loop_elapsed / _step_count) * 1000.0,
+                    )
+                if loop_profile and _step_count > 0:
+                    _profile_known = (
+                        _profile_cfg
+                        + _profile_align
+                        + _profile_sampler
+                        + _profile_token_store
+                        + _profile_eos_check
+                        + _profile_input_embed
+                        + _profile_forward_call
+                        + _profile_forward_sync_wait
+                    )
+                    _profile_gap = max(0.0, _loop_elapsed - _profile_known)
+                    _log.info(
+                        "Chatterbox T3 loop profile: steps=%d sync=%s loop=%.3fs model_call=%.3fs model_sync_wait=%.3fs sampler=%.3fs token_store=%.3fs eos_check=%.3fs input_embed=%.3fs cfg=%.3fs align=%.3fs python_gap=%.3fs avg_step=%.2fms",
+                        _step_count,
+                        int(loop_profile_sync),
+                        _loop_elapsed,
+                        _profile_forward_call,
+                        _profile_forward_sync_wait,
+                        _profile_sampler,
+                        _profile_token_store,
+                        _profile_eos_check,
+                        _profile_input_embed,
+                        _profile_cfg,
+                        _profile_align,
+                        _profile_gap,
                         (_loop_elapsed / _step_count) * 1000.0,
                     )
             return predicted_tokens
