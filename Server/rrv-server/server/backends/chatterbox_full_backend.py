@@ -368,14 +368,50 @@ class ChatterboxFullBackend(AbstractTtsBackend):
             "Chatterbox loaded: model_version=%s device=%s",
             self._model_version, self._torch_device,
         )
-        # Warm up torch.compile on T3 at load time — triggers CUDA kernel
-        # compilation now rather than stalling the first user request.
-        # Runs a minimal dummy inference (2 tokens) with no audio output.
+        # Warm up only what must be hydrated in this process.
+        #
+        # Important distinction:
+        # - TORCHINDUCTOR_CACHE_DIR persists compiled kernels/subgraphs on disk.
+        # - It does NOT persist live model/runtime state, CUDA allocator state, StaticCache,
+        #   tokenizer lazy init, librosa/numba functions, or Chatterbox conditionals in RAM.
+        #
+        # Therefore a restarted worker still needs a small "touch" of the real path.
+        # But once a disk warmup stamp exists, do not replay the expensive multi-shape
+        # compile campaign every boot. Use one representative S3Gen probe plus one full
+        # mini render to hydrate the process.
+        await loop.run_in_executor(None, self._warmup_librosa)
         import os
         if os.environ.get("RRV_T3_COMPILE", "1") == "1":
             await loop.run_in_executor(None, self._warmup_t3_compile)
         if os.environ.get("RRV_S3GEN_COMPILE", "0") == "1":
             await loop.run_in_executor(None, self._warmup_s3gen_compile)
+
+        if os.environ.get("RRV_CB_FIRST_RENDER_WARMUP", "1") == "1":
+            await loop.run_in_executor(None, self._warmup_first_render_path)
+
+    def _warmup_librosa(self) -> None:
+        """
+        Trigger librosa/numba JIT compilation at startup.
+
+        librosa defers numba's JIT compilation of its DSP routines (mel filterbank,
+        resampling, STFT) to first use. On first call this causes a ~10-20s CPU
+        spike as numba compiles to native code. Subsequent calls are instant.
+
+        This warmup runs a dummy load+resample to pay that cost at startup rather
+        than stalling the first user render request.
+        """
+        try:
+            import librosa
+            import numpy as np
+            # Dummy audio: 1 second of silence at 22050 Hz
+            dummy = np.zeros(22050, dtype=np.float32)
+            # Resample triggers numba mel/resampling JIT
+            _ = librosa.resample(dummy, orig_sr=22050, target_sr=16000)
+            # Mel spectrogram triggers numba filterbank JIT
+            _ = librosa.feature.melspectrogram(y=dummy, sr=22050, n_mels=80)
+            log.info("Chatterbox: librosa/numba warmup complete")
+        except Exception as e:
+            log.warning("Chatterbox: librosa warmup failed (non-fatal): %s", e)
 
     def _warmup_t3_compile(self) -> None:
         """
@@ -420,87 +456,186 @@ class ChatterboxFullBackend(AbstractTtsBackend):
         except Exception as e:
             log.warning("Chatterbox T3: compile warmup failed (non-fatal): %s", e)
 
-    def _warmup_s3gen_compile(self) -> None:
+    def _find_startup_warmup_sample(self) -> Path | None:
+        """Return first usable Chatterbox reference sample for startup warmup."""
+        samples_dir = os.environ.get("RRV_SAMPLES_DIR", "")
+        root = Path(samples_dir) if samples_dir else (self._models_dir.parent / "samples")
+        if not root.exists():
+            return None
+
+        candidates = sorted(root.rglob("*.wav"))
+        for wav_path in candidates:
+            name = wav_path.name.lower()
+            # Prefer provider-tagged Chatterbox artifacts when present.
+            if "-chatterbox" in name:
+                return wav_path
+        return candidates[0] if candidates else None
+
+    def _warmup_first_render_path(self) -> None:
         """
-        Run S3Gen inference with multiple different token lengths to force dynamo
-        to compile a truly dynamic graph for the CFM estimator.
+        Exercise the same path a real render uses.
 
-        With dynamic=True, dynamo still recompiles when it sees a new shape for
-        the first time. After seeing 2-3 different shapes it stops recompiling and
-        treats the dimension as truly dynamic. Running warmup with representative
-        token counts (covering the range of real WoW dialog segments) ensures the
-        compiled graph handles all real inputs without recompiling.
-
-        Token count → mel frames (approx 2:1 ratio):
-          50 tokens  ≈  2.5s audio  (short line)
-          150 tokens ≈  7.5s audio  (medium line)
-          300 tokens ≈ 15s  audio   (long line)
+        This is intentionally separate from torch.compile warmup. The compile
+        warmups touch T3 and S3Gen directly, but first user render also hits
+        sample conditionals, tokenizer, prior-token setup, watermarking, OGG
+        encode, and assorted lazy imports. Running one tiny real synthesis at
+        startup moves that one-time latency out of the first gameplay request.
         """
         try:
+            sample_path = self._find_startup_warmup_sample()
+            if sample_path is None:
+                log.info("Chatterbox first-render warmup skipped — no sample WAV found")
+                return
+
+            import time as _time_mod
+            t0 = _time_mod.perf_counter()
+            req = SynthesisRequest(
+                text="Startup warmup complete.",
+                lang_code="en",
+                speech_rate=1.0,
+                sample_path=sample_path,
+                sample_id=sample_path.stem,
+                samples_dir=sample_path.parent,
+                cfg_weight=0.5,
+                exaggeration=0.5,
+                cb_temperature=0.8,
+                cb_top_p=1.0,
+                cb_repetition_penalty=1.2,
+                voice_context="__startup_warmup__",
+            )
+            _ = self._synthesize_sync(req)
+            elapsed = _time_mod.perf_counter() - t0
+            log.info(
+                "Chatterbox first-render warmup complete — sample=%s elapsed=%.3fs",
+                sample_path.name,
+                elapsed,
+            )
+        except Exception as e:
+            log.warning("Chatterbox first-render warmup failed (non-fatal): %s", e)
+
+    def _warmup_stamp_path(self) -> Path:
+        """Process-warmup stamp used to avoid full compile campaigns every restart."""
+        return self._cond_cache_dir / f"{self.provider_id}_compile_warmup.stamp"
+
+    def _warmup_stamp_key(self) -> str:
+        import sys
+        try:
+            import torch
+            torch_ver = getattr(torch, "__version__", "unknown")
+        except Exception:
+            torch_ver = "unknown"
+        return "|".join([
+            f"provider={self.provider_id}",
+            f"model={self._model_version or 'unknown'}",
+            f"python={sys.version_info.major}.{sys.version_info.minor}",
+            f"torch={torch_ver}",
+            f"t3={os.environ.get('RRV_T3_COMPILE', '1')}",
+            f"s3gen={os.environ.get('RRV_S3GEN_COMPILE', '0')}",
+            f"max_tokens={os.environ.get('RRV_CB_MAX_NEW_TOKENS', '1000')}",
+        ])
+
+    def _has_valid_warmup_stamp(self) -> bool:
+        try:
+            p = self._warmup_stamp_path()
+            return p.exists() and p.read_text(encoding="utf-8").strip() == self._warmup_stamp_key()
+        except Exception:
+            return False
+
+    def _write_warmup_stamp(self) -> None:
+        try:
+            self._cond_cache_dir.mkdir(parents=True, exist_ok=True)
+            self._warmup_stamp_path().write_text(self._warmup_stamp_key(), encoding="utf-8")
+        except Exception as e:
+            log.debug("Chatterbox warmup stamp write failed (non-fatal): %s", e)
+
+    @staticmethod
+    def _parse_warmup_token_counts(raw: str, fallback: tuple[int, ...]) -> tuple[int, ...]:
+        vals: list[int] = []
+        for part in (raw or "").replace(";", ",").split(","):
+            part = part.strip()
+            if not part:
+                continue
+            try:
+                n = int(part)
+                if n > 0:
+                    vals.append(n)
+            except ValueError:
+                continue
+        return tuple(vals) if vals else fallback
+
+    def _warmup_s3gen_compile(self) -> None:
+        """
+        Hydrate S3Gen torch.compile using the SAME branch real synthesis uses.
+
+        Previous warmup called:
+            s3gen.inference(..., ref_wav=real_ref, ref_sr=real_sr)
+
+        Real render calls:
+            s3gen.inference(..., ref_dict=gen_dict)
+
+        Those are not equivalent for torch.compile. The old warmup could build/load
+        graphs for the ref_wav path while first user render still paid the ref_dict
+        path compile/load cost. This warmup intentionally gets/caches real
+        conditionals first, then calls the ref_dict path.
+        """
+        try:
+            import time as _time_mod
             import torch
             if self._model is None or not hasattr(self._model, "s3gen"):
                 return
-            log.info(
-                "Chatterbox S3Gen: torch.compile warmup starting — "
-                "running 3 shapes to build dynamic graph (may take 60-90s)"
-            )
-            device  = self._torch_device
-            s3gen   = self._model.s3gen
 
-            # Use a real reference sample so the mel extractor and CFM see
-            # representative input distributions — dummy zeros produce a
-            # different graph path than real audio, causing a recompile on
-            # the first real synthesis call.
-            # Find samples dir — not stored on backend, derive from env or models_dir
-            samples_dir = None
-            _samples_env = os.environ.get("RRV_SAMPLES_DIR", "")
-            if _samples_env:
-                samples_dir = Path(_samples_env)
+            stamp_ok = self._has_valid_warmup_stamp()
+            if stamp_ok:
+                default_counts = (200,)
+                mode = "fast disk-cache probe"
             else:
-                # Fallback: samples typically lives alongside models
-                samples_dir = self._models_dir.parent / "samples"
+                default_counts = (100, 200, 350)
+                mode = "cold compile campaign"
 
-            real_ref = None
-            real_sr  = 16000
-            if samples_dir is not None and samples_dir.exists():
-                import librosa as _librosa
-                wav_files = sorted(samples_dir.rglob("*.wav"))
-                for wav_path in wav_files:
-                    try:
-                        y, sr = _librosa.load(str(wav_path), sr=None, mono=True, duration=10.0)
-                        if len(y) >= 8000:
-                            import torch as _t
-                            real_ref = _t.from_numpy(y).unsqueeze(0).to(device)
-                            real_sr  = sr
-                            log.info("Chatterbox S3Gen: warmup using real sample %s (sr=%d len=%d)", wav_path.name, sr, len(y))
-                            break
-                    except Exception:
-                        continue
+            raw_counts = os.environ.get("RRV_S3GEN_WARMUP_TOKENS", "")
+            warmup_token_counts = self._parse_warmup_token_counts(raw_counts, default_counts)
 
-            if real_ref is None:
-                log.info("Chatterbox S3Gen: no real sample found — using synthetic ref")
-                import torch as _t
-                # Use non-zero noise so mel extractor produces non-trivial output
-                real_ref = _t.randn(1, 24000, device=device) * 0.1
-                real_sr  = 16000
+            log.info(
+                "Chatterbox S3Gen: warmup starting — %s; tokens=%s",
+                mode,
+                ",".join(str(x) for x in warmup_token_counts),
+            )
 
-            # Cover the full realistic token range with enough distinct shapes
-            # that torch.compile's shape cache covers all real WoW dialog segments.
-            # Each unique shape compiles once and persists in TORCHINDUCTOR_CACHE_DIR.
-            # After first server start, all subsequent starts load from disk cache.
-            # Token range observed in practice: ~50-400 tokens per segment.
-            warmup_token_counts = (50, 75, 100, 125, 150, 175, 200, 250, 300, 350, 400)
+            sample_path = self._find_startup_warmup_sample()
+            if sample_path is None:
+                log.info("Chatterbox S3Gen: warmup skipped — no sample WAV found")
+                return
+
+            # Use real cached conditionals and real ref_dict path. This also verifies
+            # the condition cache can load from disk after restart.
+            t0_cond = _time_mod.perf_counter()
+            t3_cond, gen_dict = self._cond_get_or_compute_single(sample_path, 0.5)
+            self._model.conds.t3 = t3_cond
+            self._model.conds.gen = gen_dict
+            log.info(
+                "Chatterbox S3Gen: warmup conditionals ready — sample=%s elapsed=%.3fs",
+                sample_path.name,
+                _time_mod.perf_counter() - t0_cond,
+            )
+
+            s3gen = self._model.s3gen
+            device = self._torch_device
             for n_tokens in warmup_token_counts:
                 dummy_tokens = torch.randint(0, 6560, (1, n_tokens), dtype=torch.long, device=device)
+                t0 = _time_mod.perf_counter()
                 with torch.inference_mode():
                     s3gen.inference(
                         speech_tokens=dummy_tokens,
-                        ref_wav=real_ref,
-                        ref_sr=real_sr,
+                        ref_dict=gen_dict,
                     )
-                log.info("Chatterbox S3Gen: warmup pass complete — tokens=%d", n_tokens)
+                log.info(
+                    "Chatterbox S3Gen: warmup pass complete — tokens=%d elapsed=%.3fs",
+                    n_tokens,
+                    _time_mod.perf_counter() - t0,
+                )
 
-            log.info("Chatterbox S3Gen: torch.compile warmup complete — dynamic graph ready")
+            self._write_warmup_stamp()
+            log.info("Chatterbox S3Gen: warmup complete")
         except Exception as e:
             log.error("Chatterbox S3Gen: compile warmup failed (%s: %s)", type(e).__name__, e, exc_info=True)
 
@@ -895,7 +1030,7 @@ class ChatterboxFullBackend(AbstractTtsBackend):
                 _tfmr = t3.tfmr
                 log.info(
                     "Chatterbox: LlamaModel.forward compiled with torch.compile "
-                    "mode=reduce-overhead dynamic=True"
+                    "mode=default dynamic=True"
                 )
             except Exception as e:
                 log.warning("Chatterbox: torch.compile failed (%s) — running uncompiled", e)
@@ -1571,7 +1706,7 @@ class ChatterboxFullBackend(AbstractTtsBackend):
             tmp = self._cond_disk_path(cache_key).with_suffix(".pt.tmp")
             torch.save(data, tmp)
             tmp.rename(self._cond_disk_path(cache_key))
-            log.debug("Cond cache: saved to disk key=%s", cache_key[:20])
+            log.info("Cond cache: saved to disk key=%s", cache_key[:20])
         except Exception as e:
             log.warning("Cond cache: disk save failed (%s)", e)
 
@@ -1586,7 +1721,7 @@ class ChatterboxFullBackend(AbstractTtsBackend):
             t3_cond = T3Cond(**data["t3"]).to(device=self._torch_device)
             gen_dict = {k: v.to(device=self._torch_device) if torch.is_tensor(v) else v
                         for k, v in data["gen"].items()}
-            log.debug("Cond cache: loaded from disk key=%s", cache_key[:20])
+            log.info("Cond cache: disk HIT key=%s", cache_key[:20])
             # Clear any stale prior tokens for this key — disk load means
             # a new session; last session's acoustic context is irrelevant.
             self._prior_speech_tokens.pop(cache_key, None)
