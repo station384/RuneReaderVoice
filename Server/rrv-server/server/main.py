@@ -32,6 +32,8 @@
 
 from __future__ import annotations
 
+SERVER_VERSION = "123"
+
 import os as _os
 import pathlib as _pathlib
 # Redirect HuggingFace hub downloads (wetext FSTs, model internals)
@@ -372,7 +374,7 @@ def run() -> None:
         datefmt="%Y-%m-%d %H:%M:%S",
     )
 
-    log.info("Starting RuneReader Voice Server — %s", settings)
+    log.info("Starting RuneReader Voice Server v%s — %s", SERVER_VERSION, settings)
 
     uvicorn.run(
         "server.main:app",

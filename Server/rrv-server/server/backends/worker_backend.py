@@ -320,6 +320,12 @@ class WorkerBackend(AbstractTtsBackend):
         # useless in production; keep them available via RRV_WORKER_TQDM=1.
         if spawn_env.get("RRV_WORKER_TQDM", "0") != "1":
             spawn_env["TQDM_DISABLE"] = "1"
+        # Suppress known harmless FutureWarnings from diffusers/transformers that
+        # are emitted before run_worker.py's warnings.filterwarnings() installs.
+        # Append to any existing PYTHONWARNINGS rather than overwriting.
+        _pw_additions = "ignore::FutureWarning:diffusers,ignore::FutureWarning:transformers"
+        existing_pw = spawn_env.get("PYTHONWARNINGS", "")
+        spawn_env["PYTHONWARNINGS"] = f"{existing_pw},{_pw_additions}" if existing_pw else _pw_additions
 
         # Spawn the worker.
         # stdout is piped so we can read the READY line.
@@ -432,11 +438,20 @@ class WorkerBackend(AbstractTtsBackend):
             if line.startswith("READY:"):
                 log.debug("Worker stdout: %s", line)
                 return
-            # Forward non-READY lines (worker log output before the socket is up)
+            # Forward non-READY lines at appropriate level — previously logged at
+            # debug which suppressed all load-time output at info log level.
             worker_prefix = f"[worker:{self._backend_name}] "
             if line.startswith(worker_prefix):
                 line = line[len(worker_prefix):]
-            log.debug("[worker:%s] %s", self._backend_name, line)
+            lower = line.lower()
+            if " error " in lower or " critical " in lower:
+                log.error("[worker:%s] %s", self._backend_name, line)
+            elif " warning " in lower or " warn " in lower:
+                log.warning("[worker:%s] %s", self._backend_name, line)
+            elif " debug " in lower or lower.startswith("debug"):
+                log.debug("[worker:%s] %s", self._backend_name, line)
+            else:
+                log.info("[worker:%s] %s", self._backend_name, line)
 
         # stdout closed before READY — worker exited prematurely
         rc = self._process.wait()

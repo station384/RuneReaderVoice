@@ -11,6 +11,37 @@
 #       --samples-dir <path> --gpu auto --max-concurrent 2 --log-level info
 
 import sys
+import os
+
+# TORCHINDUCTOR_CACHE_DIR must be set before torch is imported — cache_dir() is
+# called at import time and caches its result. The host sets this in spawn_env
+# but we enforce it here to guarantee it's set before any torch import occurs.
+# Without this, compiled kernels go to /tmp/torchinductor_root which is wiped
+# on reboot, forcing a full recompile on every server restart.
+_torchinductor_cache = os.environ.get("TORCHINDUCTOR_CACHE_DIR", "")
+if not _torchinductor_cache:
+    # Fallback: derive from TORCH_HOME or XDG_CACHE_HOME if set
+    _torch_home = os.environ.get("TORCH_HOME", "")
+    _xdg_cache  = os.environ.get("XDG_CACHE_HOME", "")
+    if _torch_home:
+        _torchinductor_cache = os.path.join(_torch_home, "inductor_cache")
+    elif _xdg_cache:
+        _torchinductor_cache = os.path.join(_xdg_cache, "torchinductor")
+    if _torchinductor_cache:
+        os.environ["TORCHINDUCTOR_CACHE_DIR"] = _torchinductor_cache
+        print(f"[run_worker] TORCHINDUCTOR_CACHE_DIR set to {_torchinductor_cache}", flush=True)
+    else:
+        print("[run_worker] WARNING: TORCHINDUCTOR_CACHE_DIR not set — compiled kernels will not persist across restarts", flush=True)
+else:
+    print(f"[run_worker] TORCHINDUCTOR_CACHE_DIR={_torchinductor_cache}", flush=True)
+
+# Set dynamo cache size large enough to hold all warmup shapes without eviction.
+# Default is 8 — with 11 warmup shapes the 9th+ evict earlier entries, causing
+# recompilation on real requests. Must be set before torch is imported.
+os.environ.setdefault("TORCH_COMPILE_DEBUG", "0")
+# These are read at import time by torch._dynamo.config
+os.environ["TORCHDYNAMO_CACHE_SIZE_LIMIT"] = "64"
+
 import asyncio
 import warnings
 from pathlib import Path
@@ -21,6 +52,11 @@ from pathlib import Path
 warnings.filterwarnings(
     "ignore",
     message=r".*sdp_kernel.*deprecated.*",
+    category=FutureWarning,
+)
+warnings.filterwarnings(
+    "ignore",
+    message=r".*LoRACompatibleLinear.*deprecated.*",
     category=FutureWarning,
 )
 

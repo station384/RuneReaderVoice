@@ -422,33 +422,87 @@ class ChatterboxFullBackend(AbstractTtsBackend):
 
     def _warmup_s3gen_compile(self) -> None:
         """
-        Run a minimal S3Gen inference to trigger torch.compile warmup on the
-        CFM estimator (ConditionalDecoder). Warmup cost: ~15-30s on first start.
-        Uses a short dummy sequence (4 tokens) so no audio is produced.
+        Run S3Gen inference with multiple different token lengths to force dynamo
+        to compile a truly dynamic graph for the CFM estimator.
+
+        With dynamic=True, dynamo still recompiles when it sees a new shape for
+        the first time. After seeing 2-3 different shapes it stops recompiling and
+        treats the dimension as truly dynamic. Running warmup with representative
+        token counts (covering the range of real WoW dialog segments) ensures the
+        compiled graph handles all real inputs without recompiling.
+
+        Token count → mel frames (approx 2:1 ratio):
+          50 tokens  ≈  2.5s audio  (short line)
+          150 tokens ≈  7.5s audio  (medium line)
+          300 tokens ≈ 15s  audio   (long line)
         """
         try:
             import torch
             if self._model is None or not hasattr(self._model, "s3gen"):
                 return
-            # Check compile was actually applied — torch.compile wraps in OptimizedModule
-            estimator = self._model.s3gen.flow.decoder.estimator
-            if not (hasattr(estimator, '_orig_mod') or
-                    type(estimator).__name__ == 'OptimizedModule'):
-                return  # not compiled, skip
-            log.info("Chatterbox S3Gen: torch.compile warmup starting — may take 15-30s")
-            device = self._torch_device
-            s3gen = self._model.s3gen
-            dummy_tokens = torch.zeros(1, 4, dtype=torch.long, device=device)
-            dummy_ref = torch.zeros(1, 1, 16000, device=device)
-            with torch.inference_mode():
-                s3gen.inference(
-                    speech_tokens=dummy_tokens,
-                    ref_wav=dummy_ref,
-                    ref_sr=16000,
-                )
-            log.info("Chatterbox S3Gen: torch.compile warmup complete")
+            log.info(
+                "Chatterbox S3Gen: torch.compile warmup starting — "
+                "running 3 shapes to build dynamic graph (may take 60-90s)"
+            )
+            device  = self._torch_device
+            s3gen   = self._model.s3gen
+
+            # Use a real reference sample so the mel extractor and CFM see
+            # representative input distributions — dummy zeros produce a
+            # different graph path than real audio, causing a recompile on
+            # the first real synthesis call.
+            # Find samples dir — not stored on backend, derive from env or models_dir
+            samples_dir = None
+            _samples_env = os.environ.get("RRV_SAMPLES_DIR", "")
+            if _samples_env:
+                samples_dir = Path(_samples_env)
+            else:
+                # Fallback: samples typically lives alongside models
+                samples_dir = self._models_dir.parent / "samples"
+
+            real_ref = None
+            real_sr  = 16000
+            if samples_dir is not None and samples_dir.exists():
+                import librosa as _librosa
+                wav_files = sorted(samples_dir.rglob("*.wav"))
+                for wav_path in wav_files:
+                    try:
+                        y, sr = _librosa.load(str(wav_path), sr=None, mono=True, duration=10.0)
+                        if len(y) >= 8000:
+                            import torch as _t
+                            real_ref = _t.from_numpy(y).unsqueeze(0).to(device)
+                            real_sr  = sr
+                            log.info("Chatterbox S3Gen: warmup using real sample %s (sr=%d len=%d)", wav_path.name, sr, len(y))
+                            break
+                    except Exception:
+                        continue
+
+            if real_ref is None:
+                log.info("Chatterbox S3Gen: no real sample found — using synthetic ref")
+                import torch as _t
+                # Use non-zero noise so mel extractor produces non-trivial output
+                real_ref = _t.randn(1, 24000, device=device) * 0.1
+                real_sr  = 16000
+
+            # Cover the full realistic token range with enough distinct shapes
+            # that torch.compile's shape cache covers all real WoW dialog segments.
+            # Each unique shape compiles once and persists in TORCHINDUCTOR_CACHE_DIR.
+            # After first server start, all subsequent starts load from disk cache.
+            # Token range observed in practice: ~50-400 tokens per segment.
+            warmup_token_counts = (50, 75, 100, 125, 150, 175, 200, 250, 300, 350, 400)
+            for n_tokens in warmup_token_counts:
+                dummy_tokens = torch.randint(0, 6560, (1, n_tokens), dtype=torch.long, device=device)
+                with torch.inference_mode():
+                    s3gen.inference(
+                        speech_tokens=dummy_tokens,
+                        ref_wav=real_ref,
+                        ref_sr=real_sr,
+                    )
+                log.info("Chatterbox S3Gen: warmup pass complete — tokens=%d", n_tokens)
+
+            log.info("Chatterbox S3Gen: torch.compile warmup complete — dynamic graph ready")
         except Exception as e:
-            log.warning("Chatterbox S3Gen: compile warmup failed (non-fatal): %s", e)
+            log.error("Chatterbox S3Gen: compile warmup failed (%s: %s)", type(e).__name__, e, exc_info=True)
 
     def _load_sync(self) -> None:
         import librosa
@@ -537,6 +591,11 @@ class ChatterboxFullBackend(AbstractTtsBackend):
         The patched forward is semantically identical — same math, same output shape,
         same dtype/device behaviour. Only the execution path changes.
         """
+        log.info(
+            "Chatterbox: _patch_s3gen called — RRV_S3GEN_COMPILE=%s model=%s",
+            os.environ.get("RRV_S3GEN_COMPILE", "NOT_SET"),
+            "present" if self._model is not None else "None",
+        )
         if self._model is None:
             return
         if not hasattr(self._model, "s3gen"):
@@ -681,21 +740,37 @@ class ChatterboxFullBackend(AbstractTtsBackend):
         use_compile = os.environ.get("RRV_S3GEN_COMPILE", "0") == "1"
         if use_compile and self._model is not None and hasattr(self._model, "s3gen"):
             try:
+                # Ensure fx graph cache and dynamo cache are configured correctly
+                # before compiling — these may not have been set at import time.
+                import torch._inductor.config as _inductor_cfg
+                import torch._dynamo.config as _dynamo_cfg
+                _inductor_cfg.fx_graph_cache = True
+                _inductor_cfg.force_disable_caches = False
+                if _dynamo_cfg.cache_size_limit < 64:
+                    _dynamo_cfg.cache_size_limit = 64
+
                 estimator = self._model.s3gen.flow.decoder.estimator
-                compiled_estimator = _torch.compile(
-                    estimator,
+
+                # CRITICAL: CausalConditionalCFM calls self.estimator.forward(...)
+                # directly — not self.estimator(...). Wrapping the module with
+                # torch.compile() only intercepts __call__, not .forward(). So we
+                # must compile .forward() itself and replace it on the instance,
+                # so the direct .forward() call hits the compiled path.
+                compiled_forward = _torch.compile(
+                    estimator.forward,
                     mode="default",
                     fullgraph=False,
                     dynamic=True,
                 )
-                self._model.s3gen.flow.decoder.estimator = compiled_estimator
+                estimator.forward = compiled_forward
                 log.info(
-                    "Chatterbox: S3Gen CFM estimator compiled with torch.compile "
+                    "Chatterbox: S3Gen CFM estimator.forward compiled with torch.compile "
                     "(mode=default, dynamic=True, first call will warm up)"
                 )
             except Exception as e:
-                log.warning(
-                    "Chatterbox: S3Gen torch.compile failed (%s) — running uncompiled", e
+                log.error(
+                    "Chatterbox: S3Gen torch.compile failed (%s: %s) — running uncompiled",
+                    type(e).__name__, e, exc_info=True,
                 )
 
 

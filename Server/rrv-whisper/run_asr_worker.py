@@ -242,7 +242,7 @@ async def _send_message(writer: asyncio.StreamWriter, msg: dict) -> None:
 
 
 async def _recv_message(reader: asyncio.StreamReader) -> dict:
-    header = await asyncio.wait_for(reader.readexactly(4), timeout=60)
+    header = await asyncio.wait_for(reader.readexactly(4), timeout=300)
     length = struct.unpack(">I", header)[0]
     data = await asyncio.wait_for(reader.readexactly(length), timeout=300)
     return json.loads(data.decode())
@@ -251,77 +251,90 @@ async def _recv_message(reader: asyncio.StreamReader) -> dict:
 async def _handle_client(
     reader: asyncio.StreamReader,
     writer: asyncio.StreamWriter,
-    pipe_ref: list,   # mutable [pipe] — allows CPU fallback to replace pipe in-place
+    pipe_ref: list,
     model_dir: Path,
     gpu_provider: str,
 ) -> None:
     try:
+        _debug = os.environ.get("RRV_ASR_DEBUG", "0") == "1"
         while True:
             try:
                 msg = await _recv_message(reader)
-            except (asyncio.IncompleteReadError, asyncio.TimeoutError, ConnectionResetError):
+            except (asyncio.IncompleteReadError, asyncio.TimeoutError, ConnectionResetError) as e:
+                if _debug: log.info("Whisper worker: connection broke on recv: %s: %s", type(e).__name__, e)
                 break
 
             cmd = msg.get("cmd")
+            if _debug: log.info("Whisper worker: received cmd=%s", cmd)
 
-            if cmd == "ping":
-                await _send_message(writer, {"status": "ok", "pong": True})
+            try:
+                if cmd == "ping":
+                    await _send_message(writer, {"status": "ok", "pong": True})
 
-            elif cmd == "capabilities":
-                import torch
-                vram = 0.0
+                elif cmd == "capabilities":
+                    import torch
+                    vram = 0.0
+                    try:
+                        if torch.cuda.is_available():
+                            vram = torch.cuda.memory_reserved(0) / (1024 * 1024)
+                    except Exception:
+                        pass
+                    resp = {
+                        "status": "ok",
+                        "capabilities": {
+                            "provider_id": "whisper",
+                            "display_name": "Whisper",
+                            "requires_gpu": False,
+                            "loaded": True,
+                            "device": str(getattr(getattr(pipe_ref[0], "model", None), "device", "unknown")) if pipe_ref else "unknown",
+                            "vram_used_mib": vram,
+                        }
+                    }
+                    await _send_message(writer, resp)
+                    if _debug: log.info("Whisper worker: capabilities response sent")
+
+                elif cmd == "transcribe":
+                    audio_path = Path(msg.get("audio_path", ""))
+                    language = msg.get("language", "en") or "en"
+                    try:
+                        result = _transcribe(pipe_ref[0], audio_path, language)
+                        await _send_message(writer, {"status": "ok", **result})
+                    except Exception as e:
+                        if _is_cuda_oom(e) and pipe_ref[0].device.type != "cpu":
+                            log.warning(
+                                "Whisper: CUDA OOM on '%s' — falling back to CPU and retrying",
+                                audio_path.name,
+                            )
+                            try:
+                                import torch
+                                del pipe_ref[0]
+                                torch.cuda.empty_cache()
+                                pipe_ref[0] = _load_whisper_cpu(model_dir)
+                                result = _transcribe(pipe_ref[0], audio_path, language)
+                                await _send_message(writer, {"status": "ok", **result})
+                            except Exception as cpu_e:
+                                log.error("Whisper: CPU fallback also failed for '%s': %s", audio_path.name, cpu_e)
+                                await _send_message(writer, {"status": "error", "error": str(cpu_e)})
+                        else:
+                            log.error("Transcription failed: %s", e)
+                            await _send_message(writer, {"status": "error", "error": str(e)})
+
+                elif cmd == "shutdown":
+                    await _send_message(writer, {"status": "ok"})
+                    break
+
+                else:
+                    await _send_message(writer, {"status": "error", "error": f"Unknown command: {cmd}"})
+
+            except Exception as _cmd_exc:
+                if _debug:
+                    import sys
+                    print(f"Whisper worker: unhandled error in cmd={cmd}: {type(_cmd_exc).__name__}: {_cmd_exc}", file=sys.stderr, flush=True)
+                log.error("Whisper worker: unhandled error in cmd=%s: %s: %s", cmd, type(_cmd_exc).__name__, _cmd_exc)
                 try:
-                    if torch.cuda.is_available():
-                        vram = torch.cuda.memory_reserved(0) / (1024 * 1024)
+                    await _send_message(writer, {"status": "error", "error": str(_cmd_exc)})
                 except Exception:
                     pass
-                await _send_message(writer, {
-                    "status": "ok",
-                    "capabilities": {
-                        "provider_id": "whisper",
-                        "display_name": "Whisper",
-                        "requires_gpu": False,
-                        "loaded": True,
-                        "device": getattr(getattr(pipe_ref[0], "model", None), "device", "unknown") if pipe_ref else "unknown",
-                        "vram_used_mib": vram,
-                    }
-                })
-
-            elif cmd == "transcribe":
-                audio_path = Path(msg.get("audio_path", ""))
-                language = msg.get("language", "en") or "en"
-                try:
-                    result = _transcribe(pipe_ref[0], audio_path, language)
-                    await _send_message(writer, {"status": "ok", **result})
-                except Exception as e:
-                    if _is_cuda_oom(e) and pipe_ref[0].device.type != "cpu":
-                        # GPU OOM during inference — unload GPU model, reload on
-                        # CPU, and retry. The CPU model stays loaded for the rest
-                        # of this worker session so subsequent files also benefit.
-                        log.warning(
-                            "Whisper: CUDA OOM on '%s' — falling back to CPU and retrying",
-                            audio_path.name,
-                        )
-                        try:
-                            import torch
-                            del pipe_ref[0]
-                            torch.cuda.empty_cache()
-                            pipe_ref[0] = _load_whisper_cpu(model_dir)
-                            result = _transcribe(pipe_ref[0], audio_path, language)
-                            await _send_message(writer, {"status": "ok", **result})
-                        except Exception as cpu_e:
-                            log.error("Whisper: CPU fallback also failed for '%s': %s", audio_path.name, cpu_e)
-                            await _send_message(writer, {"status": "error", "error": str(cpu_e)})
-                    else:
-                        log.error("Transcription failed: %s", e)
-                        await _send_message(writer, {"status": "error", "error": str(e)})
-
-            elif cmd == "shutdown":
-                await _send_message(writer, {"status": "ok"})
-                break
-
-            else:
-                await _send_message(writer, {"status": "error", "error": f"Unknown command: {cmd}"})
 
     finally:
         writer.close()
@@ -356,11 +369,11 @@ async def _main(args) -> None:
         path=sock_path,
     )
 
-    # Signal ready to parent
-    print(f"READY:{sock_path}", flush=True)
-    log.info("Whisper ASR worker listening on %s", sock_path)
-
     async with server:
+        await server.start_serving()
+        # Signal ready to parent — only after server is accepting connections
+        print(f"READY:{sock_path}", flush=True)
+        log.info("Whisper ASR worker listening on %s", sock_path)
         await server.serve_forever()
 
 
@@ -371,4 +384,7 @@ if __name__ == "__main__":
     parser.add_argument("--gpu", default="auto")
     parser.add_argument("--log-level", default="info")
     args, _ = parser.parse_known_args()  # ignore --provider, --models-dir etc from WorkerAsr
-    asyncio.run(_main(args))
+    try:
+        asyncio.run(_main(args))
+    except KeyboardInterrupt:
+        pass
