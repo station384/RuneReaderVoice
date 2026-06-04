@@ -352,3 +352,339 @@ v131/v132 reached practical low-risk optimization limit for current Chatterbox F
 - remaining render cost is mostly serial T3 autoregressive decode / transformer forward
 
 Major future gains likely require changing how the model decodes or using a different model/backend, not more surface-level warmup/cache work.
+
+## v133 Precision Experiment Notes
+
+Added gated render precision support for Chatterbox Full.
+
+### Controls
+
+```env
+# Historical v133 meaning. This was later changed in v138/v139.
+# Current meaning is documented in the v139/v140 sections below.
+RRV_CB_PRECISION=fp32   # default
+RRV_CB_PRECISION=fp16   # v133-only experiment: cast T3 + S3Gen to float16
+RRV_CB_PRECISION=fp8    # recognized, but intentionally fails fast for now
+```
+
+### Cache identity requirements
+
+Precision is part of every cache identity that can contain dtype-sensitive state:
+
+- server OGG render cache key
+- client-provided server cache-key composition path
+- Chatterbox conditioning cache key (`prec:<mode>` suffix)
+- prior-token voice key
+- tail-token sidecar payload guard
+
+This prevents fp32/fp16 conditionals, OGG outputs, and sidecar token state from being reused across incompatible precision modes.
+
+### fp16 intent (historical v133 experiment)
+
+This describes the original v133 full-fp16 experiment. Current `RRV_CB_PRECISION=fp16` now maps to `t3_fp16`, documented below. In v133, the fp16 path cast `self._model.t3` and `self._model.s3gen` to `torch.float16` after model load and before patches/warmups. Floating conditionals and `ref_dict` tensors are cast to the active runtime precision when loaded from memory/disk cache or freshly prepared. Integer token tensors remain integer/long.
+
+Expected possible gains:
+
+- lower VRAM pressure from T3/S3Gen weights and StaticCache dtype
+- possible T3/S3Gen speed improvement on CUDA
+
+Risks to test:
+
+- NaN/inf on long sequences
+- EOS behavior changes or generation loops
+- quality/prosody changes
+- S3Gen/HiFT-GAN fp16 op incompatibility
+
+### fp8 status
+
+`RRV_CB_PRECISION=fp8` is recognized but not implemented as a blanket cast. It raises a clear error instead of silently producing fp32 output under an fp8 cache key. Future fp8 work needs explicit quantization/autocast support for the model stack; naive `.to(torch.float8_*)` is not expected to work safely for transformers + sampling + HiFT-GAN.
+
+### fp32 cache compatibility
+
+The fp32/default mode intentionally keeps existing fp32 server OGG cache identities compatible where possible. Precision only adds a new cache-key component for non-fp32 modes such as fp16/fp8.
+
+## v134 fp16 Correction — S3Gen Speaker Encoder
+
+v133 proved that blanket half-converting all of `self._model.s3gen` is unsafe.
+
+Observed failure with `RRV_CB_PRECISION=fp16`:
+
+```text
+Input type (torch.cuda.FloatTensor) and weight type (torch.cuda.HalfTensor) should be the same
+```
+
+Root cause:
+
+- `s3gen.embed_ref()` calls `speaker_encoder.inference(...)`
+- `speaker_encoder.inference()` internally casts speech back to `torch.float32`
+- v133 had converted `speaker_encoder` weights to `torch.float16`
+- reference conditioning therefore failed during `prepare_conditionals()` before synthesis could run
+
+v134 correction:
+
+- keep `self._model.s3gen.speaker_encoder` in `torch.float32`
+- keep T3 in fp16 for the experiment
+- keep the rest of S3Gen render path in fp16
+- cast prepared floating conditionals/ref_dict tensors to the active render precision after `prepare_conditionals()`
+
+Expected behavior after v134:
+
+- conditioning extraction remains fp32-compatible
+- generated render path can still test fp16 T3/S3Gen memory/speed behavior
+- fp16 cache identities remain isolated from fp32
+
+Important first v133 finding:
+
+- VRAM dropped from roughly `3876 MiB` to `3066 MiB`
+- fp16 T3 compile/warmup was much slower on first run (`~146s` vs `~43s` in fp32), likely due fresh dtype-specific compile path
+- do not judge steady-state fp16 speed until v134 successfully renders and a second restart/cache-warm run is tested
+
+
+## v135 Precision Correction — Monkey Patch Root Cause
+
+v134 kept `s3gen.speaker_encoder` in fp32 to avoid v133 crash. That worked around the symptom but left part of S3Gen unconverted.
+
+v135 fixes the root dtype mismatch by monkey-patching CAMPPlus/xvector `speaker_encoder.inference()`:
+
+- feature extraction input is forced to fp32 so torchaudio FFT/mel work avoids ComplexHalf paths
+- extracted feature tensor is then cast to the speaker encoder parameter dtype/device before `forward()`
+- this allows the speaker encoder weights to be fp16 along with the rest of S3Gen
+
+This preserves fp16 cache isolation from v133 (`prec:fp16` in conditioning/cache/tail-token identity).
+
+Expected result: no `FloatTensor input vs HalfTensor weight` crash during `prepare_conditionals()`. Second-run timing is required before judging speed because fp16 uses separate torch.compile/cache paths.
+
+
+## v136 fp16 SourceModuleHnNSF dtype patch
+
+The v135 fp16 monkey patch fixed `speaker_encoder.inference()` but exposed the next fp16 mismatch in HiFT-GAN:
+
+```text
+expected mat1 and mat2 to have the same dtype, but got: float != c10::Half
+... hifigan.py line 279: sine_merge = self.l_tanh(self.l_linear(sine_wavs))
+```
+
+Root cause: stock `SourceModuleHnNSF.forward()` lets generated sine/uv tensors remain fp32, then passes `sine_wavs` into `l_linear`. That works for fp32 weights, but fails when HiFT-GAN is converted to fp16.
+
+v136 monkey patches `SourceModuleHnNSF.forward()` so source generation can remain stable, then casts `sine_wavs` and `uv` to `l_linear.weight` dtype/device before trainable HiFT-GAN layers consume them. This fixes the core boundary instead of reverting HiFT-GAN to fp32.
+
+## v137 fp16 HiFT-GAN decode dtype patch
+
+v136 fixed the source-generator `l_linear` dtype boundary but exposed the next fp16 mismatch in HiFT-GAN decode:
+
+```text
+Input type (float) and bias type (c10::Half) should be the same
+... hifigan.py line 425: si = self.source_downs[i](s_stft)
+```
+
+Root cause: `decode()` builds `s_stft` through `torch.stft()`. That path produces fp32/complex64-derived tensors even when the surrounding HiFT-GAN layers are fp16. The fp32 `s_stft` was then fed directly into fp16 `source_downs` Conv1d layers.
+
+v137 monkey patches `HiFTGenerator.decode()` so:
+
+- STFT/ISTFT math remains fp32 for operator support and numerical stability.
+- `x` is cast to `conv_pre.weight` dtype/device before trainable conv layers.
+- `s_stft` is cast to each `source_downs[i].weight` dtype/device before the fp16 source-down conv.
+- source residual output is cast to `x` dtype/device before fusion.
+- final ISTFT receives fp32 magnitude/phase and returns fp32 waveform.
+
+This continues the strategy: fix dtype boundaries at trainable-layer inputs instead of reverting whole submodules to fp32.
+
+## v138 Quality-safe mixed precision baseline
+
+v137 successfully rendered in full fp16 mode, but audio quality was not acceptable. The output was recognizable but choppy/cut off, suggesting HiFT-GAN/S3Gen full fp16 changes waveform generation behavior even when dtype mismatches are patched.
+
+v138 changes the recommended fp16 path:
+
+- `RRV_CB_PRECISION=fp16` now maps to effective `t3_fp16`.
+- T3 runs in fp16 because it is the hot autoregressive loop and showed strong speed improvement (`~8.5 ms/token` vs `~12.7-13 ms/token` in fp32 tests).
+- S3Gen / HiFT-GAN / vocoder remains fp32 to preserve audio quality.
+- Conditioning cache, server OGG cache, and tail-token sidecars use the effective precision key (`t3_fp16`) so mixed-mode output does not collide with prior full-fp16 or fp32 artifacts.
+- Full S3Gen fp16 is retained only as explicit `RRV_CB_PRECISION=fp16_full` for future investigation.
+
+Expected usage:
+
+```bash
+RRV_CB_PRECISION=fp16      # quality-safe mixed mode: T3 fp16, S3Gen fp32
+RRV_CB_PRECISION=t3_fp16  # same explicit mode
+RRV_CB_PRECISION=fp16_full # experimental, known bad audio in v137
+```
+
+Future model-file conversion work should start from `t3_fp16` behavior, not full-S3Gen fp16, unless the vocoder quality issue is solved separately.
+
+
+## v139 — Canonical precision identity fix
+
+`RRV_CB_PRECISION=fp16` is a user-facing alias for the quality-safe mixed mode where T3 runs fp16 and S3Gen/HiFT-GAN remain fp32. Cache identity must not store this as plain `fp16`, because `fp16_full` is a different render mode with different audio characteristics.
+
+Current canonical precision identity rules:
+
+- `fp32` → no precision suffix, preserving existing fp32 cache compatibility.
+- `fp16` → `t3_fp16` for all server OGG cache keys, client-composed cache keys, conditioning cache keys, and tail-token sidecar guards.
+- `t3_fp16` → `t3_fp16`.
+- `fp16_full` → `fp16_full`.
+- `fp8` → reserved/unsupported; must not silently share cache with any other mode.
+
+This removes ambiguity from logs and cache keys. A route log/cache key ending in `.t3_fp16` means quality-safe mixed precision, not full fp16.
+
+
+## v140 — Precision identity comments clarified
+
+No runtime behavior changed.  The canonical precision helper was expanded with user-facing comments so future readers understand the distinction between requested precision and effective render precision.
+
+Important rule:
+
+- `RRV_CB_PRECISION=fp16` is a user-friendly alias for `t3_fp16`, not full-fp16 rendering.
+- `t3_fp16` means T3/token generation uses fp16 while S3Gen / HiFT-GAN / vocoder stay fp32 for quality.
+- `fp16_full` is the explicit full-fp16 experiment and remains separate because it produced recognizable but choppy/bad audio.
+- `fp32` keeps the historical no-suffix cache identity for backward compatibility.
+- `fp8` is a reserved unsupported experiment identity, not a working runtime mode.
+
+Cache identity must always use the canonical value, not the raw environment variable, so mixed precision, full fp16, fp32, and future fp8 experiments cannot reuse each other's OGG cache entries, conditioning cache entries, or tail-token sidecars.
+
+
+## v141 — CPU-load precision move experiment
+
+Added `RRV_CB_LOAD_STRATEGY=cpu_precision_gpu` as an opt-in loader experiment.
+
+Purpose: reduce peak GPU memory/load pressure, not necessarily steady-state VRAM.
+The stock Chatterbox loader moves each fp32 module to CUDA during `from_local()`, then our runtime precision policy converts selected modules. That can create a transient fp32-on-GPU window.
+
+`cpu_precision_gpu` mirrors the Chatterbox loader but loads each major module on CPU, applies its final intended dtype, moves that finalized module to GPU, releases the CPU state dict, then proceeds to the next module.
+
+Current final dtype policy remains unchanged:
+
+- `fp32`: all modules fp32.
+- `t3_fp16`: T3 fp16, S3Gen / HiFT-GAN / vocoder fp32. This is current recommended quality-safe mixed mode.
+- `fp16_full`: T3 and S3Gen fp16. This remains experimental and produced bad/choppy audio in earlier testing.
+
+Use:
+
+```bash
+RRV_CB_PRECISION=fp16          # alias for t3_fp16
+RRV_CB_LOAD_STRATEGY=cpu_precision_gpu
+```
+
+Expected logs:
+
+```text
+Chatterbox load strategy: cpu_precision_gpu starting — device=cuda t3_dtype=torch.float16 s3gen_dtype=torch.float32
+Chatterbox load strategy: cpu_precision_gpu complete
+Chatterbox precision: t3_fp16 applied during CPU-load strategy
+```
+
+Compare against direct loader for:
+
+- startup peak VRAM, via nvidia-smi while loading
+- final `vram_used_mib` in worker ready log
+- startup time
+- steady render timing
+
+If final `vram_used_mib` is the same, experiment still may be useful by reducing peak load spikes. If startup time grows too much, direct loader may remain better for normal use.
+
+
+## v142 — Runtime profile and VRAM checkpoints
+
+No render behavior changed.  Added diagnostics so future work starts from measured facts instead of reconstructing from chat history.
+
+New startup diagnostics:
+
+- `Chatterbox VRAM checkpoint: ...`
+  - logged around model-load milestones and warmup milestones
+  - values are PyTorch allocator stats:
+    - `allocated` = live tensors tracked by PyTorch
+    - `reserved` = CUDA caching allocator pool held by PyTorch
+    - `peak_allocated` = peak live allocation since the last reset or process start
+  - checkpoints are intended to compare `direct` vs `cpu_precision_gpu` load strategies and catch peak-load regressions.
+
+- `Chatterbox runtime profile: ...`
+  - one summary line after warmups
+  - includes canonical precision, requested precision, load strategy, EOS interval, sidecar mode, StaticCache state, T3 dtype, and S3Gen dtype.
+
+Observed best profile from v141 testing:
+
+```text
+RRV_CB_PRECISION=fp16          # canonical/effective precision: t3_fp16
+RRV_CB_LOAD_STRATEGY=cpu_precision_gpu
+RRV_T3_EOS_CHECK_INTERVAL=16
+RRV_CB_TAIL_SIDECAR_WRITE=defer
+```
+
+Observed results on RTX 3080 test host:
+
+- fp32 baseline final worker VRAM was about `3876 MiB`.
+- `t3_fp16` with direct loader was about `3162 MiB`.
+- `t3_fp16 + cpu_precision_gpu` was about `2536 MiB`.
+- That is about `1340 MiB` less than the fp32 baseline.
+- T3 steady-state token loop stayed near `8.5 ms/token` in `t3_fp16` mode.
+- Audio quality was good with S3Gen / HiFT-GAN kept fp32.
+- Full `fp16_full` still produced bad/choppy audio and remains experimental only.
+
+Future precision work should start from the v141/v142 profile above unless a newer measured profile supersedes it.
+
+
+## v143 T3 compile mode experiment
+
+Added `RRV_T3_COMPILE_MODE` for testing whether PyTorch `reduce-overhead` helps now that `t3_fp16` moved the bottleneck away from pure GPU math toward CPU/kernel-launch overhead.
+
+Supported values:
+
+```env
+RRV_T3_COMPILE_MODE=default          # proven baseline
+RRV_T3_COMPILE_MODE=reduce-overhead  # experiment: may use CUDA graphs / lower launch overhead
+RRV_T3_COMPILE_MODE=max-autotune     # exposed only for experiments; may be slower/heavier
+```
+
+Current recommended test profile:
+
+```env
+RRV_CB_PRECISION=fp16                # canonicalizes to t3_fp16
+RRV_CB_LOAD_STRATEGY=cpu_precision_gpu
+RRV_T3_EOS_CHECK_INTERVAL=16
+RRV_CB_TAIL_SIDECAR_WRITE=defer
+RRV_T3_COMPILE_MODE=reduce-overhead
+RRV_CB_TIMING=1
+RRV_CB_TIMING_DETAIL=1
+```
+
+Compare against `RRV_T3_COMPILE_MODE=default` using:
+
+- `Chatterbox T3 timing: total=... loop=... avg_step=...`
+- `Chatterbox T3 detail: tfmr_forward=...`
+- VRAM checkpoints and runtime profile line
+- startup/warmup time
+- audio correctness
+
+Do not assume `reduce-overhead` is better. It can increase VRAM and compile/warmup time, and it can fail or underperform with dynamic shapes/control flow. Keep `default` as fallback.
+
+## v144: StaticCache kill-switch for throwaway compile-mode experiments
+
+Added a real `RRV_T3_STATIC_CACHE` switch. Before v144, `RRV_T3_STATIC_CACHE=0` did nothing; only `RRV_T3_STATIC_CACHE_LEN` existed. StaticCache was enabled automatically when `transformers.cache_utils.StaticCache` imported successfully.
+
+Current behavior:
+
+```env
+RRV_T3_STATIC_CACHE=1    # default, proven path
+RRV_T3_STATIC_CACHE=0    # disables StaticCache; experimental DynamicCache/standard cache path
+```
+
+Reason: `RRV_T3_COMPILE_MODE=reduce-overhead` failed because CUDA graph capture disliked StaticCache's in-place KV cache mutation (`index_copy_` inside `past_key_values.update`). Disabling StaticCache may let reduce-overhead run, but it may also be slower or less stable. Treat this as a throwaway test only.
+
+Recommended production path remains:
+
+```env
+RRV_CB_PRECISION=fp16              # canonicalizes to t3_fp16
+RRV_CB_LOAD_STRATEGY=cpu_precision_gpu
+RRV_T3_COMPILE_MODE=default
+RRV_T3_STATIC_CACHE=1
+RRV_T3_EOS_CHECK_INTERVAL=16
+RRV_CB_TAIL_SIDECAR_WRITE=defer
+```
+
+Throwaway test profile:
+
+```env
+RRV_T3_COMPILE_MODE=reduce-overhead
+RRV_T3_STATIC_CACHE=0
+```
+
+Pass/fail criteria: backend must not crash; compare `avg_step`, `tfmr_forward`, T3 total, VRAM checkpoints, and audio quality against default compile + StaticCache.

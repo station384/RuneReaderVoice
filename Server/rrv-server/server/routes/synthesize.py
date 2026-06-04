@@ -32,6 +32,7 @@
 from __future__ import annotations
 
 import logging
+import os
 import time
 from pathlib import Path
 from typing import Optional
@@ -42,7 +43,7 @@ from pydantic import BaseModel, Field, field_validator
 
 from ..backends.base import SynthesisRequest
 from ..text_normalize import normalize as normalize_text
-from ..cache import compute_cache_key, blend_voice_identity, compose_server_cache_key
+from ..cache import compute_cache_key, blend_voice_identity, compose_server_cache_key, normalize_render_precision
 from ..utils import compute_file_hash
 from ..samples import (resolve_sample_path, resolve_sample,
                         resolve_sample_path_for_provider, resolve_sample_for_provider)
@@ -208,6 +209,8 @@ async def synthesize(body: SynthesizeRequest, request: Request) -> Response:
     if resolved_seed is None:
         resolved_seed = settings.default_synthesis_seed
 
+    render_precision = normalize_render_precision(body.provider_id, os.environ.get("RRV_CB_PRECISION", "fp32"))
+
     # 4b. Normalize text for TTS (WoW-specific + wetext English TN)
     normalized_text = normalize_text(body.text)
     if normalized_text != body.text:
@@ -217,7 +220,7 @@ async def synthesize(body: SynthesizeRequest, request: Request) -> Response:
     # voice_instruct affects output — include in cache key via voice_context
 
     if body.cache_key:
-        cache_key = compose_server_cache_key(body.cache_key, asset_fingerprint)
+        cache_key = compose_server_cache_key(body.cache_key, asset_fingerprint, render_precision)
     else:
         cache_key = compute_cache_key(
             text=normalized_text,
@@ -244,6 +247,7 @@ async def synthesize(body: SynthesizeRequest, request: Request) -> Response:
             lux_num_steps=body.lux_num_steps,
             lux_t_shift=body.lux_t_shift,
             lux_return_smooth=body.lux_return_smooth,
+            render_precision=render_precision,
         )
 
     # ── Input metrics — computed once from the normalized text ────────────────

@@ -213,6 +213,322 @@ class ChatterboxFullBackend(AbstractTtsBackend):
             self._tail_sidecar_mode = "defer"
         self._tail_sidecar_executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="rrv-cb-tail-sidecar")
 
+        # Render precision experiment. This affects model weights, conditionals,
+        # output cache identity, conditioning cache identity, and tail-token sidecars.
+        # Supported effective modes: fp32 (default), fp16. fp8 is recognized but
+        # intentionally fails fast because the current Chatterbox/PyTorch op stack
+        # does not support blanket float8 module inference safely.
+        self._requested_precision = os.environ.get("RRV_CB_PRECISION", "fp32").strip().lower() or "fp32"
+        if self._requested_precision not in {"fp32", "fp16", "t3_fp16", "fp16_full", "fp8"}:
+            log.warning("Chatterbox precision: unsupported RRV_CB_PRECISION=%r; using fp32", self._requested_precision)
+            self._requested_precision = "fp32"
+        # fp16 now means the quality-safe mixed mode: T3 in fp16, S3Gen/HiFT-GAN in fp32.
+        # Full S3Gen/HiFT-GAN fp16 is retained only as an explicit experiment because it
+        # produced recognizable but choppy/cut-off audio during testing.
+        self._render_precision = "t3_fp16" if self._requested_precision == "fp16" else self._requested_precision
+
+        # Model load strategy experiment. The stock Chatterbox loader can move
+        # each model to CUDA immediately after loading fp32 weights. For mixed
+        # precision this can create a higher peak VRAM window than necessary:
+        # fp32 tensors reach the GPU, then selected modules are converted.
+        #
+        # cpu_precision_gpu loads each major model on CPU, applies the desired
+        # precision for that module, moves only that finalized module to GPU,
+        # then releases the CPU state dict before loading the next module. This
+        # targets peak VRAM/load pressure only; steady-state VRAM is governed by
+        # the final module dtypes.
+        #
+        # Values:
+        #   direct            = use ChatterboxTTS.from_local as before
+        #   cpu_precision_gpu = CPU load -> convert selected precision -> GPU per module
+        self._load_strategy = os.environ.get("RRV_CB_LOAD_STRATEGY", "direct").strip().lower() or "direct"
+        if self._load_strategy not in {"direct", "cpu_precision_gpu"}:
+            log.warning("Chatterbox load strategy: unsupported RRV_CB_LOAD_STRATEGY=%r; using direct", self._load_strategy)
+            self._load_strategy = "direct"
+
+    def _target_float_dtype(self):
+        import torch
+        if self._render_precision in {"fp16", "t3_fp16", "fp16_full"}:
+            return torch.float16
+        return torch.float32
+
+    def _t3_float_dtype(self):
+        import torch
+        if self._render_precision in {"t3_fp16", "fp16_full"}:
+            return torch.float16
+        return torch.float32
+
+    def _s3gen_float_dtype(self):
+        import torch
+        if self._render_precision == "fp16_full":
+            return torch.float16
+        return torch.float32
+
+    def _move_model_to_target_device(self) -> None:
+        """Move already-loaded model modules to final device/dtypes.
+
+        Used by the CPU-load strategy after modules are loaded/converted on CPU.
+        The stock direct strategy reaches the same final state through
+        ChatterboxTTS.from_local(..., cuda) followed by _apply_model_precision().
+        """
+        if self._model is None:
+            return
+        import torch
+        device = self._torch_device
+        if hasattr(self._model, "ve") and self._model.ve is not None:
+            self._model.ve.to(device=device).eval()
+        if hasattr(self._model, "t3") and self._model.t3 is not None:
+            self._model.t3.to(device=device, dtype=self._t3_float_dtype()).eval()
+        if hasattr(self._model, "s3gen") and self._model.s3gen is not None:
+            self._model.s3gen.to(device=device, dtype=self._s3gen_float_dtype()).eval()
+        if getattr(self._model, "conds", None) is not None:
+            try:
+                t3_cond, gen_dict = self._cond_to_device(self._model.conds.t3, self._model.conds.gen)
+                from chatterbox.tts import Conditionals
+                self._model.conds = Conditionals(t3_cond, gen_dict)
+            except Exception as e:
+                log.warning("Chatterbox load strategy: failed to move built-in conditionals to target precision (%s)", e)
+        self._model.device = device
+
+    def _free_load_intermediate(self, name: str = "") -> None:
+        """Drop temporary loader memory between major model parts."""
+        import gc
+        gc.collect()
+        try:
+            import torch
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
+        except Exception:
+            pass
+
+    def _log_vram_checkpoint(self, label: str, *, reset_peak: bool = False) -> None:
+        """Log CUDA memory at important load/warmup checkpoints.
+
+        Purpose: make model-load experiments self-contained in logs.  The worker
+        ready capability line reports final VRAM, but it does not show load-path
+        behavior.  These checkpoints let us compare direct loading vs
+        cpu_precision_gpu without needing to guess where memory moved.
+
+        Values are PyTorch allocator numbers, not total process VRAM from NVML:
+        - allocated = live tensors tracked by PyTorch
+        - reserved  = CUDA caching allocator pool held by PyTorch
+        - peak      = max allocated since last reset or process start
+
+        `reset_peak=True` starts a fresh peak window after the checkpoint is
+        logged.  Use it at the beginning of load/warmup phases.
+        """
+        try:
+            import torch
+            if not torch.cuda.is_available() or not str(self._torch_device).startswith("cuda"):
+                return
+            device = torch.device(self._torch_device)
+            allocated = torch.cuda.memory_allocated(device) / (1024 * 1024)
+            reserved = torch.cuda.memory_reserved(device) / (1024 * 1024)
+            peak = torch.cuda.max_memory_allocated(device) / (1024 * 1024)
+            log.info(
+                "Chatterbox VRAM checkpoint: %s allocated=%.1fMiB reserved=%.1fMiB peak_allocated=%.1fMiB",
+                label, allocated, reserved, peak,
+            )
+            if reset_peak:
+                torch.cuda.reset_peak_memory_stats(device)
+        except Exception as e:
+            log.debug("Chatterbox VRAM checkpoint failed for %s: %s", label, e)
+
+    def _log_runtime_profile(self) -> None:
+        """One-line runtime profile for future diagnostics/new chat context."""
+        static_cache = bool(self._static_cache is not None)
+        try:
+            import torch
+            t3_dtype = getattr(next(self._model.t3.parameters()), "dtype", "unknown") if self._model and getattr(self._model, "t3", None) is not None else "none"
+            s3_dtype = getattr(next(self._model.s3gen.parameters()), "dtype", "unknown") if self._model and getattr(self._model, "s3gen", None) is not None else "none"
+        except Exception:
+            t3_dtype = "unknown"
+            s3_dtype = "unknown"
+        self._log_vram_checkpoint("runtime-profile")
+        log.info(
+            "Chatterbox runtime profile: precision=%s requested_precision=%s load_strategy=%s "
+            "eos_interval=%s sidecar=%s static_cache=%s t3_compile_mode=%s t3_dtype=%s s3gen_dtype=%s",
+            self._render_precision,
+            self._requested_precision,
+            self._load_strategy,
+            os.environ.get("RRV_T3_EOS_CHECK_INTERVAL", "16"),
+            self._tail_sidecar_mode,
+            static_cache,
+            os.environ.get("RRV_T3_COMPILE_MODE", "default"),
+            t3_dtype,
+            s3_dtype,
+        )
+
+    def _load_chatterbox_cpu_precision_gpu(self, local_model_dir):
+        """Load Chatterbox with lower peak GPU pressure.
+
+        This mirrors chatterbox.tts.ChatterboxTTS.from_local(), but avoids
+        moving fp32 modules to CUDA before the requested precision is applied.
+        Each module is loaded on CPU, converted to its final dtype, moved to GPU,
+        then the CPU state dict is released before the next module loads.
+        """
+        from pathlib import Path as _Path
+        import torch
+        from safetensors.torch import load_file
+        from chatterbox.tts import ChatterboxTTS, Conditionals, T3, S3Gen, VoiceEncoder, EnTokenizer
+
+        ckpt_dir = _Path(local_model_dir)
+        device = self._torch_device
+        t3_dtype = self._t3_float_dtype()
+        s3_dtype = self._s3gen_float_dtype()
+
+        log.info(
+            "Chatterbox load strategy: cpu_precision_gpu starting — device=%s t3_dtype=%s s3gen_dtype=%s",
+            device, t3_dtype, s3_dtype,
+        )
+        self._log_vram_checkpoint("load-start cpu_precision_gpu", reset_peak=True)
+
+        ve = VoiceEncoder()
+        ve_state = load_file(ckpt_dir / "ve.safetensors", device="cpu")
+        ve.load_state_dict(ve_state)
+        del ve_state
+        ve.to(device=device).eval()
+        self._free_load_intermediate("ve")
+        self._log_vram_checkpoint("after VoiceEncoder load")
+
+        t3 = T3()
+        t3_state = load_file(ckpt_dir / "t3_cfg.safetensors", device="cpu")
+        if "model" in t3_state.keys():
+            t3_state = t3_state["model"][0]
+        t3.load_state_dict(t3_state)
+        del t3_state
+        t3.to(dtype=t3_dtype)
+        t3.to(device=device).eval()
+        self._free_load_intermediate("t3")
+        self._log_vram_checkpoint("after T3 load")
+
+        s3gen = S3Gen()
+        s3_state = load_file(ckpt_dir / "s3gen.safetensors", device="cpu")
+        s3gen.load_state_dict(s3_state, strict=False)
+        del s3_state
+        s3gen.to(dtype=s3_dtype)
+        s3gen.to(device=device).eval()
+        self._free_load_intermediate("s3gen")
+        self._log_vram_checkpoint("after S3Gen load")
+
+        tokenizer = EnTokenizer(str(ckpt_dir / "tokenizer.json"))
+
+        conds = None
+        builtin_voice = ckpt_dir / "conds.pt"
+        if builtin_voice.exists():
+            conds = Conditionals.load(builtin_voice, map_location="cpu")
+            t3_cond, gen_dict = self._cond_to_device(conds.t3, conds.gen)
+            conds = Conditionals(t3_cond, gen_dict)
+            self._free_load_intermediate("conds")
+            self._log_vram_checkpoint("after built-in conditionals load")
+
+        model = ChatterboxTTS(t3, s3gen, ve, tokenizer, device, conds=conds)
+        self._log_vram_checkpoint("load-complete cpu_precision_gpu")
+        log.info("Chatterbox load strategy: cpu_precision_gpu complete")
+        return model
+
+    def _tensor_to_device_precision(self, value):
+        import torch
+        if not torch.is_tensor(value):
+            return value
+        if value.is_floating_point():
+            return value.to(device=self._torch_device, dtype=self._target_float_dtype())
+        return value.to(device=self._torch_device)
+
+    def _apply_model_precision(self) -> None:
+        import torch
+        if self._model is None:
+            return
+        if self._render_precision == "fp32":
+            log.info("Chatterbox precision: fp32 (default)")
+            return
+        if self._render_precision == "fp8":
+            # PyTorch exposes float8 dtypes on some builds, but most transformer,
+            # sampling, and HiFT-GAN ops used here cannot run from naive .to(fp8).
+            # Failing fast is safer than silently producing fp32 audio under an fp8
+            # cache key or corrupting tail-token/conditioning reuse.
+            raise RuntimeError(
+                "RRV_CB_PRECISION=fp8 requested, but fp8 Chatterbox inference is not "
+                "implemented safely. Use fp16 for this experiment. Future fp8 work "
+                "needs explicit quantization/autocast support, not blanket module casts."
+            )
+        if self._render_precision == "t3_fp16":
+            # Quality-safe mixed precision: T3 is the hot autoregressive loop and
+            # benefits from fp16. S3Gen/HiFT-GAN stays fp32 because full fp16 audio
+            # tested recognizable but choppy/cut-off, with multiple dtype islands
+            # in the vocoder/source/STFT path.
+            if hasattr(self._model, "t3") and self._model.t3 is not None:
+                self._model.t3.to(dtype=torch.float16)
+            if hasattr(self._model, "s3gen") and self._model.s3gen is not None:
+                self._model.s3gen.to(dtype=torch.float32)
+            log.info("Chatterbox precision: t3_fp16 enabled — T3 fp16, S3Gen/HiFT-GAN fp32 for audio quality")
+            return
+
+        if self._render_precision == "fp16_full":
+            # Full fp16 experiment. This is retained for future investigation, but
+            # is not the recommended fp16 mode because it produced bad audio in v137.
+            self._patch_s3gen_speaker_encoder_inference()
+            if hasattr(self._model, "t3") and self._model.t3 is not None:
+                self._model.t3.to(dtype=torch.float16)
+            if hasattr(self._model, "s3gen") and self._model.s3gen is not None:
+                self._model.s3gen.to(dtype=torch.float16)
+            log.info("Chatterbox precision: fp16_full enabled for T3 + S3Gen including speaker_encoder (experimental)")
+            return
+
+    def _patch_s3gen_speaker_encoder_inference(self) -> None:
+        """Patch CAMPPlus/xvector inference to be dtype-correct for fp16 runs.
+
+        Stock Chatterbox forces xvector features to torch.float32 right before
+        forward(). That is valid only when speaker_encoder weights stay fp32. In
+        fp16 mode it creates FloatTensor input vs HalfTensor weight failures in
+        Conv2d. We keep feature extraction itself fp32 for stability, then cast
+        the extracted feature tensor to the module's actual parameter dtype and
+        device before forward().
+        """
+        if self._model is None or not hasattr(self._model, "s3gen"):
+            return
+        speaker_encoder = getattr(self._model.s3gen, "speaker_encoder", None)
+        if speaker_encoder is None or getattr(speaker_encoder, "_rrv_dtype_patched", False):
+            return
+
+        import types as _types
+        import torch as _torch
+
+        original_inference = getattr(speaker_encoder, "inference", None)
+        if original_inference is None:
+            return
+        extract_feature = original_inference.__func__.__globals__.get("extract_feature")
+        if extract_feature is None:
+            log.warning("Chatterbox precision: unable to patch speaker_encoder.inference; extract_feature not found")
+            return
+
+        def _rrv_inference(self_encoder, audio_list):
+            # Feature extraction should remain fp32; fp16 FFT/mel paths are both
+            # slower and less widely supported. Handle tensor and simple list/tuple
+            # inputs without assuming Chatterbox internals will stay unchanged.
+            if _torch.is_tensor(audio_list):
+                feature_audio = audio_list.to(dtype=_torch.float32)
+            elif isinstance(audio_list, (list, tuple)):
+                feature_audio = [x.to(dtype=_torch.float32) if _torch.is_tensor(x) else x for x in audio_list]
+            else:
+                feature_audio = audio_list
+
+            speech, speech_lengths, speech_times = extract_feature(feature_audio)
+
+            try:
+                p = next(self_encoder.parameters())
+                target_device = p.device
+                target_dtype = p.dtype if p.is_floating_point() else _torch.float32
+            except StopIteration:
+                target_device = speech.device
+                target_dtype = _torch.float32
+
+            return self_encoder.forward(speech.to(device=target_device, dtype=target_dtype))
+
+        speaker_encoder.inference = _types.MethodType(_rrv_inference, speaker_encoder)
+        speaker_encoder._rrv_dtype_patched = True
+        log.info("Chatterbox precision: patched S3Gen speaker_encoder.inference for dtype-correct fp16")
+
     def _voice_group_key(self, request: SynthesisRequest) -> str:
         sample_key = str(request.sample_path.resolve()) if request.sample_path is not None else ""
         lang_key   = request.lang_code or ""
@@ -374,9 +690,10 @@ class ChatterboxFullBackend(AbstractTtsBackend):
             self._voice_cond = asyncio.Condition()
         loop = asyncio.get_event_loop()
         await loop.run_in_executor(None, self._load_sync)
+        self._log_vram_checkpoint("after model load", reset_peak=True)
         log.info(
-            "Chatterbox loaded: model_version=%s device=%s",
-            self._model_version, self._torch_device,
+            "Chatterbox loaded: model_version=%s device=%s precision=%s",
+            self._model_version, self._torch_device, self._render_precision,
         )
         # Warm up only what must be hydrated in this process.
         #
@@ -390,14 +707,19 @@ class ChatterboxFullBackend(AbstractTtsBackend):
         # compile campaign every boot. Use one representative S3Gen probe plus one full
         # mini render to hydrate the process.
         await loop.run_in_executor(None, self._warmup_librosa)
+        self._log_vram_checkpoint("after librosa warmup")
         import os
         if os.environ.get("RRV_T3_COMPILE", "1") == "1":
             await loop.run_in_executor(None, self._warmup_t3_compile)
+            self._log_vram_checkpoint("after T3 compile warmup")
         if os.environ.get("RRV_S3GEN_COMPILE", "0") == "1":
             await loop.run_in_executor(None, self._warmup_s3gen_compile)
+            self._log_vram_checkpoint("after S3Gen compile warmup")
 
         if os.environ.get("RRV_CB_FIRST_RENDER_WARMUP", "1") == "1":
             await loop.run_in_executor(None, self._warmup_first_render_path)
+            self._log_vram_checkpoint("after first-render warmup")
+        self._log_runtime_profile()
 
     def _warmup_librosa(self) -> None:
         """
@@ -440,12 +762,13 @@ class ChatterboxFullBackend(AbstractTtsBackend):
             device = self._torch_device
             dim = self._model.t3.hp.n_channels
             # Minimal dummy T3Cond — zero speaker embedding
+            float_dtype = self._t3_float_dtype()
             dummy_t3_cond = T3Cond(
-                speaker_emb=torch.zeros(1, 1, 256, device=device),
+                speaker_emb=torch.zeros(1, 1, 256, device=device, dtype=float_dtype),
                 cond_prompt_speech_tokens=torch.zeros(
                     1, self._model.t3.hp.speech_cond_prompt_len,
                     dtype=torch.long, device=device),
-                emotion_adv=torch.tensor([[[0.5]]], device=device),
+                emotion_adv=torch.tensor([[[0.5]]], device=device, dtype=float_dtype),
             ).to(device=device)
             # Minimal text: SOT + one token + EOT
             hp = self._model.t3.hp
@@ -673,12 +996,25 @@ class ChatterboxFullBackend(AbstractTtsBackend):
 
         if local_model_dir.exists() and any(local_model_dir.iterdir()):
             log.info("Chatterbox: loading from %s", local_model_dir)
-            self._model = ChatterboxTTS.from_local(
-                str(local_model_dir),
-                self._torch_device,
-            )
             import torch as _torch
             _torch.set_float32_matmul_precision("high")
+
+            if self._load_strategy == "cpu_precision_gpu":
+                self._model = self._load_chatterbox_cpu_precision_gpu(local_model_dir)
+                # _load_chatterbox_cpu_precision_gpu already applied target
+                # module dtypes and moved each finalized module to GPU. Do not
+                # call _apply_model_precision() again; it would be redundant.
+                log.info("Chatterbox precision: %s applied during CPU-load strategy", self._render_precision)
+            else:
+                self._log_vram_checkpoint("load-start direct", reset_peak=True)
+                self._model = ChatterboxTTS.from_local(
+                    str(local_model_dir),
+                    self._torch_device,
+                )
+                self._log_vram_checkpoint("after ChatterboxTTS.from_local direct")
+                self._apply_model_precision()
+                self._log_vram_checkpoint("after precision apply direct")
+
             self._patch_mel_filters()
             self._patch_t3_hidden_states()
             self._patch_t3_inference()
@@ -786,6 +1122,111 @@ class ChatterboxFullBackend(AbstractTtsBackend):
             "Chatterbox: SineGen.forward patched — vectorized harmonic loop, "
             "harmonic_num=%d", sine_gen.harmonic_num,
         )
+
+        source_mod = s3gen.mel2wav.m_source
+        if not getattr(source_mod, "_rrv_dtype_patched", False):
+            def _patched_source_forward(self_src, x):
+                """dtype-safe SourceModuleHnNSF.forward for fp16 HiFT-GAN.
+
+                Stock HiFT-GAN lets F0/source synthesis stay fp32, then feeds
+                those fp32 sine waves into l_linear. That is fine when HiFT-GAN
+                weights are fp32, but crashes in fp16 mode with FloatTensor input
+                vs HalfTensor weights. Keep source generation numerically stable,
+                then cast the generated sine/uv tensors to l_linear's actual dtype
+                before trainable layers see them.
+                """
+                with _torch.no_grad():
+                    sine_wavs, uv, _ = self_src.l_sin_gen(x.transpose(1, 2))
+                    sine_wavs = sine_wavs.transpose(1, 2)
+                    uv = uv.transpose(1, 2)
+
+                try:
+                    target_weight = self_src.l_linear.weight
+                    target_device = target_weight.device
+                    target_dtype = target_weight.dtype
+                except Exception:
+                    target_device = sine_wavs.device
+                    target_dtype = sine_wavs.dtype
+
+                sine_wavs = sine_wavs.to(device=target_device, dtype=target_dtype)
+                uv = uv.to(device=target_device, dtype=target_dtype)
+
+                sine_merge = self_src.l_tanh(self_src.l_linear(sine_wavs))
+                noise = _torch.randn_like(uv) * self_src.sine_amp / 3
+                return sine_merge, noise, uv
+
+            source_mod.forward = types.MethodType(_patched_source_forward, source_mod)
+            source_mod._rrv_dtype_patched = True
+            log.info("Chatterbox: SourceModuleHnNSF.forward patched — dtype-safe source path")
+
+        mel2wav = s3gen.mel2wav
+        if not getattr(mel2wav, "_rrv_decode_dtype_patched", False):
+            import torch.nn.functional as _F
+
+            def _patched_hifigan_decode(self_hg, x: _torch.Tensor, s: _torch.Tensor = None) -> _torch.Tensor:
+                """dtype-safe HiFT-GAN decode for fp16.
+
+                Stock decode builds s_stft through torch.stft. That path returns
+                fp32/complex64 even when source/module weights are fp16, then
+                immediately feeds s_stft into source_downs fp16 Conv1d layers.
+                Cast only at trainable layer boundaries; leave STFT/ISTFT math in
+                fp32 where PyTorch has the best operator support.
+                """
+                if s is None:
+                    s = _torch.zeros(1, 1, 0, device=x.device, dtype=x.dtype)
+
+                s_stft_real, s_stft_imag = self_hg._stft(s.squeeze(1))
+                s_stft = _torch.cat([s_stft_real, s_stft_imag], dim=1)
+
+                try:
+                    conv_pre_weight = self_hg.conv_pre.weight
+                    x = x.to(device=conv_pre_weight.device, dtype=conv_pre_weight.dtype)
+                except Exception:
+                    pass
+
+                x = self_hg.conv_pre(x)
+                for i in range(self_hg.num_upsamples):
+                    x = _F.leaky_relu(x, self_hg.lrelu_slope)
+                    x = self_hg.ups[i](x)
+
+                    if i == self_hg.num_upsamples - 1:
+                        x = self_hg.reflection_pad(x)
+
+                    source_down = self_hg.source_downs[i]
+                    try:
+                        sd_weight = source_down.weight
+                        s_input = s_stft.to(device=sd_weight.device, dtype=sd_weight.dtype)
+                    except Exception:
+                        s_input = s_stft
+
+                    si = source_down(s_input)
+                    si = self_hg.source_resblocks[i](si)
+                    if si.dtype != x.dtype or si.device != x.device:
+                        si = si.to(device=x.device, dtype=x.dtype)
+                    x = x + si
+
+                    xs = None
+                    for j in range(self_hg.num_kernels):
+                        rb_out = self_hg.resblocks[i * self_hg.num_kernels + j](x)
+                        if xs is None:
+                            xs = rb_out
+                        else:
+                            xs = xs + rb_out
+                    x = xs / self_hg.num_kernels
+
+                x = _F.leaky_relu(x)
+                x = self_hg.conv_post(x)
+                magnitude = _torch.exp(x[:, :self_hg.istft_params["n_fft"] // 2 + 1, :])
+                phase = _torch.sin(x[:, self_hg.istft_params["n_fft"] // 2 + 1:, :])
+
+                # ISTFT is numerically safer and better supported in fp32.
+                out = self_hg._istft(magnitude.float(), phase.float())
+                out = _torch.clamp(out, -self_hg.audio_limit, self_hg.audio_limit)
+                return out
+
+            mel2wav.decode = types.MethodType(_patched_hifigan_decode, mel2wav)
+            mel2wav._rrv_decode_dtype_patched = True
+            log.info("Chatterbox: HiFT-GAN decode patched — dtype-safe STFT/source path")
 
         # ── Patch mask utility functions — eliminate GPU sync points ─────────
         # make_pad_mask calls lengths.max().item() which forces a CPU/GPU sync.
@@ -952,18 +1393,40 @@ class ChatterboxFullBackend(AbstractTtsBackend):
         if self._model is None:
             return
 
-        # ── Check StaticCache availability ────────────────────────────────────
-        try:
-            from transformers.cache_utils import StaticCache
-            has_static_cache = True
-        except ImportError:
+        # ── Check StaticCache availability / enable switch ─────────────────────
+        # RRV_T3_STATIC_CACHE is a real kill-switch for experiments. Default ON.
+        # StaticCache is the proven fast/stable path for default compile mode, but
+        # torch.compile(mode="reduce-overhead") tries CUDA graphs and can conflict
+        # with StaticCache's in-place KV-cache mutation. Set RRV_T3_STATIC_CACHE=0
+        # only for throwaway tests such as reduce-overhead + DynamicCache.
+        static_cache_env = os.environ.get("RRV_T3_STATIC_CACHE", "1").strip().lower()
+        static_cache_enabled = static_cache_env not in {"0", "false", "off", "no"}
+        if static_cache_enabled:
+            try:
+                from transformers.cache_utils import StaticCache
+                has_static_cache = True
+            except ImportError:
+                has_static_cache = False
+                log.warning(
+                    "Chatterbox: StaticCache not available (need transformers>=4.36) "
+                    "— falling back to DynamicCache."
+                )
+        else:
             has_static_cache = False
             log.warning(
-                "Chatterbox: StaticCache not available (need transformers>=4.36) "
-                "— falling back to DynamicCache."
+                "Chatterbox: StaticCache disabled by RRV_T3_STATIC_CACHE=%s — "
+                "using DynamicCache/standard cache path. This is experimental and may be slower.",
+                static_cache_env,
             )
 
         use_compile       = os.environ.get("RRV_T3_COMPILE", "1") == "1"
+        # T3 autoregressive decode is now partly CPU/launch-bound after t3_fp16.
+        # `default` is the proven baseline. `reduce-overhead` asks torch.compile
+        # to spend more memory/startup work reducing Python/kernel-launch overhead
+        # (often via CUDA graphs when the graph is capturable). Keep this as a
+        # knob because it can be fragile with dynamic control flow and may increase
+        # VRAM. Expected values: default, reduce-overhead, max-autotune.
+        t3_compile_mode   = os.environ.get("RRV_T3_COMPILE_MODE", "default").strip() or "default"
         static_cache_len  = int(os.environ.get("RRV_T3_STATIC_CACHE_LEN", "1400"))
         cfg_batch         = 2   # CFG always runs batch=2
 
@@ -1032,7 +1495,7 @@ class ChatterboxFullBackend(AbstractTtsBackend):
                 _orig_forward = t3.tfmr.forward
                 _compiled_forward = torch.compile(
                     _orig_forward,
-                    mode="default",
+                    mode=t3_compile_mode,
                     fullgraph=False,
                     dynamic=True,
                 )
@@ -1040,7 +1503,8 @@ class ChatterboxFullBackend(AbstractTtsBackend):
                 _tfmr = t3.tfmr
                 log.info(
                     "Chatterbox: LlamaModel.forward compiled with torch.compile "
-                    "mode=default dynamic=True"
+                    "mode=%s dynamic=True",
+                    t3_compile_mode,
                 )
             except Exception as e:
                 log.warning("Chatterbox: torch.compile failed (%s) — running uncompiled", e)
@@ -1386,8 +1850,8 @@ class ChatterboxFullBackend(AbstractTtsBackend):
         t3.inference = types.MethodType(_patched_inference, t3)
         log.info(
             "Chatterbox: T3 inference patched — "
-            "static_cache=%s compile=%s cache_len=%d",
-            has_static_cache, use_compile, static_cache_len,
+            "static_cache=%s static_cache_env=%s compile=%s compile_mode=%s cache_len=%d",
+            has_static_cache, static_cache_env, use_compile, t3_compile_mode, static_cache_len,
         )
 
     def _patch_mel_filters(self) -> None:
@@ -1738,7 +2202,7 @@ class ChatterboxFullBackend(AbstractTtsBackend):
     def _cond_key_single(self, sample_path, exaggeration: float) -> str:
         import hashlib
         h = hashlib.sha256(Path(str(sample_path)).read_bytes()).hexdigest()[:16]
-        return f"{h}|ex:{exaggeration:.3f}"
+        return f"{h}|ex:{exaggeration:.3f}|prec:{self._render_precision}"
 
     def _cond_key_blend(self, blend_entries: list[dict], exaggeration: float) -> str:
         import hashlib
@@ -1748,7 +2212,7 @@ class ChatterboxFullBackend(AbstractTtsBackend):
             for e in blend_entries if e.get("sample_path")
         )
         h = hashlib.sha256("|".join(parts).encode()).hexdigest()[:16]
-        return f"blend_{h}|ex:{exaggeration:.3f}"
+        return f"blend_{h}|ex:{exaggeration:.3f}|prec:{self._render_precision}"
 
     def _prior_voice_key(self, base_voice_key: str, request: SynthesisRequest, *,
                          cfg_weight: float, temperature: float, top_p: float,
@@ -1771,6 +2235,7 @@ class ChatterboxFullBackend(AbstractTtsBackend):
             f"{base_voice_key}"
             f"|provider:{self.provider_id}"
             f"|model:{model_version}"
+            f"|prec:{self._render_precision}"
             f"|cfg:{cfg_weight:.4f}"
             f"|temp:{temperature:.4f}"
             f"|top_p:{top_p:.4f}"
@@ -1803,12 +2268,16 @@ class ChatterboxFullBackend(AbstractTtsBackend):
     def _cond_to_device(self, t3_cond, gen_dict: dict):
         import torch
         from chatterbox.models.t3.modules.cond_enc import T3Cond
+        t3_dtype = self._t3_float_dtype()
+        s3_dtype = self._s3gen_float_dtype()
         t3_data = {
-            k: v.to(device=self._torch_device) if torch.is_tensor(v) else v
+            k: v.to(device=self._torch_device, dtype=t3_dtype) if torch.is_tensor(v) and v.is_floating_point()
+            else (v.to(device=self._torch_device) if torch.is_tensor(v) else v)
             for k, v in t3_cond.__dict__.items()
         }
         gen_device = {
-            k: v.to(device=self._torch_device) if torch.is_tensor(v) else v
+            k: v.to(device=self._torch_device, dtype=s3_dtype) if torch.is_tensor(v) and v.is_floating_point()
+            else (v.to(device=self._torch_device) if torch.is_tensor(v) else v)
             for k, v in gen_dict.items()
         }
         return T3Cond(**t3_data).to(device=self._torch_device), gen_device
@@ -1859,6 +2328,7 @@ class ChatterboxFullBackend(AbstractTtsBackend):
         try:
             self._cond_cache_dir.mkdir(parents=True, exist_ok=True)
             data = {
+                "precision": self._render_precision,
                 "t3": {k: v.detach().cpu() if torch.is_tensor(v) else v
                        for k, v in t3_cond.__dict__.items()},
                 "gen": {k: v.detach().cpu() if torch.is_tensor(v) else v
@@ -1878,11 +2348,16 @@ class ChatterboxFullBackend(AbstractTtsBackend):
         if not p.exists():
             return None
         try:
-            data = torch.load(p, map_location=self._torch_device, weights_only=True)
-            t3_cond = T3Cond(**data["t3"]).to(device=self._torch_device)
-            gen_dict = {k: v.to(device=self._torch_device) if torch.is_tensor(v) else v
-                        for k, v in data["gen"].items()}
-            log.info("Cond cache: disk HIT key=%s", cache_key[:20])
+            data = torch.load(p, map_location="cpu", weights_only=True)
+            file_precision = (data.get("precision") or "fp32").strip().lower() if isinstance(data, dict) else "fp32"
+            if file_precision != self._render_precision:
+                log.info("Cond cache: precision mismatch key=%s file=%s runtime=%s — ignoring",
+                         cache_key[:20], file_precision, self._render_precision)
+                return None
+            t3_cond_cpu = T3Cond(**data["t3"])
+            gen_dict_cpu = data["gen"]
+            t3_cond, gen_dict = self._cond_to_device(t3_cond_cpu, gen_dict_cpu)
+            log.info("Cond cache: disk HIT key=%s precision=%s", cache_key[:20], self._render_precision)
             # Clear any stale prior tokens for this key — disk load means
             # a new session; last session's acoustic context is irrelevant.
             self._prior_speech_tokens.pop(cache_key, None)
@@ -1917,7 +2392,8 @@ class ChatterboxFullBackend(AbstractTtsBackend):
         finally:
             try: os.unlink(tmp_path)
             except Exception: pass
-        t3_cond, gen_dict = self._model.conds.t3, self._model.conds.gen
+        t3_cond, gen_dict = self._cond_to_device(self._model.conds.t3, self._model.conds.gen)
+        self._model.conds.t3, self._model.conds.gen = t3_cond, gen_dict
         self._cond_mem_put(cache_key, t3_cond, gen_dict)
         self._cond_disk_save(cache_key, t3_cond, gen_dict)
         self._cond_sample_hash = cache_key
@@ -1937,7 +2413,8 @@ class ChatterboxFullBackend(AbstractTtsBackend):
             return hit
         log.info("Cond cache: MISS blend — computing conditionals key=%s", cache_key[:20])
         self._blend_conditionals_inner(blend_entries, exaggeration)
-        t3_cond, gen_dict = self._model.conds.t3, self._model.conds.gen
+        t3_cond, gen_dict = self._cond_to_device(self._model.conds.t3, self._model.conds.gen)
+        self._model.conds.t3, self._model.conds.gen = t3_cond, gen_dict
         self._cond_mem_put(cache_key, t3_cond, gen_dict)
         self._cond_disk_save(cache_key, t3_cond, gen_dict)
         return t3_cond, gen_dict
@@ -2018,6 +2495,7 @@ class ChatterboxFullBackend(AbstractTtsBackend):
                 "tokens": tail.cpu(),
                 "voice_key": voice_key,
                 "voice_context": voice_context,
+                "precision": self._render_precision,
             }, _sidecar_tmp)
             _sidecar_tmp.rename(_sidecar)
             if timing:
@@ -2166,6 +2644,10 @@ class ChatterboxFullBackend(AbstractTtsBackend):
                     tokens = payload.get('tokens')
                     sidecar_voice_key = payload.get('voice_key', '') or ''
                     sidecar_ctx = payload.get('voice_context', '') or ''
+                    sidecar_precision = (payload.get('precision') or 'fp32').strip().lower()
+                    if sidecar_precision != self._render_precision:
+                        log.debug("Tail token sidecar precision mismatch for %s — ignoring", cache_key[:12])
+                        return None, ""
                     if sidecar_voice_key and sidecar_voice_key != _voice_key:
                         log.debug("Tail token sidecar voice mismatch for %s — ignoring", cache_key[:12])
                         return None, ""

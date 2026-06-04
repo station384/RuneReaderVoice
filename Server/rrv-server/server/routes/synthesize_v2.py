@@ -39,6 +39,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import os
 import time
 import uuid
 from dataclasses import dataclass, field
@@ -58,7 +59,7 @@ class SynthesizeRequest(_SynthesizeRequestBase):
 from ..backends.base import SynthesisRequest
 from ..backends.audio import trim_ogg_tail_ms
 from ..text_normalize import normalize as normalize_text
-from ..cache import compute_cache_key, blend_voice_identity, compose_server_cache_key
+from ..cache import compute_cache_key, blend_voice_identity, compose_server_cache_key, normalize_render_precision
 from ..utils import compute_file_hash
 from ..samples import (resolve_sample_path, resolve_sample, _base_stem,
                         resolve_sample_path_for_provider, resolve_sample_for_provider)
@@ -317,11 +318,13 @@ async def synthesize_v2(body: SynthesizeRequest, request: Request) -> dict:
         resolved_seed = settings.default_synthesis_seed
 
 
+    render_precision = normalize_render_precision(body.provider_id, os.environ.get("RRV_CB_PRECISION", "fp32"))
+
     # Normalize text for TTS (WoW-specific + wetext English TN)
     normalized_text = normalize_text(body.text)
 
     if body.cache_key:
-        cache_key = compose_server_cache_key(body.cache_key, asset_fingerprint)
+        cache_key = compose_server_cache_key(body.cache_key, asset_fingerprint, render_precision)
     else:
         cache_key = compute_cache_key(
             text=normalized_text,
@@ -348,6 +351,7 @@ async def synthesize_v2(body: SynthesizeRequest, request: Request) -> dict:
             lux_num_steps=body.lux_num_steps,
             lux_t_shift=body.lux_t_shift,
             lux_return_smooth=body.lux_return_smooth,
+            render_precision=render_precision,
         )
 
     # 4. Check cache first. Then dedupe against active in-flight jobs using cache_key.
@@ -486,6 +490,8 @@ async def _process_one_segment(
     check cache, dispatch synthesis job.
     Returns the per-segment response dict.
     """
+    render_precision = normalize_render_precision(seg.provider_id, os.environ.get("RRV_CB_PRECISION", "fp32"))
+
     backend = registry.get(seg.provider_id)
     if backend is None:
         return {
@@ -560,7 +566,7 @@ async def _process_one_segment(
     normalized_text = normalize_text(seg.text)
 
     if seg.cache_key:
-        cache_key = compose_server_cache_key(seg.cache_key, asset_fingerprint)
+        cache_key = compose_server_cache_key(seg.cache_key, asset_fingerprint, render_precision)
     else:
         cache_key = compute_cache_key(
             text=normalized_text,
@@ -587,6 +593,7 @@ async def _process_one_segment(
             lux_num_steps=seg.lux_num_steps,
             lux_t_shift=seg.lux_t_shift,
             lux_return_smooth=seg.lux_return_smooth,
+            render_precision=render_precision,
         )
 
     input_chars = len(normalized_text)

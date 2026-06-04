@@ -435,6 +435,48 @@ def _norm_bool(value: bool | None) -> str:
     return "" if value is None else ("1" if value else "0")
 
 
+
+
+def normalize_render_precision(provider_id: str | None = None, requested_precision: str | None = None) -> str:
+    """Return the canonical render-precision identity used in cache keys.
+
+    This function intentionally separates the *user-facing setting* from the
+    *actual precision mode*.  A user may set ``RRV_CB_PRECISION=fp16`` because
+    that is the simple knob name, but the current safe implementation is not a
+    full fp16 renderer.  It is mixed precision: T3 runs fp16 for speed/VRAM,
+    while S3Gen / HiFT-GAN stay fp32 for audio quality.
+
+    Cache, conditioning, and tail-token sidecar identities must use the
+    canonical/effective mode below, not the raw env var.  Otherwise a future
+    full-fp16 experiment could reuse mixed-precision OGGs or token sidecars and
+    create hard-to-debug quality or continuation bugs.
+
+    Canonical values exposed in cache keys/logs:
+      - ``fp32``: baseline full-fp32 Chatterbox path.  This is the default and
+        intentionally has no cache-key suffix for backward compatibility with
+        existing fp32 cache entries.
+      - ``t3_fp16``: quality-safe mixed precision.  T3/AR token generation uses
+        fp16; S3Gen, HiFT-GAN, audio preprocessing, and vocoder output remain
+        fp32.  This is what ``RRV_CB_PRECISION=fp16`` currently means.
+      - ``fp16_full``: explicit full-fp16 experiment for T3 + S3Gen/HiFT-GAN.
+        This has produced choppy/bad audio so far and must never share cache
+        entries with ``t3_fp16``.
+      - ``fp8``: reserved experimental identity.  Not supported as a working
+        runtime path; kept only so failed/future fp8 experiments cannot collide
+        with other caches.
+
+    Non-Chatterbox providers always normalize to ``fp32`` because this setting
+    only describes Chatterbox-family runtime precision.
+    """
+    if provider_id and not provider_id.startswith("chatterbox"):
+        return "fp32"
+    precision = (requested_precision or "fp32").strip().lower() or "fp32"
+    if precision == "fp16":
+        return "t3_fp16"
+    if precision in {"fp32", "t3_fp16", "fp16_full", "fp8"}:
+        return precision
+    return "fp32"
+
 def compute_cache_key(
     text: str,
     provider_id: str,
@@ -460,6 +502,7 @@ def compute_cache_key(
     lux_num_steps: int | None = None,
     lux_t_shift: float | None = None,
     lux_return_smooth: bool | None = None,
+    render_precision: str | None = None,
 ) -> str:
     """Compute the 32-char hex server cache key from canonicalized render identity."""
     parts = [
@@ -488,6 +531,7 @@ def compute_cache_key(
         _norm_int(lux_num_steps),
         _norm_float(lux_t_shift, 2),
         _norm_bool(lux_return_smooth),
+        _norm_id(normalize_render_precision(requested_precision=render_precision) if normalize_render_precision(requested_precision=render_precision) != "fp32" else ""),
     ]
     joined = "\x00".join(parts)
     digest = hashlib.sha256(joined.encode("utf-8")).hexdigest()
@@ -495,13 +539,15 @@ def compute_cache_key(
 
 
 
-def compose_server_cache_key(client_cache_key: str, asset_fingerprint: str | None) -> str:
+def compose_server_cache_key(client_cache_key: str, asset_fingerprint: str | None, render_precision: str | None = None) -> str:
+    precision = normalize_render_precision(requested_precision=render_precision)
     suffix_raw = (asset_fingerprint or "nosample").strip().lower() or "nosample"
     if suffix_raw != "nosample" and not all(ch in "0123456789abcdef" for ch in suffix_raw):
         suffix = hashlib.sha256(suffix_raw.encode("utf-8")).hexdigest()[:16]
     else:
         suffix = suffix_raw
-    return f"{client_cache_key.strip().lower()}.{suffix}"
+    base = f"{client_cache_key.strip().lower()}.{suffix}"
+    return f"{base}.{precision}" if precision != "fp32" else base
 
 def blend_voice_identity(blend: list[dict]) -> str:
     """
