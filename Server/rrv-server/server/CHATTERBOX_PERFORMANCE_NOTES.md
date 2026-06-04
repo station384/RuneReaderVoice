@@ -654,7 +654,7 @@ Compare against `RRV_T3_COMPILE_MODE=default` using:
 - startup/warmup time
 - audio correctness
 
-Do not assume `reduce-overhead` is better. It can increase VRAM and compile/warmup time, and it can fail or underperform with dynamic shapes/control flow. Keep `default` as fallback.
+Result update: `reduce-overhead` has now been tested and rejected for this decode path. It can increase VRAM and compile/warmup time, and with this T3 per-token loop it failed under CUDA graph handling. Keep `default` as the supported production path.
 
 ## v144: StaticCache kill-switch for throwaway compile-mode experiments
 
@@ -688,3 +688,124 @@ RRV_T3_STATIC_CACHE=0
 ```
 
 Pass/fail criteria: backend must not crash; compare `avg_step`, `tfmr_forward`, T3 total, VRAM checkpoints, and audio quality against default compile + StaticCache.
+
+
+## v145: reduce-overhead + StaticCache-off experiment result
+
+Result: rejected. Worth testing, but not a viable path right now.
+
+Measured throwaway profile:
+
+```env
+RRV_CB_PRECISION=fp16              # canonicalizes to t3_fp16
+RRV_CB_LOAD_STRATEGY=cpu_precision_gpu
+RRV_T3_COMPILE_MODE=reduce-overhead
+RRV_T3_STATIC_CACHE=0
+RRV_T3_EOS_CHECK_INTERVAL=32       # test run used 32; production recommendation remains 16
+RRV_CB_TAIL_SIDECAR_WRITE=defer
+```
+
+What happened:
+
+- v144 correctly disabled StaticCache. Log showed `static_cache=False static_cache_env=0 compile_mode=reduce-overhead`.
+- `reduce-overhead` still used CUDA graph machinery and failed during warmup/use.
+- First warning during warmup: CUDA graph output was overwritten by a subsequent run; PyTorch suggested `torch.compiler.cudagraph_mark_step_begin()` before each model invocation.
+- Real synthesis then failed inside TorchInductor CUDA graph trees with `AssertionError` in `dealloc_current_path_weakrefs()`.
+- This means StaticCache mutation was not the only blocker. The current T3 per-token compiled call pattern is not compatible with `reduce-overhead` as-is.
+
+Conclusion:
+
+```env
+RRV_T3_COMPILE_MODE=default
+RRV_T3_STATIC_CACHE=1
+```
+
+Keep that for production. Do not retry `reduce-overhead` unless doing a deeper CUDA graph / decode-loop rewrite experiment. If revisiting later, likely required work includes explicit graph step markers or a graph-safe custom decode wrapper; treat that as model-runtime surgery, not a simple knob change.
+
+Updated best-known profile:
+
+```env
+RRV_CB_PRECISION=fp16              # canonicalizes to t3_fp16
+RRV_CB_LOAD_STRATEGY=cpu_precision_gpu
+RRV_T3_COMPILE_MODE=default
+RRV_T3_STATIC_CACHE=1
+RRV_T3_EOS_CHECK_INTERVAL=16
+RRV_CB_TAIL_SIDECAR_WRITE=defer
+```
+
+Keep the `RRV_T3_STATIC_CACHE` switch for future experiments, but default-on remains the proven fast/stable path.
+
+## v146/v147: T3/S3Gen pipeline overlap experiment — tested/rejected for production
+
+v146 added opt-in S3Gen pipelining for multi-chunk requests:
+
+```env
+RRV_CB_PIPELINE_S3GEN=1
+RRV_CB_PIPELINE_S3GEN_WORKERS=1   # default/safest
+```
+
+Purpose: after `t3_fp16`, GPU utilization during render can sit around ~60% because the T3 token loop is partly CPU/launch-bound. Multi-chunk requests have a natural pipeline opportunity: chunk N+1 only needs chunk N's generated T3 tokens for continuity, not chunk N's decoded audio. Therefore S3Gen for chunk N can run in a background worker while T3 generates chunk N+1.
+
+Pipeline behavior:
+
+```text
+T3 chunk 1 -> submit S3Gen chunk 1
+T3 chunk 2 -> submit S3Gen chunk 2 while S3Gen chunk 1 may still run
+...
+collect S3Gen futures in original order
+concat audio in original order
+```
+
+Implementation worked technically:
+
+- T3 remained serial per voice chain.
+- Prior-token continuity updated immediately after each chunk's T3 output.
+- S3Gen futures collected in original chunk order.
+- Logs showed overlap working: most `pipeline_s3gen_collect` waits were `0.000s`; only final chunk usually waited ~0.4s.
+
+Test results:
+
+```text
+Default chunking 380/480:
+  342 chars -> 1 chunk
+  pipeline_s3gen=False because only one chunk
+  synth_time ~= 6.38s
+  rtf ~= 3.42x
+
+Tiny chunking 50/100:
+  342 chars -> 8 chunks
+  pipeline_s3gen=True
+  overlap worked, but synth_time ~= 9.27s
+  rtf ~= 2.69x
+```
+
+Conclusion:
+
+- Pipeline overlap is not worth the route for current Chatterbox path.
+- Smaller chunks create too much fixed overhead: repeated T3 setup, repeated S3Gen calls, executor scheduling, more concat/encode work, and more EOS/initial-forward overhead.
+- T3 `avg_step` also worsened on later tiny chunks, often ~10–14ms instead of the stable ~8.5ms seen on larger chunks.
+- User observed more voice drift with tiny/many chunks. Voice quality/continuity loss outweighs any hardware utilization gain.
+
+Keep the knob for future experiments, but default-off is correct:
+
+```env
+RRV_CB_PIPELINE_S3GEN=0
+RRV_CB_CHUNK_TARGET_CHARS=380
+RRV_CB_CHUNK_HARD_CHARS=480
+```
+
+Do not retest the tiny-chunk pipeline path unless the model/runtime changes substantially. A future model with true streaming audio decode or lower per-chunk overhead might make this worth revisiting, but current Chatterbox does not.
+
+Best-known production profile remains:
+
+```env
+RRV_CB_PRECISION=fp16              # canonicalizes to t3_fp16
+RRV_CB_LOAD_STRATEGY=cpu_precision_gpu
+RRV_T3_COMPILE_MODE=default
+RRV_T3_STATIC_CACHE=1
+RRV_T3_EOS_CHECK_INTERVAL=16
+RRV_CB_TAIL_SIDECAR_WRITE=defer
+RRV_CB_PIPELINE_S3GEN=0
+RRV_CB_CHUNK_TARGET_CHARS=380
+RRV_CB_CHUNK_HARD_CHARS=480
+```

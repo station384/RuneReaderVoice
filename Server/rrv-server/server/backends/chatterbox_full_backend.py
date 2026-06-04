@@ -213,6 +213,19 @@ class ChatterboxFullBackend(AbstractTtsBackend):
             self._tail_sidecar_mode = "defer"
         self._tail_sidecar_executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="rrv-cb-tail-sidecar")
 
+        # Optional T3/S3Gen pipeline overlap experiment.  T3 remains serial for
+        # correctness/continuity.  When enabled, each chunk runs T3 first, then
+        # submits S3Gen/audio decode for that chunk to a background worker while
+        # the main synthesis thread starts T3 for the next chunk.  This can use
+        # otherwise idle GPU/CPU time on multi-chunk requests, but is gated
+        # because CUDA default streams/model sharing may serialize or contend on
+        # some systems.
+        self._pipeline_s3gen = os.environ.get("RRV_CB_PIPELINE_S3GEN", "0").strip().lower() in {"1", "true", "yes", "on"}
+        self._pipeline_s3gen_workers = max(1, int(os.environ.get("RRV_CB_PIPELINE_S3GEN_WORKERS", "1")))
+        if self._pipeline_s3gen_workers != 1:
+            log.warning("Chatterbox pipeline S3Gen: workers=%d requested; >1 is highly experimental because a shared S3Gen module may not be thread-safe", self._pipeline_s3gen_workers)
+        self._pipeline_s3gen_executor = ThreadPoolExecutor(max_workers=self._pipeline_s3gen_workers, thread_name_prefix="rrv-cb-s3gen")
+
         # Render precision experiment. This affects model weights, conditionals,
         # output cache identity, conditioning cache identity, and tail-token sidecars.
         # Supported effective modes: fp32 (default), fp16. fp8 is recognized but
@@ -347,7 +360,7 @@ class ChatterboxFullBackend(AbstractTtsBackend):
         self._log_vram_checkpoint("runtime-profile")
         log.info(
             "Chatterbox runtime profile: precision=%s requested_precision=%s load_strategy=%s "
-            "eos_interval=%s sidecar=%s static_cache=%s t3_compile_mode=%s t3_dtype=%s s3gen_dtype=%s",
+            "eos_interval=%s sidecar=%s static_cache=%s t3_compile_mode=%s t3_dtype=%s s3gen_dtype=%s pipeline_s3gen=%s pipeline_s3gen_workers=%d",
             self._render_precision,
             self._requested_precision,
             self._load_strategy,
@@ -357,6 +370,8 @@ class ChatterboxFullBackend(AbstractTtsBackend):
             os.environ.get("RRV_T3_COMPILE_MODE", "default"),
             t3_dtype,
             s3_dtype,
+            self._pipeline_s3gen,
+            self._pipeline_s3gen_workers,
         )
 
     def _load_chatterbox_cpu_precision_gpu(self, local_model_dir):
@@ -2659,8 +2674,17 @@ class ChatterboxFullBackend(AbstractTtsBackend):
 
         all_samples: list[np.ndarray] = []
 
-        def _run_inference(chunk_text: str, active_t3_cond) -> tuple:
-            """Run t3.inference() + s3gen.inference() directly, return (wav_np, tokens)."""
+        _pipeline_active = self._pipeline_s3gen and total > 1
+        if _timing:
+            log.info(
+                "Chatterbox timing: pipeline_s3gen=%s workers=%d chunks=%d",
+                _pipeline_active,
+                self._pipeline_s3gen_workers,
+                total,
+            )
+
+        def _run_t3_chunk(chunk_text: str, active_t3_cond) -> tuple:
+            """Run tokenizer + T3 only. Returns (clean_tokens, timing_dict)."""
             _token_t0 = _time_mod.perf_counter() if _timing else 0.0
             text_proc = self._model.tokenizer.text_to_tokens(chunk_text).to(self._model.device)
             _token_elapsed = (_time_mod.perf_counter() - _token_t0) if _timing else 0.0
@@ -2695,6 +2719,16 @@ class ChatterboxFullBackend(AbstractTtsBackend):
                 clean = clean[clean < 6561].to(self._model.device)
                 _clean_elapsed = (_time_mod.perf_counter() - _clean_t0) if _timing else 0.0
 
+            return clean, {
+                "tokenize": _token_elapsed,
+                "pad": _pad_elapsed,
+                "t3": _t3_elapsed,
+                "clean": _clean_elapsed,
+            }
+
+        def _run_s3_chunk(clean) -> tuple:
+            """Run S3Gen/audio decode only. Returns (wav_np, timing_dict)."""
+            with _torch.inference_mode():
                 _s3_t0 = _time_mod.perf_counter() if _timing else 0.0
                 wav, _ = self._model.s3gen.inference(
                     speech_tokens=clean,
@@ -2710,23 +2744,65 @@ class ChatterboxFullBackend(AbstractTtsBackend):
                 wav_np = self._model.watermarker.apply_watermark(
                     wav_np, sample_rate=self._model.sr)
                 _wm_elapsed = (_time_mod.perf_counter() - _wm_t0) if _timing else 0.0
+
+            return wav_np, {
+                "s3": _s3_elapsed,
+                "cpu": _cpu_elapsed,
+                "watermark": _wm_elapsed,
+            }
+
+        def _log_chunk_timing(t3_timing: dict, s3_timing: dict, clean, wav_np) -> None:
             if _timing:
                 log.info(
                     "Chatterbox timing: tokenize=%.3fs pad=%.3fs T3=%.3fs clean=%.3fs S3Gen=%.3fs cpu_copy=%.3fs watermark=%.3fs tokens=%d samples=%d",
-                    _token_elapsed,
-                    _pad_elapsed,
-                    _t3_elapsed,
-                    _clean_elapsed,
-                    _s3_elapsed,
-                    _cpu_elapsed,
-                    _wm_elapsed,
+                    t3_timing.get("tokenize", 0.0),
+                    t3_timing.get("pad", 0.0),
+                    t3_timing.get("t3", 0.0),
+                    t3_timing.get("clean", 0.0),
+                    s3_timing.get("s3", 0.0),
+                    s3_timing.get("cpu", 0.0),
+                    s3_timing.get("watermark", 0.0),
                     len(clean),
                     len(wav_np),
                 )
+
+        def _run_inference(chunk_text: str, active_t3_cond) -> tuple:
+            """Run t3.inference() + s3gen.inference() directly, return (wav_np, tokens)."""
+            clean, t3_timing = _run_t3_chunk(chunk_text, active_t3_cond)
+            wav_np, s3_timing = _run_s3_chunk(clean)
+            _log_chunk_timing(t3_timing, s3_timing, clean, wav_np)
             return wav_np, clean
 
         _last_tail_for_sidecar = None
         _last_ctx_for_sidecar = request.voice_context or ""
+
+        _s3_futures: list[tuple[int, str, object, dict, object, float, bool]] = []
+
+        def _append_samples_from_wav(wav_np):
+            samples = wav_np.squeeze()
+            if samples.ndim > 1:
+                # Stereo or multi-channel output — mix down to mono
+                samples = samples.mean(axis=0)
+            all_samples.append(samples.astype(np.float32))
+
+        def _finish_chunk_audio(i: int, chunk_text: str, wav_np, clean_tokens,
+                                t3_timing: dict, s3_timing: dict,
+                                chunk_prep_elapsed: float, use_prior: bool) -> None:
+            if t3_timing or s3_timing:
+                _log_chunk_timing(t3_timing, s3_timing, clean_tokens, wav_np)
+            if _timing:
+                log.info(
+                    "Chatterbox timing: chunk=%d/%d chunk_prep=%.3fs prior=%s pipeline_s3gen=%s",
+                    i + 1, total, chunk_prep_elapsed, use_prior, _pipeline_active,
+                )
+            _append_samples_from_wav(wav_np)
+            log.debug("Chatterbox Full: chunk %d/%d synthesized (%d chars)",
+                      i + 1, total, len(chunk_text))
+            if _progress_cb is not None:
+                try:
+                    _progress_cb(i + 1, total)
+                except Exception:
+                    pass
 
         try:
             for i, chunk_text in enumerate(chunks):
@@ -2777,18 +2853,31 @@ class ChatterboxFullBackend(AbstractTtsBackend):
                     active_t3 = t3_cond
                 _chunk_prep_elapsed = _time_mod.perf_counter() - _chunk_prep_start
 
-                wav_np, clean_tokens = _run_inference(chunk_text, active_t3)
-                # patch timing line to include chunk prep
-                if _timing:
-                    log.info(
-                        "Chatterbox timing: chunk=%d/%d chunk_prep=%.3fs prior=%s",
-                        i + 1, total, _chunk_prep_elapsed, use_prior,
-                    )
+                if _pipeline_active:
+                    _t3_only_t0 = _time_mod.perf_counter() if _timing else 0.0
+                    clean_tokens, t3_timing = _run_t3_chunk(chunk_text, active_t3)
+                    if _timing:
+                        log.info(
+                            "Chatterbox timing: pipeline_s3gen_submit chunk=%d/%d t3_ready=%.3fs tokens=%d queued=%d",
+                            i + 1, total,
+                            _time_mod.perf_counter() - _t3_only_t0,
+                            len(clean_tokens),
+                            len(_s3_futures),
+                        )
+                    fut = self._pipeline_s3gen_executor.submit(_run_s3_chunk, clean_tokens)
+                    _s3_futures.append((i, chunk_text, fut, t3_timing, clean_tokens,
+                                        _chunk_prep_elapsed, use_prior))
+                else:
+                    wav_np, clean_tokens = _run_inference(chunk_text, active_t3)
+                    _finish_chunk_audio(i, chunk_text, wav_np, clean_tokens,
+                                        {}, {}, _chunk_prep_elapsed, use_prior)
+                    # _run_inference already logged detailed per-stage timing.
 
-                # Update in-memory prior context. Store tail tokens on CPU and
-                # bound this cache, otherwise each new voice/sample retains CUDA VRAM.
+                # Update in-memory prior context immediately after T3 tokens are
+                # available.  Chunk N+1 needs the prior tokens from chunk N, not
+                # chunk N's decoded audio, so this preserves continuity while S3Gen
+                # for chunk N can run behind T3 for chunk N+1.
                 tail = clean_tokens[-_PRIOR_TOKEN_LEN:].unsqueeze(0).detach().cpu()
-                # Store with voice_context tag to prevent cross-slot contamination
                 _ctx_tag = request.voice_context or ""
                 if self._prior_token_cache_size > 0:
                     self._prior_speech_tokens[_voice_key] = (tail, _ctx_tag)
@@ -2808,18 +2897,21 @@ class ChatterboxFullBackend(AbstractTtsBackend):
                 _last_tail_for_sidecar = tail
                 _last_ctx_for_sidecar = _ctx_tag
 
-                samples = wav_np.squeeze()
-                if samples.ndim > 1:
-                    # Stereo or multi-channel output — mix down to mono
-                    samples = samples.mean(axis=0)
-                all_samples.append(samples.astype(np.float32))
-                log.debug("Chatterbox Full: chunk %d/%d synthesized (%d chars)",
-                          i + 1, total, len(chunk_text))
-                if _progress_cb is not None:
-                    try:
-                        _progress_cb(i + 1, total)
-                    except Exception:
-                        pass
+            # Collect pipelined S3Gen/audio futures in original order.  The T3
+            # pass above has already produced all continuity tokens; this wait
+            # phase only assembles decoded audio and reports progress.
+            for i, chunk_text, fut, t3_timing, clean_tokens, chunk_prep_elapsed, use_prior in _s3_futures:
+                _wait_t0 = _time_mod.perf_counter() if _timing else 0.0
+                wav_np, s3_timing = fut.result()
+                if _timing:
+                    log.info(
+                        "Chatterbox timing: pipeline_s3gen_collect chunk=%d/%d wait=%.3fs",
+                        i + 1, total,
+                        _time_mod.perf_counter() - _wait_t0,
+                    )
+                _finish_chunk_audio(i, chunk_text, wav_np, clean_tokens,
+                                    t3_timing, s3_timing,
+                                    chunk_prep_elapsed, use_prior)
         finally:
             if getattr(self, '_is_blend_active', False):
                 self._is_blend_active = False
