@@ -306,6 +306,8 @@ public static class VoiceSettingsManager
 {
     private const string SettingsFileName = "settings.json";
     private static readonly JsonSerializerOptions JsonSaveOptions = new() { WriteIndented = true };
+    private static readonly object SaveLock = new();
+    private static volatile bool _dirty;
     private static string SettingsFilePath => Path.Combine(GetConfigDirectory(), SettingsFileName);
 
     // User data lives one level above current\ so Velopack updates never touch it.
@@ -353,21 +355,32 @@ public static class VoiceSettingsManager
         }
     }
 
+    public static void MarkDirty() => _dirty = true;
+
     public static void SaveSettings(VoiceUserSettings settings)
     {
         try
         {
-            settings.NormalizeVoiceProfiles();
-            settings.NormalizeCaptureSettings();
-            var dir = Path.GetDirectoryName(SettingsFilePath)!;
-            Directory.CreateDirectory(dir);
-            var tmp = SettingsFilePath + ".tmp";
-            var json = JsonSerializer.Serialize(settings, JsonSaveOptions);
-            File.WriteAllText(tmp, json);
-            if (File.Exists(SettingsFilePath))
-                File.Replace(tmp, SettingsFilePath, null);
-            else
-                File.Move(tmp, SettingsFilePath);
+            lock (SaveLock)
+            {
+                settings.NormalizeVoiceProfiles();
+                settings.NormalizeCaptureSettings();
+                var dir = Path.GetDirectoryName(SettingsFilePath)!;
+                Directory.CreateDirectory(dir);
+
+                // Use a unique temp file and a process-local lock.  The old fixed
+                // settings.json.tmp path allowed overlapping async saves to collide.
+                var tmp = SettingsFilePath + "." + Environment.ProcessId + "." + Guid.NewGuid().ToString("N") + ".tmp";
+                var json = JsonSerializer.Serialize(settings, JsonSaveOptions);
+                File.WriteAllText(tmp, json);
+
+                if (File.Exists(SettingsFilePath))
+                    File.Replace(tmp, SettingsFilePath, null);
+                else
+                    File.Move(tmp, SettingsFilePath);
+
+                _dirty = false;
+            }
         }
         catch (Exception ex)
         {
@@ -375,25 +388,7 @@ public static class VoiceSettingsManager
         }
     }
 
-    public static async Task SaveSettingsAsync(VoiceUserSettings settings)
-    {
-        try
-        {
-            settings.NormalizeVoiceProfiles();
-            settings.NormalizeCaptureSettings();
-            var dir = Path.GetDirectoryName(SettingsFilePath)!;
-            Directory.CreateDirectory(dir);
-            var tmp = SettingsFilePath + ".tmp";
-            var json = JsonSerializer.Serialize(settings, JsonSaveOptions);
-            await File.WriteAllTextAsync(tmp, json);
-            if (File.Exists(SettingsFilePath))
-                File.Replace(tmp, SettingsFilePath, null);
-            else
-                File.Move(tmp, SettingsFilePath);
-        }
-        catch (Exception ex)
-        {
-            Debug.WriteLine($"[VoiceSettingsManager] Async save error: {ex.Message}");
-        }
-    }
+    public static Task SaveSettingsAsync(VoiceUserSettings settings)
+        => Task.Run(() => SaveSettings(settings));
 }
+

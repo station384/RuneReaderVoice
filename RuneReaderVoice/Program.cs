@@ -333,7 +333,7 @@ internal static class Program
                 ScreenWidth = platform.ScreenCapture.ScreenWidth,
                 ScreenHeight = platform.ScreenCapture.ScreenHeight,
             };
-            _ = VoiceSettingsManager.SaveSettingsAsync(settings);
+            VoiceSettingsManager.MarkDirty();
            // platform.ScreenCapture.CaptureRegion = new Rect(settings.LastBarcodeRegion.X, settings.LastBarcodeRegion.Y, settings.LastBarcodeRegion.Width, settings.LastBarcodeRegion.Height);
                 
         };
@@ -350,7 +350,7 @@ internal static class Program
                 ScreenHeight = platform.ScreenCapture.ScreenHeight,
             };
             settings.LastCode39BarcodeRegion = settings.LastRrvbGuidBarcodeRegion;
-            _ = VoiceSettingsManager.SaveSettingsAsync(settings);
+            VoiceSettingsManager.MarkDirty();
         };
 
         monitor.OnLockedRrvbNameRegionChanged += rect =>
@@ -364,7 +364,7 @@ internal static class Program
                 ScreenWidth = platform.ScreenCapture.ScreenWidth,
                 ScreenHeight = platform.ScreenCapture.ScreenHeight,
             };
-            _ = VoiceSettingsManager.SaveSettingsAsync(settings);
+            VoiceSettingsManager.MarkDirty();
         };
 
         platform.ScreenCapture.OnFullScreenUpdated += monitor.ProcessFrame;

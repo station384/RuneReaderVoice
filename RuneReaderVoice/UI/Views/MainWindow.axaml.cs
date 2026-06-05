@@ -147,12 +147,12 @@ public partial class MainWindow : Window
         var s = AppServices.Settings;
         Position = new Avalonia.PixelPoint((int)s.AppStartX, (int)s.AppStartY);
 
-        // Save position whenever the window moves or closes
+        // Track position while moving, but defer disk write until exit.
         PositionChanged += (_, _) =>
         {
             AppServices.Settings.AppStartX = Position.X;
             AppServices.Settings.AppStartY = Position.Y;
-            VoiceSettingsManager.SaveSettings(AppServices.Settings);
+            VoiceSettingsManager.MarkDirty();
         };
         Closing += (_, _) =>
         {
@@ -726,7 +726,9 @@ public partial class MainWindow : Window
             AppServices.NpcSync.SyncStatusChanged -= OnNpcSyncStatusChanged;
         }
         _statusTimer.Stop();
-        _ = VoiceSettingsManager.SaveSettingsAsync(AppServices.Settings);
+        AppServices.Settings.AppStartX = Position.X;
+        AppServices.Settings.AppStartY = Position.Y;
+        VoiceSettingsManager.SaveSettings(AppServices.Settings);
         base.OnClosing(e);
     }
 
