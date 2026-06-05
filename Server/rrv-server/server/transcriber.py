@@ -1042,6 +1042,7 @@ class TranscriptionService:
 
         count = 0
         generated_retranscribe_jobs: list[tuple[list, str, str]] = []
+        loaded_inprocess_retranscriber = False
 
         for audio_path in pending:
             try:
@@ -1125,6 +1126,7 @@ class TranscriptionService:
                                 audio_path.name,
                             )
                             _retrans_pipe = self._load_whisper()
+                            loaded_inprocess_retranscriber = True
                         extraction = extract_clips(
                             audio_path,
                             chunks=chunks,
@@ -1160,12 +1162,11 @@ class TranscriptionService:
                     asr_provider.provider_id, audio_path.name, e
                 )
 
-        # Unload ASR provider before generated-clip retranscription.
-        # The ASR worker holds GPU VRAM as a subprocess — loading in-process
-        # Whisper while the worker is still alive causes OOM on 16GB GPUs.
-        # Unload here explicitly so the VRAM is free before the in-process load.
-        # The worker reloads on demand at the next transcription pass.
-        if hasattr(asr_provider, "unload") and asr_provider.is_loaded:
+        # Keep the ASR worker loaded across master transcription and generated-clip
+        # retranscription in the normal path. Unload only when the rare in-process
+        # hallucination re-transcriber was loaded above, because that path can create
+        # a second Whisper instance and needs the worker VRAM released.
+        if loaded_inprocess_retranscriber and hasattr(asr_provider, "unload") and asr_provider.is_loaded:
             try:
                 loop = self._asr_loop
                 if loop is not None:
@@ -1174,18 +1175,15 @@ class TranscriptionService:
                     )
                     future.result(timeout=30)
                     log.info(
-                        "Transcription: ASR provider '%s' unloaded before generated-clip retranscription",
+                        "Transcription: ASR provider '%s' unloaded after in-process re-transcription before generated clips",
                         asr_provider.display_name
                     )
             except Exception as e:
                 log.warning("Transcription: failed to unload ASR provider before retranscription: %s", e)
 
-        # Generated clip retranscription — route through the ASR worker.
-        # The worker was unloaded above to free VRAM for any hallucination
-        # re-transcription. Reload it here for the clip retranscription pass,
-        # then let it unload normally at the next scan boundary.
-        # This avoids loading a second in-process Whisper instance which
-        # caused OOM on 16GB GPUs when backends were already resident.
+        # Generated clip retranscription — route through the same ASR worker.
+        # In the normal path this reuses the already-loaded worker and avoids a
+        # pointless unload/reload between the master sample and generated clips.
         if generated_retranscribe_jobs:
             total_clips = sum(len(c) for c, _, _ in generated_retranscribe_jobs)
             log.info(
@@ -1202,8 +1200,9 @@ class TranscriptionService:
                     clips, language, asr_provider
                 )
 
-        # ASR provider already unloaded above before generated-clip retranscription.
-        # Nothing to do here.
+        # WorkerAsr owns its normal post-batch unload policy. Do not unload here;
+        # keeping this method focused prevents duplicate model reloads inside one
+        # sample-intake pass.
 
         log.info(
             "Transcription: completed %d file(s) via %s",

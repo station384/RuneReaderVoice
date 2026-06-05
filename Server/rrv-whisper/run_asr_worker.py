@@ -86,6 +86,10 @@ def _load_whisper(model_dir: Path):
         gc.suppress_tokens = None
         gc.begin_suppress_tokens = None
 
+    try:
+        pipe._rrv_model_dir = model_dir
+    except Exception:
+        pass
     log.info("Whisper loaded (device=%s)", device)
     return pipe
 
@@ -116,6 +120,10 @@ def _load_whisper_cpu(model_dir: Path):
         gc.condition_on_previous_text = False
         gc.suppress_tokens = None
         gc.begin_suppress_tokens = None
+    try:
+        pipe._rrv_model_dir = model_dir
+    except Exception:
+        pass
     log.info("Whisper: CPU fallback loaded")
     return pipe
 
@@ -124,6 +132,7 @@ def _transcribe(pipe, audio_path: Path, language: str = "en") -> dict:
     """Transcribe audio. Returns {text, language, chunks}."""
     import soundfile as sf
     import numpy as np
+    import torch
 
     raw_audio, sample_rate = sf.read(str(audio_path), dtype="float32")
     if len(raw_audio.shape) > 1:
@@ -177,8 +186,14 @@ def _transcribe(pipe, audio_path: Path, language: str = "en") -> dict:
             "Whisper: '%s' routing to CPU — %s",
             audio_path.name, _route_reason,
         )
-        import torch
-        cpu_pipe = _load_whisper_cpu(audio_path.parent.parent / "models" / "whisper" / "v3-turbo")
+        _cpu_model_dir = getattr(pipe, "_rrv_model_dir", None)
+        if _cpu_model_dir is None:
+            _env_model_dir = os.environ.get("RRV_WHISPER_MODEL_DIR")
+            if _env_model_dir:
+                _cpu_model_dir = Path(_env_model_dir)
+        if _cpu_model_dir is None:
+            raise RuntimeError("Whisper CPU fallback requested but model_dir is unknown")
+        cpu_pipe = _load_whisper_cpu(Path(_cpu_model_dir))
         result = _do_transcribe(cpu_pipe, audio_data, sample_rate, language, audio_path.name)
         del cpu_pipe
         try:
@@ -192,6 +207,7 @@ def _transcribe(pipe, audio_path: Path, language: str = "en") -> dict:
 
 def _do_transcribe(pipe, audio_data, sample_rate: int, language: str, name: str) -> dict:
     """Run the actual pipeline inference and return result dict."""
+    _MIN_FREE_VRAM_MIB = float(os.environ.get("RRV_WHISPER_MIN_FREE_VRAM_MIB", "1500"))
     # Pre-inference VRAM check — raise a catchable Python error before touching
     # CUDA rather than letting the device-side assert kill the worker process.
     # The _handle_client OOM handler can recover from a Python exception but
