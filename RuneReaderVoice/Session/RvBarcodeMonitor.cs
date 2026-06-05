@@ -67,6 +67,13 @@ public sealed class RvBarcodeMonitor : IDisposable
     public event Action<string>? OnRrvbNameDecoded;
 
     /// <summary>
+    /// Fires when a previously accepted RRVB identity is no longer trusted.
+    /// This prevents stale GUID/name metadata from leaking into a later QR dialog
+    /// when the RRVB code is lost but the QR channel is still visible.
+    /// </summary>
+    public event Action? OnRrvbIdentityLost;
+
+    /// <summary>
     /// Fires when no RV QR has been seen for SourceGoneThresholdMs.
     /// RRVB presence does not keep a dialog alive; QR remains the source clock.
     /// </summary>
@@ -101,16 +108,41 @@ public sealed class RvBarcodeMonitor : IDisposable
     private Rect? _lockedRrvbGuidRegion;
     private Rect? _lockedRrvbNameRegion;
     private RegionKind _activeRegionKind = RegionKind.None;
+    private RegionKind _nextRegionPollKind = RegionKind.Qr;
+    private readonly Queue<RegionKind> _pendingRegionKinds = new();
     private DateTime _lastRvDecodeTime = DateTime.MinValue;
     private DateTime _lastRrvbDecodeTime = DateTime.MinValue;
     private DateTime _lastRrvbGuidDecodeTime = DateTime.MinValue;
     private DateTime _lastRrvbNameDecodeTime = DateTime.MinValue;
+
+    public (bool QrLocked, bool QrRecentlyRead, bool RrvbLocked, bool RrvbRecentlyRead) GetScannerLockSnapshot()
+    {
+        lock (_gate)
+        {
+            var now = DateTime.UtcNow;
+            var stableGraceMs = Math.Max(ReScanIntervalMs * RegionStableGraceMultiplier, SourceGoneThresholdMs);
+
+            var qrRecentlyRead = _regionHasRvQr
+                              && _lastRvDecodeTime != DateTime.MinValue
+                              && (now - _lastRvDecodeTime).TotalMilliseconds <= stableGraceMs;
+
+            // RRVB lock/read status is based on the GUID identity. NPC name is
+            // useful metadata, but it may be empty/unavailable in some contexts
+            // and must not make the RRVB scanner look unlocked.
+            var rrvbRecentlyRead = _regionHasRrvbGuid
+                                && _lastRrvbDecodeTime != DateTime.MinValue
+                                && (now - _lastRrvbDecodeTime).TotalMilliseconds <= stableGraceMs;
+
+            return (_lockedRegion.HasValue, qrRecentlyRead, _lockedRrvbGuidRegion.HasValue, rrvbRecentlyRead);
+        }
+    }
     private string _lastRrvbGuid = string.Empty;
     private string _lastRrvbName = string.Empty;
     private string _pendingRrvbGuid = string.Empty;
-    private int _fullScreenRrvbMissCount = 0;
+    private int _fullScreenRrvbAbsentMissCount = 0;
+    private int _fullScreenRrvbDecodeMissCount = 0;
     private int _lockedRrvbRegionMissCount = 0;
-    private const int MaxFullScreenRrvbMisses = 5; // clear stale lock after this many consecutive full-screen misses
+    private const int MaxFullScreenRrvbAbsentMisses = 5; // clear stale identity after this many full-screen scans with no RRVB panel
     private const int MaxLockedRrvbRegionMisses = 3; // clear stale locked crop after this many failed region reads
     private string _pendingRrvbName = string.Empty;
     private int _pendingRrvbIdentityCount;
@@ -142,6 +174,28 @@ public sealed class RvBarcodeMonitor : IDisposable
     private static void TraceRrvb(string message)
     {
         RrvDebug.RrvbDebug(message);
+    }
+
+    private void ClearRrvbIdentityStateLocked(bool clearAcceptedIdentity)
+    {
+        _regionHasRrvbGuid = false;
+        _regionHasRrvbName = false;
+        _lastRrvbDecodeTime = DateTime.MinValue;
+        _lastRrvbGuidDecodeTime = DateTime.MinValue;
+        _lastRrvbNameDecodeTime = DateTime.MinValue;
+        ResetPendingRrvbIdentityLocked();
+
+        if (!clearAcceptedIdentity)
+            return;
+
+        _lastRrvbGuid = string.Empty;
+        _lastRrvbName = string.Empty;
+    }
+
+    private void SignalRrvbIdentityLost()
+    {
+        TraceRrvb("[RRVB] Identity lost; clearing current GUID/name side-channel");
+        OnRrvbIdentityLost?.Invoke();
     }
 
     public RvBarcodeMonitor(IScreenCaptureProvider capture)
@@ -223,13 +277,14 @@ public sealed class RvBarcodeMonitor : IDisposable
             if (_captureTask is { IsCompleted: false }) return;
             _cts = new CancellationTokenSource();
             _regionHasRvQr = false;
-            _regionHasRrvbGuid = false;
-            _regionHasRrvbName = false;
             _sourceGoneSignalled = false;
-            _lastRrvbGuidDecodeTime = DateTime.MinValue;
-            _lastRrvbNameDecodeTime = DateTime.MinValue;
-            ResetPendingRrvbIdentityLocked();
+            ClearRrvbIdentityStateLocked(clearAcceptedIdentity: true);
             _activeRegionKind = RegionKind.None;
+            _nextRegionPollKind = RegionKind.Qr;
+            _pendingRegionKinds.Clear();
+            _fullScreenRrvbAbsentMissCount = 0;
+            _fullScreenRrvbDecodeMissCount = 0;
+            _lockedRrvbRegionMissCount = 0;
 
             var token = _cts.Token;
             _captureTask = CaptureLoopAsync(token);
@@ -326,39 +381,47 @@ public sealed class RvBarcodeMonitor : IDisposable
             try
             {
                 Rect? qrRegion;
-                Rect? rrvbGuidRegion;
+                Rect? rrvbRegion;
                 lock (_gate)
                 {
                     qrRegion = _lockedRegion;
-                    rrvbGuidRegion = _lockedRrvbGuidRegion;
+                    rrvbRegion = _lockedRrvbGuidRegion;
+                    _activeRegionKind = RegionKind.None;
+                    _pendingRegionKinds.Clear();
                 }
 
                 lock (_captureIoGate)
                 {
+                    // Three independent capture zones are maintained by the
+                    // provider: full-screen, QR region, and RRVB region. Do not
+                    // multiplex QR/RRVB through one mutable CaptureRegion slot;
+                    // the native callbacks are asynchronous and stale zone sizes
+                    // can be delivered to the wrong decoder.
                     _capture.EnableFullScreen = false;
 
                     if (qrRegion.HasValue)
                     {
-                        _activeRegionKind = RegionKind.Qr;
-                        _capture.EnableRegion = true;
                         _capture.CaptureRegion = qrRegion.Value;
-                        _capture.CaptureOnce();
-                    }
-
-                    if (rrvbGuidRegion.HasValue)
-                    {
-                        _activeRegionKind = RegionKind.RrvbGuid;
                         _capture.EnableRegion = true;
-                        _capture.CaptureRegion = rrvbGuidRegion.Value;
-                        _capture.CaptureOnce();
                     }
-
-
-                    if (!qrRegion.HasValue && !rrvbGuidRegion.HasValue)
+                    else
                     {
-                        _activeRegionKind = RegionKind.None;
                         _capture.EnableRegion = false;
                     }
+
+                    if (rrvbRegion.HasValue)
+                    {
+                        _capture.RrvbCaptureRegion = rrvbRegion.Value;
+                        _capture.EnableRrvbRegion = true;
+                        TraceRrvb($"[RRVB] Set RRVB capture zone rect=({_capture.RrvbCaptureRegion.X},{_capture.RrvbCaptureRegion.Y},{_capture.RrvbCaptureRegion.Width},{_capture.RrvbCaptureRegion.Height})");
+                    }
+                    else
+                    {
+                        _capture.EnableRrvbRegion = false;
+                    }
+
+                    if (qrRegion.HasValue || rrvbRegion.HasValue)
+                        _capture.CaptureOnce();
                 }
             }
             catch (Exception ex)
@@ -382,6 +445,63 @@ public sealed class RvBarcodeMonitor : IDisposable
 
             OnFrameCaptured?.Invoke(frame);
 
+            // Decode RRVB before QR. The side-channel can provide NPC GUID/name
+            // even when the QR payload is missing name/NPC data due to combat
+            // restrictions. Publishing RRVB first lets later QR packet handling
+            // see the freshest side-channel state.
+            var rrvbScan = DecodeRrvbFullScreen(frame);
+            var identity = SelectBestRrvbIdentity(rrvbScan.Results);
+            if (identity != null)
+            {
+                _fullScreenRrvbAbsentMissCount = 0;
+                _fullScreenRrvbDecodeMissCount = 0;
+                lock (_gate)
+                    _lockedRrvbRegionMissCount = 0;
+                UpdateRegionLock(identity.Result, RegionKind.RrvbGuid);
+                RecordRrvbIdentity(identity.Guid, identity.Name, requireDebounce: false);
+            }
+            else if (rrvbScan.PanelFound)
+            {
+                // Panel visible but payload did not decode. This is a true RRVB
+                // decoder/readability problem, not an idle/no-code state and not
+                // a stale region-crop problem. Keep QR and RRVB independent and
+                // keep the full-screen locator active so the UI can show Reading.
+                _fullScreenRrvbAbsentMissCount = 0;
+                _fullScreenRrvbDecodeMissCount++;
+                TraceRrvb($"[RRVB] Full-screen panel found but decode failed ({_fullScreenRrvbDecodeMissCount})");
+            }
+            else
+            {
+                // No RRVB panel was found anywhere in the full-screen frame. This
+                // can clear accepted side-channel identity after repeated misses,
+                // but it must never clear the remembered RRVB capture region. The
+                // addon usually redraws the code in the same place.
+                _fullScreenRrvbDecodeMissCount = 0;
+                _fullScreenRrvbAbsentMissCount++;
+                if (_fullScreenRrvbAbsentMissCount >= MaxFullScreenRrvbAbsentMisses)
+                {
+                    bool cleared = false;
+                    lock (_gate)
+                    {
+                        if (!string.IsNullOrEmpty(_lastRrvbGuid) || _regionHasRrvbGuid)
+                        {
+                            _lockedRrvbRegionMissCount = 0;
+                            ClearRrvbIdentityStateLocked(clearAcceptedIdentity: true);
+                            cleared = true;
+                        }
+                    }
+                    if (cleared)
+                    {
+                        _fullScreenRrvbAbsentMissCount = 0;
+                        TraceRrvb($"[RRVB] Identity cleared after {MaxFullScreenRrvbAbsentMisses} full-screen scans with no RRVB panel; keeping remembered RRVB region");
+                        SignalRrvbIdentityLost();
+                    }
+                }
+            }
+
+            // QR is decoded after RRVB so any packet processing downstream can
+            // prefer the freshly decoded side-channel identity when QR is missing
+            // NPC identity fields.
             var qrResults = DecodeQrMultiple(frame);
             if (qrResults is { Length: > 0 })
             {
@@ -398,45 +518,6 @@ public sealed class RvBarcodeMonitor : IDisposable
                     UpdateRegionLock(result, RegionKind.Qr);
                 }
             }
-
-            var rrvbResults = DecodeRrvbMultiple(frame);
-            var identity = SelectBestRrvbIdentity(rrvbResults);
-            if (identity != null)
-            {
-                _fullScreenRrvbMissCount = 0;
-                lock (_gate)
-                    _lockedRrvbRegionMissCount = 0;
-                UpdateRegionLock(identity.Result, RegionKind.RrvbGuid);
-                RecordRrvbIdentity(identity.Guid, identity.Name);
-            }
-            else
-            {
-                // If full-screen scan keeps failing to decode RRVB while a locked
-                // region exists, the region is stale (barcode moved). Clear it so
-                // the capture loop stops polling the wrong position.
-                _fullScreenRrvbMissCount++;
-                if (_fullScreenRrvbMissCount >= MaxFullScreenRrvbMisses)
-                {
-                    bool cleared = false;
-                    lock (_gate)
-                    {
-                        if (_lockedRrvbGuidRegion.HasValue)
-                        {
-                            _lockedRrvbGuidRegion = null;
-                            _lockedRrvbNameRegion = null;
-                            _lockedRrvbRegionMissCount = 0;
-                            _regionHasRrvbGuid    = false;
-                            _regionHasRrvbName    = false;
-                            cleared = true;
-                        }
-                    }
-                    if (cleared)
-                    {
-                        _fullScreenRrvbMissCount = 0;
-                        TraceRrvb($"[RRVB] Stale locked region cleared after {MaxFullScreenRrvbMisses} full-screen misses");
-                    }
-                }
-            }
         }
         finally
         {
@@ -446,26 +527,38 @@ public sealed class RvBarcodeMonitor : IDisposable
         }
     }
 
-    public void ProcessFrameRegion(Mat frame)
-    {
-        RegionKind kind;
-        lock (_gate)
-            kind = _activeRegionKind;
+    public void ProcessQrFrameRegion(Mat frame)
+        => ProcessFrameRegion(frame, RegionKind.Qr);
 
+    public void ProcessRrvbFrameRegion(Mat frame)
+        => ProcessFrameRegion(frame, RegionKind.RrvbGuid);
+
+    // Legacy/shared-region callback fallback. Current platform providers should
+    // wire QR to ProcessQrFrameRegion and RRVB to ProcessRrvbFrameRegion.
+    public void ProcessFrameRegion(Mat frame)
+        => ProcessFrameRegion(frame, DequeueExpectedRegionKind());
+
+    private void ProcessFrameRegion(Mat frame, RegionKind expectedKind)
+    {
         try
         {
             if (frame.Empty()) return;
 
-            if (kind == RegionKind.Qr)
-                OnRegionCaptured?.Invoke(frame);
-
-            if (kind == RegionKind.RrvbGuid)
+            OnRegionCaptured?.Invoke(frame);
+            switch (expectedKind)
             {
-                ProcessRrvbIdentityRegion(frame);
-                return;
+                case RegionKind.Qr:
+                    ProcessQrRegion(frame, clearOnFailure: true);
+                    break;
+                case RegionKind.RrvbGuid:
+                    TraceRrvb($"[RRVB] Process RRVB region frame rows={frame.Rows} cols={frame.Cols}");
+                    ProcessRrvbIdentityRegion(frame, clearOnFailure: true);
+                    break;
+                default:
+                    ProcessQrRegion(frame, clearOnFailure: false);
+                    ProcessRrvbIdentityRegion(frame, clearOnFailure: false);
+                    break;
             }
-
-            ProcessQrRegion(frame);
         }
         finally
         {
@@ -475,21 +568,39 @@ public sealed class RvBarcodeMonitor : IDisposable
         }
     }
 
-    private void ProcessQrRegion(Mat frame)
+
+    private RegionKind DequeueExpectedRegionKind()
+    {
+        lock (_gate)
+        {
+            if (_pendingRegionKinds.Count > 0)
+                return _pendingRegionKinds.Dequeue();
+
+            return _activeRegionKind;
+        }
+    }
+
+    private void ProcessQrRegion(Mat frame, bool clearOnFailure = true)
     {
         var decodedText = DecodeQrSingle(frame);
         if (string.IsNullOrEmpty(decodedText))
         {
-            lock (_gate)
-                _regionHasRvQr = false;
+            if (clearOnFailure)
+            {
+                lock (_gate)
+                    _regionHasRvQr = false;
+            }
             return;
         }
 
         var packet = RvPacket.TryParse(decodedText);
         if (packet == null || packet.IsPreview)
         {
-            lock (_gate)
-                _regionHasRvQr = false;
+            if (clearOnFailure)
+            {
+                lock (_gate)
+                    _regionHasRvQr = false;
+            }
             return;
         }
 
@@ -504,30 +615,42 @@ public sealed class RvBarcodeMonitor : IDisposable
         OnPacketDecoded?.Invoke(packet);
     }
 
-    private void ProcessRrvbIdentityRegion(Mat frame)
+    private void ProcessRrvbIdentityRegion(Mat frame, bool clearOnFailure = true)
     {
-        var identity = SelectBestRrvbIdentity(DecodeMultipleRrvb(frame, ref _singleRrvbScanBuffer, pad: 20));
+        var identity = SelectBestRrvbIdentity(DecodeMultipleRrvb(frame, ref _singleRrvbScanBuffer, pad: 0));
         if (identity == null)
         {
+            if (!clearOnFailure)
+                return;
+
             bool cleared = false;
             lock (_gate)
             {
-                _regionHasRrvbGuid = false;
-                _regionHasRrvbName = false;
-                ResetPendingRrvbIdentityLocked();
+                // A single failed locked-region read only means "not currently
+                // reading" for the status UI. Do not clear the accepted GUID/name
+                // until the locked region is declared stale below.
+                ClearRrvbIdentityStateLocked(clearAcceptedIdentity: false);
 
                 _lockedRrvbRegionMissCount++;
                 if (_lockedRrvbRegionMissCount >= MaxLockedRrvbRegionMisses && _lockedRrvbGuidRegion.HasValue)
                 {
-                    _lockedRrvbGuidRegion = null;
-                    _lockedRrvbNameRegion = null;
                     _lockedRrvbRegionMissCount = 0;
+
+                    // The locked crop failed repeatedly, but do not forget the
+                    // RRVB capture region. The barcode normally reappears at the
+                    // same coordinates after transient UI changes, and keeping
+                    // the region avoids a slow full-screen reacquire. Mark the
+                    // current read as unstable only; accepted identity is cleared
+                    // only by full-screen absence confirmation.
+                    ClearRrvbIdentityStateLocked(clearAcceptedIdentity: false);
                     cleared = true;
                 }
             }
 
             if (cleared)
-                TraceRrvb($"[RRVB] Stale locked region cleared after {MaxLockedRrvbRegionMisses} failed region reads");
+            {
+                TraceRrvb($"[RRVB] Stale locked region missed {MaxLockedRrvbRegionMisses} reads; keeping remembered RRVB capture zone and preserving accepted identity until full-screen miss confirms loss");
+            }
 
             return;
         }
@@ -535,10 +658,10 @@ public sealed class RvBarcodeMonitor : IDisposable
         lock (_gate)
             _lockedRrvbRegionMissCount = 0;
 
-        RecordRrvbIdentity(identity.Guid, identity.Name);
+        RecordRrvbIdentity(identity.Guid, identity.Name, requireDebounce: true);
     }
 
-    private void RecordRrvbIdentity(string guid, string name)
+    private void RecordRrvbIdentity(string guid, string name, bool requireDebounce)
     {
         var accepted = false;
         var acceptedGuid = string.Empty;
@@ -548,8 +671,8 @@ public sealed class RvBarcodeMonitor : IDisposable
         {
             var now = DateTime.UtcNow;
 
-            // Raw RRVB identity was decoded from the locked region, so keep region
-            // stability fresh even while debounce is waiting for a second read.
+            // Raw RRVB identity was decoded, so keep region stability fresh even
+            // while debounce is waiting for a second locked-region read.
             _regionHasRrvbGuid = true;
             _regionHasRrvbName = true;
             _lastRrvbDecodeTime = now;
@@ -564,32 +687,48 @@ public sealed class RvBarcodeMonitor : IDisposable
                 return;
             }
 
-            var samePending = string.Equals(_pendingRrvbGuid, guid, StringComparison.OrdinalIgnoreCase) &&
-                              string.Equals(_pendingRrvbName, name, StringComparison.Ordinal);
-            var pendingFresh = _pendingRrvbIdentityTime != DateTime.MinValue &&
-                               (now - _pendingRrvbIdentityTime).TotalMilliseconds <= RrvbIdentityDebounceWindowMs;
-
-            if (!samePending || !pendingFresh)
+            if (!requireDebounce)
             {
-                _pendingRrvbGuid = guid;
-                _pendingRrvbName = name;
-                _pendingRrvbIdentityCount = 1;
-                _pendingRrvbIdentityTime = now;
-                TraceRrvb($"[RRVB] Pending identity {guid} / {name}");
-                return;
+                // Full-screen RRVB decode comes from the panel locator plus strict
+                // RRVX payload validation. Trust it immediately; otherwise a valid
+                // full-screen read can sit in Pending and get cleared by a bad stale
+                // locked crop before the second confirmation read arrives.
+                _lastRrvbGuid = guid;
+                _lastRrvbName = name;
+                acceptedGuid = guid;
+                acceptedName = name;
+                accepted = true;
+                ResetPendingRrvbIdentityLocked();
             }
+            else
+            {
+                var samePending = string.Equals(_pendingRrvbGuid, guid, StringComparison.OrdinalIgnoreCase) &&
+                                  string.Equals(_pendingRrvbName, name, StringComparison.Ordinal);
+                var pendingFresh = _pendingRrvbIdentityTime != DateTime.MinValue &&
+                                   (now - _pendingRrvbIdentityTime).TotalMilliseconds <= RrvbIdentityDebounceWindowMs;
 
-            _pendingRrvbIdentityCount++;
-            _pendingRrvbIdentityTime = now;
-            if (_pendingRrvbIdentityCount < RrvbIdentityDebounceRequiredReads)
-                return;
+                if (!samePending || !pendingFresh)
+                {
+                    _pendingRrvbGuid = guid;
+                    _pendingRrvbName = name;
+                    _pendingRrvbIdentityCount = 1;
+                    _pendingRrvbIdentityTime = now;
+                    TraceRrvb($"[RRVB] Pending identity {guid} / {name}");
+                    return;
+                }
 
-            _lastRrvbGuid = guid;
-            _lastRrvbName = name;
-            acceptedGuid = guid;
-            acceptedName = name;
-            accepted = true;
-            ResetPendingRrvbIdentityLocked();
+                _pendingRrvbIdentityCount++;
+                _pendingRrvbIdentityTime = now;
+                if (_pendingRrvbIdentityCount < RrvbIdentityDebounceRequiredReads)
+                    return;
+
+                _lastRrvbGuid = guid;
+                _lastRrvbName = name;
+                acceptedGuid = guid;
+                acceptedName = name;
+                accepted = true;
+                ResetPendingRrvbIdentityLocked();
+            }
         }
 
         if (!accepted) return;
@@ -620,6 +759,7 @@ public sealed class RvBarcodeMonitor : IDisposable
     }
 
     private sealed record RrvbIdentity(Result Result, string Guid, string Name);
+    private sealed record RrvbFullScreenScan(Result[]? Results, bool PanelFound);
 
     private static RrvbIdentity? SelectBestRrvbIdentity(Result[]? results)
     {
@@ -654,7 +794,6 @@ public sealed class RvBarcodeMonitor : IDisposable
         var name = body[(nameMarkerIndex + RrvbNameFieldMarker.Length)..].Trim();
 
         if (string.IsNullOrWhiteSpace(guid)) return null;
-        if (string.IsNullOrWhiteSpace(name)) return null;
 
         return new RrvbIdentity(result, guid, name);
     }
@@ -680,13 +819,13 @@ public sealed class RvBarcodeMonitor : IDisposable
     /// Uses vertical morphology to find candidate regions containing repeating
     /// guard bars, then decodes each candidate crop individually.
     /// </summary>
-    private Result[]? DecodeRrvbMultiple(Mat frame)
+    private RrvbFullScreenScan DecodeRrvbFullScreen(Mat frame)
     {
         try
         {
             var candidates = FindRrvbCandidateRects(frame);
             TraceRrvb($"[RRVB] Full-screen candidates={candidates.Count} frame={frame.Cols}x{frame.Rows}");
-            if (candidates.Count == 0) return null;
+            if (candidates.Count == 0) return new RrvbFullScreenScan(null, PanelFound: false);
 
             var allResults = new List<Result>();
             foreach (var rect in candidates)
@@ -694,22 +833,34 @@ public sealed class RvBarcodeMonitor : IDisposable
                 using var crop    = new Mat(frame, rect);
                 var       decoded = DecodeMultipleRrvb(crop, ref _fullRrvbScanBuffer, pad: 0);
                 if (decoded == null) continue;
-                // Offset result points back to full-frame coordinates.
+                // Use the full candidate panel bounds as the lock geometry.
+                // The RRVB decoder result points describe decoded marker/data positions,
+                // not necessarily the full visible panel. Locking to those points can
+                // crop off rows on the next region poll, causing a good full-screen
+                // decode to be followed by stale/bad region reads.
                 foreach (var r in decoded)
                 {
-                    var pts     = r.ResultPoints ?? Array.Empty<ResultPoint>();
-                    var shifted = pts.Select(p => new ResultPoint(p.X + rect.X, p.Y + rect.Y)).ToArray();
-                    allResults.Add(new Result(r.Text, null, shifted, r.BarcodeFormat));
+                    var panelPoints = new[]
+                    {
+                        new ResultPoint(rect.X, rect.Y),
+                        new ResultPoint(rect.X + rect.Width, rect.Y),
+                        new ResultPoint(rect.X + rect.Width, rect.Y + rect.Height),
+                        new ResultPoint(rect.X, rect.Y + rect.Height),
+                    };
+                    allResults.Add(new Result(r.Text, null, panelPoints, r.BarcodeFormat));
                 }
             }
-            return allResults.Count > 0 ? allResults.ToArray() : null;
+            return new RrvbFullScreenScan(allResults.Count > 0 ? allResults.ToArray() : null, PanelFound: true);
         }
         catch (Exception ex)
         {
-            TraceRrvb($"[RRVB] DecodeRrvbMultiple error: {ex.Message}");
-            return null;
+            TraceRrvb($"[RRVB] DecodeRrvbFullScreen error: {ex.Message}");
+            return new RrvbFullScreenScan(null, PanelFound: false);
         }
     }
+
+    private Result[]? DecodeRrvbMultiple(Mat frame)
+        => DecodeRrvbFullScreen(frame).Results;
 
     /// <summary>
     /// Finds RRVB candidate bounding rects by first making the barcode ink a
@@ -956,8 +1107,15 @@ public sealed class RvBarcodeMonitor : IDisposable
             if (p.Y > maxY) maxY = p.Y;
         }
 
-        const int padding = 30;
-        var minHeight = (kind == RegionKind.RrvbGuid) ? 80 : 0;
+        // QR results are point/corner based and benefit from padding.
+        // RRVB full-screen results have already been rewritten to the exact
+        // detected panel rectangle. Do not pad RRVB here: padding pulls dark
+        // world/UI pixels into the locked crop. The detector then sees huge
+        // foreground regions and no guard bars, while full-screen decoding still
+        // works. Keep the normal RRVB crop equal to the panel found by the
+        // full-screen locator.
+        var padding = (kind == RegionKind.RrvbGuid) ? 0 : 30;
+        var minHeight = 0;
 
         int left = Math.Max(0, (int)Math.Floor(minX) - padding);
         int top = Math.Max(0, (int)Math.Floor(minY) - padding);
@@ -1021,7 +1179,6 @@ public sealed class RvBarcodeMonitor : IDisposable
         {
             bool needsScan;
             string reason;
-            Rect? qrRegion;
 
             lock (_gate)
             {
@@ -1033,9 +1190,10 @@ public sealed class RvBarcodeMonitor : IDisposable
                             && _lastRvDecodeTime != DateTime.MinValue
                             && (now - _lastRvDecodeTime).TotalMilliseconds <= stableGraceMs;
 
+                // RRVB stability is GUID-based. Name may be absent; do not
+                // force full-screen rescans just because the name field is empty.
                 var identityStable = _lockedRrvbGuidRegion.HasValue
                                   && _regionHasRrvbGuid
-                                  && _regionHasRrvbName
                                   && _lastRrvbDecodeTime != DateTime.MinValue
                                   && (now - _lastRrvbDecodeTime).TotalMilliseconds <= stableGraceMs;
 
@@ -1043,7 +1201,6 @@ public sealed class RvBarcodeMonitor : IDisposable
                 reason = needsScan
                     ? $"qr={qrStable} rrvx={identityStable}"
                     : "all regions stable";
-                qrRegion = _lockedRegion;
             }
 
             if (needsScan)
@@ -1052,11 +1209,18 @@ public sealed class RvBarcodeMonitor : IDisposable
 
                 lock (_captureIoGate)
                 {
-                    _activeRegionKind = RegionKind.None;
-                    _capture.EnableRegion = qrRegion.HasValue;
-                    if (qrRegion.HasValue)
-                        _capture.CaptureRegion = qrRegion.Value;
+                    lock (_gate)
+                    {
+                        _activeRegionKind = RegionKind.None;
+                        _pendingRegionKinds.Clear();
+                    }
 
+                    // Full-screen reacquire must be a full-screen-only capture.
+                    // Leaving region capture enabled here can generate an unrelated
+                    // region callback beside the full-screen frame and pollute QR/RRVB
+                    // miss counters with a stale crop.
+                    _capture.EnableRegion = false;
+                    _capture.EnableRrvbRegion = false;
                     _capture.EnableFullScreen = true;
                     _capture.CaptureOnce();
                     _capture.EnableFullScreen = false;

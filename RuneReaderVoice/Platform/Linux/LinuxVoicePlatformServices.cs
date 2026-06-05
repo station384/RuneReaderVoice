@@ -81,11 +81,14 @@ public sealed class LinuxVoiceScreenCapture : IScreenCaptureProvider
     public int ScreenHeight => 1080;
 
     public OpenCvSharp.Rect CaptureRegion { get; set; }
+    public OpenCvSharp.Rect RrvbCaptureRegion { get; set; }
     public bool EnableRegion     { get; set; }
+    public bool EnableRrvbRegion { get; set; }
     public bool EnableFullScreen { get; set; } = true;
 
     public event Action<OpenCvSharp.Mat>? OnFullScreenUpdated;
     public event Action<OpenCvSharp.Mat>? OnRegionUpdated;
+    public event Action<OpenCvSharp.Mat>? OnRrvbRegionUpdated;
 
     public void CaptureOnce()
     {

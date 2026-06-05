@@ -306,6 +306,12 @@ internal static class Program
             AppServices.CurrentRrvbName = name;
             RrvDebug.RrvbDebug($"Current NPC name side-channel = {name}");
         };
+        monitor.OnRrvbIdentityLost += () =>
+        {
+            AppServices.CurrentRrvbGuid = string.Empty;
+            AppServices.CurrentRrvbName = string.Empty;
+            RrvDebug.RrvbDebug("Current RRVB side-channel cleared");
+        };
         monitor.OnSourceGone += () =>
         {
             // Side-channel metadata belongs to the visible QR dialog. Clear it
@@ -362,7 +368,8 @@ internal static class Program
         };
 
         platform.ScreenCapture.OnFullScreenUpdated += monitor.ProcessFrame;
-        platform.ScreenCapture.OnRegionUpdated     += monitor.ProcessFrameRegion;
+        platform.ScreenCapture.OnRegionUpdated     += monitor.ProcessQrFrameRegion;
+        platform.ScreenCapture.OnRrvbRegionUpdated += monitor.ProcessRrvbFrameRegion;
 
         platform.Hotkeys.EscPressed += coordinator.HandleEscPressed;
         platform.Hotkeys.Start();

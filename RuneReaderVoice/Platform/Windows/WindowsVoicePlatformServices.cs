@@ -154,6 +154,7 @@ public sealed class WindowsVoiceScreenCapture : IScreenCaptureProvider
     private readonly ScreenCapture.NET.DX11ScreenCaptureService _service;
     private readonly ScreenCapture.NET.IScreenCapture           _screenCapture;
     private readonly ScreenCapture.NET.ICaptureZone             _zoneRegion;
+    private readonly ScreenCapture.NET.ICaptureZone             _zoneRrvbRegion;
     private readonly ScreenCapture.NET.ICaptureZone             _zoneFullScreen;
 
     private int  _disposed; // 0 = live, 1 = disposed
@@ -186,10 +187,33 @@ public sealed class WindowsVoiceScreenCapture : IScreenCaptureProvider
         }
     }
 
+    private OpenCvSharp.Rect _rrvbCaptureRegion;
+    public OpenCvSharp.Rect RrvbCaptureRegion
+    {
+        get => _rrvbCaptureRegion;
+        set
+        {
+            if (_rrvbCaptureRegion == value) return;
+
+            int x = Math.Clamp(value.X, 0, ScreenWidth);
+            int y = Math.Clamp(value.Y, 0, ScreenHeight);
+            int w = Math.Clamp(value.Width,  0, ScreenWidth);
+            int h = Math.Clamp(value.Height, 0, ScreenHeight);
+
+            if (x + w > ScreenWidth)  x = ScreenWidth  - w;
+            if (y + h > ScreenHeight) y = ScreenHeight - h;
+
+            _rrvbCaptureRegion = new OpenCvSharp.Rect(x, y, w, h);
+            _screenCapture.UpdateCaptureZone(_zoneRrvbRegion, x, y, w, h, downscaleLevel: 0);
+        }
+    }
+
     public bool EnableRegion     { get; set; }
+    public bool EnableRrvbRegion { get; set; }
     public bool EnableFullScreen { get; set; } = true;
 
     public event Action<OpenCvSharp.Mat>? OnRegionUpdated;
+    public event Action<OpenCvSharp.Mat>? OnRrvbRegionUpdated;
     public event Action<OpenCvSharp.Mat>? OnFullScreenUpdated;
 
     // ── Constructor ───────────────────────────────────────────────────────────
@@ -212,6 +236,13 @@ public sealed class WindowsVoiceScreenCapture : IScreenCaptureProvider
         _zoneRegion.AutoUpdate = false;
         _zoneRegion.Updated   += OnZoneRegionUpdated;
 
+        // RRVB region zone — independent native capture zone. Starts
+        // full-screen; RrvbCaptureRegion setter will resize it.
+        _zoneRrvbRegion = _screenCapture.RegisterCaptureZone(
+            0, 0, ScreenWidth, ScreenHeight, downscaleLevel: 0);
+        _zoneRrvbRegion.AutoUpdate = false;
+        _zoneRrvbRegion.Updated   += OnZoneRrvbRegionUpdated;
+
         // Full-screen zone — always full resolution.
         _zoneFullScreen = _screenCapture.RegisterCaptureZone(
             0, 0, ScreenWidth, ScreenHeight, downscaleLevel: 0);
@@ -225,6 +256,10 @@ public sealed class WindowsVoiceScreenCapture : IScreenCaptureProvider
     {
         if (IsDisposed) return;
 
+        // Request RRVB before QR. The RRVB side-channel carries NPC GUID/name
+        // that QR may omit in combat, so its callback should get first chance
+        // to refresh AppServices before QR packet handling runs.
+        if (EnableRrvbRegion) _zoneRrvbRegion.RequestUpdate();
         if (EnableRegion)     _zoneRegion.RequestUpdate();
         if (EnableFullScreen) _zoneFullScreen.RequestUpdate();
 
@@ -259,6 +294,29 @@ public sealed class WindowsVoiceScreenCapture : IScreenCaptureProvider
             {
                 mat = OpenCvSharp.Mat
                     .FromPixelData(_zoneRegion.Height, _zoneRegion.Width,
+                                   OpenCvSharp.MatType.CV_8UC4, (IntPtr)ptr, stride)
+                    .Clone();
+            }
+        }
+        handler.Invoke(mat);
+    }
+
+
+    private unsafe void OnZoneRrvbRegionUpdated(object? sender, EventArgs e)
+    {
+        if (IsDisposed || !EnableRrvbRegion) return;
+        var handler = OnRrvbRegionUpdated;
+        if (handler == null) return;
+
+        OpenCvSharp.Mat mat;
+        using (_zoneRrvbRegion.Lock())
+        {
+            int stride = _zoneRrvbRegion.Width * _zoneRrvbRegion.ColorFormat.BytesPerPixel;
+            var span   = _zoneRrvbRegion.RawBuffer;
+            fixed (byte* ptr = span)
+            {
+                mat = OpenCvSharp.Mat
+                    .FromPixelData(_zoneRrvbRegion.Height, _zoneRrvbRegion.Width,
                                    OpenCvSharp.MatType.CV_8UC4, (IntPtr)ptr, stride)
                     .Clone();
             }

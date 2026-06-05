@@ -19,7 +19,7 @@ internal static class RrvDebug
     public const bool NpcQuickSet = false;
     public const bool NpcSync = false;
     public const bool Cache = false;
-    public const bool Rrvb = false;
+    public const bool Rrvb = true;
     public const bool Playback = false;
     public const bool Assembler = false;
     public const bool RemoteTts = false;

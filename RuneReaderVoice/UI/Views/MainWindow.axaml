@@ -24,8 +24,8 @@ along with RuneReaderVoice. If not, see <https://www.gnu.org/licenses/>.
         mc:Ignorable="d"
         x:Class="RuneReaderVoice.UI.Views.MainWindow"
         Title="RuneReader Voice"
-        Width="600" 
-        MinWidth="480" 
+        Width="660" 
+        MinWidth="560" 
         MinHeight="250"
         MaxHeight="900"
         
@@ -79,7 +79,7 @@ along with RuneReaderVoice. If not, see <https://www.gnu.org/licenses/>.
         <Border Grid.Row="2" 
                 Background="#0F3460" Margin="8,8,8,0"
                 CornerRadius="6" Padding="12,10">
-            <Grid ColumnDefinitions="*,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto">
+            <Grid ColumnDefinitions="*,*,Auto" RowDefinitions="Auto,Auto,Auto,Auto,Auto">
 
                 <!-- Capture status -->
                 <TextBlock Grid.Row="0" Grid.Column="0"
@@ -109,6 +109,26 @@ along with RuneReaderVoice. If not, see <https://www.gnu.org/licenses/>.
                            Text="Player" Foreground="#888" FontSize="11" Margin="0,4,0,0"/>
                 <TextBlock x:Name="PlayerStatus" Grid.Row="4" Grid.Column="1"
                            Text="—" Foreground="#E0E0FF" FontSize="11" Margin="0,4,0,0"/>
+
+                <!-- Scanner lock indicators: lets the user see whether each barcode path is idle, scanning, or locked. -->
+                <StackPanel Grid.Row="0" Grid.RowSpan="5" Grid.Column="2"
+                            MinWidth="125" Margin="16,0,0,0" Spacing="5"
+                            VerticalAlignment="Center">
+                    <Grid ColumnDefinitions="Auto,*" ColumnSpacing="6">
+                        <Ellipse x:Name="RrvCodeStatusDot" Grid.Column="0"
+                                 Width="9" Height="9" Fill="#666" VerticalAlignment="Center"/>
+                        <TextBlock x:Name="RrvCodeStatus" Grid.Column="1"
+                                   Text="RRV Code  Idle" Foreground="#888" FontSize="11"
+                                   FontWeight="SemiBold"/>
+                    </Grid>
+                    <Grid ColumnDefinitions="Auto,*" ColumnSpacing="6">
+                        <Ellipse x:Name="QrCodeStatusDot" Grid.Column="0"
+                                 Width="9" Height="9" Fill="#666" VerticalAlignment="Center"/>
+                        <TextBlock x:Name="QrCodeStatus" Grid.Column="1"
+                                   Text="QR Code   Idle" Foreground="#888" FontSize="11"
+                                   FontWeight="SemiBold"/>
+                    </Grid>
+                </StackPanel>
             </Grid>
         </Border>
 
@@ -439,10 +459,9 @@ along with RuneReaderVoice. If not, see <https://www.gnu.org/licenses/>.
                                                Foreground="#888"
                                                FontSize="11"/>
 
-                                    <TextBlock Text="Race / voice slot" Foreground="#888" FontSize="11" Margin="0,4,0,0" IsVisible="False"/>
+                                    <TextBlock Text="Race / voice slot" Foreground="#888" FontSize="11" Margin="0,4,0,0"/>
                                     <ComboBox x:Name="TestQrRaceSelector"
                                               HorizontalAlignment="Stretch"
-                                              IsVisible="False"
                                               SelectionChanged="OnTestQrOptionsChanged"/>
 
                                     <TextBlock Text="Test size" Foreground="#888" FontSize="11" Margin="0,4,0,0"/>

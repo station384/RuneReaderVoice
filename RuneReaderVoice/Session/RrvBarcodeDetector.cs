@@ -37,8 +37,11 @@ public static class RrvBarcodeDetector
     private const int GuardOpenKernelHeight = 3;
     private const double RowOverlapThreshold = 0.55;
     private const double MinBarHeightToWidthRatio = 1.20;
-    private const double LanePeakInkFraction = 0.50;
+    private const double LanePeakInkFraction = 0.42;
     private const int MaxDebugPayloadPreviewChars = 80;
+    private const string ExpectedPayloadPrefix = "RRVX-";
+    private static readonly double[] DecodeYPhases = { -0.35, -0.20, 0.0, 0.20, 0.35 };
+    private static readonly double[] DecodeXFractions = { 0.35, 0.50, 0.65 };
     private const double LogicalAdvance = 250.0;
     private const double LogicalGuardWidth = 50.0;
     private const double LogicalDataWidth = 200.0;
@@ -419,7 +422,83 @@ public static class RrvBarcodeDetector
         return results;
     }
 
+    private readonly struct DecodeCandidate
+    {
+        public readonly List<byte> Payload;
+        public readonly int X1, Y1, X2, Y2;
+        public readonly double YPhase;
+        public readonly double XFraction;
+        public readonly int Score;
+        public readonly bool IsProtocolValid;
+        public readonly string Text;
+
+        public DecodeCandidate(List<byte> payload, int x1, int y1, int x2, int y2, double yPhase, double xFraction)
+        {
+            Payload = payload;
+            X1 = x1;
+            Y1 = y1;
+            X2 = x2;
+            Y2 = y2;
+            YPhase = yPhase;
+            XFraction = xFraction;
+            Text = Encoding.Latin1.GetString(payload.ToArray());
+            IsProtocolValid = LooksLikeRrvxPayload(Text);
+            Score = ScorePayload(Text);
+        }
+    }
+
     private static Result? DecodeFromStartMarker(Mat binary, List<BarRow> rows, int startRowIndex, int startMarkerBarIndex, int imageRows, int imageCols)
+    {
+        var startRow = rows[startRowIndex];
+        Trace($"[RRVB] START marker row={startRowIndex} bar={startMarkerBarIndex} Y={startRow.Top} dataGap={startRow.DataGap}");
+
+        DecodeCandidate? best = null;
+        DecodeCandidate? bestHighBitNormalized = null;
+
+        foreach (double yPhase in DecodeYPhases)
+        {
+            foreach (double xFraction in DecodeXFractions)
+            {
+                var candidate = DecodeFromStartMarkerCore(binary, rows, startRowIndex, startMarkerBarIndex, imageRows, imageCols, yPhase, xFraction);
+                if (candidate == null)
+                    continue;
+
+                if (best == null || candidate.Value.Score > best.Value.Score)
+                    best = candidate;
+
+                string normalized = ClearHighBits(candidate.Value.Text);
+                if (LooksLikeRrvxPayload(normalized))
+                {
+                    // Diagnostic only. If this wins but raw payload does not, the top lane is polluted.
+                    if (bestHighBitNormalized == null || candidate.Value.Score > bestHighBitNormalized.Value.Score)
+                        bestHighBitNormalized = candidate;
+                }
+
+                if (candidate.Value.IsProtocolValid)
+                {
+                    Trace($"[RRVB] Accepted candidate phase={yPhase:0.00} x={xFraction:0.00} score={candidate.Value.Score}");
+                    LogFirstBytes(candidate.Value.Payload);
+                    return MakeResult(candidate.Value.Payload, candidate.Value.X1, candidate.Value.Y1, candidate.Value.X2, candidate.Value.Y2);
+                }
+            }
+        }
+
+        if (best != null)
+        {
+            string preview = Preview(best.Value.Text);
+            Trace($"[RRVB] Reject closed block: no valid {ExpectedPayloadPrefix} payload; best phase={best.Value.YPhase:0.00} x={best.Value.XFraction:0.00} score={best.Value.Score} text='{preview}' hex={ToHexPreview(best.Value.Payload)}");
+        }
+
+        if (bestHighBitNormalized != null)
+        {
+            string normalized = ClearHighBits(bestHighBitNormalized.Value.Text);
+            Trace($"[RRVB] High-bit-normalized candidate looks valid; likely top-lane pollution. normalized='{Preview(normalized)}'");
+        }
+
+        return null;
+    }
+
+    private static DecodeCandidate? DecodeFromStartMarkerCore(Mat binary, List<BarRow> rows, int startRowIndex, int startMarkerBarIndex, int imageRows, int imageCols, double yPhase, double xFraction)
     {
         var payload = new List<byte>();
         var startRow = rows[startRowIndex];
@@ -430,8 +509,6 @@ public static class RrvBarcodeDetector
         int blockTop = startRow.Top;
         int blockBottom = startRow.Bottom;
         int lastRowBottom = startRow.Bottom;
-
-        Trace($"[RRVB] START marker row={startRowIndex} bar={startMarkerBarIndex} Y={startRow.Top} dataGap={startRow.DataGap}");
 
         for (int rowIndex = startRowIndex; rowIndex < rows.Count; rowIndex++)
         {
@@ -457,7 +534,7 @@ public static class RrvBarcodeDetector
                     blockRight = Math.Max(blockRight, row.Bars[barIndex + 2].XEnd);
                     blockTop = Math.Min(blockTop, row.Top);
                     blockBottom = Math.Max(blockBottom, row.Bottom);
-                    return MakeResult(payload, blockLeft, blockTop, blockRight, blockBottom);
+                    return new DecodeCandidate(payload, blockLeft, blockTop, blockRight, blockBottom, yPhase, xFraction);
                 }
 
                 int gap = CellGap(row, barIndex);
@@ -467,16 +544,13 @@ public static class RrvBarcodeDetector
                     continue;
                 }
 
-                byte value = DecodeDataCell(binary, row, barIndex, imageRows, imageCols);
+                byte value = DecodeDataCell(binary, row, barIndex, imageRows, imageCols, yPhase, xFraction);
                 payload.Add(value);
 
                 blockLeft = Math.Min(blockLeft, row.Bars[barIndex].XStart);
                 blockRight = Math.Max(blockRight, row.Bars[barIndex + 1].XEnd);
                 blockTop = Math.Min(blockTop, row.Top);
                 blockBottom = Math.Max(blockBottom, row.Bottom);
-
-                if (payload.Count <= 12)
-                    Trace($"[RRVB] byte[{payload.Count - 1}] row={rowIndex} cell={barIndex} value=0x{value:X2} '{Printable(value)}'");
 
                 barIndex++;
             }
@@ -486,6 +560,62 @@ public static class RrvBarcodeDetector
 
         Trace($"[RRVB] Unclosed block startRow={startRowIndex} startBar={startMarkerBarIndex} payloadBytes={payload.Count}");
         return null;
+    }
+
+    private static bool LooksLikeRrvxPayload(string text)
+    {
+        return text.StartsWith(ExpectedPayloadPrefix, StringComparison.Ordinal) &&
+               text.Contains("G=", StringComparison.Ordinal) &&
+               text.Contains(";N=", StringComparison.Ordinal);
+    }
+
+    private static int ScorePayload(string text)
+    {
+        int score = 0;
+        if (text.StartsWith(ExpectedPayloadPrefix, StringComparison.Ordinal)) score += 10000;
+        if (text.Contains("G=", StringComparison.Ordinal)) score += 1000;
+        if (text.Contains(";N=", StringComparison.Ordinal)) score += 1000;
+
+        foreach (char ch in text)
+        {
+            if (ch >= 32 && ch <= 126) score += 2;
+            else score -= 8;
+
+            if (ch > 127) score -= 12;
+            if (char.IsLetterOrDigit(ch) || ch == '-' || ch == '_' || ch == ':' || ch == ';' || ch == '=' || ch == '.' || ch == ' ') score += 1;
+        }
+
+        string normalized = ClearHighBits(text);
+        if (!ReferenceEquals(normalized, text) && LooksLikeRrvxPayload(normalized))
+            score += 500;
+
+        return score;
+    }
+
+    private static string ClearHighBits(string text)
+    {
+        char[] chars = new char[text.Length];
+        bool changed = false;
+        for (int i = 0; i < text.Length; i++)
+        {
+            char c = text[i];
+            char normalized = c > 127 ? (char)(c & 0x7F) : c;
+            chars[i] = normalized;
+            changed |= normalized != c;
+        }
+
+        return changed ? new string(chars) : text;
+    }
+
+    private static string Preview(string text)
+    {
+        return text.Length <= MaxDebugPayloadPreviewChars ? text : text[..MaxDebugPayloadPreviewChars] + "...";
+    }
+
+    private static void LogFirstBytes(List<byte> payload)
+    {
+        for (int i = 0; i < Math.Min(payload.Count, 12); i++)
+            Trace($"[RRVB] byte[{i}] value=0x{payload[i]:X2} '{Printable(payload[i])}'");
     }
 
     private static bool IsMarkerAt(BarRow row, int barIndex)
@@ -518,7 +648,7 @@ public static class RrvBarcodeDetector
         return gap >= row.DataGap * 0.60 && gap <= row.DataGap * 1.45;
     }
 
-    private static byte DecodeDataCell(Mat binary, BarRow row, int barIndex, int imageRows, int imageCols)
+    private static byte DecodeDataCell(Mat binary, BarRow row, int barIndex, int imageRows, int imageCols, double yPhase, double xFraction)
     {
         var leftBar = row.Bars[barIndex];
         var rightBar = row.Bars[barIndex + 1];
@@ -532,8 +662,15 @@ public static class RrvBarcodeDetector
             return 0;
 
         int gapWidth = gapRight - gapLeft + 1;
-        int center = (gapLeft + gapRight) / 2;
-        int halfWidth = gapWidth <= 2 ? 0 : Math.Min(1, Math.Max(0, gapWidth / 6));
+        int center = (int)Math.Round(gapLeft + (gapWidth - 1) * Math.Clamp(xFraction, 0.0, 1.0));
+
+        // Decode against a small center band, not a single center pixel.
+        // At 14px WoW font scale the data gap is still only ~5-6 px wide,
+        // and single-pixel sampling is too sensitive to raster speckles/guard
+        // bleed. Real lane strokes span across the data zone, so requiring a
+        // small center-band majority is more size-tolerant while still avoiding
+        // the guard edges.
+        int halfWidth = gapWidth <= 2 ? 0 : Math.Max(1, gapWidth / 4);
 
         int x0 = Math.Max(gapLeft, center - halfWidth);
         int x1 = Math.Min(gapRight, center + halfWidth);
@@ -541,27 +678,33 @@ public static class RrvBarcodeDetector
         byte value = 0;
         for (int lane = 0; lane < NumLanes; lane++)
         {
-            if (LaneHasInk(binary, row, x0, x1, lane, imageRows, imageCols))
+            if (LaneHasInk(binary, row, x0, x1, lane, imageRows, imageCols, yPhase))
                 value |= (byte)(1 << (7 - lane));
         }
 
         return value;
     }
 
-    private static bool LaneHasInk(Mat binary, BarRow row, int x0, int x1, int lane, int rows, int cols)
+    private static bool LaneHasInk(Mat binary, BarRow row, int x0, int x1, int lane, int rows, int cols, double yPhase)
     {
         int xa = Math.Clamp(Math.Min(x0, x1), 0, cols - 1);
         int xb = Math.Clamp(Math.Max(x0, x1), 0, cols - 1);
         if (xb < xa)
             return false;
 
-        // Rendering jitter can move the horizontal bit stroke up/down by a pixel.
-        // Treat each lane as a slot and look for the strongest 1-pixel row inside
-        // that slot instead of sampling a fixed band. Whitespace between lanes keeps
-        // adjacent bits separated.
+        // The guard bar gives the row envelope, but WoW font rasterization can shift
+        // the actual 8 data lanes within that envelope by a fraction of a lane.
+        // Sample a small band around a phase-adjusted lane center instead of treating
+        // the whole ideal slot as valid; otherwise a single speck in the top lane can
+        // set the high bit and turn "R" into 0xD2.
         double slotH = row.Height / (double)NumLanes;
-        int slotTop = (int)Math.Floor(row.Top + lane * slotH);
-        int slotBottom = (int)Math.Ceiling(row.Top + (lane + 1) * slotH) - 1;
+        double centerY = row.Top + (lane + 0.5 + yPhase) * slotH;
+        int radius = Math.Max(0, (int)Math.Floor(slotH * 0.22));
+        if (slotH >= 2.5)
+            radius = Math.Max(radius, 1);
+
+        int slotTop = (int)Math.Round(centerY) - radius;
+        int slotBottom = (int)Math.Round(centerY) + radius;
 
         slotTop = Math.Clamp(slotTop, 0, rows - 1);
         slotBottom = Math.Clamp(slotBottom, 0, rows - 1);
@@ -569,7 +712,8 @@ public static class RrvBarcodeDetector
             (slotTop, slotBottom) = (slotBottom, slotTop);
 
         int sampleWidth = xb - xa + 1;
-        int bestInk = 0;
+        int sampleHeight = slotBottom - slotTop + 1;
+        int ink = 0;
 
         unsafe
         {
@@ -579,21 +723,22 @@ public static class RrvBarcodeDetector
             for (int y = slotTop; y <= slotBottom; y++)
             {
                 byte* data = ptr + y * step;
-                int ink = 0;
-
                 for (int x = xa; x <= xb; x++)
                 {
                     if (data[x] > 0)
                         ink++;
                 }
-
-                if (ink > bestInk)
-                    bestInk = ink;
             }
         }
 
-        int requiredInk = Math.Max(1, (int)Math.Ceiling(sampleWidth * LanePeakInkFraction));
-        return bestInk >= requiredInk;
+        int total = sampleWidth * sampleHeight;
+        int requiredInk = Math.Max(1, (int)Math.Ceiling(total * LanePeakInkFraction));
+
+        // With a 3+ pixel center band, a one-pixel speck should not become a bit.
+        if (sampleWidth >= 3)
+            requiredInk = Math.Max(requiredInk, 2);
+
+        return ink >= requiredInk;
     }
 
     private static Result MakeResult(List<byte> payload, int x1, int y1, int x2, int y2)

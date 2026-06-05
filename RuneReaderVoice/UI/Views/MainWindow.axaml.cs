@@ -216,6 +216,41 @@ public partial class MainWindow : Window
 
         CacheStatsLabel.Text =
             $"Cache: {cache.EntryCount} entries, {cache.TotalSizeBytes / 1024 / 1024} MB";
+
+        UpdateScannerLockIndicators();
+    }
+
+    private void UpdateScannerLockIndicators()
+    {
+        var snapshot = AppServices.Monitor.GetScannerLockSnapshot();
+        UpdateScannerStatus(QrCodeStatus, QrCodeStatusDot, "QR Code", snapshot.QrLocked, snapshot.QrRecentlyRead);
+        UpdateScannerStatus(RrvCodeStatus, RrvCodeStatusDot, "RRV Code", snapshot.RrvbLocked, snapshot.RrvbRecentlyRead);
+    }
+
+    private void UpdateScannerStatus(TextBlock label, Avalonia.Controls.Shapes.Ellipse dot, string name, bool locked, bool recentlyRead)
+    {
+        string state;
+        IBrush brush;
+
+        if (locked && recentlyRead)
+        {
+            state = "Locked";
+            brush = Avalonia.Media.Brushes.LightGreen;
+        }
+        else if (_capturing)
+        {
+            state = "Reading";
+            brush = Avalonia.Media.Brushes.Gold;
+        }
+        else
+        {
+            state = "Idle";
+            brush = Avalonia.Media.Brushes.Gray;
+        }
+
+        label.Text = $"{name}  {state}";
+        label.Foreground = brush;
+        dot.Fill = brush;
     }
 
 

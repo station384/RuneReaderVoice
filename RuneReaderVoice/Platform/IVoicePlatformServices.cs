@@ -38,12 +38,22 @@ public interface IScreenCaptureProvider : IDisposable
 {
     int ScreenWidth  { get; }
     int ScreenHeight { get; }
-    OpenCvSharp.Rect CaptureRegion    { get; set; }
-    bool EnableRegion     { get; set; }
+    // QR region capture zone.
+    OpenCvSharp.Rect CaptureRegion { get; set; }
+    bool EnableRegion { get; set; }
+
+    // RRVB region capture zone. Kept separate from QR because the capture
+    // backend owns native capture-zone buffers; changing one mutable region
+    // between QR/RRVB requests can race callbacks and feed the wrong crop to
+    // the decoder.
+    OpenCvSharp.Rect RrvbCaptureRegion { get; set; }
+    bool EnableRrvbRegion { get; set; }
+
     bool EnableFullScreen { get; set; }
     void CaptureOnce();
     event Action<OpenCvSharp.Mat>? OnFullScreenUpdated;
     event Action<OpenCvSharp.Mat>? OnRegionUpdated;
+    event Action<OpenCvSharp.Mat>? OnRrvbRegionUpdated;
 }
 
 /// <summary>
