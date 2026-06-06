@@ -111,6 +111,43 @@ class WorkerAsr(AbstractAsrProvider):
     def is_loaded(self) -> bool:
         return self._loaded_flag and self._process is not None and self._process.poll() is None
 
+    def _connection_is_open(self) -> bool:
+        if self._reader is None or self._writer is None:
+            return False
+        if self._writer.is_closing():
+            return False
+        transport = getattr(self._writer, "transport", None)
+        if transport is not None and getattr(transport, "is_closing", lambda: False)():
+            return False
+        return True
+
+    async def _close_connection(self) -> None:
+        writer = self._writer
+        self._writer = None
+        self._reader = None
+        if writer is None:
+            return
+        try:
+            writer.close()
+            await writer.wait_closed()
+        except Exception:
+            pass
+
+    async def _connect(self) -> None:
+        if not self._socket_path:
+            raise RuntimeError(f"ASR worker '{self._provider_name}' has no socket path")
+        self._reader, self._writer = await asyncio.open_unix_connection(self._socket_path)
+
+    async def _ensure_connection(self) -> None:
+        if not self.is_loaded:
+            return
+        if self._connection_is_open():
+            return
+        log.info("ASR worker '%s' connection is closed — reconnecting", self._provider_name)
+        await self._close_connection()
+        await self._connect()
+        await asyncio.wait_for(self._ping(), timeout=_PING_TIMEOUT)
+
     @property
     def vram_used_mib(self) -> float:
         return float(self._capabilities.get("vram_used_mib", 0.0))
@@ -216,7 +253,7 @@ class WorkerAsr(AbstractAsrProvider):
             raise RuntimeError(f"ASR worker '{self._provider_name}' startup failed: {exc}") from exc
 
         try:
-            self._reader, self._writer = await asyncio.open_unix_connection(self._socket_path)
+            await self._connect()
         except Exception as exc:
             self._kill_worker()
             raise RuntimeError(
@@ -270,19 +307,39 @@ class WorkerAsr(AbstractAsrProvider):
         }
 
         async with self._lock:
-            try:
-                await _send_message(self._writer, msg)
-                resp = await asyncio.wait_for(
-                    _recv_message(self._reader),
-                    timeout=_TRANSCRIPTION_TIMEOUT,
-                )
-            except asyncio.TimeoutError:
-                raise RuntimeError(
-                    f"ASR worker '{self._provider_name}' transcription timed out"
-                )
+            resp = None
+            last_exc = None
+            for attempt in range(2):
+                try:
+                    await self._ensure_connection()
+                    if not self._connection_is_open():
+                        raise RuntimeError(f"ASR worker '{self._provider_name}' connection is not open")
+                    await _send_message(self._writer, msg)
+                    resp = await asyncio.wait_for(
+                        _recv_message(self._reader),
+                        timeout=_TRANSCRIPTION_TIMEOUT,
+                    )
+                    if resp is None:
+                        raise ConnectionResetError(f"ASR worker '{self._provider_name}' closed connection")
+                    break
+                except asyncio.TimeoutError:
+                    raise RuntimeError(
+                        f"ASR worker '{self._provider_name}' transcription timed out"
+                    )
+                except (BrokenPipeError, ConnectionResetError, ConnectionError, RuntimeError, OSError) as exc:
+                    last_exc = exc
+                    await self._close_connection()
+                    if attempt == 0 and self.is_loaded:
+                        log.warning(
+                            "ASR worker '%s' connection failed during transcription — reconnecting and retrying once: %s",
+                            self._provider_name,
+                            exc,
+                        )
+                        continue
+                    raise RuntimeError(f"ASR worker '{self._provider_name}' connection failed: {exc}") from exc
 
             if resp is None:
-                raise RuntimeError(f"ASR worker '{self._provider_name}' closed connection")
+                raise RuntimeError(f"ASR worker '{self._provider_name}' closed connection: {last_exc}")
             if resp.get("status") == "error":
                 raise RuntimeError(resp.get("message", "ASR worker error"))
 

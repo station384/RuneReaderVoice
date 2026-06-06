@@ -36,19 +36,21 @@
 #
 # ── ffmpeg conversion ──────────────────────────────────────────────────────────
 # Any file with a CONVERTIBLE_EXTENSION found in the samples directory is
-# automatically converted to 16kHz mono PCM_16 WAV. The original file is moved
-# to data/samples/originals/ for safekeeping. ffmpeg handles both audio-only
-# files and video files (MP4, MKV, WEBM etc.) — video tracks are stripped and
-# audio is extracted. If ffmpeg is not installed, conversion is skipped with a
-# warning logged at startup.
+# automatically converted to a normalized master WAV. The user-provided source
+# file itself (.mp3/.flac/.mp4/etc.) is preserved under data/samples/originals/.
+# Existing WAV masters are not re-encoded here, but direct WAV uploads are copied
+# to originals/ before transcription/profile/extraction can rename or move the
+# working master. ffmpeg
+# handles both audio-only files and video files (MP4, MKV, WEBM etc.) — video
+# tracks are stripped and audio is extracted. If ffmpeg is not installed,
+# conversion is skipped with a warning logged at startup.
 #
-# Supported input formats:
-#   Audio: .mp3 .aac .m4a .flac .ogg
+# Supported converted input formats:
+#   Audio: .mp3 .aac .m4a .m4b .flac .ogg
 #   Video: .mp4 .mkv .webm .avi
 #
-# Target WAV format: 16kHz, mono, PCM_16
-#   - 16kHz: sweet spot for all three backends (Whisper, F5-TTS, Chatterbox)
-#   - Mono: reduces file size, avoids stereo handling differences
+# Target WAV format: 44.1kHz, stereo, PCM_16
+#   - 44.1kHz/stereo: preserved master for downstream provider clip extraction
 #   - PCM_16: guarantees librosa.load() returns float32 (critical for Chatterbox CPU)
 
 from __future__ import annotations
@@ -56,6 +58,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import os
+import re
 import shutil
 import subprocess
 from pathlib import Path
@@ -72,6 +75,17 @@ CONVERTIBLE_EXTENSIONS = frozenset({
     ".mp3", ".aac", ".m4a", ".m4b", ".flac", ".ogg",   # audio (.m4b = audiobook, same as mp4)
     ".mp4", ".mkv", ".webm", ".avi",                     # video — audio track extracted
 })
+
+
+def _safe_sample_stem(stem: str) -> str:
+    """Return a sample-safe stem for generated master WAV names.
+
+    User-provided originals may contain spaces or punctuation. The normalized
+    master must still match the server sample scanner's conservative stem rule.
+    """
+    safe = re.sub(r"[^A-Za-z0-9_-]+", "_", stem.strip())
+    safe = safe.strip("_")
+    return safe or "sample"
 
 # Target WAV parameters
 #_WAV_SAMPLE_RATE = 22000
@@ -133,6 +147,67 @@ def _gender_prefix(profile: str) -> str:
     elif first_word == "female":
         return "F_"
     return "U_"  # "Unknown" or any unexpected value
+
+
+
+def _archive_original_source(src: Path, originals_dir: Path, *, move: bool) -> Path | None:
+    """Archive the user-provided source file under samples/originals/.
+
+    This preserves the original upload itself, not just the normalized WAV master.
+    For convertible sources (.mp3/.flac/.mp4/etc.), callers normally copy before
+    ffmpeg conversion and then remove/move the source only after conversion succeeds.
+    Direct WAV uploads are copied because the WAV remains the working master and may
+    later be renamed/moved into a gender-prefixed sample directory.
+
+    The operation is idempotent by filename/size; if a same-named archive already
+    exists with the same byte size, it is reused. If the name collides with a
+    different file, a numeric suffix is added.
+    """
+    try:
+        if not src.exists() or not src.is_file():
+            return None
+        originals_dir.mkdir(parents=True, exist_ok=True)
+
+        dst = originals_dir / src.name
+        if dst.exists():
+            try:
+                if dst.stat().st_size == src.stat().st_size:
+                    if move and src.resolve() != dst.resolve():
+                        try:
+                            src.unlink(missing_ok=True)
+                        except Exception as e:
+                            log.warning("Archived original already exists but failed to remove live source '%s': %s", src, e)
+                    return dst
+            except Exception:
+                pass
+            idx = 1
+            while True:
+                candidate = originals_dir / f"{src.stem}_{idx}{src.suffix}"
+                if not candidate.exists():
+                    dst = candidate
+                    break
+                try:
+                    if candidate.stat().st_size == src.stat().st_size:
+                        if move and src.resolve() != candidate.resolve():
+                            try:
+                                src.unlink(missing_ok=True)
+                            except Exception as e:
+                                log.warning("Archived original already exists but failed to remove live source '%s': %s", src, e)
+                        return candidate
+                except Exception:
+                    pass
+                idx += 1
+
+        if move:
+            shutil.move(str(src), str(dst))
+            log.info("Archived original source '%s' → originals/%s", src.name, dst.name)
+        else:
+            shutil.copy2(str(src), str(dst))
+            log.info("Archived original source '%s' → originals/%s", src.name, dst.name)
+        return dst
+    except Exception as e:
+        log.warning("Failed to archive original source '%s': %s", src, e)
+        return None
 
 
 def _apply_gender_prefix(audio_path: Path, prefix: str) -> Path:
@@ -646,16 +721,23 @@ class TranscriptionService:
                     continue
                 if path.suffix.lower() not in CONVERTIBLE_EXTENSIONS:
                     continue
-                if not _VALID_STEM_RE.match(path.stem):
+                clean_stem = _safe_sample_stem(path.stem)
+                if not _VALID_STEM_RE.match(clean_stem):
                     log.warning(
-                        "Skipping conversion — invalid filename "
-                        "(use underscores/hyphens only): %s", path.name
+                        "Skipping conversion — could not derive safe sample name from: %s",
+                        path.name,
                     )
                     continue
-                clean_stem = path.stem.replace(" ", "_")
                 wav_path = path.parent / (clean_stem + ".wav")
                 if wav_path.exists():
-                    log.debug("WAV already exists for %s — skipping", path.name)
+                    # Conversion already happened or an admin supplied the master WAV.
+                    # The original upload still belongs in originals/ and should not
+                    # sit in the live samples tree causing repeated scan noise.
+                    archived = _archive_original_source(path, self._originals_dir, move=True)
+                    if archived is not None:
+                        log.info("WAV already exists for %s — archived original and skipped conversion", path.name)
+                    else:
+                        log.debug("WAV already exists for %s — skipping", path.name)
                     continue
                 pending.append(path)
 
@@ -668,21 +750,25 @@ class TranscriptionService:
 
     def _convert_to_wav(self, src: Path) -> bool:
         """
-        Convert src to a 16kHz mono PCM_16 WAV file alongside it.
-        On success, move src to the originals directory.
-        Spaces in the source filename are replaced with underscores in the output.
+        Convert src to a normalized 44.1kHz stereo PCM_16 WAV master alongside it.
+        The original upload itself is preserved under originals/ and removed from
+        the live samples tree after successful conversion. Unsafe filename
+        characters are replaced with underscores in the generated WAV stem.
         Returns True on success.
         """
-        # Sanitize output stem — replace spaces with underscores so the result
-        # passes the _VALID_STEM_RE check and appears in the sample scanner.
-        clean_stem = src.stem.replace(" ", "_")
+        # Sanitize output stem so the generated WAV passes the _VALID_STEM_RE
+        # check and appears in the sample scanner. The archived original keeps
+        # the user-provided filename and extension.
+        clean_stem = _safe_sample_stem(src.stem)
         dst = src.parent / (clean_stem + ".wav")
         self._originals_dir.mkdir(parents=True, exist_ok=True)
 
-        # When src is already a .wav, dst == src. Write to a temp file
-        # first so we don't overwrite the source before archiving it.
-        same_file = dst.resolve() == src.resolve()
-        ffmpeg_dst = dst.with_suffix(".converting.wav") if same_file else dst
+        # src should be a non-WAV original upload here (.mp3/.flac/.mp4/etc.).
+        # Preserve that exact source file before conversion starts. We do not move it
+        # yet because ffmpeg still needs to read it; after successful conversion the
+        # live source is removed so only the normalized WAV remains in the samples tree.
+        archived_src = _archive_original_source(src, self._originals_dir, move=False)
+        ffmpeg_dst = dst
 
         log.info("Converting '%s' → '%s'", src.name, dst.name)
 
@@ -711,20 +797,22 @@ class TranscriptionService:
                 except Exception: pass
                 return False
 
-            # Archive the original before renaming the temp output
-            archive_path = self._originals_dir / src.name
-            shutil.move(str(src), str(archive_path))
-
-            # Rename temp output to final destination (only needed when same_file)
-            if same_file:
-                ffmpeg_dst.rename(dst)
+            # Conversion succeeded. The original upload was already copied into
+            # originals/, so remove it from the live samples tree. If the pre-copy
+            # failed, fall back to moving it now so the original is still preserved.
+            if archived_src is not None:
+                try:
+                    src.unlink(missing_ok=True)
+                except Exception as e:
+                    log.warning("Converted '%s' but failed to remove live original: %s", src.name, e)
+            else:
+                _archive_original_source(src, self._originals_dir, move=True)
 
             # Add silence padding to the converted WAV before any downstream use
             _pad_wav_silence(dst)
 
-            # archive_path already moved above
             log.info(
-                "Converted '%s' → '%s' (original archived to originals/)",
+                "Converted '%s' → '%s' (original preserved in originals/)",
                 src.name, dst.name,
             )
             return True
@@ -797,6 +885,14 @@ class TranscriptionService:
                     except Exception:
                         pass
                     continue
+
+                # WAV masters bypass ffmpeg conversion, so preserve the
+                # user-provided source before transcription/profile/extraction
+                # can move or rename the working master. Non-WAV files are
+                # already moved by _convert_to_wav().
+                if path.suffix.lower() == ".wav":
+                    _archive_original_source(path, self._originals_dir, move=False)
+
                 pending.append(path)
 
         if not pending:
