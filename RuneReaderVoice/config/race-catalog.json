@@ -37,6 +37,18 @@
       "UpdatedUtc": 1777580957
     },
     {
+      "Id": "Drogbar",
+      "DisplayName": "Drogbar",
+      "AccentLabel": "Drogbar",
+      "HasMale": true,
+      "HasFemale": true,
+      "HasNeutral": false,
+      "Enabled": true,
+      "SortOrder": 0,
+      "Source": "Local",
+      "UpdatedUtc": 1779625068
+    },
+    {
       "Id": "GoldDragon",
       "DisplayName": "Gold Dragon",
       "AccentLabel": "Dragon",
@@ -73,6 +85,30 @@
       "UpdatedUtc": 1779077814
     },
     {
+      "Id": "Kobold",
+      "DisplayName": "Kobold",
+      "AccentLabel": "Kobold",
+      "HasMale": true,
+      "HasFemale": true,
+      "HasNeutral": false,
+      "Enabled": true,
+      "SortOrder": 0,
+      "Source": "Local",
+      "UpdatedUtc": 1779820003
+    },
+    {
+      "Id": "GenericNarrator",
+      "DisplayName": "Narrator-General",
+      "AccentLabel": "Neutral",
+      "HasMale": true,
+      "HasFemale": true,
+      "HasNeutral": false,
+      "Enabled": true,
+      "SortOrder": 0,
+      "Source": "Local",
+      "UpdatedUtc": 1779960696
+    },
+    {
       "Id": "Niffin",
       "DisplayName": "Niffin",
       "AccentLabel": "Niffin",
@@ -107,6 +143,30 @@
       "SortOrder": 0,
       "Source": "Local",
       "UpdatedUtc": 1779079637
+    },
+    {
+      "Id": "Valarjar",
+      "DisplayName": "Valarjar",
+      "AccentLabel": "Valarjar",
+      "HasMale": true,
+      "HasFemale": true,
+      "HasNeutral": false,
+      "Enabled": true,
+      "SortOrder": 0,
+      "Source": "Local",
+      "UpdatedUtc": 1779864260
+    },
+    {
+      "Id": "Vrykul",
+      "DisplayName": "Vrykul",
+      "AccentLabel": "Vrykul",
+      "HasMale": true,
+      "HasFemale": true,
+      "HasNeutral": false,
+      "Enabled": true,
+      "SortOrder": 0,
+      "Source": "Local",
+      "UpdatedUtc": 1779863033
     },
     {
       "Id": "human",
