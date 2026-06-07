@@ -170,6 +170,18 @@ def _create_backend(name: str, models_dir, gpu: GpuInfo, settings=None) -> Abstr
             cond_cache_dir=_cond_cache_dir,
         )
 
+    elif name == "chatterbox_full_onnx":
+        # The ONNX/ORT GenAI provider is intentionally worker-only.  The host
+        # server process must stay dependency-clean; onnxruntime-gpu,
+        # onnxruntime-genai-cuda, and CUDA runtime wheels live in the
+        # rrv-chatterbox-onnx worker context.  Configure:
+        #   RRV_WORKER_VENV_chatterbox_full_onnx=/opt/rrvserver/rrv-chatterbox-onnx/.venv
+        raise RuntimeError(
+            "chatterbox_full_onnx must run as an isolated worker. "
+            "Set RRV_WORKER_VENV_chatterbox_full_onnx to the "
+            "rrv-chatterbox-onnx/.venv path."
+        )
+
     elif name == "chatterbox_multilingual":
         from .chatterbox_multilingual_backend import ChatterboxMultilingualBackend
         return ChatterboxMultilingualBackend(

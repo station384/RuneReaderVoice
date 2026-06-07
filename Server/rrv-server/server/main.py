@@ -32,7 +32,7 @@
 
 from __future__ import annotations
 
-SERVER_VERSION = "157"
+SERVER_VERSION = "178"
 
 import os as _os
 import pathlib as _pathlib

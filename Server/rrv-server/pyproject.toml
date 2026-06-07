@@ -72,6 +72,9 @@ gpu-rocm = [
     "onnxruntime-rocm>=1.18.0",
 ]
 
+# chatterbox_full_onnx runs in the isolated rrv-chatterbox-onnx worker context.
+# Do not install ONNX Runtime / ORT GenAI into the host server environment.
+
 [project.scripts]
 rrv-server = "server.main:run"
 

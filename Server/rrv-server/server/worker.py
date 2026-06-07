@@ -379,6 +379,13 @@ def _instantiate_backend(name: str, models_dir: Path, samples_dir: Path, gpu_inf
             cond_cache_dir=cond_cache_dir,
         )
 
+    elif name == "chatterbox_full_onnx":
+        from .backends.chatterbox_full_onnx_backend import ChatterboxFullOnnxBackend
+        return ChatterboxFullOnnxBackend(
+            models_dir=models_dir,
+            ort_providers=gpu_info.ort_providers,
+        )
+
     elif name == "chatterbox_multilingual":
         from .backends.chatterbox_multilingual_backend import ChatterboxMultilingualBackend
         return ChatterboxMultilingualBackend(

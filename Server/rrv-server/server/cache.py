@@ -42,6 +42,7 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import logging
+import os
 import time
 from pathlib import Path
 from typing import Optional
@@ -468,9 +469,30 @@ def normalize_render_precision(provider_id: str | None = None, requested_precisi
     Non-Chatterbox providers always normalize to ``fp32`` because this setting
     only describes Chatterbox-family runtime precision.
     """
+    if provider_id == "chatterbox_full_onnx":
+        # ONNX has model-file variants, not torch dtype conversion.  This must
+        # be part of cache identity so fp32/fp16/q4/q4f16 renders and token
+        # sidecars never collide.
+        variant = os.environ.get("RRV_CHATTERBOX_ONNX_LM_VARIANT", "fp16").strip().lower() or "fp16"
+        if os.environ.get("RRV_CHATTERBOX_ONNX_LM_FILE", "").strip():
+            # Direct filename override is a dev/test path; hash the filename into
+            # a stable compact identity.
+            raw = os.environ["RRV_CHATTERBOX_ONNX_LM_FILE"].strip().lower()
+            return "onnx_" + hashlib.sha256(raw.encode("utf-8")).hexdigest()[:12]
+        # GenAI hybrid-last provider identity. Include the audio-rate policy so
+        # old direct-ORT/24k ONNX cache entries and token sidecars never collide
+        # with the tested 22.05k GenAI path.
+        ref_sr = os.environ.get("RRV_CHATTERBOX_ONNX_REF_SAMPLE_RATE", "22050").strip() or "22050"
+        out_sr = os.environ.get("RRV_CHATTERBOX_ONNX_OUTPUT_SAMPLE_RATE", "22050").strip() or "22050"
+        if variant in {"fp32", "fp16", "q4", "q4f16"}:
+            return f"onnx_genai_{variant}_r{ref_sr}_o{out_sr}"
+        return f"onnx_genai_fp16_r{ref_sr}_o{out_sr}"
+
+    precision = (requested_precision or "fp32").strip().lower() or "fp32"
+    if precision.startswith("onnx_"):
+        return precision
     if provider_id and not provider_id.startswith("chatterbox"):
         return "fp32"
-    precision = (requested_precision or "fp32").strip().lower() or "fp32"
     if precision == "fp16":
         return "t3_fp16"
     if precision in {"fp32", "t3_fp16", "fp16_full", "fp8"}:

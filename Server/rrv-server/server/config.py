@@ -58,7 +58,7 @@ def _env_set(key: str, default: str) -> FrozenSet[str]:
 
 # ── Valid values ──────────────────────────────────────────────────────────────
 
-VALID_BACKENDS: FrozenSet[str] = frozenset({"kokoro", "f5tts", "chatterbox", "chatterbox_full", "chatterbox_multilingual", "qwen_natural", "qwen_custom", "qwen_design"})
+VALID_BACKENDS: FrozenSet[str] = frozenset({"kokoro", "f5tts", "chatterbox", "chatterbox_full", "chatterbox_full_onnx", "chatterbox_multilingual", "qwen_natural", "qwen_custom", "qwen_design"})
 VALID_GPU_MODES: FrozenSet[str] = frozenset({"auto", "cuda", "rocm", "cpu"})
 VALID_LOG_LEVELS: FrozenSet[str] = frozenset({"debug", "info", "warning", "error"})
 

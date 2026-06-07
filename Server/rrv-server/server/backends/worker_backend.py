@@ -320,6 +320,22 @@ class WorkerBackend(AbstractTtsBackend):
         # useless in production; keep them available via RRV_WORKER_TQDM=1.
         if spawn_env.get("RRV_WORKER_TQDM", "0") != "1":
             spawn_env["TQDM_DISABLE"] = "1"
+        # Expose venv-local NVIDIA CUDA runtime wheels (nvidia-*-cu12) to
+        # ONNX Runtime / torch provider dlopen calls.  This keeps worker venvs
+        # self-contained and avoids relying on system-wide CUDA toolkit installs.
+        try:
+            _site_dir = next((self._venv_path / "lib").glob("python*/site-packages"))
+            _nvidia_root = _site_dir / "nvidia"
+            if _nvidia_root.exists():
+                _lib_dirs = [str(p) for p in _nvidia_root.rglob("lib") if p.is_dir()]
+                if _lib_dirs:
+                    _old_ld = spawn_env.get("LD_LIBRARY_PATH", "")
+                    _old_parts = [p for p in _old_ld.split(":") if p]
+                    _merged = _lib_dirs + [p for p in _old_parts if p not in _lib_dirs]
+                    spawn_env["LD_LIBRARY_PATH"] = ":".join(_merged)
+        except Exception:
+            pass
+
         # Suppress known harmless FutureWarnings from diffusers/transformers that
         # are emitted before run_worker.py's warnings.filterwarnings() installs.
         # Append to any existing PYTHONWARNINGS rather than overwriting.

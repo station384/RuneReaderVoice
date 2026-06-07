@@ -999,3 +999,266 @@ RRV_CB_CHUNK_TARGET_CHARS=380
 RRV_CB_CHUNK_HARD_CHARS=480
 ```
 
+
+## v158: Chatterbox Full ONNX provider added
+
+Added a new provider ID:
+
+```env
+chatterbox_full_onnx
+```
+
+This is a separate ONNX Runtime provider and does not mutate the stable PyTorch
+`chatterbox_full` backend.  It uses the community full Chatterbox ONNX export
+staged manually under `RRV_CHATTERBOX_ONNX_MODEL_DIR` and supports the shipped
+language-model variants:
+
+```env
+RRV_CHATTERBOX_ONNX_LM_VARIANT=fp32   # language_model.onnx
+RRV_CHATTERBOX_ONNX_LM_VARIANT=fp16   # language_model_fp16.onnx
+RRV_CHATTERBOX_ONNX_LM_VARIANT=q4     # language_model_q4.onnx
+RRV_CHATTERBOX_ONNX_LM_VARIANT=q4f16  # language_model_q4f16.onnx
+```
+
+Default is `fp16`.  A direct development override is also available:
+
+```env
+RRV_CHATTERBOX_ONNX_LM_FILE=language_model_q4f16.onnx
+```
+
+Runtime notes:
+
+- No Torch precision conversion is used in the ONNX provider.
+- Perth/watermarking is not installed or used; it caused audible high-end wobble.
+- ONNX cache identity includes the selected LM variant so fp32/fp16/q4/q4f16 renders do not collide.
+- Tail-token sidecars are provider-private `.onnx_tokens.npz` files, not PyTorch `.pt` files.
+- Provider v1 uses `CUDAExecutionProvider`/`CPUExecutionProvider`; TensorRT is intentionally not the default.
+- Worker launch now prepends venv-local `nvidia/*/lib` directories to `LD_LIBRARY_PATH`, allowing pip-installed CUDA runtime wheels to satisfy ONNX Runtime CUDA provider dependencies.
+
+Known implementation limits:
+
+- CFG is not implemented in the community ONNX loop, so `cfg_weight` is not exposed by this provider.
+- Voice blending is not implemented for ONNX v1.
+- Continuation uses prior generated speech-token tail as the prompt-token prefix for later chunks.
+- Large text is split internally using the existing Chatterbox target/hard character knobs (`380/480` default).
+
+
+## v159: Chatterbox ONNX LM dtype handling fix
+
+Problem:
+- `language_model_fp16.onnx` and likely `language_model_q4f16.onnx` expect `tensor(float16)` inputs for `inputs_embeds` and KV cache.
+- v158 fed float32 embeddings/cache from the shared `embed_tokens.onnx` output, causing ONNX Runtime to fail with: `Unexpected input data type. Actual: tensor(float), expected: tensor(float16)`.
+
+Fix:
+- Detect selected language model `inputs_embeds` dtype from the ONNX session at load time.
+- Cast embeddings and empty KV cache to the selected LM dtype before `language_model.run()`.
+- Cast logits back to float32 before repetition penalty and sampling.
+
+Expected behavior:
+- `fp32` / `q4` paths use float32 LM inputs.
+- `fp16` / `q4f16` paths use float16 LM inputs.
+- No Torch precision conversion is involved.
+
+
+## v160: Chatterbox ONNX full language-model feed dtype normalization
+
+Problem:
+- v159 still failed on `language_model_fp16.onnx` with `Unexpected input data type. Actual: tensor(float), expected: tensor(float16)`.
+- The first patch cast the main embeddings and initial KV cache, but did not guarantee every item in the `language_model.run()` feed matched the graph's declared input type.
+
+Fix:
+- Record the declared ONNX input type for every language-model input, including all `past_key_values.*` tensors.
+- Normalize the complete feed dictionary before every language-model call.
+- Cast only tensors whose ONNX input declares `tensor(float16)` or `tensor(float)`, leaving masks and token IDs untouched.
+
+Expected behavior:
+- `fp16` and `q4f16` paths no longer leak float32 tensors into fp16 LM inputs.
+- `fp32` and `q4` paths keep float32 feed tensors.
+- Log line now reports counts of float16 and float32 LM inputs for quick validation.
+
+
+## v161 — Chatterbox Full ONNX decoder feature padding and splitter parity
+
+- Updated `chatterbox_full_onnx` internal text splitting to match the PyTorch `chatterbox_full` sentence/ clause/ word fallback more closely.
+- Added conditional-decoder speaker feature length normalization for ONNX. The ONNX decoder requires `speaker_features` time length to broadcast to `speech_tokens` length; long generations could fail with `Expand_2` broadcast errors such as `{1,500,80}` vs `{1,414,80}`. The backend now pads by repeating the final speaker feature frame, or trims when longer.
+- No Perth/watermarking. No CFG change.
+
+
+## v162 - Chatterbox Full ONNX decoder speaker feature parity fix
+
+- Fixed v161 regression where `speaker_features` were normalized to generated speech-token length.
+- The ONNX `conditional_decoder` export expects a fixed 500-frame speaker feature grid (`{batch,500,80}`), matching the observed `Expand_2` shape failures.
+- `speaker_features` are now padded/trimmed to `RRV_CHATTERBOX_ONNX_DECODER_FEATURE_FRAMES` (default 500), not token count.
+- Goal remains functional parity with PyTorch `chatterbox_full`; this is an ONNX export interface adaptation, not a behavior change target.
+
+
+## v163 — Chatterbox Full ONNX decoder speaker-feature normalization hardening
+
+- `chatterbox_full_onnx` still failed in `conditional_decoder.onnx` with `Expand_2` broadcast errors such as `{1,500,80}` vs `{1,326,80}` on long renders.
+- Hardened decoder feed construction so `speaker_features` is always a contiguous `{batch, target_frames, 80}` float32 tensor before calling the ONNX decoder.
+- Handles 2D inputs, transposed `{batch,80,frames}` defensive case, padding by repeating the final frame, and trimming when longer than the exported decoder frame grid.
+- Default target remains `RRV_CHATTERBOX_ONNX_DECODER_FEATURE_FRAMES=500`.
+- This is a parity fix for the ONNX export shape requirement, not a change to speech-token ordering.
+
+
+## v164 - Chatterbox Full ONNX decoder token-grid normalization
+
+- Fixed ONNX chunked/multi-piece decoder failures where `conditional_decoder.onnx` reported `Expand_2` broadcast errors such as `{1,500,80}` vs `{1,254,80}`.
+- Root cause: the ONNX conditional decoder export has a fixed 500-frame internal grid. v161-v163 normalized `speaker_features` but not the concatenated `speech_tokens` sequence.
+- Added decoder speech-token normalization to the same fixed frame count (`RRV_CHATTERBOX_ONNX_DECODER_FEATURE_FRAMES`, default 500).
+- Pads short decode token sequences by repeating the final acoustic token; trims overly long sequences. Does not pad with STOP because upstream removes STOP before decoder input.
+- Goal remains functional parity with PyTorch `chatterbox_full`; this is an ONNX export compatibility adaptation.
+
+### v165 — ONNX decoder parity/logging correction
+
+- Fixed ONNX decoder functional-parity issue: `conditional_decoder.onnx` now receives only newly generated clean speech tokens, matching PyTorch `chatterbox_full` S3Gen input.
+- Removed the v164 fixed 500-token decoder padding behavior that caused 10-second outputs, trailing silence, and garbage/foreign-sounding audio after short chunks.
+- `speaker_features` are resized to the generated token length for the ONNX decoder feed instead of forcing all decoder inputs to 500 frames.
+- Added `RRV_CHATTERBOX_ONNX_DEBUG=1` logging for chunk starts and decoder feed shapes.
+
+
+### v166 — ONNX decoder prompt-token parity repair
+
+- Reverted the v165 decoder-token change that removed reference prompt tokens from `conditional_decoder.onnx` input. That made even single-piece output garbled because the exported ONNX decoder expects `prompt_token + generated_tokens`, matching the upstream ONNX inference script.
+- Decoder input now uses the original reference `cond.prompt_token` plus newly generated speech tokens. Prior continuation tail remains T3 generation context only and is not decoded as old audio.
+- `speaker_features` are normalized to the ONNX decoder fixed frame grid (`RRV_CHATTERBOX_ONNX_DECODER_FEATURE_FRAMES`, default 500), while `speech_tokens` are not padded to 500 so output duration is not forced to 10 seconds.
+- Added debug log fields for `t3_prompt_tokens` and `decoder_prompt_tokens` to distinguish continuation context from decoder reference prompt.
+
+
+## v167 ONNX continuation safety default
+
+Problem: v166 restored decoder prompt parity, but chained/batch segments still became garbled after the first segment. Logs showed `use_prior=True` on later one-piece requests. The ONNX provider was emulating PyTorch continuation by appending prior speech-token embeddings after `cond_emb`. PyTorch does not append; it replaces `cond_prompt_speech_tokens` inside `T3Cond`. The public ONNX export does not expose that object directly.
+
+Fix: default `RRV_CHATTERBOX_ONNX_CONTINUATION_MODE=off`. Tail sidecars may still be written, but they are not consumed unless `append_experimental` is explicitly selected. This preserves intelligible synthesis and avoids corrupting chained segments while the correct ONNX replacement path is investigated. Cache identity includes non-default continuation mode.
+
+Gap: exact PyTorch continuation parity is not complete for ONNX. This is a documented graph/export limitation/work item, not intended final behavior.
+
+## v168 - ONNX continuation prefix repair
+- `chatterbox_full_onnx` continuation is required, not optional.
+- Replaced the unsafe `off`/append continuation handling with a prefix-based path.
+- Prior generated tail tokens are embedded as an initial T3 speech prefix after the text embeddings.
+- Decoder still uses reference `prompt_token + newly generated tokens`; prior tail is not decoded as old audio.
+- Default ONNX max new tokens changed to 256 to match the published ONNX inference/demo path and avoid long autoregressive drift inside one decoder call.
+- Added debug fields for `t3_prefix_tokens` vs decoder prompt tokens.
+
+
+## v169 - ONNX continuation prefix tail exclusion and max-token restore
+
+- Fixed `chatterbox_full_onnx` continuation-prefix path so the prior tail is T3 context only.
+- Generated token history is now `[START] + prior_tail + new_tokens`, but decoder receives only `reference_prompt + new_tokens`.
+- Tail sidecar saves only newly generated tokens, not the carried prior tail.
+- Restored `RRV_CHATTERBOX_ONNX_MAX_NEW_TOKENS` default from 256 to 1000; 256 truncated long chunks before EOS and caused skipped text.
+- Added debug flags in chunk decode log: `generated_new`, `eos_hit`, and `max_hit`.
+
+
+## v170 ONNX continuation/sampler correction
+
+- Fixed ONNX continuation prefix position IDs: generated speech-token positions now follow the upstream ONNX/PyTorch loop (`i + 1`) instead of offsetting by prior-tail length. The prior tail remains context only.
+- Repetition penalty history now excludes prior-tail context. It tracks only `[START] + newly generated tokens`, matching PyTorch's generated_ids behavior and avoiding voice-rhythm self-penalty.
+- Added `RRV_CHATTERBOX_ONNX_MIN_P` default `0.05` and changed ONNX default top-p to `0.95` to better match PyTorch Chatterbox sampling defaults.
+- Added ONNX-specific chunk knobs with safer defaults: `RRV_CHATTERBOX_ONNX_CHUNK_TARGET_CHARS=220`, `RRV_CHATTERBOX_ONNX_CHUNK_HARD_CHARS=320`. This avoids long ONNX spans running to max token limits and causing drift/slow renders.
+- `chatterbox_full_onnx` continuation remains mandatory; no optional-off path.
+
+
+## v171 ONNX continuation correction
+
+Problem: v170 still drifted per segment. Root causes found in the ONNX generation loop:
+
+- Continuation prefix speech tokens occupied positions 0..N-1, but subsequent generated token embeddings reset to position `i + 1` instead of continuing at `prefix_len + i + 1`. This broke the speech-token positional stream on continuation chunks.
+- `RRV_CHATTERBOX_ONNX_MIN_P` was configured but not actually applied in the sampler.
+
+Fix:
+
+- Continue speech-token position IDs after the prior tail prefix.
+- Apply min-p filtering and correct nucleus threshold inclusion.
+
+Files outside `rrv-server/server/`: none.
+
+
+## v172 ONNX EOS/skip guard
+
+Problem: v171 produced mostly correct continuation, but one non-empty continued segment could sample STOP immediately and skip the segment (`generated_new=0`, `duration=0.04s`).
+
+Fix:
+
+- Added ONNX EOS check interval parity with the patched PyTorch loop. Default reads `RRV_CHATTERBOX_ONNX_EOS_CHECK_INTERVAL`, falling back to `RRV_T3_EOS_CHECK_INTERVAL`, default `16`.
+- Added a conservative text-scaled minimum new-token guard before STOP is allowed. Override with `RRV_CHATTERBOX_ONNX_MIN_NEW_TOKENS`.
+- EOS is now trimmed from the generated sequence using the first STOP found in the periodic check window, matching the PyTorch loop shape more closely.
+
+Files outside `rrv-server/server/`: none.
+
+
+## v173 ONNX token hygiene / sampler parity hardening
+
+Second-opinion audit found concrete ONNX parity issues versus the patched PyTorch backend:
+
+- Filter generated speech tokens before decoder and tail sidecar save using the PyTorch-style acoustic-token rule: keep only IDs `< START_SPEECH_TOKEN` (`< 6561`). This prevents mid-sequence START/STOP/special tokens from reaching `conditional_decoder.onnx` or poisoning continuation tails.
+- Repetition penalty now deduplicates history IDs before applying the penalty, matching the patched PyTorch fast sampler behavior. Repeated acoustic IDs are penalized once, not multiplied once per occurrence.
+- Continuation sidecar load now validates `sample_id` in addition to provider and LM variant, preventing a tail from one voice/sample from being chained into another voice/sample.
+- Loaded sidecar tokens are also filtered through the same acoustic-token rule before use as continuation prefix.
+- `cfg_weight` remains intentionally unused/not exposed for ONNX; CFG is not a runtime control in this export path.
+
+Files outside `rrv-server/server/`: none.
+
+
+## v175 - Chatterbox Full ONNX GenAI provider implementation
+
+Implemented `chatterbox_full_onnx` as the tested ORT GenAI hybrid-last provider path instead of the earlier direct-ORT loop.
+
+Key behavior:
+
+- Supports `RRV_CHATTERBOX_ONNX_LM_VARIANT=fp32|fp16|q4|q4f16` and maps to the hybrid-last wrapper artifacts side-by-side under `step_hybrid_last/`.
+- Uses ORT GenAI for T3 token generation with the discovered dummy-prefill contract: append `START` dummy tokens equal to external prefill length.
+- First chunk prefill uses the START speech-token embedding. Continuation chunks use the prior generated speech-token tail as T3 speech-prefix context.
+- Uses fixed request/config seed for every T3 generation call. Seed is never incremented per chunk.
+- Implements CFG auto gate: `cfg_weight > 0` runs dual cond/uncond GenAI generators; `cfg_weight <= 0` runs the single-generator fast path.
+- Applies Chatterbox `punc_norm` once to the full text before splitting. It is not applied per chunk, preventing artificial punctuation/uppercase at internal split boundaries.
+- Uses boundary-aware chunking with ONNX defaults `target=300`, `hard=420`, and `max_new_tokens=950`.
+- Internal chunking now concatenates generated speech tokens and calls `conditional_decoder.onnx` once. It no longer decodes each internal chunk to PCM and stitches WAVs.
+- External continuation sidecars save/load only clean generated acoustic-token tails, guarded by provider, LM variant, sample id, and sample rate.
+- Uses mono 22050 Hz for ONNX reference input and output by default. 44.1 kHz is not used internally.
+
+Known limitation:
+
+- Arbitrary mid-sentence splitting is not alignment-safe. The provider avoids it where possible through boundary-aware chunking. If text forces a whitespace-only split, a model-level pause may remain; lookahead/token-cap fallback was tested and rejected as unstable without alignment.
+
+Files outside `rrv-server/server/`:
+
+- `rrv-server/pyproject.toml` adds an optional `chatterbox-onnx` dependency group for ONNX Runtime GenAI.
+- `rrv-server/.env.example` documents the ONNX provider knobs.
+
+
+## v176 ONNX GenAI path correction
+
+- Corrected `chatterbox_full_onnx` hybrid wrapper path handling.
+- All language-model wrapper variants are expected side-by-side in `chatterbox-onnx/step_hybrid_last/`, not nested under per-variant subdirectories.
+- Main ONNX component files remain under `chatterbox-onnx/onnx/` (`speech_encoder`, `embed_tokens`, `conditional_decoder`).
+
+
+## v177 ONNX worker-context correction
+
+Problem: v176 treated `chatterbox_full_onnx` as if it could run directly in the host server environment. That is wrong for the RuneReader Voice deployment layout. The host `server/` process is the coordinator; ONNX Runtime / ORT GenAI live in the isolated `rrv-chatterbox-onnx` worker context.
+
+Fix:
+- `chatterbox_full_onnx` is now worker-only from the host registry.
+- Host process no longer needs `onnxruntime-gpu`, `onnxruntime-genai-cuda`, or CUDA pip wheels.
+- Added `rrv-chatterbox-onnx/run_worker.py` launcher for the worker context.
+- Configure `RRV_WORKER_VENV_chatterbox_full_onnx=/opt/rrvserver/rrv-chatterbox-onnx/.venv`.
+
+The backend implementation still lives under `server/backends/chatterbox_full_onnx_backend.py` and is imported by the worker process through `server.worker`, not by the host when the worker venv is configured.
+
+## v178 ONNX worker layout and model artifact path correction
+
+Problem: v177 still had the wrong deployment path in the worker launcher and docs. The real deployment layout is sibling directories under `/opt/rrvserver`: `rrv-server/` for the host coordinator and `rrv-chatterbox-onnx/` for the isolated ONNX worker context.
+
+Fix:
+- Package layout is now intended to be extracted from `/opt/rrvserver`, updating both `rrv-server/` and `rrv-chatterbox-onnx/`.
+- `rrv-chatterbox-onnx/run_worker.py` now adds `/opt/rrvserver/rrv-server` to `sys.path`, not `/opt/rrvserver` and not `/opt/rrvserver/rrv-server/rrv-chatterbox-onnx`.
+- `RRV_WORKER_VENV_chatterbox_full_onnx` should point to `/opt/rrvserver/rrv-chatterbox-onnx/.venv`.
+- Hybrid-last wrapper files are expected under `/media/dataStore/rrvserver/data/models/chatterbox-onnx/onnx/step_hybrid_last/`.
+- The worker now generates ORT GenAI `genai_config.json` in a runtime directory (`RRV_CHATTERBOX_ONNX_RUNTIME_DIR`, default `/tmp/rrv-chatterbox-onnx-genai`) with links/copies to the selected LM wrapper. It no longer writes generated config into the model artifact directory.
+
+Files outside `rrv-server/server/`:
+- `rrv-chatterbox-onnx/run_worker.py` added/updated.
+- `rrv-server/.env.example` updated for the correct worker venv and model wrapper paths.
+- `rrv-server/pyproject.toml` notes that ONNX Runtime / ORT GenAI are worker-context dependencies, not host server dependencies.
